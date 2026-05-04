@@ -61,11 +61,11 @@ def kern(
         speed = np.sqrt(targ.d[0] ** 2 + targ.d[1] ** 2)
         return (grad[:, :, 0] * targ.d[0, :, None] + grad[:, :, 1] * targ.d[1, :, None]) / speed[:, None]
     if typ in {"sgrad", "sg"}:
-        return np.moveaxis(grad, 2, 0).reshape(2 * targ.r.shape[1], src.r.shape[1])
+        return grad.transpose(0, 2, 1).reshape(2 * targ.r.shape[1], src.r.shape[1])
     if typ in {"dgrad", "dg"}:
         _require(src.n, "source normals")
         sub = -(hess[:, :, 0:2] * src.n[0, None, :, None] + hess[:, :, 1:3] * src.n[1, None, :, None])
-        return np.moveaxis(sub, 2, 0).reshape(2 * targ.r.shape[1], src.r.shape[1])
+        return sub.transpose(0, 2, 1).reshape(2 * targ.r.shape[1], src.r.shape[1])
     if typ in {"dp", "dprime"}:
         _require(src.n, "source normals")
         _require(targ.n, "target normals")

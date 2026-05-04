@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
+import re
 from typing import Any
 
 import numpy as np
@@ -36,15 +38,20 @@ def setup(k: int, type: str = "log", nfac_self: int | None = None, nfac_near: in
     """Generate auxiliary quadrature rules for self and neighbor panels."""
 
     qtype = type.lower()
-    if qtype not in {"log", "removable"}:
-        raise NotImplementedError("generated quadggq rules currently support log/removable singularities")
+    if qtype not in {"log", "removable", "pv", "hs"}:
+        raise ValueError("quadggq type must be one of log, removable, pv, or hs")
     if nfac_self is None:
         nfac_self = max(4, int(np.ceil(48 / max(k, 1))))
     if nfac_near is None:
         nfac_near = max(4, int(np.ceil(48 / max(k, 1))))
 
     xs1, wts1 = lege.exps(int(nfac_near * k))[:2]
-    xs0, wts0 = getremovablequad(k, nfac_self)
+    if qtype == "pv":
+        xs0, wts0 = gethqsuppquad(k, 1)
+    elif qtype == "hs":
+        xs0, wts0 = gethqsuppquad(k, 2)
+    else:
+        xs0, wts0 = getremovablequad(k, nfac_self)
     return AuxQuad(
         xs1=xs1,
         wts1=wts1,
@@ -69,6 +76,30 @@ def logavail() -> np.ndarray:
     return np.arange(1, 65, dtype=int)
 
 
+def hqsuppavail() -> np.ndarray:
+    """Return MATLAB table orders available for PV/HS self quadrature."""
+
+    return np.array([1, 2, 3, 4, 5, 6, 8, 10, 12, 16, 20], dtype=int)
+
+
+def gethqsuppquad(k: int, itype: int = 2) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    """Return MATLAB GGQ support tables for PV or HS self interactions.
+
+    ``itype=1`` corresponds to principal-value support and ``itype=2`` to
+    hypersingular support. When the cloned MATLAB reference is unavailable,
+    a generated removable split rule is returned as a conservative fallback.
+    """
+
+    order = int(k)
+    if order not in set(hqsuppavail().tolist()):
+        return getremovablequad(order, 2)
+    prefix = "hsupp" if int(itype) == 1 else "hqsupp"
+    table = _matlab_quadggq_dir() / f"{prefix}_nnode{order:03d}_npoly{2 * order:03d}.m"
+    if not table.exists():
+        return getremovablequad(order, 2)
+    return _parse_matlab_cell_table(table)
+
+
 def getremovablequad(k: int, nfac: int = 1) -> tuple[list[np.ndarray], list[np.ndarray]]:
     """Return split Gauss rules on each side of every Legendre node."""
 
@@ -86,6 +117,14 @@ def getremovablequad(k: int, nfac: int = 1) -> tuple[list[np.ndarray], list[np.n
         xs0.append(np.concatenate((xleft, xright)))
         wts0.append(np.concatenate((wleft, wright)))
     return xs0, wts0
+
+
+def getpvquad(k: int) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    return gethqsuppquad(k, 1)
+
+
+def gethsquad(k: int) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    return gethqsuppquad(k, 2)
 
 
 def buildmat(
@@ -156,7 +195,8 @@ def diagbuildmat(
             data=dd[:, inode : inode + 1] if dd is not None else None,
         )
         weights = np.sqrt(np.sum(np.abs(src.d) ** 2, axis=0)) * aux.wts0[inode]
-        block = _eval_kernel(kern, src, targ) * np.repeat(weights, int(opdims[1]))[None, :]
+        kvals = np.nan_to_num(_eval_kernel(kern, src, targ), nan=0.0, posinf=0.0, neginf=0.0)
+        block = kvals * np.repeat(weights, int(opdims[1]))[None, :]
         rows = slice(int(opdims[0]) * inode, int(opdims[0]) * (inode + 1))
         out[rows, :] = block @ np.kron(interp, np.eye(int(opdims[1])))
     return out
@@ -190,7 +230,8 @@ def nearbuildmat(
         data=chnkr.data[:, :, i] if chnkr.datadim else None,
     )
     weights = np.sqrt(np.sum(np.abs(src.d) ** 2, axis=0)) * aux.wts1
-    mat = _eval_kernel(kern, src, targ) * np.repeat(weights, int(opdims[1]))[None, :]
+    kvals = np.nan_to_num(_eval_kernel(kern, src, targ), nan=0.0, posinf=0.0, neginf=0.0)
+    mat = kvals * np.repeat(weights, int(opdims[1]))[None, :]
     return mat @ np.kron(interp, np.eye(int(opdims[1])))
 
 
@@ -233,3 +274,28 @@ def _kernel_dtype(chnkr: Chunker, kern: Callable[[Any, Any], np.ndarray]) -> np.
         return np.asarray(_eval_kernel(kern, src, src)).dtype
     except Exception:
         return np.dtype(float)
+
+
+def _matlab_quadggq_dir() -> Path:
+    return Path(__file__).resolve().parents[3] / "external" / "chunkie-matlab" / "chunkie" / "+chnk" / "+quadggq"
+
+
+def _parse_matlab_cell_table(path: Path) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    text = path.read_text(encoding="utf-8")
+    xs = _parse_cells(text, "xs0")
+    ws = _parse_cells(text, "ws0")
+    if len(xs) != len(ws):
+        raise ValueError(f"malformed MATLAB GGQ table: {path}")
+    return xs, ws
+
+
+def _parse_cells(text: str, name: str) -> list[np.ndarray]:
+    matches = re.findall(rf"{name}\{{\s*(\d+)\s*\}}\s*=\s*\[(.*?)\];", text, flags=re.S)
+    if not matches:
+        raise ValueError(f"no {name} cells found in MATLAB GGQ table")
+    out: list[np.ndarray] = [np.array([])] * len(matches)
+    for idx, block in matches:
+        clean = block.replace("D", "E").replace("d", "e")
+        vals = np.fromstring(clean, sep=" ")
+        out[int(idx) - 1] = vals
+    return out
