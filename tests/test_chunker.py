@@ -97,6 +97,16 @@ def test_chunker_spectral_helpers_on_circle():
     np.testing.assert_allclose(chnkr.diffmat() @ vals.reshape(-1), np.cos(s).reshape(-1), atol=1e-11)
 
 
+def test_intmat_integrates_in_chunk_order():
+    chnkr = circle_chunker(20).refine({"nover": 1})
+    imat = chnkr.intmat()
+    ones = np.ones(chnkr.npt)
+    integrated = imat @ ones
+
+    expected = chnkr.arclengthfun().T.reshape(-1)
+    np.testing.assert_allclose(integrated, expected, atol=1e-12)
+
+
 def test_onesmat_and_normonesmat_shapes():
     chnkr = circle_chunker(8)
     assert chnkr.onesmat().shape == (chnkr.npt, chnkr.npt)
