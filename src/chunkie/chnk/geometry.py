@@ -9,6 +9,29 @@ from chunkie.chunker import Chunker
 from chunkie import lege
 
 
+def perp(tau: ArrayLike) -> np.ndarray:
+    tau_arr = np.asarray(tau)
+    if tau_arr.shape[0] != 2:
+        raise ValueError("perp expects a leading dimension of length 2")
+    out = np.empty_like(tau_arr)
+    out[0] = tau_arr[1]
+    out[1] = -tau_arr[0]
+    return out
+
+
+def normal2d(ptinfo: object | dict) -> np.ndarray:
+    d = _ptinfo_field(ptinfo, "d")
+    speed = np.sqrt(np.sum(d**2, axis=0))
+    return perp(d) / speed[None, ...]
+
+
+def curvature2d(ptinfo: object | dict) -> np.ndarray:
+    d = _ptinfo_field(ptinfo, "d")
+    d2 = _ptinfo_field(ptinfo, "d2")
+    speed3 = np.sqrt(np.sum(d**2, axis=0)) ** 3
+    return (d[0] * d2[1] - d[1] * d2[0]) / speed3
+
+
 def flagnear(chnkr: Chunker, pts: ArrayLike, opts: dict | None = None) -> np.ndarray:
     return chnkr.flagnear(pts, opts)
 
@@ -180,3 +203,14 @@ def chunk_nearparam(
         dist2s[idx] = dist0
 
     return ts, rs, ds, d2s, dist2s
+
+
+def _ptinfo_field(ptinfo: object | dict, name: str) -> np.ndarray:
+    if isinstance(ptinfo, dict):
+        value = ptinfo[name]
+    else:
+        value = getattr(ptinfo, name)
+    arr = np.asarray(value)
+    if arr.shape[0] != 2:
+        raise ValueError(f"{name} must have leading dimension 2")
+    return arr

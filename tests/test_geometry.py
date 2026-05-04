@@ -1,7 +1,7 @@
 import numpy as np
 
 from chunkie import chunkerfunc, chunkerpoly
-from chunkie.chnk import chunk_nearparam, flagnear, flagself
+from chunkie.chnk import chunk_nearparam, curvature2d, flagnear, flagself, normal2d, perp
 
 
 def circle(t):
@@ -36,6 +36,16 @@ def test_flagself_reports_close_source_target_pairs():
     pairs = flagself(src, targ)
 
     np.testing.assert_array_equal(pairs, np.array([[0, 2], [1, 0]]))
+
+
+def test_basic_2d_geometry_helpers():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 2}, {"k": 8})
+    d = chnkr.d.reshape(2, -1)
+    d2 = chnkr.d2.reshape(2, -1)
+
+    np.testing.assert_allclose(perp(np.array([[1.0, 0.0], [0.0, 1.0]])), [[0.0, 1.0], [-1.0, -0.0]])
+    np.testing.assert_allclose(normal2d({"d": d}), chnkr.n.reshape(2, -1), atol=1e-14)
+    np.testing.assert_allclose(curvature2d({"d": d, "d2": d2}), 1.0, atol=1e-12)
 
 
 def test_chunk_nearparam_on_line_segment():
