@@ -8,7 +8,7 @@ from typing import Any
 
 import numpy as np
 
-from .chnk import elast2d, helm1d, helm2d, lap2d, stok2d
+from .chnk import biharm2d, elast2d, helm1d, helm2d, lap2d, stok2d
 
 
 @dataclass
@@ -136,6 +136,8 @@ def kernel(kern: str | Callable[[Any, Any], np.ndarray] | Kernel, *args: Any) ->
         return helm2d_kernel(*args)
     if name in {"helmholtz1d", "helm1d", "h1d"}:
         return helm1d_kernel(*args)
+    if name in {"biharmonic", "biharm", "b"}:
+        return biharm2d_kernel(*args)
     if name in {"stokes", "stok"}:
         return stok2d_kernel(*args)
     if name in {"elasticity", "elast", "e"}:
@@ -205,6 +207,19 @@ def helm1d_kernel(kind: str, zk: complex, coefs: Any | None = None) -> Kernel:
         opdims=(1, 1),
         sing="removable" if typ in {"s", "single"} else "smooth",
         params={"zk": zk} if coefs is None else {"zk": zk, "coefs": coefs},
+    )
+
+
+def biharm2d_kernel(kind: str) -> Kernel:
+    typ = kind.lower()
+    opdims = (2, 1) if typ in {"sgrad", "sg"} else (3, 1) if typ in {"shess", "hess"} else (1, 1)
+    return Kernel(
+        name="biharmonic",
+        type=typ,
+        eval=lambda s, t: biharm2d.kern(s, t, typ),
+        fmm=_direct_fmm(lambda s, t: biharm2d.kern(s, t, typ)),
+        opdims=opdims,
+        sing="log" if typ in {"s", "single", "lap", "slap", "laplacian"} else "pv",
     )
 
 
