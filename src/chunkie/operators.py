@@ -60,6 +60,16 @@ def chunkermat(chnkr: Chunker, kern: Callable[[Any, Any], np.ndarray]) -> np.nda
     return mat * np.repeat(wts, opdims_col)[None, :]
 
 
+def chunkermatapply(
+    chnkr: Chunker,
+    kern: Callable[[Any, Any], np.ndarray],
+    dens: ArrayLike,
+) -> np.ndarray:
+    """Apply the dense native matrix for ``kern`` on ``chnkr``."""
+
+    return chunkermat(chnkr, kern) @ np.asarray(dens).reshape(-1)
+
+
 def chunkerkerneval(
     chnkr: Chunker,
     kern: Callable[[Any, Any], np.ndarray],

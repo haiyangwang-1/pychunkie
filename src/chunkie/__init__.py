@@ -3,7 +3,7 @@
 from . import lege
 from .chunker import Chunker, ChunkerPref, chunker, chunkerfunc, chunkerpoly, chunkerpref
 from .kernel import Kernel, kernel
-from .operators import PointInfo, chunkerkerneval, chunkermat, pointinfo
+from .operators import PointInfo, chunkerkerneval, chunkermat, chunkermatapply, pointinfo
 
 __all__ = [
     "Chunker",
@@ -15,6 +15,7 @@ __all__ = [
     "chunkerpoly",
     "chunkerkerneval",
     "chunkermat",
+    "chunkermatapply",
     "chunkerpref",
     "kernel",
     "lege",
