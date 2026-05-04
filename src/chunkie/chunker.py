@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections.abc import Callable
 from typing import Any
 
 import numpy as np
@@ -261,6 +262,20 @@ class Chunker:
         indices = np.asarray(ich, dtype=int)
         return np.sum(self.wts[:, indices], axis=0)
 
+    def chunkends(self, ich: ArrayLike | None = None) -> tuple[np.ndarray, np.ndarray]:
+        if ich is None:
+            indices = np.arange(self.nch)
+        else:
+            indices = np.asarray(ich, dtype=int)
+        pends = lege.matrin(self.k, np.array([-1.0, 1.0]))[0]
+        rend = np.zeros((self.dim, 2, indices.size), dtype=self.rstor.dtype)
+        tauend = np.zeros_like(rend)
+        for j, idx in enumerate(indices):
+            rend[:, :, j] = (pends @ self.r[:, :, idx].T).T
+            dend = (pends @ self.d[:, :, idx].T).T
+            tauend[:, :, j] = dend / np.sqrt(np.sum(np.abs(dend) ** 2, axis=0))[None, :]
+        return rend, tauend
+
     def area(self) -> float:
         if self.dim != 2:
             raise ValueError("area only well-defined for 2d chunkers")
@@ -339,3 +354,98 @@ def chunkerpref(pref: ChunkerPref | dict[str, Any] | None = None) -> ChunkerPref
     """MATLAB-style preference constructor alias."""
 
     return ChunkerPref.from_any(pref)
+
+
+def _curve_outputs(fcurve: Callable[[np.ndarray], Any], t: np.ndarray) -> tuple[np.ndarray, ...]:
+    raw = fcurve(t)
+    if isinstance(raw, tuple):
+        outs = raw
+    else:
+        outs = (raw,)
+    return tuple(np.asarray(out, dtype=float).reshape(np.asarray(out).shape[0], -1) for out in outs)
+
+
+def chunkerfunc(
+    fcurve: Callable[[np.ndarray], Any],
+    cparams: dict[str, Any] | None = None,
+    pref: ChunkerPref | dict[str, Any] | None = None,
+) -> tuple[Chunker, np.ndarray]:
+    """Create a chunker for a parameterized curve.
+
+    This is the fixed-layout first port of MATLAB ``chunkerfunc``. It honors
+    ``ta``, ``tb``, ``ifclosed``, ``tsplits``, ``nover``, and ``nchmin``.
+    Adaptive refinement options are intentionally deferred.
+    """
+
+    cparams = {} if cparams is None else dict(cparams)
+    p = ChunkerPref.from_any(pref)
+
+    ta = float(cparams.get("ta", 0.0))
+    tb = float(cparams.get("tb", 2.0 * np.pi))
+    ifclosed = bool(cparams.get("ifclosed", True))
+    nover = int(cparams.get("nover", 0))
+    nchmin = int(cparams.get("nchmin", 0))
+    tsplits = np.asarray(cparams.get("tsplits", []), dtype=float).reshape(-1)
+
+    if tb <= ta:
+        raise ValueError("tb must be greater than ta")
+    if np.any(tsplits < ta) or np.any(tsplits > tb):
+        raise ValueError("tsplits outside interval of definition")
+
+    breaks = np.unique(np.concatenate(([ta], tsplits, [tb])))
+    breaks.sort()
+    if breaks.size < 2:
+        raise ValueError("at least one parameter interval is required")
+
+    if nchmin > 0:
+        while breaks.size - 1 < nchmin:
+            breaks = np.sort(np.concatenate((breaks, 0.5 * (breaks[:-1] + breaks[1:]))))
+
+    for _ in range(max(nover, 0)):
+        breaks = np.sort(np.concatenate((breaks, 0.5 * (breaks[:-1] + breaks[1:]))))
+
+    ab = np.vstack((breaks[:-1], breaks[1:]))
+    nch = ab.shape[1]
+    if nch > p.nchmax:
+        raise ValueError("CHUNKERFUNC: nchmax exceeded")
+
+    first = _curve_outputs(fcurve, np.array([ta]))
+    dim = first[0].shape[0]
+    p = ChunkerPref(p.nchmax, p.k, dim, max(p.nchstor, min(nch, p.nchmax)), p.verttol)
+    chnkr = Chunker(p).addchunk(nch)
+    dmat = lege.dermat(chnkr.k)
+
+    for i in range(nch):
+        a, b = ab[:, i]
+        h = (b - a) / 2.0
+        ts = a + h * (chnkr.tstor + 1.0)
+        outs = _curve_outputs(fcurve, ts)
+        r = outs[0]
+        if r.shape != (dim, chnkr.k):
+            raise ValueError("curve position output has incompatible shape")
+
+        if len(outs) >= 2:
+            d = outs[1] * h
+        else:
+            d = r @ dmat.T
+        if len(outs) >= 3:
+            d2 = outs[2] * h * h
+        else:
+            d2 = d @ dmat.T
+
+        chnkr.rstor[:, :, i] = r
+        chnkr.dstor[:, :, i] = d
+        chnkr.d2stor[:, :, i] = d2
+
+    adjs = np.zeros((2, nch), dtype=int)
+    adjs[0] = np.arange(0, nch)
+    adjs[1] = np.arange(2, nch + 2)
+    if ifclosed:
+        adjs[0, 0] = nch
+        adjs[1, -1] = 1
+    else:
+        adjs[0, 0] = -1
+        adjs[1, -1] = -1
+    chnkr.adj = adjs
+    chnkr.recompute_geometry()
+    return chnkr, ab
