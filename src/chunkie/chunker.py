@@ -325,6 +325,33 @@ class Chunker:
             out[idx, idx] = block_power
         return out
 
+    def intmat(self) -> np.ndarray:
+        """Return the arc-length integration matrix along the chunk order."""
+
+        panel_int = lege.intmat(self.k)[0]
+        ds = self.arclengthdens()
+        out = np.zeros((self.npt, self.npt), dtype=np.result_type(self.rstor, float))
+
+        order: list[int] = []
+        seen: set[int] = set()
+        cur = 0
+        while 0 <= cur < self.nch and cur not in seen:
+            order.append(cur)
+            seen.add(cur)
+            nxt = int(self.adj[1, cur])
+            if nxt <= 0:
+                break
+            cur = nxt - 1
+        order.extend(idx for idx in range(self.nch) if idx not in seen)
+
+        for pos, ich in enumerate(order):
+            rows = slice(ich * self.k, (ich + 1) * self.k)
+            out[rows, rows] = panel_int * ds[:, ich][None, :]
+            for prev in order[:pos]:
+                cols = slice(prev * self.k, (prev + 1) * self.k)
+                out[rows, cols] = np.ones((self.k, 1)) @ self.wts[:, prev][None, :]
+        return out
+
     def onesmat(self) -> np.ndarray:
         wts = self.wts.reshape(-1)
         return np.ones((self.npt, 1)) @ wts[None, :]
