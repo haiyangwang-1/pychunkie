@@ -891,6 +891,61 @@ def chunkerpoly(
     return chnkr
 
 
+def chunkerpoints(src: ArrayLike | dict[str, ArrayLike], opts: dict[str, Any] | None = None) -> Chunker:
+    """Create a chunker from panel node values.
+
+    ``src`` may be either a ``(dim, k, nch)`` position array or a mapping
+    with ``r`` and optional matching ``d``/``d2`` arrays, mirroring MATLAB
+    ``chunkerpoints``.
+    """
+
+    opts = {} if opts is None else dict(opts)
+    d_arr = None
+    d2_arr = None
+    if isinstance(src, dict):
+        if "r" not in src:
+            raise ValueError("missing field r in chunkerpoints")
+        r_arr = np.asarray(src["r"])
+        if "d" in src and np.asarray(src["d"]).shape == r_arr.shape:
+            d_arr = np.asarray(src["d"], dtype=r_arr.dtype)
+        if "d2" in src and np.asarray(src["d2"]).shape == r_arr.shape:
+            d2_arr = np.asarray(src["d2"], dtype=r_arr.dtype)
+    else:
+        r_arr = np.asarray(src)
+
+    if r_arr.ndim != 3:
+        raise ValueError("chunkerpoints expects r with shape (dim, k, nch)")
+    dim, k, nch = r_arr.shape
+    if nch <= 0:
+        raise ValueError("chunkerpoints requires at least one chunk")
+
+    pref = ChunkerPref(dim=dim, k=k, nchstor=nch, nchmax=max(nch, 1))
+    chnkr = Chunker(pref).addchunk(nch)
+    dmat = lege.dermat(k)
+    chnkr.r = r_arr
+    if d_arr is None:
+        chnkr.d = np.einsum("dkn,jk->djn", r_arr, dmat)
+    else:
+        chnkr.d = d_arr
+    if d2_arr is None:
+        chnkr.d2 = np.einsum("dkn,jk->djn", chnkr.d, dmat)
+    else:
+        chnkr.d2 = d2_arr
+
+    adjs = np.zeros((2, nch), dtype=int)
+    adjs[0] = np.arange(0, nch)
+    adjs[1] = np.arange(2, nch + 2)
+    if bool(opts.get("ifclosed", True)):
+        adjs[0, 0] = nch
+        adjs[1, -1] = 1
+    else:
+        adjs[0, 0] = -1
+        adjs[1, -1] = -1
+    chnkr.adj = adjs
+    chnkr.recompute_geometry()
+    return chnkr
+
+
 def _remap_adjacency(adjs: np.ndarray, inds: np.ndarray) -> np.ndarray:
     inverse = {old + 1: new + 1 for new, old in enumerate(inds)}
     out = adjs.copy()
