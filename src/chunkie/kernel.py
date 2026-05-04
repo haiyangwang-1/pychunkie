@@ -42,6 +42,24 @@ class Kernel:
             iszero=self.iszero and other.iszero,
         )
 
+    def __sub__(self, other: "Kernel") -> "Kernel":
+        other = kernel(other)
+        if self.opdims != other.opdims:
+            raise ValueError("kernel dimensions must agree to subtract")
+        if self.isnan or other.isnan:
+            return nans(*self.opdims)
+        return Kernel(
+            name=f"custom {self.name} {other.name}",
+            type="difference",
+            eval=lambda s, t: self(s, t) - other(s, t),
+            opdims=self.opdims,
+            sing=_worst_sing(self.sing, other.sing),
+            iszero=self.iszero and other.iszero,
+        )
+
+    def __neg__(self) -> "Kernel":
+        return self * -1.0
+
     def __mul__(self, scalar: float | complex) -> "Kernel":
         if not np.isscalar(scalar):
             raise TypeError("kernel multiplication only supports scalars")
@@ -60,6 +78,30 @@ class Kernel:
 
     def __rmul__(self, scalar: float | complex) -> "Kernel":
         return self * scalar
+
+    def __truediv__(self, scalar: float | complex) -> "Kernel":
+        if not np.isscalar(scalar):
+            raise TypeError("kernel division only supports scalars")
+        if np.isnan(scalar):
+            return nans(*self.opdims)
+        if scalar == 0:
+            raise ZeroDivisionError("kernel division by zero")
+        return self * (1.0 / scalar)
+
+    def conj(self) -> "Kernel":
+        return Kernel(
+            name=self.name,
+            type=self.type,
+            eval=lambda s, t: np.conj(self(s, t)),
+            opdims=self.opdims,
+            sing=self.sing,
+            params=self.params.copy(),
+            isnan=self.isnan,
+            iszero=self.iszero,
+        )
+
+    def conjugate(self) -> "Kernel":
+        return self.conj()
 
 
 def kernel(kern: str | Callable[[Any, Any], np.ndarray] | Kernel, *args: Any) -> Kernel:
