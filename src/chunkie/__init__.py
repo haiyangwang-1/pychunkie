@@ -13,6 +13,7 @@ from .chunker import (
     chunkerpref,
     merge,
 )
+from .chunkgraph import ChunkGraph, chunkgraph, chunkgraphinregion, tochunkgraph
 from .kernel import Kernel, kernel
 from .operators import (
     PointInfo,
@@ -28,6 +29,7 @@ from .operators import (
 __all__ = [
     "Chunker",
     "ChunkerPref",
+    "ChunkGraph",
     "Kernel",
     "PointInfo",
     "chunker",
@@ -36,6 +38,8 @@ __all__ = [
     "chunkerfuncuni",
     "chunkerpoints",
     "chunkerpoly",
+    "chunkgraph",
+    "chunkgraphinregion",
     "chunkerinterior",
     "chunkerintegral",
     "chunkerkerneval",
@@ -47,4 +51,5 @@ __all__ = [
     "merge",
     "lege",
     "pointinfo",
+    "tochunkgraph",
 ]
