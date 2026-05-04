@@ -122,7 +122,11 @@ def test_chunker_spectral_helpers_on_circle():
 
     vals = np.sin(s)
     np.testing.assert_allclose(chnkr.arclengthder(vals), np.cos(s), atol=1e-11)
-    np.testing.assert_allclose(chnkr.diffmat() @ vals.reshape(-1), np.cos(s).reshape(-1), atol=1e-11)
+    np.testing.assert_allclose(
+        chnkr.diffmat() @ vals.reshape(-1, order="F"),
+        np.cos(s).reshape(-1, order="F"),
+        atol=1e-11,
+    )
 
 
 def test_intmat_integrates_in_chunk_order():
@@ -131,7 +135,7 @@ def test_intmat_integrates_in_chunk_order():
     ones = np.ones(chnkr.npt)
     integrated = imat @ ones
 
-    expected = chnkr.arclengthfun().T.reshape(-1)
+    expected = chnkr.arclengthfun().reshape(-1, order="F")
     np.testing.assert_allclose(integrated, expected, atol=1e-12)
 
 

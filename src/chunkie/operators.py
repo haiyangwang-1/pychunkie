@@ -28,11 +28,11 @@ def pointinfo(obj: Chunker | dict[str, Any] | ArrayLike | PointInfo) -> PointInf
         return obj
     if isinstance(obj, Chunker):
         return PointInfo(
-            r=obj.r.reshape(obj.dim, obj.npt),
-            d=obj.d.reshape(obj.dim, obj.npt),
-            d2=obj.d2.reshape(obj.dim, obj.npt),
-            n=obj.n.reshape(obj.dim, obj.npt),
-            data=obj.data.reshape(obj.datadim, obj.npt) if obj.datadim else None,
+            r=obj.r.reshape(obj.dim, obj.npt, order="F"),
+            d=obj.d.reshape(obj.dim, obj.npt, order="F"),
+            d2=obj.d2.reshape(obj.dim, obj.npt, order="F"),
+            n=obj.n.reshape(obj.dim, obj.npt, order="F"),
+            data=obj.data.reshape(obj.datadim, obj.npt, order="F") if obj.datadim else None,
         )
     if isinstance(obj, dict):
         return PointInfo(
@@ -51,7 +51,7 @@ def chunkermat(chnkr: Chunker, kern: Callable[[Any, Any], np.ndarray]) -> np.nda
 
     srcinfo = pointinfo(chnkr)
     mat = _eval_kernel(kern, srcinfo, srcinfo)
-    wts = chnkr.wts.reshape(-1)
+    wts = chnkr.wts.reshape(-1, order="F")
     if mat.shape[1] == chnkr.npt:
         return mat * wts[None, :]
     if mat.shape[1] % chnkr.npt != 0:
@@ -67,7 +67,7 @@ def chunkermatapply(
 ) -> np.ndarray:
     """Apply the dense native matrix for ``kern`` on ``chnkr``."""
 
-    return chunkermat(chnkr, kern) @ np.asarray(dens).reshape(-1)
+    return chunkermat(chnkr, kern) @ np.asarray(dens).reshape(-1, order="F")
 
 
 def chunkerintegral(
@@ -79,12 +79,12 @@ def chunkerintegral(
 
     _ = {} if opts is None else dict(opts)
     if callable(f):
-        vals = np.asarray(f(chnkr.r.reshape(chnkr.dim, chnkr.npt)))
+        vals = np.asarray(f(chnkr.r.reshape(chnkr.dim, chnkr.npt, order="F")))
     else:
         vals = np.asarray(f)
     if vals.size != chnkr.npt:
         raise ValueError("f must evaluate to one scalar value per chunker point")
-    return float(np.dot(chnkr.wts.reshape(-1), vals.reshape(-1)))
+    return float(np.dot(chnkr.wts.reshape(-1, order="F"), vals.reshape(-1, order="F")))
 
 
 def chunkerinterior(
@@ -110,7 +110,7 @@ def chunkerinterior(
         pts = np.vstack((xx.ravel(), yy.ravel()))
         grid_shape = xx.shape
     elif isinstance(ptsobj, Chunker):
-        pts = ptsobj.r.reshape(ptsobj.dim, ptsobj.npt)
+        pts = ptsobj.r.reshape(ptsobj.dim, ptsobj.npt, order="F")
     elif isinstance(ptsobj, dict) and "r" in ptsobj:
         arr = np.asarray(ptsobj["r"], dtype=float)
         pts = arr.reshape(arr.shape[0], -1)
@@ -152,15 +152,15 @@ def chunkerkerneval(
     mat = _eval_kernel(kern, srcinfo, targinfo)
     dens_arr = np.asarray(dens)
     if dens_arr.size == chnkr.npt:
-        weighted = dens_arr.reshape(-1) * chnkr.wts.reshape(-1)
+        weighted = dens_arr.reshape(-1, order="F") * chnkr.wts.reshape(-1, order="F")
     else:
-        weighted = dens_arr.reshape(-1)
+        weighted = dens_arr.reshape(-1, order="F")
         if weighted.size % chnkr.npt != 0:
             raise ValueError("density has incompatible size")
         opdims_col = weighted.size // chnkr.npt
-        weighted = weighted * np.repeat(chnkr.wts.reshape(-1), opdims_col)
+        weighted = weighted * np.repeat(chnkr.wts.reshape(-1, order="F"), opdims_col)
     vals = mat @ weighted
-    return vals.reshape(-1, targinfo.r.shape[1])
+    return vals.reshape(-1, targinfo.r.shape[1], order="F")
 
 
 def chunkerkernevalmat(
@@ -175,7 +175,7 @@ def chunkerkernevalmat(
     srcinfo = pointinfo(chnkr)
     targinfo = pointinfo(targobj)
     mat = _eval_kernel(kern, srcinfo, targinfo)
-    wts = chnkr.wts.reshape(-1)
+    wts = chnkr.wts.reshape(-1, order="F")
     if mat.shape[1] == chnkr.npt:
         return mat * wts[None, :]
     if mat.shape[1] % chnkr.npt != 0:
