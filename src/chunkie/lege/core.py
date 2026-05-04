@@ -89,6 +89,35 @@ def exps(k: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     return x, w, u, v
 
 
+def rts(n: int) -> tuple[np.ndarray, np.ndarray]:
+    """Return Legendre-Gauss nodes and weights."""
+
+    if n <= 0:
+        raise ValueError("n must be positive")
+    return np.polynomial.legendre.leggauss(n)
+
+
+def rts_stab(n: int) -> tuple[np.ndarray, np.ndarray]:
+    """Stable Legendre-Gauss nodes and weights.
+
+    NumPy's Golub-Welsch implementation is the stable path for this port.
+    """
+
+    return rts(n)
+
+
+def exev(xs: ArrayLike, coeff: ArrayLike) -> np.ndarray:
+    """Evaluate a Legendre expansion at points ``xs``."""
+
+    xs_arr = np.asarray(xs, dtype=float)
+    coeff_arr = np.asarray(coeff)
+    if coeff_arr.ndim == 1:
+        vals, _ = pols(xs_arr, coeff_arr.size - 1)
+        return np.moveaxis(vals, 0, -1) @ coeff_arr
+    vals, _ = pols(xs_arr, coeff_arr.shape[0] - 1)
+    return np.moveaxis(vals, 0, -1) @ coeff_arr
+
+
 def derpol(coeffs: ArrayLike) -> np.ndarray:
     """Compute Legendre coefficients of the derivative."""
 

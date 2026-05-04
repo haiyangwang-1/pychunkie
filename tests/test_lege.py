@@ -13,6 +13,17 @@ def test_exps_round_trips_values_and_coefficients():
     np.testing.assert_allclose(x, -x[::-1], atol=1e-14)
 
 
+def test_rts_aliases_match_exps_nodes_weights():
+    x, w, *_ = lege.exps(9)
+    xr, wr = lege.rts(9)
+    xs, ws = lege.rts_stab(9)
+
+    np.testing.assert_allclose(xr, x)
+    np.testing.assert_allclose(wr, w)
+    np.testing.assert_allclose(xs, x)
+    np.testing.assert_allclose(ws, w)
+
+
 def test_pols_matches_known_low_order_polynomials():
     xs = np.array([-0.75, -0.1, 0.2, 0.9])
     vals, ders = lege.pols(xs, 4)
@@ -48,6 +59,17 @@ def test_matrin_interpolates_legendre_node_values():
 
     np.testing.assert_allclose(mat @ node_values, target_values, atol=1e-12)
     np.testing.assert_allclose(lege.matrin(n, x)[0] @ node_values, node_values, atol=1e-12)
+
+
+def test_exev_evaluates_single_and_multiple_expansions():
+    xs = np.array([-0.5, 0.0, 0.5])
+    coeff = np.array([1.0, 2.0, 3.0])
+    expected = 1.0 + 2.0 * xs + 3.0 * 0.5 * (3.0 * xs**2 - 1.0)
+
+    np.testing.assert_allclose(lege.exev(xs, coeff), expected)
+    vals = lege.exev(xs, np.column_stack((coeff, 2.0 * coeff)))
+    np.testing.assert_allclose(vals[:, 0], expected)
+    np.testing.assert_allclose(vals[:, 1], 2.0 * expected)
 
 
 def test_intpol_and_intmat_integrate_constants_from_left_endpoint():
