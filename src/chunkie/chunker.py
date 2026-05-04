@@ -364,6 +364,45 @@ class Chunker:
     def centroids(self) -> np.ndarray:
         return np.sum(self.r * self.wstor[None, :, None], axis=1) / 2.0
 
+    def datares(self, opts: dict[str, Any] | None = None) -> np.ndarray:
+        """Check whether selected data rows are Legendre-resolved per chunk."""
+
+        opts = {} if opts is None else dict(opts)
+        if not self.hasdata or self.datadim == 0:
+            return np.zeros((0, self.nch), dtype=bool)
+
+        idata = np.asarray(opts.get("idata", np.arange(self.datadim)), dtype=int).reshape(-1)
+        if np.any(idata < 0) or np.any(idata >= self.datadim):
+            raise IndexError("data row index out of range")
+
+        ncoeff = int(opts.get("ncoeff", np.floor((self.k + 0.1) / 2.0)))
+        ncoeff = min(max(ncoeff, 1), self.k)
+        pleg = opts.get("pleg", 1)
+        tol = float(opts.get("tol", 1.0e-6))
+        pscale = float(opts.get("pscale", 0.0))
+        rel = bool(opts.get("rel", False))
+
+        _, _, u, _ = lege.exps(self.k)
+        tail = u[self.k - ncoeff :, :]
+        head = u[: self.k - ncoeff, :]
+        flags = np.zeros((idata.size, self.nch), dtype=bool)
+        lens = self.chunklen()
+
+        for ich in range(self.nch):
+            datai = self.data[idata, :, ich]
+            tail_coeffs = tail @ datai.T
+            tail_norm = np.linalg.norm(tail_coeffs, ord=pleg, axis=0)
+            scaled_tail = tail_norm * lens[ich] ** pscale
+            if rel:
+                if head.shape[0] == 0:
+                    head_norm = np.zeros_like(tail_norm)
+                else:
+                    head_norm = np.linalg.norm(head @ datai.T, ord=pleg, axis=0)
+                flags[:, ich] = scaled_tail < tol * head_norm
+            else:
+                flags[:, ich] = scaled_tail < tol
+        return flags
+
     def sortinfo(self) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
         ier = 0
         for idx in range(self.nch):
