@@ -1,6 +1,6 @@
 import numpy as np
 
-from chunkie import chunkerfunc, chunkerkerneval, kernel
+from chunkie import Kernel, chunkerfunc, chunkerkerneval, kernel
 
 
 def circle(t):
@@ -34,6 +34,8 @@ def test_kernel_add_scale_zero_and_nan_behaviors():
     np.testing.assert_allclose(chunkerkerneval(chnkr, zero, np.ones(chnkr.npt), target), 0.0)
     np.testing.assert_allclose(chunkerkerneval(chnkr, combined, np.ones(chnkr.npt), target), -2.0, atol=1e-12)
     assert np.isnan(chunkerkerneval(chnkr, nan_k, np.ones(chnkr.npt), target)).all()
+    assert Kernel.zeros().iszero
+    assert Kernel.nans().isnan
 
 
 def test_kernel_subtract_negate_divide_and_conjugate():
