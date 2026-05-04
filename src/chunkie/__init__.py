@@ -12,7 +12,14 @@ from .chunker import (
     merge,
 )
 from .kernel import Kernel, kernel
-from .operators import PointInfo, chunkerkerneval, chunkermat, chunkermatapply, pointinfo
+from .operators import (
+    PointInfo,
+    chunkerintegral,
+    chunkerkerneval,
+    chunkermat,
+    chunkermatapply,
+    pointinfo,
+)
 
 __all__ = [
     "Chunker",
@@ -23,6 +30,7 @@ __all__ = [
     "chunkerfunc",
     "chunkerpoints",
     "chunkerpoly",
+    "chunkerintegral",
     "chunkerkerneval",
     "chunkermat",
     "chunkermatapply",
