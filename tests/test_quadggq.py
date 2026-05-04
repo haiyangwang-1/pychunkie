@@ -17,6 +17,11 @@ def test_generated_self_quadrature_splits_at_each_legendre_node():
     aux = quadggq.setup(8)
     xleg = np.polynomial.legendre.leggauss(8)[0]
 
+    xs1, wts1, xs0, wts0 = quadggq.getlogquad(8, 4)
+    assert xs1.shape == wts1.shape
+    assert len(xs0) == len(wts0) == 8
+    assert 8 in quadggq.logavail()
+
     assert len(aux.xs0) == 8
     assert aux.ainterp1.shape[1] == 8
     for node, xs, wts, interp in zip(xleg, aux.xs0, aux.wts0, aux.ainterps0):
@@ -51,3 +56,13 @@ def test_chunkermat_uses_special_quadrature_for_log_kernels_by_default():
     assert np.isfinite(mat_vals).all()
     np.testing.assert_allclose(mat_vals, eval_vals)
     np.testing.assert_allclose(mat_vals, 0.0, atol=5e-5)
+
+
+def test_quadggq_handles_complex_helmholtz_single_layer_blocks():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 6}, {"k": 8})
+    helm_s = kernel("helm", "s", 1.3 + 0.2j)
+
+    mat = quadggq.buildmat(chnkr, helm_s, helm_s.opdims)
+
+    assert np.iscomplexobj(mat)
+    assert np.isfinite(mat).all()
