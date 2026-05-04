@@ -256,6 +256,20 @@ class Chunker:
         speed = np.sqrt(np.sum(np.abs(self.d) ** 2, axis=0))
         return self.d / speed[None, :, :]
 
+    def arclengthdens(self) -> np.ndarray:
+        return np.sqrt(np.sum(self.d**2, axis=0))
+
+    def arclengthder(self, u: ArrayLike) -> np.ndarray:
+        dmat = lege.dermat(self.k)
+        vals = np.asarray(u).reshape(self.k, self.nch)
+        return (dmat @ vals) / self.arclengthdens()
+
+    def arclengthfun(self) -> np.ndarray:
+        aint = lege.intmat(self.k)[0]
+        s = aint @ self.arclengthdens()
+        starts = np.concatenate(([0.0], np.cumsum(self.chunklen()[:-1])))
+        return s + starts[None, :]
+
     def chunklen(self, ich: ArrayLike | None = None) -> np.ndarray:
         if ich is None:
             return np.sum(self.wts, axis=0)
@@ -285,6 +299,40 @@ class Chunker:
             raise ValueError("area not well-defined for higher order vertices")
         integrand = np.sum(self.n * self.r, axis=0)
         return float(np.sum(self.wts * integrand) / self.dim)
+
+    def signed_curvature(self) -> np.ndarray:
+        if self.dim != 2:
+            raise ValueError("signed curvature only defined in 2D")
+        speed = np.sqrt(np.sum(self.d**2, axis=0))
+        return (self.d[0] * self.d2[1] - self.d[1] * self.d2[0]) / speed**3
+
+    def exps(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        _, _, u, _ = lege.exps(self.k)
+        rc = np.einsum("ij,djn->din", u, self.r)
+        dc = np.einsum("ij,djn->din", u, self.d)
+        d2c = np.einsum("ij,djn->din", u, self.d2)
+        return rc, dc, d2c
+
+    def diffmat(self, order: int = 1) -> np.ndarray:
+        if int(order) != order or order < 0:
+            raise ValueError("Differentiation order must be a nonnegative integer")
+        dleg = lege.dermat(self.k)
+        out = np.zeros((self.npt, self.npt))
+        for ich in range(self.nch):
+            block = dleg / self.arclengthdens()[:, ich][:, None]
+            block_power = np.linalg.matrix_power(block, int(order))
+            idx = slice(ich * self.k, (ich + 1) * self.k)
+            out[idx, idx] = block_power
+        return out
+
+    def onesmat(self) -> np.ndarray:
+        wts = self.wts.reshape(-1)
+        return np.ones((self.npt, 1)) @ wts[None, :]
+
+    def normonesmat(self) -> np.ndarray:
+        normals = self.n.reshape(-1)
+        wts2 = (np.repeat(self.wts.reshape(-1), self.dim) * normals)
+        return normals[:, None] @ wts2[None, :]
 
     def min(self) -> np.ndarray:
         if self.nch == 0:

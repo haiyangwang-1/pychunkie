@@ -48,6 +48,8 @@ def test_circle_weights_normals_tangents_area_and_length():
 
     np.testing.assert_allclose(chnkr.chunklen(), [2 * np.pi], atol=1e-13)
     np.testing.assert_allclose(chnkr.area(), np.pi, atol=1e-13)
+    np.testing.assert_allclose(chnkr.arclengthdens(), np.pi)
+    np.testing.assert_allclose(chnkr.signed_curvature(), 1.0)
     np.testing.assert_allclose(np.sqrt(np.sum(chnkr.tangents() ** 2, axis=0)), 1.0)
     np.testing.assert_allclose(np.sum(chnkr.n * chnkr.tangents(), axis=0), 0.0, atol=1e-14)
 
@@ -77,3 +79,25 @@ def test_matrix_transform_updates_derivatives_normals_and_weights():
 
     with pytest.raises(TypeError):
         _ = chnkr * mat
+
+
+def test_chunker_spectral_helpers_on_circle():
+    chnkr = circle_chunker(20)
+    rc, dc, d2c = chnkr.exps()
+
+    assert rc.shape == (2, 20, 1)
+    assert dc.shape == (2, 20, 1)
+    assert d2c.shape == (2, 20, 1)
+
+    s = chnkr.arclengthfun()
+    np.testing.assert_allclose(s[:, 0], np.pi * (chnkr.tstor + 1.0), atol=1e-13)
+
+    vals = np.sin(s)
+    np.testing.assert_allclose(chnkr.arclengthder(vals), np.cos(s), atol=1e-11)
+    np.testing.assert_allclose(chnkr.diffmat() @ vals.reshape(-1), np.cos(s).reshape(-1), atol=1e-11)
+
+
+def test_onesmat_and_normonesmat_shapes():
+    chnkr = circle_chunker(8)
+    assert chnkr.onesmat().shape == (chnkr.npt, chnkr.npt)
+    assert chnkr.normonesmat().shape == (2 * chnkr.npt, 2 * chnkr.npt)
