@@ -107,30 +107,12 @@ def test_chunker_geometry_and_transforms_match_matlab_fixture():
         "sp",
         "stau",
         "hilb",
-        pytest.param(
-            "sgrad",
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="Python currently interleaves 2D gradient rows by component before target; MATLAB interleaves by target before component.",
-            ),
-        ),
-        pytest.param(
-            "dgrad",
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="Python currently interleaves 2D gradient rows by component before target; MATLAB interleaves by target before component.",
-            ),
-        ),
+        "sgrad",
+        "dgrad",
         "dp",
         "c",
         "cp",
-        pytest.param(
-            "cgrad",
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="Python currently interleaves 2D gradient rows by component before target; MATLAB interleaves by target before component.",
-            ),
-        ),
+        "cgrad",
     ],
 )
 def test_laplace_point_kernels_match_matlab_fixture(kind):
@@ -151,20 +133,8 @@ def test_laplace_point_kernels_match_matlab_fixture(kind):
         "d",
         "sp",
         "stau",
-        pytest.param(
-            "sgrad",
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="Python currently interleaves 2D gradient rows by component before target; MATLAB interleaves by target before component.",
-            ),
-        ),
-        pytest.param(
-            "dgrad",
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="Python currently interleaves 2D gradient rows by component before target; MATLAB interleaves by target before component.",
-            ),
-        ),
+        "sgrad",
+        "dgrad",
         "dp",
         "c",
         "cp",

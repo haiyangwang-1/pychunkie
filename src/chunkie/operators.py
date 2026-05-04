@@ -263,7 +263,7 @@ def _uses_special_quadrature(kern: Callable[[Any, Any], np.ndarray], opts: dict[
         return False
     if bool(options.get("forceadap", False)):
         return True
-    return getattr(kern, "sing", "") in {"log"}
+    return getattr(kern, "sing", "") in {"log", "pv", "hs"}
 
 
 def _chunker_polygon_points(chnkr: Chunker) -> np.ndarray:
