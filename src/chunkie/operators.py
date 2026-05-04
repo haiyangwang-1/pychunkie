@@ -163,6 +163,27 @@ def chunkerkerneval(
     return vals.reshape(-1, targinfo.r.shape[1])
 
 
+def chunkerkernevalmat(
+    chnkr: Chunker,
+    kern: Callable[[Any, Any], np.ndarray],
+    targobj: Chunker | dict[str, Any] | ArrayLike | PointInfo,
+    opts: dict[str, Any] | None = None,
+) -> np.ndarray:
+    """Build the dense native matrix mapping chunker densities to target values."""
+
+    _ = {} if opts is None else dict(opts)
+    srcinfo = pointinfo(chnkr)
+    targinfo = pointinfo(targobj)
+    mat = _eval_kernel(kern, srcinfo, targinfo)
+    wts = chnkr.wts.reshape(-1)
+    if mat.shape[1] == chnkr.npt:
+        return mat * wts[None, :]
+    if mat.shape[1] % chnkr.npt != 0:
+        raise ValueError("kernel column dimension is incompatible with chunker points")
+    opdims_col = mat.shape[1] // chnkr.npt
+    return mat * np.repeat(wts, opdims_col)[None, :]
+
+
 def _optional_field(obj: dict[str, Any], name: str) -> np.ndarray | None:
     if name not in obj or obj[name] is None:
         return None
