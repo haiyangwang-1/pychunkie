@@ -8,7 +8,7 @@ from typing import Any
 
 import numpy as np
 
-from .chnk import helm2d, lap2d, stok2d
+from .chnk import elast2d, helm2d, lap2d, stok2d
 
 
 @dataclass
@@ -79,6 +79,8 @@ def kernel(kern: str | Callable[[Any, Any], np.ndarray] | Kernel, *args: Any) ->
         return helm2d_kernel(*args)
     if name in {"stokes", "stok"}:
         return stok2d_kernel(*args)
+    if name in {"elasticity", "elast", "e"}:
+        return elast2d_kernel(*args)
     if name in {"zeros", "zero", "z"}:
         return zeros(*args)
     if name in {"nans", "nan"}:
@@ -142,6 +144,18 @@ def stok2d_kernel(kind: str, mu: float = 1.0, coefs: Any | None = None) -> Kerne
         opdims=opdims,
         sing="log" if typ in {"s", "single", "svel"} else "smooth",
         params={"mu": mu} if coefs is None else {"mu": mu, "coefs": coefs},
+    )
+
+
+def elast2d_kernel(kind: str, lam: float, mu: float) -> Kernel:
+    typ = kind.lower()
+    return Kernel(
+        name="elasticity",
+        type=typ,
+        eval=lambda s, t: elast2d.kern(lam, mu, s, t, typ),
+        opdims=(2, 2),
+        sing="log" if typ in {"s", "single"} else "pv" if typ in {"d", "double", "strac"} else "smooth",
+        params={"lam": lam, "mu": mu},
     )
 
 
