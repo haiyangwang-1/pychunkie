@@ -944,6 +944,53 @@ def chunkerfuncuni(
     return chnkr
 
 
+def chunkerfit(xy: ArrayLike, opts: dict[str, Any] | None = None) -> Chunker:
+    """Create a chunker by fitting a cubic spline through 2D points."""
+
+    from scipy.interpolate import CubicSpline
+
+    points = np.asarray(xy, dtype=float)
+    if points.ndim != 2 or points.shape[0] != 2:
+        raise ValueError("Points must be specified as a 2xN matrix")
+    options = {} if opts is None else dict(opts)
+    method = str(options.get("method", "spline")).lower()
+    if method != "spline":
+        raise ValueError(f"Unsupported method {method!r}")
+
+    ifclosed = bool(options.get("ifclosed", True))
+    pts = points
+    if ifclosed and np.linalg.norm(points[:, 0] - points[:, -1]) > 1e-14:
+        pts = np.column_stack((points, points[:, 0]))
+    if pts.shape[1] < 3:
+        raise ValueError("chunkerfit requires at least three points")
+
+    seglen = np.sqrt(np.sum(np.diff(pts, axis=1) ** 2, axis=0))
+    if np.any(seglen <= 0.0):
+        raise ValueError("consecutive fit points must be distinct")
+    t = np.concatenate(([0.0], np.cumsum(seglen)))
+
+    bc_type = "periodic" if ifclosed else "not-a-knot"
+    splx = CubicSpline(t, pts[0], bc_type=bc_type)
+    sply = CubicSpline(t, pts[1], bc_type=bc_type)
+
+    def splinefunc(tt: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        tt_arr = np.asarray(tt)
+        return (
+            np.vstack((splx(tt_arr), sply(tt_arr))),
+            np.vstack((splx(tt_arr, 1), sply(tt_arr, 1))),
+            np.vstack((splx(tt_arr, 2), sply(tt_arr, 2))),
+        )
+
+    cparams = dict(options.get("cparams", {}))
+    cparams["ifclosed"] = ifclosed
+    cparams["ta"] = float(t[0])
+    cparams["tb"] = float(t[-1])
+    if bool(options.get("splitatpoints", False)):
+        cparams["tsplits"] = t[1:-1]
+    chnkr, _ = chunkerfunc(splinefunc, cparams, options.get("pref", None))
+    return chnkr
+
+
 def chunkerpoly(
     verts: ArrayLike,
     cparams: dict[str, Any] | None = None,
