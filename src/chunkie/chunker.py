@@ -727,6 +727,24 @@ class Chunker:
                 out.split(idx, stype=stype)
         return out
 
+    def arcresample(self, opts: dict[str, Any] | None = None) -> tuple["Chunker", float]:
+        """Reparameterize panel nodes by arc length on each existing chunk."""
+
+        from .chnk import arcparam
+
+        _ = {} if opts is None else dict(opts)
+        pdata = arcparam.init(self)
+        xs = self.tstor
+        legs = lege.pols(xs, self.k - 1)[0].T
+        out = self.copy()
+        for ich in range(self.nch):
+            h = pdata.plen[ich] / 2.0
+            out.rstor[:, :, ich] = (legs @ pdata.cr[:, :, ich]).T
+            out.dstor[:, :, ich] = (legs @ pdata.cd[:, :, ich]).T * h
+            out.d2stor[:, :, ich] = (legs @ pdata.cd2[:, :, ich]).T * h * h
+        out.recompute_geometry()
+        return out, pdata.eps
+
     def translate(self, vector: ArrayLike) -> "Chunker":
         vec = np.asarray(vector, dtype=self.rstor.dtype).reshape(-1)
         if vec.size != self.dim:
