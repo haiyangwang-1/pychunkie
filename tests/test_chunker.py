@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from chunkie import Chunker, chunker, chunkerpoints, chunkerpref
+from chunkie import Chunker, chunker, chunkerpoints, chunkerpref, lege
 
 
 def circle_chunker(k=16):
@@ -190,3 +190,21 @@ def test_chunkerpoints_builds_from_nodes_and_optional_derivatives():
     explicit = chunkerpoints({"r": base.r, "d": 2.0 * base.d, "d2": 3.0 * base.d2})
     np.testing.assert_allclose(explicit.d, 2.0 * base.d)
     np.testing.assert_allclose(explicit.d2, 3.0 * base.d2)
+
+
+def test_datares_flags_high_order_data_coefficients():
+    chnkr = circle_chunker(12)
+    chnkr.makedatarows(2)
+    _, _, _, v = lege.exps(chnkr.k)
+    chnkr.data = np.stack(
+        [
+            1.0 + chnkr.tstor**2,
+            v[:, -1],
+        ],
+        axis=0,
+    )[:, :, None]
+
+    flags = chnkr.datares({"tol": 1e-10})
+
+    np.testing.assert_array_equal(flags, [[True], [False]])
+    np.testing.assert_array_equal(chnkr.datares({"idata": [1], "tol": 1e-10}), [[False]])
