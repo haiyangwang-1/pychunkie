@@ -103,6 +103,14 @@ class Kernel:
     def conjugate(self) -> "Kernel":
         return self.conj()
 
+    @staticmethod
+    def zeros(m: int = 1, n: int | None = None) -> "Kernel":
+        return zeros(m, n)
+
+    @staticmethod
+    def nans(m: int = 1, n: int | None = None) -> "Kernel":
+        return nans(m, n)
+
 
 def kernel(kern: str | Callable[[Any, Any], np.ndarray] | Kernel, *args: Any) -> Kernel:
     """MATLAB-style kernel constructor."""
