@@ -500,6 +500,40 @@ class Chunker:
         out.recompute_geometry()
         return out
 
+    def reverse(self) -> "Chunker":
+        out = self.copy()
+        out.r = out.r[:, ::-1, :]
+        out.d = -out.d[:, ::-1, :]
+        out.d2 = out.d2[:, ::-1, :]
+        out.adj = out.adj[::-1, :]
+        out.n = -out.n[:, ::-1, :]
+        out.wts = out.wts[::-1, :]
+        if out.hasdata:
+            out.data = out.data[:, ::-1, :]
+        return out
+
+    def move(
+        self,
+        r0: ArrayLike | None = None,
+        r1: ArrayLike | None = None,
+        trotat: float = 0.0,
+        scale: float = 1.0,
+    ) -> "Chunker":
+        if self.dim != 2:
+            raise ValueError("move is implemented for 2D chunkers")
+        center0 = np.zeros(2) if r0 is None else np.asarray(r0, dtype=float).reshape(2)
+        center1 = np.zeros(2) if r1 is None else np.asarray(r1, dtype=float).reshape(2)
+        rot = np.array(
+            [[np.cos(trotat), -np.sin(trotat)], [np.sin(trotat), np.cos(trotat)]]
+        )
+        out = self.copy()
+        out.r = scale * np.einsum("ij,jkl->ikl", rot, out.r - center0[:, None, None]) + center1[:, None, None]
+        out.d = scale * np.einsum("ij,jkl->ikl", rot, out.d)
+        out.d2 = scale * np.einsum("ij,jkl->ikl", rot, out.d2)
+        out.n = np.einsum("ij,jkl->ikl", rot, out.n)
+        out.wts = out.weights()
+        return out
+
     def __add__(self, other: ArrayLike) -> "Chunker":
         return self.translate(other)
 
@@ -627,3 +661,78 @@ def chunkerfunc(
     chnkr.adj = adjs
     chnkr.recompute_geometry()
     return chnkr, ab
+
+
+def chunkerpoly(
+    verts: ArrayLike,
+    cparams: dict[str, Any] | None = None,
+    pref: ChunkerPref | dict[str, Any] | None = None,
+    edgevals: ArrayLike | None = None,
+) -> Chunker:
+    """Create a chunker for a true polygon or open polyline.
+
+    Rounded corners and dyadic corner refinement from MATLAB ``chunkerpoly``
+    are deferred; this baseline builds one panel per edge.
+    """
+
+    cparams = {} if cparams is None else dict(cparams)
+    rounded = bool(cparams.get("rounded", False))
+    if rounded:
+        raise NotImplementedError("rounded chunkerpoly corners are not implemented yet")
+
+    vertices = np.asarray(verts, dtype=float)
+    if vertices.ndim != 2 or vertices.shape[0] < 2 or vertices.shape[1] < 2:
+        raise ValueError("verts must have shape (dim, nverts) with dim > 1")
+    dim, nv = vertices.shape
+    ifclosed = bool(cparams.get("ifclosed", True))
+    p = ChunkerPref.from_any(pref)
+    p = ChunkerPref(p.nchmax, p.k, dim, max(p.nchstor, nv), p.verttol)
+
+    if ifclosed:
+        starts = vertices
+        ends = np.column_stack((vertices[:, 1:], vertices[:, 0]))
+    else:
+        starts = vertices[:, :-1]
+        ends = vertices[:, 1:]
+    nedge = starts.shape[1]
+
+    if nedge > p.nchmax:
+        raise ValueError("too many polygon edges for nchmax")
+    chnkr = Chunker(p).addchunk(nedge)
+
+    edge_data = None
+    if edgevals is not None:
+        edge_data = np.asarray(edgevals, dtype=float)
+        if edge_data.size % nedge != 0:
+            raise ValueError("number of edge values should be multiple of number of edges")
+        edge_data = edge_data.reshape(edge_data.size // nedge, nedge)
+        chnkr.makedatarows(edge_data.shape[0])
+
+    t01 = (chnkr.tstor + 1.0) / 2.0
+    for idx in range(nedge):
+        start = starts[:, idx]
+        end = ends[:, idx]
+        delta = end - start
+        length = float(np.linalg.norm(delta))
+        if length <= 0.0:
+            raise ValueError("polygon edges must have positive length")
+        tangent = delta / length
+        h = length / 2.0
+        chnkr.rstor[:, :, idx] = start[:, None] + delta[:, None] * t01[None, :]
+        chnkr.dstor[:, :, idx] = tangent[:, None] * h
+        chnkr.d2stor[:, :, idx] = 0.0
+        if edge_data is not None:
+            chnkr.datastor[:, :, idx] = edge_data[:, idx][:, None]
+
+    adjs = np.zeros((2, nedge), dtype=int)
+    adjs[0] = np.arange(0, nedge)
+    adjs[1] = np.arange(2, nedge + 2)
+    if ifclosed:
+        adjs[0, 0] = nedge
+        adjs[1, -1] = 1
+    else:
+        adjs[0, 0] = -1
+        adjs[1, -1] = -1
+    chnkr.adj = adjs
+    chnkr.recompute_geometry()
+    return chnkr
