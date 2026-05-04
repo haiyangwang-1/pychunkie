@@ -56,6 +56,19 @@ def setup(k: int, type: str = "log", nfac_self: int | None = None, nfac_near: in
     )
 
 
+def getlogquad(k: int, npolyfac: int = 2) -> tuple[np.ndarray, np.ndarray, list[np.ndarray], list[np.ndarray]]:
+    """Return generated neighbor and self rules for logarithmic kernels."""
+
+    aux = setup(k, "log", nfac_self=npolyfac, nfac_near=npolyfac)
+    return aux.xs1, aux.wts1, aux.xs0, aux.wts0
+
+
+def logavail() -> np.ndarray:
+    """Return panel orders supported by the generated log rules."""
+
+    return np.arange(1, 65, dtype=int)
+
+
 def getremovablequad(k: int, nfac: int = 1) -> tuple[list[np.ndarray], list[np.ndarray]]:
     """Return split Gauss rules on each side of every Legendre node."""
 
