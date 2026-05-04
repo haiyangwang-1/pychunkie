@@ -36,6 +36,14 @@ def flagnear(chnkr: Chunker, pts: ArrayLike, opts: dict | None = None) -> np.nda
     return chnkr.flagnear(pts, opts)
 
 
+def flagnear_rectangle(chnkr: Chunker, pts: ArrayLike, opts: dict | None = None) -> np.ndarray:
+    return chnkr.flagnear_rectangle(pts, opts)
+
+
+def flagnear_rectangle_grid(chnkr: Chunker, x: ArrayLike, y: ArrayLike, opts: dict | None = None) -> np.ndarray:
+    return chnkr.flagnear_rectangle_grid(x, y, opts)
+
+
 def flagself(srcs: ArrayLike, targs: ArrayLike, tol: float = 1e-14) -> np.ndarray:
     src = np.asarray(srcs, dtype=float).reshape(np.asarray(srcs).shape[0], -1)
     targ = np.asarray(targs, dtype=float).reshape(np.asarray(targs).shape[0], -1)

@@ -502,6 +502,35 @@ class Chunker:
             flags[:, ich] = np.any(dists < lens[ich], axis=1)
         return flags
 
+    def flagnear_rectangle(self, pts: ArrayLike, opts: dict[str, Any] | None = None) -> np.ndarray:
+        opts = {} if opts is None else dict(opts)
+        if self.dim != 2:
+            raise ValueError("flagnear_rectangle is implemented for 2D chunkers")
+        rho = float(opts.get("rho", 1.8))
+        pad = (rho - 1.0) * self.chunklen() / 2.0
+        points = np.asarray(pts, dtype=float).reshape(2, -1)
+        flags = np.zeros((points.shape[1], self.nch), dtype=bool)
+        for ich in range(self.nch):
+            r = self.r[:, :, ich]
+            lo = np.min(r, axis=1) - pad[ich]
+            hi = np.max(r, axis=1) + pad[ich]
+            flags[:, ich] = (
+                (points[0] >= lo[0])
+                & (points[0] <= hi[0])
+                & (points[1] >= lo[1])
+                & (points[1] <= hi[1])
+            )
+        return flags
+
+    def flagnear_rectangle_grid(
+        self,
+        x: ArrayLike,
+        y: ArrayLike,
+        opts: dict[str, Any] | None = None,
+    ) -> np.ndarray:
+        xx, yy = np.meshgrid(np.asarray(x, dtype=float).reshape(-1), np.asarray(y, dtype=float).reshape(-1))
+        return self.flagnear_rectangle(np.vstack((xx.ravel(), yy.ravel())), opts)
+
     def nearest(
         self,
         ref: ArrayLike,

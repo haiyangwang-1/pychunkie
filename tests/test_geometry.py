@@ -1,7 +1,16 @@
 import numpy as np
 
 from chunkie import chunkerfunc, chunkerpoly
-from chunkie.chnk import chunk_nearparam, curvature2d, flagnear, flagself, normal2d, perp
+from chunkie.chnk import (
+    chunk_nearparam,
+    curvature2d,
+    flagnear,
+    flagnear_rectangle,
+    flagnear_rectangle_grid,
+    flagself,
+    normal2d,
+    perp,
+)
 
 
 def circle(t):
@@ -27,6 +36,19 @@ def test_flagnear_matches_bruteforce_chunk_node_distance():
             dists = np.sqrt(np.sum((chnkr.r[:, :, ich] - pts[:, ipt : ipt + 1]) ** 2, axis=0))
             expected[ipt, ich] = np.any(dists < fac * lens[ich])
     np.testing.assert_array_equal(flag, expected)
+
+
+def test_flagnear_rectangle_grid_matches_direct_meshgrid_order():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
+    x = np.linspace(-1.5, 1.5, 21)
+    y = np.linspace(-1.25, 1.25, 17)
+    xx, yy = np.meshgrid(x, y)
+    pts = np.vstack((xx.ravel(), yy.ravel()))
+
+    direct = flagnear_rectangle(chnkr, pts, {"rho": 1.5})
+    grid = flagnear_rectangle_grid(chnkr, x, y, {"rho": 1.5})
+
+    np.testing.assert_array_equal(grid, direct)
 
 
 def test_flagself_reports_close_source_target_pairs():
