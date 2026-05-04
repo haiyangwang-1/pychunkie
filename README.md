@@ -5,7 +5,7 @@ package.
 
 The port is intentionally conservative:
 
-- mirror the MATLAB package structure where practical;
+- mirror the MATLAB package structure where practical under `src/chunkie`;
 - use `uv` and the project-local `.venv`;
 - keep runtime dependencies to `numpy` and `scipy` for the first milestones;
 - defer `fmm2dpy` and FLAM until dense/direct functionality is correct;
