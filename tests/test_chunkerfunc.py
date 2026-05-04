@@ -1,6 +1,6 @@
 import numpy as np
 
-from chunkie import chunkerfunc
+from chunkie import chunkerfunc, chunkerfuncuni
 from chunkie.chnk import curves
 
 
@@ -35,6 +35,14 @@ def test_chunkerfunc_open_curve_marks_free_ends():
     np.testing.assert_array_equal(chnkr.adj[:, 0], [-1, 2])
     np.testing.assert_array_equal(chnkr.adj[:, 1], [1, -1])
     np.testing.assert_allclose(np.sum(chnkr.chunklen()), 2.0, atol=1e-13)
+
+
+def test_chunkerfuncuni_builds_requested_uniform_panel_count():
+    chnkr = chunkerfuncuni(lambda t: circle(t, radius=1.5), 6, pref={"k": 10})
+
+    assert chnkr.nch == 6
+    assert chnkr.k == 10
+    np.testing.assert_allclose(chnkr.area(), np.pi * 1.5**2, atol=1e-12)
 
 
 def test_chunkerfunc_can_spectrally_differentiate_position_only_curve():
