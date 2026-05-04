@@ -17,3 +17,6 @@ The port is intentionally conservative:
 uv sync
 uv run pytest
 ```
+
+MATLAB reference checkouts live in ignored `external/` directories for local
+inspection and fixture generation. The Python package does not import them.
