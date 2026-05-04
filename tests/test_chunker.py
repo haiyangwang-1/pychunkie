@@ -103,6 +103,20 @@ def test_onesmat_and_normonesmat_shapes():
     assert chnkr.normonesmat().shape == (2 * chnkr.npt, 2 * chnkr.npt)
 
 
+def test_centroids_and_adjacency_info():
+    chnkr = circle_chunker(8).refine({"nover": 1})
+    ctrs = chnkr.centroids()
+    inds, adjs, info = chnkr.sortinfo()
+
+    assert ctrs.shape == (2, chnkr.nch)
+    np.testing.assert_array_equal(inds, [0, 1])
+    np.testing.assert_array_equal(adjs, chnkr.adj)
+    assert info["ncomp"] == 1
+    np.testing.assert_array_equal(info["nchs"], [2])
+    np.testing.assert_array_equal(info["ifclosed"], [True])
+    assert chnkr.checkadjinfo() == 0
+
+
 def test_upsample_preserves_circle_geometry_and_density_values():
     chnkr = circle_chunker(8)
     sigma = (1.0 + chnkr.tstor - 2.0 * chnkr.tstor**3).reshape(1, chnkr.k, chnkr.nch)

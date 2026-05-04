@@ -334,6 +334,96 @@ class Chunker:
         wts2 = (np.repeat(self.wts.reshape(-1), self.dim) * normals)
         return normals[:, None] @ wts2[None, :]
 
+    def centroids(self) -> np.ndarray:
+        return np.sum(self.r * self.wstor[None, :, None], axis=1) / 2.0
+
+    def sortinfo(self) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
+        ier = 0
+        for idx in range(self.nch):
+            left, right = self.adj[:, idx]
+            if right > 0 and self.adj[0, right - 1] != idx + 1:
+                ier = 1
+            if left > 0 and self.adj[1, left - 1] != idx + 1:
+                ier = 1
+
+        visited = np.zeros(self.nch, dtype=bool)
+        order: list[int] = []
+        nchs: list[int] = []
+        ifclosed: list[bool] = []
+
+        starts = [i for i in range(self.nch) if self.adj[0, i] <= 0]
+        for start in starts:
+            if visited[start]:
+                continue
+            comp: list[int] = []
+            cur = start
+            closed = False
+            while 0 <= cur < self.nch and not visited[cur]:
+                comp.append(cur)
+                visited[cur] = True
+                nxt = int(self.adj[1, cur])
+                if nxt <= 0:
+                    break
+                cur = nxt - 1
+                if cur == start:
+                    closed = True
+                    break
+            order.extend(comp)
+            nchs.append(len(comp))
+            ifclosed.append(closed)
+
+        for start in range(self.nch):
+            if visited[start]:
+                continue
+            comp = []
+            cur = start
+            closed = True
+            while not visited[cur]:
+                comp.append(cur)
+                visited[cur] = True
+                nxt = int(self.adj[1, cur])
+                if nxt <= 0:
+                    closed = False
+                    break
+                cur = nxt - 1
+                if cur < 0 or cur >= self.nch:
+                    ier = 1
+                    closed = False
+                    break
+            order.extend(comp)
+            nchs.append(len(comp))
+            ifclosed.append(closed)
+
+        if len(order) != self.nch or len(set(order)) != self.nch:
+            ier = 2
+            order = list(range(self.nch))
+
+        inds = np.array(order, dtype=int)
+        adjs = _remap_adjacency(self.adj[:, inds], inds)
+        info = {
+            "ncomp": len(nchs),
+            "nchs": np.array(nchs, dtype=int),
+            "ifclosed": np.array(ifclosed, dtype=bool),
+            "ier": ier,
+        }
+        return inds, adjs, info
+
+    def checkadjinfo(self) -> int:
+        return int(self.sortinfo()[2]["ier"])
+
+    def sort(self) -> tuple["Chunker", dict[str, Any]]:
+        inds, adjs, info = self.sortinfo()
+        out = self.copy()
+        out.r = out.r[:, :, inds]
+        out.d = out.d[:, :, inds]
+        out.d2 = out.d2[:, :, inds]
+        out.n = out.n[:, :, inds]
+        out.wts = out.wts[:, inds]
+        if out.hasdata:
+            out.data = out.data[:, :, inds]
+        out.adj = adjs
+        return out, info
+
     def flagnear(self, pts: ArrayLike, opts: dict[str, Any] | None = None) -> np.ndarray:
         opts = {} if opts is None else dict(opts)
         fac = float(opts.get("fac", 1.0))
@@ -748,3 +838,11 @@ def chunkerpoly(
     chnkr.adj = adjs
     chnkr.recompute_geometry()
     return chnkr
+
+
+def _remap_adjacency(adjs: np.ndarray, inds: np.ndarray) -> np.ndarray:
+    inverse = {old + 1: new + 1 for new, old in enumerate(inds)}
+    out = adjs.copy()
+    for old_label, new_label in inverse.items():
+        out[adjs == old_label] = new_label
+    return out
