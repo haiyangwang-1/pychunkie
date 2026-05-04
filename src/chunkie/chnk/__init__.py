@@ -1,7 +1,16 @@
 """Utilities mirroring MATLAB ``+chnk``."""
 
 from . import curves, elast2d, geometry, helm1d, helm2d, lap2d, quadggq, quadnative, spcl, stok2d
-from .geometry import chunk_nearparam, curvature2d, flagnear, flagself, normal2d, perp
+from .geometry import (
+    chunk_nearparam,
+    curvature2d,
+    flagnear,
+    flagnear_rectangle,
+    flagnear_rectangle_grid,
+    flagself,
+    normal2d,
+    perp,
+)
 
 __all__ = [
     "chunk_nearparam",
@@ -9,6 +18,8 @@ __all__ = [
     "curves",
     "elast2d",
     "flagnear",
+    "flagnear_rectangle",
+    "flagnear_rectangle_grid",
     "flagself",
     "geometry",
     "helm1d",
