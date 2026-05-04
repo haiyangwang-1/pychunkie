@@ -926,6 +926,24 @@ def chunkerfunc(
     return chnkr, ab
 
 
+def chunkerfuncuni(
+    fcurve: Callable[[np.ndarray], Any],
+    nch: int = 16,
+    cparams: dict[str, Any] | None = None,
+    pref: ChunkerPref | dict[str, Any] | None = None,
+) -> Chunker:
+    """Create a uniformly panelized chunker from a parametric curve."""
+
+    params = {} if cparams is None else dict(cparams)
+    nch = int(nch)
+    ta = float(params.get("ta", 0.0))
+    tb = float(params.get("tb", 2.0 * np.pi))
+    params["tsplits"] = np.linspace(ta, tb, nch + 1)[1:-1]
+    params.setdefault("nover", 0)
+    chnkr, _ = chunkerfunc(fcurve, params, pref)
+    return chnkr
+
+
 def chunkerpoly(
     verts: ArrayLike,
     cparams: dict[str, Any] | None = None,
