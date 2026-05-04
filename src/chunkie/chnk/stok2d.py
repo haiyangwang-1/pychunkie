@@ -23,18 +23,18 @@ def kern(
     r2 = rx**2 + ry**2
     nt, ns = rx.shape
     with np.errstate(divide="ignore", invalid="ignore"):
-        if typ in {"svel", "s", "single"}:
+        if typ in {"svel", "svelocity", "s", "single"}:
             r = np.sqrt(r2)
             log1r = np.log(1.0 / r)
             kxx = (rx**2 / r2 + log1r) / (4.0 * np.pi * mu)
             kyy = (ry**2 / r2 + log1r) / (4.0 * np.pi * mu)
             kxy = (rx * ry / r2) / (4.0 * np.pi * mu)
             return _interleave_2x2(kxx, kxy, kxy, kyy, nt, ns)
-        if typ == "spres":
+        if typ in {"spres", "spressure"}:
             kx = rx / (2.0 * np.pi * r2)
             ky = ry / (2.0 * np.pi * r2)
             return _interleave_1x2(kx, ky, nt, ns)
-        if typ == "strac":
+        if typ in {"strac", "straction"}:
             _require(targ.n, "target normals")
             r4 = r2**2
             rn = rx * targ.n[0, :, None] + ry * targ.n[1, :, None]
@@ -42,7 +42,7 @@ def kern(
             kyy = -ry**2 * rn / (np.pi * r4)
             kxy = -rx * ry * rn / (np.pi * r4)
             return _interleave_2x2(kxx, kxy, kxy, kyy, nt, ns)
-        if typ in {"dvel", "d", "double"}:
+        if typ in {"dvel", "dvelocity", "d", "double"}:
             _require(src.n, "source normals")
             r4 = r2**2
             rn = rx * src.n[0, None, :] + ry * src.n[1, None, :]
@@ -50,14 +50,14 @@ def kern(
             kyy = ry**2 * rn / (np.pi * r4)
             kxy = rx * ry * rn / (np.pi * r4)
             return _interleave_2x2(kxx, kxy, kxy, kyy, nt, ns)
-        if typ == "dpres":
+        if typ in {"dpres", "dpressure"}:
             _require(src.n, "source normals")
             r4 = r2**2
             rn = rx * src.n[0, None, :] + ry * src.n[1, None, :]
             kx = mu * (-src.n[0, None, :] / r2 + 2.0 * rx * rn / r4) / np.pi
             ky = mu * (-src.n[1, None, :] / r2 + 2.0 * ry * rn / r4) / np.pi
             return _interleave_1x2(kx, ky, nt, ns)
-        if typ == "dtrac":
+        if typ in {"dtrac", "dtraction"}:
             _require(src.n, "source normals")
             _require(targ.n, "target normals")
             r4 = r2**2
@@ -108,9 +108,18 @@ def kern(
                 nt,
                 ns,
             )
-        if typ in {"c", "combined"}:
+        if typ in {"cvel", "cvelocity", "c", "combined"}:
             c = np.ones(2) if coefs is None else np.asarray(coefs)
             return c[0] * kern(mu, src, targ, "d") + c[1] * kern(mu, src, targ, "s")
+        if typ in {"cpres", "cpressure"}:
+            c = np.ones(2) if coefs is None else np.asarray(coefs)
+            return c[0] * kern(mu, src, targ, "dpres") + c[1] * kern(mu, src, targ, "spres")
+        if typ in {"ctrac", "ctraction"}:
+            c = np.ones(2) if coefs is None else np.asarray(coefs)
+            return c[0] * kern(mu, src, targ, "dtrac") + c[1] * kern(mu, src, targ, "strac")
+        if typ in {"cgrad", "cg"}:
+            c = np.ones(2) if coefs is None else np.asarray(coefs)
+            return c[0] * kern(mu, src, targ, "dgrad") + c[1] * kern(mu, src, targ, "sgrad")
     raise ValueError(f"Unknown Stokes kernel type {kind!r}.")
 
 

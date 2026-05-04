@@ -200,24 +200,25 @@ def helm1d_kernel(kind: str, zk: complex, coefs: Any | None = None) -> Kernel:
 
 def stok2d_kernel(kind: str, mu: float = 1.0, coefs: Any | None = None) -> Kernel:
     typ = kind.lower()
-    opdims = (1, 2) if typ in {"spres", "dpres", "cpres"} else (4, 2) if typ in {"sg", "sgrad", "dg", "dgrad", "cg", "cgrad"} else (2, 2)
+    opdims = (1, 2) if typ in {"spres", "spressure", "dpres", "dpressure", "cpres", "cpressure"} else (4, 2) if typ in {"sg", "sgrad", "dg", "dgrad", "cg", "cgrad"} else (2, 2)
     return Kernel(
         name="stokes",
         type=typ,
         eval=lambda s, t: stok2d.kern(mu, s, t, typ, coefs),
         opdims=opdims,
-        sing="log" if typ in {"s", "single", "svel"} else "smooth",
+        sing="log" if typ in {"s", "single", "svel", "svelocity", "c", "combined", "cvel", "cvelocity"} else "smooth",
         params={"mu": mu} if coefs is None else {"mu": mu, "coefs": coefs},
     )
 
 
 def elast2d_kernel(kind: str, lam: float, mu: float) -> Kernel:
     typ = kind.lower()
+    opdims = (4, 2) if typ in {"sgrad", "sg", "daltgrad", "daltg"} else (2, 2)
     return Kernel(
         name="elasticity",
         type=typ,
         eval=lambda s, t: elast2d.kern(lam, mu, s, t, typ),
-        opdims=(2, 2),
+        opdims=opdims,
         sing="log" if typ in {"s", "single"} else "pv" if typ in {"d", "double", "strac"} else "smooth",
         params={"lam": lam, "mu": mu},
     )
