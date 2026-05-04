@@ -51,3 +51,29 @@ def test_kernel_subtract_negate_divide_and_conjugate():
     custom = kernel(lambda src, targ: (1.0 + 2.0j) * np.ones((targ.r.shape[1], src.r.shape[1])))
     vals = chunkerkerneval(chnkr, custom.conj(), dens, target)
     np.testing.assert_allclose(vals, (1.0 - 2.0j) * np.sum(chnkr.wts))
+
+
+def test_kernel_fmm_fallback_matches_direct_layer_evaluation():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
+    target = np.array([[0.25, -0.4], [0.1, 0.3]])
+    dens = np.cos(chnkr.r.reshape(2, -1, order="F")[0])
+    kern = kernel("lap", "s")
+
+    direct = chunkerkerneval(chnkr, kern, dens, target)
+    via_fmm = chunkerkerneval(chnkr, kern, dens, target, {"usefmm": True})
+
+    assert kern.fmm is not None
+    np.testing.assert_allclose(via_fmm, direct)
+
+
+def test_kernel_fmm_fallback_tracks_kernel_algebra():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
+    target = np.array([[0.25], [0.1]])
+    dens = np.ones(chnkr.npt)
+    combined = 2.0 * kernel("lap", "s") - kernel("lap", "d")
+
+    direct = chunkerkerneval(chnkr, combined, dens, target)
+    via_fmm = chunkerkerneval(chnkr, combined, dens, target, {"usefmm": True})
+
+    assert combined.fmm is not None
+    np.testing.assert_allclose(via_fmm, direct)

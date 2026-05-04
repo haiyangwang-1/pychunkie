@@ -166,25 +166,25 @@ def chunkerkerneval(
 ) -> np.ndarray:
     """Evaluate a dense direct layer potential at targets."""
 
+    options = {} if opts is None else dict(opts)
     same_source_target = targobj is chnkr
     chnkr = _require_chunker(chnkr)
-    if same_source_target and _uses_special_quadrature(kern, opts):
+    if same_source_target and _uses_special_quadrature(kern, options):
         vals = chunkermat(chnkr, kern, opts) @ np.asarray(dens).reshape(-1, order="F")
         opdims = getattr(kern, "opdims", (1, 1))[0]
         return vals.reshape(opdims, chnkr.npt, order="F")
 
     srcinfo = pointinfo(chnkr)
     targinfo = pointinfo(targobj)
+    if bool(options.get("usefmm", options.get("fmm", False))) and getattr(kern, "fmm", None) is not None:
+        weighted = _weighted_density(chnkr, dens)
+        vals = kern.fmm(float(options.get("eps", options.get("tol", 1e-12))), srcinfo, targinfo, weighted)
+        if isinstance(vals, tuple):
+            vals = vals[0]
+        return np.asarray(vals).reshape(-1, targinfo.r.shape[1], order="F")
+
     mat = _eval_kernel(kern, srcinfo, targinfo)
-    dens_arr = np.asarray(dens)
-    if dens_arr.size == chnkr.npt:
-        weighted = dens_arr.reshape(-1, order="F") * chnkr.wts.reshape(-1, order="F")
-    else:
-        weighted = dens_arr.reshape(-1, order="F")
-        if weighted.size % chnkr.npt != 0:
-            raise ValueError("density has incompatible size")
-        opdims_col = weighted.size // chnkr.npt
-        weighted = weighted * np.repeat(chnkr.wts.reshape(-1, order="F"), opdims_col)
+    weighted = _weighted_density(chnkr, dens)
     vals = mat @ weighted
     return vals.reshape(-1, targinfo.r.shape[1], order="F")
 
@@ -238,6 +238,17 @@ def _require_chunker(obj: Any) -> Chunker:
     if out is None:
         raise TypeError("expected a chunker or chunkgraph-like object")
     return out
+
+
+def _weighted_density(chnkr: Chunker, dens: ArrayLike) -> np.ndarray:
+    dens_arr = np.asarray(dens)
+    if dens_arr.size == chnkr.npt:
+        return dens_arr.reshape(-1, order="F") * chnkr.wts.reshape(-1, order="F")
+    weighted = dens_arr.reshape(-1, order="F")
+    if weighted.size % chnkr.npt != 0:
+        raise ValueError("density has incompatible size")
+    opdims_col = weighted.size // chnkr.npt
+    return weighted * np.repeat(chnkr.wts.reshape(-1, order="F"), opdims_col)
 
 
 def _eval_kernel(kern: Callable[[Any, Any], np.ndarray], srcinfo: PointInfo, targinfo: PointInfo) -> np.ndarray:
