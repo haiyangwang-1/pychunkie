@@ -436,6 +436,57 @@ class Chunker:
             flags[:, ich] = np.any(dists < lens[ich], axis=1)
         return flags
 
+    def nearest(
+        self,
+        ref: ArrayLike,
+        ich: ArrayLike | None = None,
+        opts: dict[str, Any] | None = None,
+        u: ArrayLike | None = None,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Find the nearest point on this chunker to one or more points.
+
+        Chunk indices in ``ich`` and in the returned ``ichn`` are zero-based,
+        following the rest of the Python port.
+        """
+
+        from .chnk.geometry import chunk_nearparam
+
+        points = np.asarray(ref, dtype=self.rstor.dtype).reshape(self.dim, -1)
+        nref = points.shape[1]
+        chunks = np.arange(self.nch) if ich is None else np.asarray(ich, dtype=int).reshape(-1)
+        if np.any(chunks < 0) or np.any(chunks >= self.nch):
+            raise IndexError("chunk index out of range")
+
+        if u is None:
+            _, _, u_arr, _ = lege.exps(self.k)
+        else:
+            u_arr = np.asarray(u)
+
+        best_dist2 = np.full(nref, np.inf)
+        rn = np.zeros((self.dim, nref), dtype=self.rstor.dtype)
+        dn = np.zeros_like(rn)
+        d2n = np.zeros_like(rn)
+        tn = np.zeros(nref, dtype=float)
+        ichn = np.full(nref, -1, dtype=int)
+
+        for idx in chunks:
+            ti, ri, di, d2i, dist2i = chunk_nearparam(
+                self.r[:, :, idx], points, opts, self.tstor, u_arr
+            )
+            better = dist2i < best_dist2
+            if np.any(better):
+                best_dist2[better] = dist2i[better]
+                rn[:, better] = ri[:, better]
+                dn[:, better] = di[:, better]
+                d2n[:, better] = d2i[:, better]
+                tn[better] = ti[better]
+                ichn[better] = int(idx)
+
+        dist = np.sqrt(best_dist2)
+        if np.asarray(ref).reshape(self.dim, -1).shape[1] == 1:
+            return rn[:, 0], dn[:, 0], d2n[:, 0], dist[0], tn[0], ichn[0]
+        return rn, dn, d2n, dist, tn, ichn
+
     def min(self) -> np.ndarray:
         if self.nch == 0:
             return np.full(self.dim, np.nan)

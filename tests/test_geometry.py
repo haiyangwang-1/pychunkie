@@ -1,7 +1,7 @@
 import numpy as np
 
-from chunkie import chunkerfunc
-from chunkie.chnk import flagnear, flagself
+from chunkie import chunkerfunc, chunkerpoly
+from chunkie.chnk import chunk_nearparam, flagnear, flagself
 
 
 def circle(t):
@@ -36,3 +36,33 @@ def test_flagself_reports_close_source_target_pairs():
     pairs = flagself(src, targ)
 
     np.testing.assert_array_equal(pairs, np.array([[0, 2], [1, 0]]))
+
+
+def test_chunk_nearparam_on_line_segment():
+    chnkr = chunkerpoly(np.array([[0.0, 2.0], [0.0, 0.0]]), {"ifclosed": False}, {"k": 12})
+    ts, rs, ds, d2s, dist2s = chunk_nearparam(
+        chnkr.r[:, :, 0], np.array([[0.5, 1.75], [1.0, -0.25]]), t=chnkr.tstor
+    )
+
+    np.testing.assert_allclose(ts, [-0.5, 0.75], atol=1e-12)
+    np.testing.assert_allclose(rs, [[0.5, 1.75], [0.0, 0.0]], atol=1e-12)
+    np.testing.assert_allclose(ds, [[1.0, 1.0], [0.0, 0.0]], atol=1e-12)
+    np.testing.assert_allclose(d2s, 0.0, atol=1e-12)
+    np.testing.assert_allclose(dist2s, [1.0, 0.0625], atol=1e-12)
+
+
+def test_chunker_nearest_selects_point_and_chunk():
+    chnkr = chunkerpoly(
+        np.array([[0.0, 2.0, 2.0], [0.0, 0.0, 1.0]]),
+        {"ifclosed": False},
+        {"k": 12},
+    )
+
+    rn, dn, d2n, dist, tn, ichn = chnkr.nearest(np.array([1.25, 0.6]))
+
+    np.testing.assert_allclose(rn, [1.25, 0.0], atol=1e-12)
+    np.testing.assert_allclose(dn, [1.0, 0.0], atol=1e-12)
+    np.testing.assert_allclose(d2n, [0.0, 0.0], atol=1e-12)
+    np.testing.assert_allclose(dist, 0.6, atol=1e-12)
+    np.testing.assert_allclose(tn, 0.25, atol=1e-12)
+    assert ichn == 0
