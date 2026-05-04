@@ -11,6 +11,7 @@ from chunkie import (
     chunkerpoly,
     kernel,
 )
+from chunkie.chnk import quadnative
 
 
 def circle(t):
@@ -45,6 +46,15 @@ def test_chunkermat_accepts_kernel_objects():
 
     assert mat.shape == (chnkr.npt, chnkr.npt)
     np.testing.assert_allclose(mat, 0.0)
+
+
+def test_quadnative_buildmat_matches_dense_chunkermat():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 3}, {"k": 8})
+
+    native = quadnative.buildmat(chnkr, smooth_kernel, (1, 1))
+    dense = chunkermat(chnkr, smooth_kernel)
+
+    np.testing.assert_allclose(native, dense)
 
 
 def test_chunkerintegral_accepts_values_and_callables():
