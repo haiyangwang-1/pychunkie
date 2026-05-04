@@ -46,8 +46,18 @@ def pointinfo(obj: Chunker | dict[str, Any] | ArrayLike | PointInfo) -> PointInf
     return PointInfo(r=arr.reshape(arr.shape[0], -1))
 
 
-def chunkermat(chnkr: Chunker, kern: Callable[[Any, Any], np.ndarray]) -> np.ndarray:
+def chunkermat(
+    chnkr: Chunker,
+    kern: Callable[[Any, Any], np.ndarray],
+    opts: dict[str, Any] | None = None,
+) -> np.ndarray:
     """Build a dense native quadrature matrix for a chunker."""
+
+    options = {} if opts is None else dict(opts)
+    if _uses_special_quadrature(kern, options):
+        from .chnk import quadggq
+
+        return quadggq.buildmat(chnkr, kern, getattr(kern, "opdims", None), getattr(kern, "sing", "log"))
 
     srcinfo = pointinfo(chnkr)
     mat = _eval_kernel(kern, srcinfo, srcinfo)
@@ -64,10 +74,11 @@ def chunkermatapply(
     chnkr: Chunker,
     kern: Callable[[Any, Any], np.ndarray],
     dens: ArrayLike,
+    opts: dict[str, Any] | None = None,
 ) -> np.ndarray:
     """Apply the dense native matrix for ``kern`` on ``chnkr``."""
 
-    return chunkermat(chnkr, kern) @ np.asarray(dens).reshape(-1, order="F")
+    return chunkermat(chnkr, kern, opts) @ np.asarray(dens).reshape(-1, order="F")
 
 
 def chunkerintegral(
@@ -144,8 +155,14 @@ def chunkerkerneval(
     kern: Callable[[Any, Any], np.ndarray],
     dens: ArrayLike,
     targobj: Chunker | dict[str, Any] | ArrayLike | PointInfo,
+    opts: dict[str, Any] | None = None,
 ) -> np.ndarray:
     """Evaluate a dense direct layer potential at targets."""
+
+    if isinstance(targobj, Chunker) and targobj is chnkr and _uses_special_quadrature(kern, opts):
+        vals = chunkermat(chnkr, kern, opts) @ np.asarray(dens).reshape(-1, order="F")
+        opdims = getattr(kern, "opdims", (1, 1))[0]
+        return vals.reshape(opdims, chnkr.npt, order="F")
 
     srcinfo = pointinfo(chnkr)
     targinfo = pointinfo(targobj)
@@ -171,6 +188,9 @@ def chunkerkernevalmat(
 ) -> np.ndarray:
     """Build the dense native matrix mapping chunker densities to target values."""
 
+    if isinstance(targobj, Chunker) and targobj is chnkr and _uses_special_quadrature(kern, opts):
+        return chunkermat(chnkr, kern, opts)
+
     _ = {} if opts is None else dict(opts)
     srcinfo = pointinfo(chnkr)
     targinfo = pointinfo(targobj)
@@ -195,6 +215,15 @@ def _eval_kernel(kern: Callable[[Any, Any], np.ndarray], srcinfo: PointInfo, tar
     if hasattr(kern, "eval") and getattr(kern, "eval") is not None:
         return kern.eval(srcinfo, targinfo)
     return kern(srcinfo, targinfo)
+
+
+def _uses_special_quadrature(kern: Callable[[Any, Any], np.ndarray], opts: dict[str, Any] | None) -> bool:
+    options = {} if opts is None else dict(opts)
+    if bool(options.get("forcesmooth", False)) or bool(options.get("usesmooth", False)):
+        return False
+    if bool(options.get("forceadap", False)):
+        return True
+    return getattr(kern, "sing", "") in {"log"}
 
 
 def _chunker_polygon_points(chnkr: Chunker) -> np.ndarray:
