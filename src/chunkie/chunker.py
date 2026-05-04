@@ -353,12 +353,12 @@ class Chunker:
         return out
 
     def onesmat(self) -> np.ndarray:
-        wts = self.wts.reshape(-1)
+        wts = self.wts.reshape(-1, order="F")
         return np.ones((self.npt, 1)) @ wts[None, :]
 
     def normonesmat(self) -> np.ndarray:
-        normals = self.n.reshape(-1)
-        wts2 = (np.repeat(self.wts.reshape(-1), self.dim) * normals)
+        normals = self.n.reshape(-1, order="F")
+        wts2 = (np.repeat(self.wts.reshape(-1, order="F"), self.dim) * normals)
         return normals[:, None] @ wts2[None, :]
 
     def centroids(self) -> np.ndarray:
@@ -556,12 +556,12 @@ class Chunker:
     def min(self) -> np.ndarray:
         if self.nch == 0:
             return np.full(self.dim, np.nan)
-        return np.min(np.real(self.r.reshape(self.dim, self.npt)), axis=1)
+        return np.min(np.real(self.r.reshape(self.dim, self.npt, order="F")), axis=1)
 
     def max(self) -> np.ndarray:
         if self.nch == 0:
             return np.full(self.dim, np.nan)
-        return np.max(np.real(self.r.reshape(self.dim, self.npt)), axis=1)
+        return np.max(np.real(self.r.reshape(self.dim, self.npt, order="F")), axis=1)
 
     def recompute_geometry(self) -> "Chunker":
         self.n = self.normals()

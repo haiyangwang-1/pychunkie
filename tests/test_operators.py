@@ -11,6 +11,7 @@ from chunkie import (
     chunkermatapply,
     chunkerpoly,
     kernel,
+    pointinfo,
 )
 from chunkie.chnk import quadnative
 
@@ -32,7 +33,7 @@ def smooth_kernel(src: PointInfo, targ: PointInfo):
 
 def test_chunkermat_matches_chunkerkerneval_on_boundary_for_smooth_kernel():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
-    dens = np.cos(chnkr.r[0].reshape(-1))
+    dens = np.cos(chnkr.r[0].reshape(-1, order="F"))
 
     mat_vals = chunkermatapply(chnkr, smooth_kernel, dens)
     eval_vals = chunkerkerneval(chnkr, smooth_kernel, dens, chnkr).reshape(-1)
@@ -40,9 +41,17 @@ def test_chunkermat_matches_chunkerkerneval_on_boundary_for_smooth_kernel():
     np.testing.assert_allclose(mat_vals, eval_vals)
 
 
+def test_pointinfo_uses_matlab_chunk_contiguous_ordering():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 3}, {"k": 5})
+    info = pointinfo(chnkr)
+
+    np.testing.assert_allclose(info.r[:, : chnkr.k], chnkr.r[:, :, 0])
+    np.testing.assert_allclose(info.r[:, chnkr.k : 2 * chnkr.k], chnkr.r[:, :, 1])
+
+
 def test_chunkerkernevalmat_matches_direct_target_evaluation():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
-    dens = np.sin(chnkr.r[1].reshape(-1))
+    dens = np.sin(chnkr.r[1].reshape(-1, order="F"))
     targets = np.array([[0.0, 2.0], [0.0, -0.25]])
 
     mat = chunkerkernevalmat(chnkr, smooth_kernel, targets)

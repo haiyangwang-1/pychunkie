@@ -42,17 +42,17 @@ def buildmat(
 
     base_w = chnkr.wstor if wts is None else np.asarray(wts, dtype=float).reshape(chnkr.k)
     speed = np.sqrt(np.sum(np.abs(chnkr.d[:, :, jch]) ** 2, axis=0))
-    smooth_wts = (speed * base_w[:, None]).reshape(-1)
+    smooth_wts = (speed * base_w[:, None]).reshape(-1, order="F")
     return mat * np.repeat(smooth_wts, int(opdims[1]))[None, :]
 
 
 def _pointinfo_for_chunks(chnkr: Chunker, chunks: np.ndarray) -> PointInfo:
     return PointInfo(
-        r=chnkr.r[:, :, chunks].reshape(chnkr.dim, chnkr.k * chunks.size),
-        d=chnkr.d[:, :, chunks].reshape(chnkr.dim, chnkr.k * chunks.size),
-        d2=chnkr.d2[:, :, chunks].reshape(chnkr.dim, chnkr.k * chunks.size),
-        n=chnkr.n[:, :, chunks].reshape(chnkr.dim, chnkr.k * chunks.size),
-        data=chnkr.data[:, :, chunks].reshape(chnkr.datadim, chnkr.k * chunks.size)
+        r=chnkr.r[:, :, chunks].reshape(chnkr.dim, chnkr.k * chunks.size, order="F"),
+        d=chnkr.d[:, :, chunks].reshape(chnkr.dim, chnkr.k * chunks.size, order="F"),
+        d2=chnkr.d2[:, :, chunks].reshape(chnkr.dim, chnkr.k * chunks.size, order="F"),
+        n=chnkr.n[:, :, chunks].reshape(chnkr.dim, chnkr.k * chunks.size, order="F"),
+        data=chnkr.data[:, :, chunks].reshape(chnkr.datadim, chnkr.k * chunks.size, order="F")
         if chnkr.datadim
         else None,
     )
