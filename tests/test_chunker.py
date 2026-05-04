@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from chunkie import Chunker, chunker, chunkerpref
+from chunkie import Chunker, chunker, chunkerpoints, chunkerpref
 
 
 def circle_chunker(k=16):
@@ -137,3 +137,18 @@ def test_refine_oversamples_by_splitting_chunks():
     np.testing.assert_array_equal(refined.adj, [[2, 1], [2, 1]])
     np.testing.assert_allclose(refined.area(), chnkr.area(), atol=1e-12)
     np.testing.assert_allclose(np.sum(refined.chunklen()), np.sum(chnkr.chunklen()), atol=1e-12)
+
+
+def test_chunkerpoints_builds_from_nodes_and_optional_derivatives():
+    base = circle_chunker(18)
+    rebuilt = chunkerpoints(base.r, {"ifclosed": True})
+
+    np.testing.assert_allclose(rebuilt.r, base.r)
+    np.testing.assert_allclose(rebuilt.d, base.d, atol=1e-11)
+    np.testing.assert_allclose(rebuilt.d2, base.d2, atol=1e-10)
+    np.testing.assert_allclose(rebuilt.area(), base.area(), atol=1e-12)
+    np.testing.assert_array_equal(rebuilt.adj, [[1], [1]])
+
+    explicit = chunkerpoints({"r": base.r, "d": 2.0 * base.d, "d2": 3.0 * base.d2})
+    np.testing.assert_allclose(explicit.d, 2.0 * base.d)
+    np.testing.assert_allclose(explicit.d2, 3.0 * base.d2)

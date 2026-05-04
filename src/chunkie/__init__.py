@@ -1,7 +1,15 @@
 """Python port of the MATLAB chunkIE package."""
 
 from . import lege
-from .chunker import Chunker, ChunkerPref, chunker, chunkerfunc, chunkerpoly, chunkerpref
+from .chunker import (
+    Chunker,
+    ChunkerPref,
+    chunker,
+    chunkerfunc,
+    chunkerpoints,
+    chunkerpoly,
+    chunkerpref,
+)
 from .kernel import Kernel, kernel
 from .operators import PointInfo, chunkerkerneval, chunkermat, chunkermatapply, pointinfo
 
@@ -12,6 +20,7 @@ __all__ = [
     "PointInfo",
     "chunker",
     "chunkerfunc",
+    "chunkerpoints",
     "chunkerpoly",
     "chunkerkerneval",
     "chunkermat",
