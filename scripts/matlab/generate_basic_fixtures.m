@@ -30,8 +30,20 @@ fcurve = @(t) circle_curve(t, radius);
 [chnkr, ab] = chunkerfunc(fcurve, cparams, pref);
 area_val = area(chnkr);
 chunklens = chunklen(chnkr);
+chunker_fields = [];
+chunker_fields.r = chnkr.r;
+chunker_fields.d = chnkr.d;
+chunker_fields.d2 = chnkr.d2;
+chunker_fields.n = chnkr.n;
+chunker_fields.wts = chnkr.wts;
+chunker_fields.adj = chnkr.adj;
+chunker_fields.tstor = chnkr.tstor;
+chunker_fields.wstor = chnkr.wstor;
+chunker_fields.k = chnkr.k;
+chunker_fields.nch = chnkr.nch;
+chunker_fields.dim = chnkr.dim;
 save(fullfile(outdir, 'chunker_circle.mat'), ...
-    'radius', 'ab', 'area_val', 'chunklens', '-struct', 'chnkr');
+    'radius', 'ab', 'area_val', 'chunklens', 'chunker_fields');
 
 function [r, d, d2] = circle_curve(t, radius)
     r = radius * [cos(t(:).'); sin(t(:).')];
