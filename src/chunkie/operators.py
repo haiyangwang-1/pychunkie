@@ -87,6 +87,58 @@ def chunkerintegral(
     return float(np.dot(chnkr.wts.reshape(-1), vals.reshape(-1)))
 
 
+def chunkerinterior(
+    chnkr: Chunker,
+    ptsobj: Chunker | dict[str, Any] | ArrayLike | tuple[ArrayLike, ArrayLike] | list[ArrayLike],
+    opts: dict[str, Any] | None = None,
+) -> np.ndarray:
+    """Classify target points as inside a closed 2D chunker.
+
+    This is a dependency-light direct fallback based on the node polygon.
+    FMM/FLAM acceleration and close-boundary correction are deferred.
+    """
+
+    _ = {} if opts is None else dict(opts)
+    if chnkr.dim != 2:
+        raise ValueError("interior only well-defined for 2D chunkers")
+
+    grid_shape = None
+    if isinstance(ptsobj, (tuple, list)) and len(ptsobj) == 2:
+        x = np.asarray(ptsobj[0], dtype=float)
+        y = np.asarray(ptsobj[1], dtype=float)
+        xx, yy = np.meshgrid(x, y)
+        pts = np.vstack((xx.ravel(), yy.ravel()))
+        grid_shape = xx.shape
+    elif isinstance(ptsobj, Chunker):
+        pts = ptsobj.r.reshape(ptsobj.dim, ptsobj.npt)
+    elif isinstance(ptsobj, dict) and "r" in ptsobj:
+        arr = np.asarray(ptsobj["r"], dtype=float)
+        pts = arr.reshape(arr.shape[0], -1)
+    else:
+        arr = np.asarray(ptsobj, dtype=float)
+        pts = arr.reshape(arr.shape[0], -1)
+
+    if pts.shape[0] != 2:
+        raise ValueError("target points must be two-dimensional")
+
+    boundary = _chunker_polygon_points(chnkr)
+    x = pts[0]
+    y = pts[1]
+    inside = np.zeros(pts.shape[1], dtype=bool)
+    x0 = boundary[:, 0]
+    y0 = boundary[:, 1]
+    x1 = np.roll(x0, -1)
+    y1 = np.roll(y0, -1)
+    for xa, ya, xb, yb in zip(x0, y0, x1, y1):
+        crosses = (ya > y) != (yb > y)
+        xhit = (xb - xa) * (y - ya) / (yb - ya + np.finfo(float).eps) + xa
+        inside ^= crosses & (x < xhit)
+
+    if grid_shape is not None:
+        return inside.reshape(grid_shape)
+    return inside
+
+
 def chunkerkerneval(
     chnkr: Chunker,
     kern: Callable[[Any, Any], np.ndarray],
@@ -122,3 +174,20 @@ def _eval_kernel(kern: Callable[[Any, Any], np.ndarray], srcinfo: PointInfo, tar
     if hasattr(kern, "eval") and getattr(kern, "eval") is not None:
         return kern.eval(srcinfo, targinfo)
     return kern(srcinfo, targinfo)
+
+
+def _chunker_polygon_points(chnkr: Chunker) -> np.ndarray:
+    sorted_chnkr, _ = chnkr.sort()
+    pieces: list[np.ndarray] = []
+    for ich in range(sorted_chnkr.nch):
+        rend, _ = sorted_chnkr.chunkends([ich])
+        panel = np.column_stack((rend[:, 0, 0], sorted_chnkr.r[:, :, ich], rend[:, 1, 0]))
+        if pieces:
+            panel = panel[:, 1:]
+        pieces.append(panel.T)
+    if not pieces:
+        raise ValueError("chunker has no boundary points")
+    points = np.vstack(pieces)
+    if np.linalg.norm(points[0] - points[-1]) > 1e-12:
+        points = np.vstack((points, points[0]))
+    return points

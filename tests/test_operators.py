@@ -3,10 +3,12 @@ import numpy as np
 from chunkie import (
     PointInfo,
     chunkerfunc,
+    chunkerinterior,
     chunkerintegral,
     chunkerkerneval,
     chunkermat,
     chunkermatapply,
+    chunkerpoly,
     kernel,
 )
 
@@ -54,3 +56,17 @@ def test_chunkerintegral_accepts_values_and_callables():
         np.pi,
         atol=1e-13,
     )
+
+
+def test_chunkerinterior_classifies_points_and_grids():
+    square = chunkerpoly(
+        np.array([[0.0, 1.0, 1.0, 0.0], [0.0, 0.0, 1.0, 1.0]]),
+        {"ifclosed": True},
+        {"k": 8},
+    )
+
+    pts = np.array([[0.5, 1.5, 0.25], [0.5, 0.5, 1.25]])
+    np.testing.assert_array_equal(chunkerinterior(square, pts), [True, False, False])
+
+    grid = chunkerinterior(square, (np.array([-0.5, 0.5, 1.5]), np.array([0.5])))
+    np.testing.assert_array_equal(grid, [[False, True, False]])
