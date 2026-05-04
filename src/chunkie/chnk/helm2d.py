@@ -39,6 +39,7 @@ def kern(
     srcinfo: PointInfo | dict | ArrayLike,
     targinfo: PointInfo | dict | ArrayLike,
     kind: str,
+    coefs: ArrayLike | None = None,
 ) -> np.ndarray:
     """Evaluate standard Helmholtz layer kernels."""
 
@@ -65,6 +66,21 @@ def kern(
         _require(src.n, "source normals")
         sub = -(hess[:, :, 0:2] * src.n[0, None, :, None] + hess[:, :, 1:3] * src.n[1, None, :, None])
         return np.moveaxis(sub, 2, 0).reshape(2 * targ.r.shape[1], src.r.shape[1])
+    if typ in {"dp", "dprime"}:
+        _require(src.n, "source normals")
+        _require(targ.n, "target normals")
+        return -(
+            hess[:, :, 0] * src.n[0, None, :] * targ.n[0, :, None]
+            + hess[:, :, 1]
+            * (src.n[1, None, :] * targ.n[0, :, None] + src.n[0, None, :] * targ.n[1, :, None])
+            + hess[:, :, 2] * src.n[1, None, :] * targ.n[1, :, None]
+        )
+    if typ in {"c", "combined"}:
+        c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs)
+        return c[0] * kern(zk, src, targ, "d") + c[1] * kern(zk, src, targ, "s")
+    if typ in {"cp", "cprime"}:
+        c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs)
+        return c[0] * kern(zk, src, targ, "dp") + c[1] * kern(zk, src, targ, "sp")
     raise ValueError(f"Unknown Helmholtz kernel type {kind!r}.")
 
 

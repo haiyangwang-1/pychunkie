@@ -44,6 +44,8 @@ def test_laplace_kernel_selectors_have_expected_shapes():
 
     assert lap2d.kern(info, target, "s").shape == (2, chnkr.npt)
     assert lap2d.kern(info, target, "d").shape == (2, chnkr.npt)
+    assert lap2d.kern(info, target, "c").shape == (2, chnkr.npt)
+    assert lap2d.kern(info, target, "cp").shape == (2, chnkr.npt)
     assert lap2d.kern(info, target, "sgrad").shape == (4, chnkr.npt)
 
 
@@ -61,3 +63,18 @@ def test_helmholtz_green_gradient_matches_finite_difference():
     np.testing.assert_allclose(grad[:, :, 0], gx_fd, rtol=1e-6, atol=1e-7)
     assert val.shape == (1, 1)
     assert hess.shape == (1, 1, 3)
+
+
+def test_helmholtz_kernel_selectors_have_expected_shapes():
+    chnkr, _ = chunkerfunc(lambda t: circle(t, 1.0), {"nchmin": 4}, {"k": 8})
+    info = pointinfo(chnkr)
+    target = {
+        "r": np.array([[0.25, 0.5], [0.1, -0.2]]),
+        "n": np.array([[1.0, 0.0], [0.0, 1.0]]),
+        "d": np.array([[0.0, 1.0], [1.0, 0.0]]),
+    }
+
+    assert helm2d.kern(1.3, info, target, "s").shape == (2, chnkr.npt)
+    assert helm2d.kern(1.3, info, target, "d").shape == (2, chnkr.npt)
+    assert helm2d.kern(1.3, info, target, "dp").shape == (2, chnkr.npt)
+    assert helm2d.kern(1.3, info, target, "c").shape == (2, chnkr.npt)

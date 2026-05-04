@@ -36,7 +36,12 @@ def green(
     return val, grad, hess
 
 
-def kern(srcinfo: PointInfo | dict | ArrayLike, targinfo: PointInfo | dict | ArrayLike, kind: str) -> np.ndarray:
+def kern(
+    srcinfo: PointInfo | dict | ArrayLike,
+    targinfo: PointInfo | dict | ArrayLike,
+    kind: str,
+    coefs: ArrayLike | None = None,
+) -> np.ndarray:
     """Evaluate standard Laplace layer kernels."""
 
     src = pointinfo(srcinfo)
@@ -64,6 +69,24 @@ def kern(srcinfo: PointInfo | dict | ArrayLike, targinfo: PointInfo | dict | Arr
         _require(src.n, "source normals")
         sub = -(hess[:, :, 0:2] * src.n[0, None, :, None] + hess[:, :, 1:3] * src.n[1, None, :, None])
         return np.moveaxis(sub, 2, 0).reshape(2 * targ.r.shape[1], src.r.shape[1])
+    if typ in {"dp", "dprime"}:
+        _require(src.n, "source normals")
+        _require(targ.n, "target normals")
+        return -(
+            hess[:, :, 0] * src.n[0, None, :] * targ.n[0, :, None]
+            + hess[:, :, 1]
+            * (src.n[1, None, :] * targ.n[0, :, None] + src.n[0, None, :] * targ.n[1, :, None])
+            + hess[:, :, 2] * src.n[1, None, :] * targ.n[1, :, None]
+        )
+    if typ in {"c", "combined"}:
+        c = np.ones(2) if coefs is None else np.asarray(coefs)
+        return c[0] * kern(src, targ, "d") + c[1] * kern(src, targ, "s")
+    if typ in {"cp", "cprime"}:
+        c = np.ones(2) if coefs is None else np.asarray(coefs)
+        return c[0] * kern(src, targ, "dp") + c[1] * kern(src, targ, "sp")
+    if typ in {"cg", "cgrad"}:
+        c = np.ones(2) if coefs is None else np.asarray(coefs)
+        return c[0] * kern(src, targ, "dg") + c[1] * kern(src, targ, "sg")
     raise ValueError(f"Unknown Laplace kernel type {kind!r}.")
 
 

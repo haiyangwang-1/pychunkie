@@ -107,7 +107,7 @@ def lap2d_kernel(kind: str, coefs: Any | None = None) -> Kernel:
     return Kernel(
         name="laplace",
         type=typ,
-        eval=lambda s, t: lap2d.kern(s, t, typ),
+        eval=lambda s, t: lap2d.kern(s, t, typ, coefs),
         opdims=opdims,
         sing=sing,
         params={} if coefs is None else {"coefs": coefs},
@@ -123,7 +123,7 @@ def helm2d_kernel(kind: str, zk: complex, coefs: Any | None = None) -> Kernel:
     return Kernel(
         name="helmholtz",
         type=typ,
-        eval=lambda s, t: helm2d.kern(zk, s, t, typ),
+        eval=lambda s, t: helm2d.kern(zk, s, t, typ, coefs),
         opdims=opdims,
         sing="log" if typ in {"s", "single", "d", "double", "sp", "sprime"} else "hs",
         params={"zk": zk} if coefs is None else {"zk": zk, "coefs": coefs},
