@@ -6,6 +6,7 @@ from chunkie import (
     chunkerinterior,
     chunkerintegral,
     chunkerkerneval,
+    chunkerkernevalmat,
     chunkermat,
     chunkermatapply,
     chunkerpoly,
@@ -37,6 +38,17 @@ def test_chunkermat_matches_chunkerkerneval_on_boundary_for_smooth_kernel():
     eval_vals = chunkerkerneval(chnkr, smooth_kernel, dens, chnkr).reshape(-1)
 
     np.testing.assert_allclose(mat_vals, eval_vals)
+
+
+def test_chunkerkernevalmat_matches_direct_target_evaluation():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
+    dens = np.sin(chnkr.r[1].reshape(-1))
+    targets = np.array([[0.0, 2.0], [0.0, -0.25]])
+
+    mat = chunkerkernevalmat(chnkr, smooth_kernel, targets)
+    vals = chunkerkerneval(chnkr, smooth_kernel, dens, targets).reshape(-1)
+
+    np.testing.assert_allclose(mat @ dens, vals, atol=1e-14)
 
 
 def test_chunkermat_accepts_kernel_objects():
