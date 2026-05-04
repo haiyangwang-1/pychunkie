@@ -8,7 +8,7 @@ from typing import Any
 
 import numpy as np
 
-from .chnk import helm2d, lap2d
+from .chnk import helm2d, lap2d, stok2d
 
 
 @dataclass
@@ -77,6 +77,8 @@ def kernel(kern: str | Callable[[Any, Any], np.ndarray] | Kernel, *args: Any) ->
         return lap2d_kernel(*args)
     if name in {"helmholtz", "helm", "h"}:
         return helm2d_kernel(*args)
+    if name in {"stokes", "stok"}:
+        return stok2d_kernel(*args)
     if name in {"zeros", "zero", "z"}:
         return zeros(*args)
     if name in {"nans", "nan"}:
@@ -127,6 +129,19 @@ def helm2d_kernel(kind: str, zk: complex, coefs: Any | None = None) -> Kernel:
         opdims=opdims,
         sing="log" if typ in {"s", "single", "d", "double", "sp", "sprime"} else "hs",
         params={"zk": zk} if coefs is None else {"zk": zk, "coefs": coefs},
+    )
+
+
+def stok2d_kernel(kind: str, mu: float = 1.0, coefs: Any | None = None) -> Kernel:
+    typ = kind.lower()
+    opdims = (1, 2) if typ in {"spres", "dpres", "cpres"} else (4, 2) if typ in {"sg", "sgrad", "dg", "dgrad", "cg", "cgrad"} else (2, 2)
+    return Kernel(
+        name="stokes",
+        type=typ,
+        eval=lambda s, t: stok2d.kern(mu, s, t, typ, coefs),
+        opdims=opdims,
+        sing="log" if typ in {"s", "single", "svel"} else "smooth",
+        params={"mu": mu} if coefs is None else {"mu": mu, "coefs": coefs},
     )
 
 
