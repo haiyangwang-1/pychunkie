@@ -77,3 +77,21 @@ def test_kernel_fmm_fallback_tracks_kernel_algebra():
 
     assert combined.fmm is not None
     np.testing.assert_allclose(via_fmm, direct)
+
+
+def test_kernel_interleave_builds_mixed_block_systems():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
+    target = np.array([[0.25, -0.4], [0.1, 0.3]])
+    dens = np.vstack((np.ones(chnkr.npt), 2.0 * np.ones(chnkr.npt))).reshape(-1, order="F")
+
+    s = kernel("lap", "s")
+    d = kernel("lap", "d")
+    z = kernel("zero")
+    mixed = kernel([[d, -s], [s, z]])
+
+    assert mixed.opdims == (2, 2)
+    mat = mixed.eval(chnkr, target)
+    vals = chunkerkerneval(chnkr, mixed, dens, target)
+
+    np.testing.assert_allclose(vals.reshape(-1, order="F"), mat @ (dens * np.repeat(chnkr.wts.reshape(-1, order="F"), 2)))
+    np.testing.assert_allclose(chunkerkerneval(chnkr, mixed, dens, target, {"usefmm": True}), vals, atol=1e-14)

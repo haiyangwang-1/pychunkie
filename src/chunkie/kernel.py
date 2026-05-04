@@ -122,6 +122,8 @@ def kernel(kern: str | Callable[[Any, Any], np.ndarray] | Kernel, *args: Any) ->
 
     if isinstance(kern, Kernel):
         return kern
+    if isinstance(kern, (list, tuple, np.ndarray)):
+        return interleave(kern)
     if callable(kern):
         return Kernel(eval=kern, fmm=_direct_fmm(kern), opdims=_infer_opdims(kern))
     if not isinstance(kern, str):
@@ -260,6 +262,58 @@ def nans(m: int = 1, n: int | None = None) -> Kernel:
     )
 
 
+def interleave(kerns: Any) -> Kernel:
+    arr = np.asarray(kerns, dtype=object)
+    if arr.ndim == 0:
+        return kernel(arr.item())
+    if arr.ndim == 1:
+        arr = arr.reshape(1, -1)
+    if arr.ndim != 2:
+        raise ValueError("kernel interleave expects a 2D array-like")
+
+    items = np.empty(arr.shape, dtype=object)
+    for idx in np.ndindex(arr.shape):
+        items[idx] = kernel(arr[idx])
+        if items[idx].isnan:
+            raise ValueError("kernel interleave does not support nan kernels")
+
+    rowdims = [int(items[i, 0].opdims[0]) for i in range(items.shape[0])]
+    coldims = [int(items[0, j].opdims[1]) for j in range(items.shape[1])]
+    for i in range(items.shape[0]):
+        for j in range(items.shape[1]):
+            if int(items[i, j].opdims[0]) != rowdims[i] or int(items[i, j].opdims[1]) != coldims[j]:
+                raise ValueError("kernel block opdims are inconsistent")
+
+    opdims = (sum(rowdims), sum(coldims))
+    rowstarts = np.concatenate(([0], np.cumsum(rowdims)))
+    colstarts = np.concatenate(([0], np.cumsum(coldims)))
+
+    def eval_(srcinfo: Any, targinfo: Any) -> np.ndarray:
+        from .operators import pointinfo
+
+        src = pointinfo(srcinfo)
+        targ = pointinfo(targinfo)
+        out = np.zeros((opdims[0] * targ.r.shape[1], opdims[1] * src.r.shape[1]), dtype=_interleave_dtype(items, src, targ))
+        for i in range(items.shape[0]):
+            ridx = _interleave_indices(targ.r.shape[1], opdims[0], rowstarts[i], rowdims[i])
+            for j in range(items.shape[1]):
+                cidx = _interleave_indices(src.r.shape[1], opdims[1], colstarts[j], coldims[j])
+                out[np.ix_(ridx, cidx)] = items[i, j](src, targ)
+        return out
+
+    fmm = _interleave_fmm(items, opdims, rowstarts, colstarts, rowdims, coldims)
+    return Kernel(
+        name="interleave",
+        type="interleave",
+        eval=eval_,
+        fmm=fmm,
+        opdims=opdims,
+        sing=_worst_many([items[idx].sing for idx in np.ndindex(items.shape)]),
+        params={"blocks": items.tolist()},
+        iszero=all(items[idx].iszero for idx in np.ndindex(items.shape)),
+    )
+
+
 def _direct_fmm(func: Callable[[Any, Any], np.ndarray]) -> Callable[[float, Any, Any, np.ndarray], np.ndarray]:
     def fmm_eval(eps: float, srcinfo: Any, targinfo: Any, sigma: np.ndarray) -> np.ndarray:
         _ = eps
@@ -314,6 +368,54 @@ def _conj_fmm(value: Any) -> Any:
     return np.conj(value)
 
 
+def _interleave_indices(npt: int, total_dim: int, offset: int, dim: int) -> np.ndarray:
+    base = np.arange(npt)[:, None] * total_dim + offset
+    return (base + np.arange(dim)[None, :]).reshape(-1)
+
+
+def _interleave_dtype(items: np.ndarray, src: Any, targ: Any) -> np.dtype:
+    dtype = np.dtype(float)
+    for item in items.flat:
+        try:
+            dtype = np.result_type(dtype, np.asarray(item(src, targ)).dtype)
+        except Exception:
+            pass
+    return dtype
+
+
+def _interleave_fmm(
+    items: np.ndarray,
+    opdims: tuple[int, int],
+    rowstarts: np.ndarray,
+    colstarts: np.ndarray,
+    rowdims: list[int],
+    coldims: list[int],
+) -> Callable[[float, Any, Any, np.ndarray], np.ndarray] | None:
+    if any(item.fmm is None for item in items.flat):
+        return None
+
+    def fmm_eval(eps: float, srcinfo: Any, targinfo: Any, sigma: np.ndarray) -> np.ndarray:
+        from .operators import pointinfo
+
+        src = pointinfo(srcinfo)
+        targ = pointinfo(targinfo)
+        sig = np.asarray(sigma).reshape(-1, order="F")
+        out = np.zeros(opdims[0] * targ.r.shape[1], dtype=np.result_type(sig, complex if any(np.iscomplexobj(item.params) for item in items.flat) else float))
+        for i in range(items.shape[0]):
+            ridx = _interleave_indices(targ.r.shape[1], opdims[0], rowstarts[i], rowdims[i])
+            accum = np.zeros(ridx.size, dtype=out.dtype)
+            for j in range(items.shape[1]):
+                cidx = _interleave_indices(src.r.shape[1], opdims[1], colstarts[j], coldims[j])
+                vals = items[i, j].fmm(eps, src, targ, sig[cidx])
+                if isinstance(vals, tuple):
+                    vals = vals[0]
+                accum = accum + np.asarray(vals).reshape(-1, order="F")
+            out[ridx] = accum
+        return out
+
+    return fmm_eval
+
+
 def _infer_opdims(func: Callable[[Any, Any], np.ndarray]) -> tuple[int, int]:
     try:
         from .operators import PointInfo
@@ -330,3 +432,10 @@ def _worst_sing(a: str, b: str) -> str:
     order = {"": 0, "smooth": 1, "log": 2, "pv": 3, "hs": 4}
     reverse = {value: key for key, value in order.items()}
     return reverse[max(order.get(a, 0), order.get(b, 0))]
+
+
+def _worst_many(sings: list[str]) -> str:
+    out = "smooth"
+    for sing in sings:
+        out = _worst_sing(out, sing)
+    return out
