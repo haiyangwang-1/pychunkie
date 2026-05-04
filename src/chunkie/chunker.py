@@ -334,6 +334,18 @@ class Chunker:
         wts2 = (np.repeat(self.wts.reshape(-1), self.dim) * normals)
         return normals[:, None] @ wts2[None, :]
 
+    def flagnear(self, pts: ArrayLike, opts: dict[str, Any] | None = None) -> np.ndarray:
+        opts = {} if opts is None else dict(opts)
+        fac = float(opts.get("fac", 1.0))
+        points = np.asarray(pts, dtype=float).reshape(self.dim, -1)
+        flags = np.zeros((points.shape[1], self.nch), dtype=bool)
+        lens = self.chunklen() * fac
+        for ich in range(self.nch):
+            diff = points[:, :, None] - self.r[:, :, ich][:, None, :]
+            dists = np.sqrt(np.sum(diff**2, axis=0))
+            flags[:, ich] = np.any(dists < lens[ich], axis=1)
+        return flags
+
     def min(self) -> np.ndarray:
         if self.nch == 0:
             return np.full(self.dim, np.nan)
