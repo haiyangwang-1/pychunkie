@@ -26,6 +26,9 @@ def pointinfo(obj: Chunker | dict[str, Any] | ArrayLike | PointInfo) -> PointInf
 
     if isinstance(obj, PointInfo):
         return obj
+    merged = _as_chunker(obj)
+    if merged is not None:
+        obj = merged
     if isinstance(obj, Chunker):
         return PointInfo(
             r=obj.r.reshape(obj.dim, obj.npt, order="F"),
@@ -53,6 +56,7 @@ def chunkermat(
 ) -> np.ndarray:
     """Build a dense native quadrature matrix for a chunker."""
 
+    chnkr = _require_chunker(chnkr)
     options = {} if opts is None else dict(opts)
     if _uses_special_quadrature(kern, options):
         from .chnk import quadggq
@@ -88,6 +92,7 @@ def chunkerintegral(
 ) -> float:
     """Integrate scalar values over a chunker with the native smooth rule."""
 
+    chnkr = _require_chunker(chnkr)
     _ = {} if opts is None else dict(opts)
     if callable(f):
         vals = np.asarray(f(chnkr.r.reshape(chnkr.dim, chnkr.npt, order="F")))
@@ -109,6 +114,7 @@ def chunkerinterior(
     FMM/FLAM acceleration and close-boundary correction are deferred.
     """
 
+    chnkr = _require_chunker(chnkr)
     _ = {} if opts is None else dict(opts)
     if chnkr.dim != 2:
         raise ValueError("interior only well-defined for 2D chunkers")
@@ -120,8 +126,9 @@ def chunkerinterior(
         xx, yy = np.meshgrid(x, y)
         pts = np.vstack((xx.ravel(), yy.ravel()))
         grid_shape = xx.shape
-    elif isinstance(ptsobj, Chunker):
-        pts = ptsobj.r.reshape(ptsobj.dim, ptsobj.npt, order="F")
+    elif _as_chunker(ptsobj) is not None:
+        ptschnkr = _require_chunker(ptsobj)
+        pts = ptschnkr.r.reshape(ptschnkr.dim, ptschnkr.npt, order="F")
     elif isinstance(ptsobj, dict) and "r" in ptsobj:
         arr = np.asarray(ptsobj["r"], dtype=float)
         pts = arr.reshape(arr.shape[0], -1)
@@ -159,7 +166,9 @@ def chunkerkerneval(
 ) -> np.ndarray:
     """Evaluate a dense direct layer potential at targets."""
 
-    if isinstance(targobj, Chunker) and targobj is chnkr and _uses_special_quadrature(kern, opts):
+    same_source_target = targobj is chnkr
+    chnkr = _require_chunker(chnkr)
+    if same_source_target and _uses_special_quadrature(kern, opts):
         vals = chunkermat(chnkr, kern, opts) @ np.asarray(dens).reshape(-1, order="F")
         opdims = getattr(kern, "opdims", (1, 1))[0]
         return vals.reshape(opdims, chnkr.npt, order="F")
@@ -188,7 +197,9 @@ def chunkerkernevalmat(
 ) -> np.ndarray:
     """Build the dense native matrix mapping chunker densities to target values."""
 
-    if isinstance(targobj, Chunker) and targobj is chnkr and _uses_special_quadrature(kern, opts):
+    same_source_target = targobj is chnkr
+    chnkr = _require_chunker(chnkr)
+    if same_source_target and _uses_special_quadrature(kern, opts):
         return chunkermat(chnkr, kern, opts)
 
     _ = {} if opts is None else dict(opts)
@@ -209,6 +220,24 @@ def _optional_field(obj: dict[str, Any], name: str) -> np.ndarray | None:
         return None
     arr = np.asarray(obj[name])
     return arr.reshape(arr.shape[0], -1)
+
+
+def _as_chunker(obj: Any) -> Chunker | None:
+    if isinstance(obj, Chunker):
+        return obj
+    merged = getattr(obj, "merged", None)
+    if callable(merged):
+        out = merged()
+        if isinstance(out, Chunker):
+            return out
+    return None
+
+
+def _require_chunker(obj: Any) -> Chunker:
+    out = _as_chunker(obj)
+    if out is None:
+        raise TypeError("expected a chunker or chunkgraph-like object")
+    return out
 
 
 def _eval_kernel(kern: Callable[[Any, Any], np.ndarray], srcinfo: PointInfo, targinfo: PointInfo) -> np.ndarray:
