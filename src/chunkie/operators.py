@@ -70,6 +70,23 @@ def chunkermatapply(
     return chunkermat(chnkr, kern) @ np.asarray(dens).reshape(-1)
 
 
+def chunkerintegral(
+    chnkr: Chunker,
+    f: Callable[[np.ndarray], ArrayLike] | ArrayLike,
+    opts: dict[str, Any] | None = None,
+) -> float:
+    """Integrate scalar values over a chunker with the native smooth rule."""
+
+    _ = {} if opts is None else dict(opts)
+    if callable(f):
+        vals = np.asarray(f(chnkr.r.reshape(chnkr.dim, chnkr.npt)))
+    else:
+        vals = np.asarray(f)
+    if vals.size != chnkr.npt:
+        raise ValueError("f must evaluate to one scalar value per chunker point")
+    return float(np.dot(chnkr.wts.reshape(-1), vals.reshape(-1)))
+
+
 def chunkerkerneval(
     chnkr: Chunker,
     kern: Callable[[Any, Any], np.ndarray],

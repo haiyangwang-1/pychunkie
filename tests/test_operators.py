@@ -1,6 +1,14 @@
 import numpy as np
 
-from chunkie import PointInfo, chunkerfunc, chunkerkerneval, chunkermat, chunkermatapply, kernel
+from chunkie import (
+    PointInfo,
+    chunkerfunc,
+    chunkerintegral,
+    chunkerkerneval,
+    chunkermat,
+    chunkermatapply,
+    kernel,
+)
 
 
 def circle(t):
@@ -35,3 +43,14 @@ def test_chunkermat_accepts_kernel_objects():
 
     assert mat.shape == (chnkr.npt, chnkr.npt)
     np.testing.assert_allclose(mat, 0.0)
+
+
+def test_chunkerintegral_accepts_values_and_callables():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 16})
+
+    np.testing.assert_allclose(chunkerintegral(chnkr, np.ones(chnkr.npt)), 2.0 * np.pi, atol=1e-13)
+    np.testing.assert_allclose(
+        chunkerintegral(chnkr, lambda r: r[0] ** 2),
+        np.pi,
+        atol=1e-13,
+    )
