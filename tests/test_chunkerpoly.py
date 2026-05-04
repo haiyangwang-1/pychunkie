@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 
 from chunkie import chunkerpoly
 
@@ -32,10 +31,34 @@ def test_chunkerpoly_open_polyline_and_edge_data():
     np.testing.assert_allclose(chnkr.data[:, :, 1], np.array([[20.0], [40.0]]) * np.ones((1, chnkr.k)))
 
 
-def test_chunkerpoly_rounded_is_explicitly_deferred():
-    verts = np.array([[0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
-    with pytest.raises(NotImplementedError):
-        chunkerpoly(verts, {"rounded": True})
+def test_chunkerpoly_rounded_builds_trimmed_edges_and_corner_panels():
+    verts = np.array([[0.0, 1.0, 1.0, 0.0], [0.0, 0.0, 1.0, 1.0]])
+    chnkr = chunkerpoly(verts, {"rounded": True, "widths": 0.1}, {"k": 8})
+
+    assert chnkr.nch == 8
+    assert chnkr.checkadjinfo() == 0
+    assert chnkr.area() > 0.9
+    assert chnkr.area() < 1.0
+    assert np.all(chnkr.chunklen() > 0.0)
+
+
+def test_chunkerpoly_rounded_open_polyline_and_edge_data():
+    verts = np.array([[0.0, 1.0, 1.0], [0.0, 0.0, 1.0]])
+    chnkr = chunkerpoly(
+        verts,
+        {"rounded": True, "ifclosed": False, "widths": [0.0, 0.2, 0.0]},
+        {"k": 6},
+        edgevals=np.array([2.0, 4.0]),
+    )
+
+    assert chnkr.nch == 3
+    assert chnkr.datadim == 1
+    np.testing.assert_array_equal(chnkr.adj[:, 0], [-1, 2])
+    np.testing.assert_array_equal(chnkr.adj[:, -1], [2, -1])
+    np.testing.assert_allclose(chnkr.data[:, :, 0], 2.0)
+    np.testing.assert_allclose(chnkr.data[:, :, -1], 4.0)
+    assert np.min(chnkr.data[:, :, 1]) >= 2.0
+    assert np.max(chnkr.data[:, :, 1]) <= 4.0
 
 
 def test_reverse_and_move_preserve_expected_geometry():
