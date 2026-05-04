@@ -349,6 +349,136 @@ class Chunker:
         self.wts = self.weights()
         return self
 
+    def upsample(self, kup: int, sigma: ArrayLike | None = None) -> tuple["Chunker", np.ndarray | None]:
+        if kup < self.k:
+            raise ValueError("upsampling order must be at least the current order")
+        _, _, u, _ = lege.exps(self.k)
+        tu, wu, _, vu = lege.exps(kup)
+        upmat = vu[:, : self.k] @ u
+        out = Chunker(
+            ChunkerPref(
+                nchmax=max(self.nchmax, self.nch),
+                k=kup,
+                dim=self.dim,
+                nchstor=max(self.nch, 1),
+                verttol=self.verttol,
+            ),
+            tu,
+            wu,
+        ).addchunk(self.nch)
+        out.r = np.einsum("ij,djn->din", upmat, self.r)
+        out.d = np.einsum("ij,djn->din", upmat, self.d)
+        out.d2 = np.einsum("ij,djn->din", upmat, self.d2)
+        out.adj = self.adj
+        out.vert = [v.copy() for v in self.vert]
+        if self.hasdata:
+            out.makedatarows(self.datadim)
+            out.data = np.einsum("ij,djn->din", upmat, self.data)
+        out.recompute_geometry()
+
+        sigmaup = None
+        if sigma is not None:
+            sigma_arr = np.asarray(sigma)
+            dimsig = sigma_arr.size // (self.k * self.nch)
+            sigma_arr = sigma_arr.reshape(dimsig, self.k, self.nch)
+            sigmaup = np.einsum("ij,djn->din", upmat, sigma_arr)
+        return out, sigmaup
+
+    def split(self, ich: int, frac: float = 0.5, stype: str = "a") -> "Chunker":
+        if ich < 0 or ich >= self.nch:
+            raise IndexError("chunk index out of range")
+        if not (0.0 < frac < 1.0):
+            raise ValueError("frac must be between 0 and 1")
+
+        x, _, u, _ = lege.exps(self.k)
+        r = self.rstor[:, :, ich]
+        d = self.dstor[:, :, ich]
+        d2 = self.d2stor[:, :, ich]
+        t1 = 2.0 * frac - 1.0
+
+        if stype.lower().startswith("a"):
+            dsdt = np.sqrt(np.sum(d**2, axis=0))
+            cdsdt = u @ dsdt
+            total = float(np.dot(dsdt, self.wstor))
+            target = total * frac
+            t1 = 0.0
+            for _ in range(30):
+                ts = -1.0 + (t1 + 1.0) * (x + 1.0) / 2.0
+                ws = (t1 + 1.0) * self.wstor / 2.0
+                vals = lege.exev(ts, cdsdt)
+                err = float(np.dot(vals, ws) - target)
+                if abs(err) < 1e-12 * max(total, 1.0):
+                    break
+                speed = float(lege.exev(np.array([t1]), cdsdt))
+                t1 -= err / speed
+                t1 = min(max(t1, -0.999999999999), 0.999999999999)
+
+        ts1 = -1.0 + (t1 + 1.0) * (x + 1.0) / 2.0
+        ts2 = t1 + (1.0 - t1) * (x + 1.0) / 2.0
+        h1 = (t1 + 1.0) / 2.0
+        h2 = (1.0 - t1) / 2.0
+
+        cr = u @ r.T
+        cd = u @ d.T
+        cd2 = u @ d2.T
+        r1 = lege.exev(ts1, cr).T
+        r2 = lege.exev(ts2, cr).T
+        d1 = lege.exev(ts1, cd).T
+        dnew = lege.exev(ts2, cd).T
+        d21 = lege.exev(ts1, cd2).T
+        d22 = lege.exev(ts2, cd2).T
+
+        old_nch = self.nch
+        right_label = int(self.adjstor[1, ich])
+        self.addchunk()
+        new_idx = old_nch
+        new_label = new_idx + 1
+
+        self.rstor[:, :, ich] = r1
+        self.rstor[:, :, new_idx] = r2
+        self.dstor[:, :, ich] = d1 * h1
+        self.dstor[:, :, new_idx] = dnew * h2
+        self.d2stor[:, :, ich] = d21 * h1 * h1
+        self.d2stor[:, :, new_idx] = d22 * h2 * h2
+
+        self.adjstor[1, ich] = new_label
+        self.adjstor[0, new_idx] = ich + 1
+        self.adjstor[1, new_idx] = right_label
+        if right_label > 0:
+            self.adjstor[0, right_label - 1] = new_label
+
+        if self.hasdata:
+            cdata = u @ self.datastor[:, :, ich].T
+            self.datastor[:, :, ich] = lege.exev(ts1, cdata).T
+            self.datastor[:, :, new_idx] = lege.exev(ts2, cdata).T
+
+        self.recompute_geometry()
+        return self
+
+    def refine(self, opts: dict[str, Any] | None = None) -> "Chunker":
+        opts = {} if opts is None else dict(opts)
+        out = self.copy()
+        stype = str(opts.get("stype", "a"))
+        for idx in sorted(np.asarray(opts.get("splitchunks", []), dtype=int).reshape(-1), reverse=True):
+            out.split(int(idx), stype=stype)
+
+        maxchunklen = float(opts.get("maxchunklen", np.inf))
+        if np.isfinite(maxchunklen):
+            changed = True
+            while changed:
+                changed = False
+                for idx, length in enumerate(out.chunklen().copy()):
+                    if length > maxchunklen:
+                        out.split(idx, stype=stype)
+                        changed = True
+                        break
+
+        for _ in range(int(opts.get("nover", 0))):
+            nchold = out.nch
+            for idx in range(nchold):
+                out.split(idx, stype=stype)
+        return out
+
     def translate(self, vector: ArrayLike) -> "Chunker":
         vec = np.asarray(vector, dtype=self.rstor.dtype).reshape(-1)
         if vec.size != self.dim:

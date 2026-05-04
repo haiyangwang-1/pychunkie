@@ -101,3 +101,25 @@ def test_onesmat_and_normonesmat_shapes():
     chnkr = circle_chunker(8)
     assert chnkr.onesmat().shape == (chnkr.npt, chnkr.npt)
     assert chnkr.normonesmat().shape == (2 * chnkr.npt, 2 * chnkr.npt)
+
+
+def test_upsample_preserves_circle_geometry_and_density_values():
+    chnkr = circle_chunker(8)
+    sigma = (1.0 + chnkr.tstor - 2.0 * chnkr.tstor**3).reshape(1, chnkr.k, chnkr.nch)
+
+    up, sigmaup = chnkr.upsample(16, sigma)
+
+    assert up.k == 16
+    assert up.nch == chnkr.nch
+    np.testing.assert_allclose(up.area(), chnkr.area(), atol=1e-13)
+    np.testing.assert_allclose(sigmaup[0, :, 0], 1.0 + up.tstor - 2.0 * up.tstor**3, atol=1e-12)
+
+
+def test_refine_oversamples_by_splitting_chunks():
+    chnkr = circle_chunker(16)
+    refined = chnkr.refine({"nover": 1})
+
+    assert refined.nch == 2
+    np.testing.assert_array_equal(refined.adj, [[2, 1], [2, 1]])
+    np.testing.assert_allclose(refined.area(), chnkr.area(), atol=1e-12)
+    np.testing.assert_allclose(np.sum(refined.chunklen()), np.sum(chnkr.chunklen()), atol=1e-12)
