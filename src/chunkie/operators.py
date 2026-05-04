@@ -50,7 +50,7 @@ def chunkermat(chnkr: Chunker, kern: Callable[[Any, Any], np.ndarray]) -> np.nda
     """Build a dense native quadrature matrix for a chunker."""
 
     srcinfo = pointinfo(chnkr)
-    mat = kern(srcinfo, srcinfo)
+    mat = _eval_kernel(kern, srcinfo, srcinfo)
     wts = chnkr.wts.reshape(-1)
     if mat.shape[1] == chnkr.npt:
         return mat * wts[None, :]
@@ -70,7 +70,7 @@ def chunkerkerneval(
 
     srcinfo = pointinfo(chnkr)
     targinfo = pointinfo(targobj)
-    mat = kern(srcinfo, targinfo)
+    mat = _eval_kernel(kern, srcinfo, targinfo)
     dens_arr = np.asarray(dens)
     if dens_arr.size == chnkr.npt:
         weighted = dens_arr.reshape(-1) * chnkr.wts.reshape(-1)
@@ -89,3 +89,9 @@ def _optional_field(obj: dict[str, Any], name: str) -> np.ndarray | None:
         return None
     arr = np.asarray(obj[name])
     return arr.reshape(arr.shape[0], -1)
+
+
+def _eval_kernel(kern: Callable[[Any, Any], np.ndarray], srcinfo: PointInfo, targinfo: PointInfo) -> np.ndarray:
+    if hasattr(kern, "eval") and getattr(kern, "eval") is not None:
+        return kern.eval(srcinfo, targinfo)
+    return kern(srcinfo, targinfo)
