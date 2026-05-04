@@ -714,6 +714,50 @@ class Chunker:
         out.wts = out.weights()
         return out
 
+    def rotate(
+        self,
+        theta: float = 0.0,
+        r0: ArrayLike | None = None,
+        r1: ArrayLike | None = None,
+    ) -> "Chunker":
+        if self.dim != 2:
+            raise ValueError("rotate is implemented for 2D chunkers")
+        if not np.isreal(theta):
+            raise ValueError("rotate only supports real angles")
+        center0 = np.zeros(2) if r0 is None else np.asarray(r0, dtype=float).reshape(2)
+        center1 = np.zeros(2) if r1 is None else np.asarray(r1, dtype=float).reshape(2)
+        c = float(np.cos(theta))
+        s = float(np.sin(theta))
+        rot = np.array([[c, -s], [s, c]])
+        out = self.copy()
+        out.r = np.einsum("ij,jkl->ikl", rot, out.r - center0[:, None, None]) + center1[:, None, None]
+        out.d = np.einsum("ij,jkl->ikl", rot, out.d)
+        out.d2 = np.einsum("ij,jkl->ikl", rot, out.d2)
+        out.n = np.einsum("ij,jkl->ikl", rot, out.n)
+        return out
+
+    def reflect(
+        self,
+        theta: float = 0.0,
+        r0: ArrayLike | None = None,
+        r1: ArrayLike | None = None,
+    ) -> "Chunker":
+        if self.dim != 2:
+            raise ValueError("reflect is implemented for 2D chunkers")
+        if not np.isreal(theta):
+            raise ValueError("reflect only supports real angles")
+        center0 = np.zeros(2) if r0 is None else np.asarray(r0, dtype=float).reshape(2)
+        center1 = np.zeros(2) if r1 is None else np.asarray(r1, dtype=float).reshape(2)
+        c = float(np.cos(2.0 * theta))
+        s = float(np.sin(2.0 * theta))
+        refmat = np.array([[c, s], [s, -c]])
+        out = self.copy()
+        out.r = np.einsum("ij,jkl->ikl", refmat, out.r - center0[:, None, None]) + center1[:, None, None]
+        out.d = np.einsum("ij,jkl->ikl", refmat, out.d)
+        out.d2 = np.einsum("ij,jkl->ikl", refmat, out.d2)
+        out.n = np.einsum("ij,jkl->ikl", refmat, out.n)
+        return out
+
     def __add__(self, other: ArrayLike) -> "Chunker":
         return self.translate(other)
 

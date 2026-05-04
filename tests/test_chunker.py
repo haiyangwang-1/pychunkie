@@ -81,6 +81,34 @@ def test_matrix_transform_updates_derivatives_normals_and_weights():
         _ = chnkr * mat
 
 
+def test_rotate_and_reflect_match_matlab_transform_formulas():
+    chnkr = circle_chunker()
+    theta = np.pi / 3.0
+    r0 = np.array([0.25, -0.5])
+    r1 = np.array([1.0, 2.0])
+    rot = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
+
+    rotated = chnkr.rotate(theta, r0, r1)
+    np.testing.assert_allclose(
+        rotated.r,
+        np.einsum("ij,jkl->ikl", rot, chnkr.r - r0[:, None, None]) + r1[:, None, None],
+    )
+    np.testing.assert_allclose(rotated.d, np.einsum("ij,jkl->ikl", rot, chnkr.d))
+    np.testing.assert_allclose(rotated.n, np.einsum("ij,jkl->ikl", rot, chnkr.n))
+
+    angle = np.pi / 4.0
+    refmat = np.array(
+        [[np.cos(2.0 * angle), np.sin(2.0 * angle)], [np.sin(2.0 * angle), -np.cos(2.0 * angle)]]
+    )
+    reflected = chnkr.reflect(angle, r0, r1)
+    np.testing.assert_allclose(
+        reflected.r,
+        np.einsum("ij,jkl->ikl", refmat, chnkr.r - r0[:, None, None]) + r1[:, None, None],
+    )
+    np.testing.assert_allclose(reflected.d, np.einsum("ij,jkl->ikl", refmat, chnkr.d))
+    np.testing.assert_allclose(reflected.n, np.einsum("ij,jkl->ikl", refmat, chnkr.n))
+
+
 def test_chunker_spectral_helpers_on_circle():
     chnkr = circle_chunker(20)
     rc, dc, d2c = chnkr.exps()
