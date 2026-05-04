@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from chunkie import Chunker, chunker, chunkerpoints, chunkerpref, lege
+from chunkie import Chunker, chunker, chunkerpoints, chunkerpoly, chunkerpref, lege, merge
 
 
 def circle_chunker(k=16):
@@ -208,3 +208,24 @@ def test_datares_flags_high_order_data_coefficients():
 
     np.testing.assert_array_equal(flags, [[True], [False]])
     np.testing.assert_array_equal(chnkr.datares({"idata": [1], "tol": 1e-10}), [[False]])
+
+
+def test_merge_combines_chunkers_and_pads_data_rows():
+    first = chunkerpoly(np.array([[0.0, 1.0], [0.0, 0.0]]), {"ifclosed": False}, {"k": 8})
+    first.makedatarows(1)
+    first.data = np.ones((1, first.k, first.nch))
+
+    second = chunkerpoly(np.array([[2.0, 2.0], [0.0, 1.0]]), {"ifclosed": False}, {"k": 8})
+    second.makedatarows(2)
+    second.data = 2.0 * np.ones((2, second.k, second.nch))
+
+    combined = merge([first, second])
+
+    assert combined.nch == first.nch + second.nch
+    assert combined.datadim == 2
+    np.testing.assert_allclose(combined.r[:, :, 0], first.r[:, :, 0])
+    np.testing.assert_allclose(combined.r[:, :, 1], second.r[:, :, 0])
+    np.testing.assert_array_equal(combined.adj, [[-1, -1], [-1, -1]])
+    np.testing.assert_allclose(combined.data[0, :, 0], 1.0)
+    np.testing.assert_allclose(combined.data[1, :, 0], 0.0)
+    np.testing.assert_allclose(combined.data[:, :, 1], 2.0)

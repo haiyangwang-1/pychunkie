@@ -1056,6 +1056,61 @@ def chunkerpoints(src: ArrayLike | dict[str, ArrayLike], opts: dict[str, Any] | 
     return chnkr
 
 
+def merge(
+    chnkrs: ArrayLike | list[Chunker] | tuple[Chunker, ...],
+    pref: ChunkerPref | dict[str, Any] | None = None,
+) -> Chunker:
+    """Combine chunkers of the same dimension and order."""
+
+    if isinstance(chnkrs, Chunker):
+        items = [chnkrs]
+    elif isinstance(chnkrs, (list, tuple)):
+        items = list(chnkrs)
+    else:
+        items = list(np.ravel(chnkrs))
+    if not items:
+        return Chunker(pref)
+    if not all(isinstance(item, Chunker) for item in items):
+        raise TypeError("input must contain chunker objects")
+
+    first = items[0]
+    total_nch = sum(item.nch for item in items)
+    p = ChunkerPref.from_any(pref)
+    p = ChunkerPref(
+        nchmax=max(p.nchmax, total_nch),
+        k=first.k,
+        dim=first.dim,
+        nchstor=max(p.nchstor, total_nch),
+        verttol=p.verttol,
+    )
+    out = Chunker(p, first.tstor, first.wstor).addchunk(total_nch)
+
+    offset = 0
+    for item in items:
+        if item.dim != first.dim or item.k != first.k:
+            raise ValueError("chunkers to merge must have the same dimension and order")
+        sl = slice(offset, offset + item.nch)
+        out.rstor[:, :, sl] = item.r
+        out.dstor[:, :, sl] = item.d
+        out.d2stor[:, :, sl] = item.d2
+        out.nstor[:, :, sl] = item.n
+        out.wtsstor[:, sl] = item.wts
+        adj = item.adj.copy()
+        adj[adj > 0] += offset
+        out.adjstor[:, sl] = adj
+        offset += item.nch
+
+    max_data = max((item.datadim for item in items), default=0)
+    if max_data > 0:
+        out.makedatarows(max_data)
+        offset = 0
+        for item in items:
+            if item.hasdata and item.datadim > 0:
+                out.datastor[: item.datadim, :, offset : offset + item.nch] = item.data
+            offset += item.nch
+    return out
+
+
 def _remap_adjacency(adjs: np.ndarray, inds: np.ndarray) -> np.ndarray:
     inverse = {old + 1: new + 1 for new, old in enumerate(inds)}
     out = adjs.copy()

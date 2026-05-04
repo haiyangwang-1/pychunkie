@@ -9,6 +9,7 @@ from .chunker import (
     chunkerpoints,
     chunkerpoly,
     chunkerpref,
+    merge,
 )
 from .kernel import Kernel, kernel
 from .operators import PointInfo, chunkerkerneval, chunkermat, chunkermatapply, pointinfo
@@ -27,6 +28,7 @@ __all__ = [
     "chunkermatapply",
     "chunkerpref",
     "kernel",
+    "merge",
     "lege",
     "pointinfo",
 ]
