@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: clean-worktree `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 273 tests: `272 passed, 1 xfailed`.
+Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 280 tests: `279 passed, 1 xfailed`.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -528,6 +528,7 @@ tests/
 ├── test_chunkerpoly.py
 ├── test_chunkgraph.py
 ├── test_domain.py
+├── test_easy_parity_stress.py
 ├── test_elast2d.py
 ├── test_geometry.py
 ├── test_geometry_parity.py
@@ -550,6 +551,7 @@ root files:
 ├── .gitignore
 ├── .python-version
 ├── README.md
+├── easy-test.md
 ├── main.py
 ├── pyproject.toml
 └── uv.lock
@@ -566,7 +568,9 @@ Support file roles:
 - 🧪 `tests/test_matlab_parity.py`: main exact-behavior comparison suite against golden data.
 - 🧪 `tests/test_geometry_parity.py`: focused I GEOMETRY comparison suite against `geometry_core.mat`.
 - 🧪 `tests/test_matlab_fixtures.py`: basic fixture comparison suite.
+- 🧪 `tests/test_easy_parity_stress.py`: focused hardening coverage for weak parity-style areas tracked in `easy-test.md`.
 - 🧪 Other `tests/test_*.py`: Python behavioral/unit coverage.
+- 🧭 `easy-test.md`: living tracker for parity tests that are too easy, fixture-gated, or intentionally ignored during the current hardening push.
 
 ## Major Unported MATLAB Areas
 

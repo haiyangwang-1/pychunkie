@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 273 pytest cases because several MATLAB parity tests are
+collection expands to 280 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 
@@ -548,6 +548,54 @@ stress identity `t = -p n + mu (grad u + grad u^T) n`, reconstructed from
 blocks through the generic `kernel` wrapper and contracts with saved
 strengths. Ground truth is MATLAB's `Kt`, `Kg`, `Kp`, reconstructed traction,
 and residual norm below `1e-13`.
+
+## `tests/test_easy_parity_stress.py`
+
+`test_point_kernels_stress_combined_selectors_and_green_gradients` hardens the
+previous small point-kernel parity surface. It uses multiple non-axis-aligned
+source and target points with varied source/target normals and tangents. The
+method checks Laplace combined, combined-prime, and combined-gradient selectors
+against their component kernels, checks Helmholtz combined and combined-prime
+selectors at a complex wavenumber, and validates Laplace/Helmholtz Green
+gradients by centered finite differences.
+
+`test_dense_native_operator_stress_on_wobbly_curve_matches_manual_weighting`
+checks dense/native operator assembly on a noncircular wobbly curve. The method
+uses a custom two-output smooth kernel, off-boundary targets, and a nonconstant
+density. Ground truth is the raw kernel matrix multiplied by Legendre source
+weights, plus a direct manual target-evaluation matrix-vector product.
+
+`test_quadggq_stress_noncircle_complex_special_blocks_and_robust_close_eval`
+checks Section III special quadrature on harder geometry. The method compares
+complex Helmholtz log-GGQ self and neighbor topological blocks on a wobbly
+curve with the full special matrix, verifies far blocks are zero in the
+topological matrix, checks ignored-source behavior, and confirms robust close
+replacement changes the Laplace log matrix for nearby wobbly curves while
+remaining finite.
+
+`test_schurbana_stress_matches_independent_block_update` checks RCIP
+Schur-Banachiewicz compression with a larger rectangular block setup. Ground
+truth is an independently assembled block-update formula matching the public
+algorithm, and the test also verifies the input matrix is not mutated.
+
+`test_chunkgraph_rcip_stress_nonorthogonal_vertex_and_global_blocks` checks
+advanced RCIP chunkgraph behavior on a nonorthogonal closed graph. The method
+uses a global block-kernel array, selected vertices, ignored vertices,
+recursive compression, and `rhohatInterp`. Ground truth is correct vertex
+filtering, incident-edge subselection, block identity preservation, finite
+nonidentity compression, and interpolation output shapes.
+
+`test_interleaved_fmm_stress_matches_direct_on_wobbly_curve` compares FMM and
+dense direct target evaluation for an interleaved 2x2 kernel block mixing
+Helmholtz and Laplace single/double layers. The source geometry is a wobbly
+curve and the density is complex and vector-valued. Ground truth is the dense
+direct evaluation at off-boundary targets.
+
+`test_smoother_stress_returns_valid_rounded_asymmetric_polygon` checks the
+supported lightweight smoother workflow on an asymmetric polygon with varying
+corner widths. Ground truth is valid rounded chunker structure: chunk count,
+zero reported error, finite geometry, positive chunk lengths, unit normals,
+clean adjacency, and positive area below the original polygon area.
 
 ## `tests/test_elast2d.py`
 
