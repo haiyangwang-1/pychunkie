@@ -15,6 +15,7 @@ The port is intentionally conservative:
 ## Development
 
 ```powershell
+git submodule update --init --recursive
 uv sync
 uv run pytest
 uv run python scripts/clean_test_data.py
@@ -23,7 +24,8 @@ uv run python scripts/clean_test_data.py
 See [docs/fmm2dpy-install.md](docs/fmm2dpy-install.md) for macOS, Windows, and
 Linux notes on installing the upstream `fmm2dpy` dependency.
 
-MATLAB reference checkouts live in ignored `external/` directories for local
-inspection and fixture generation. The Python package does not import them.
+MATLAB and native-library reference checkouts live in pinned `external/`
+submodules for local inspection, fixture generation, and CI setup. The Python
+package does not import them.
 MATLAB parity fixtures under `tests/golden` are generated on demand by tests,
 are ignored by Git, and require `external/chunkie-matlab` when regenerated.

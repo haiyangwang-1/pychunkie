@@ -22,7 +22,7 @@ Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 - `3c1cb43` Add interleaved kernel blocks
 - `0bee9f2` Add biharmonic Green kernels
 
-The ignored directories `.venv/`, `.pytest_cache/`, `.git/`, and third-party/reference checkouts under `external/` are not expanded as repo structure here. The relevant MATLAB reference paths are listed beside the Python nodes.
+The ignored directories `.venv/`, `.pytest_cache/`, and `.git/` are not expanded as repo structure here. Third-party/reference checkouts under `external/` are pinned as git submodules and summarized in the support tree; the relevant MATLAB reference paths are listed beside the Python nodes.
 
 ## Source Tree
 
@@ -484,6 +484,11 @@ Log/PV/HS support tables are packaged as `.npz` assets and loaded with `importli
 ## Support Tree
 
 ```text
+external/
+├── FLAM/  # submodule fastalgorithms/FLAM @ 73b7accda7c1a933517b008831d8404d8d3cc764
+├── chunkie-matlab/  # submodule fastalgorithms/chunkie @ af34cc41c81114e693b515066e4d308067bf7e63
+└── fmm2d/  # submodule flatironinstitute/fmm2d @ 550dae5b77b1e006c8ffae37fc832f8c2b536871
+
 docs/
 ├── matlab-reference-setup.md
 └── special-quadrature.md
@@ -542,6 +547,7 @@ tests/
 └── test_stok2d.py
 
 root files:
+├── .gitmodules
 ├── .gitignore
 ├── .python-version
 ├── README.md
@@ -552,6 +558,10 @@ root files:
 
 Support file roles:
 
+- 🧭 `.gitmodules`: pins external reference dependencies for CI and local parity setup.
+- 🧭 `external/chunkie-matlab`: MATLAB `chunkIE` reference checkout used by fixture-generation scripts.
+- 🧭 `external/FLAM`: FLAM reference checkout pinned for future MATLAB/CI parity work; Python FLAM integration remains deferred.
+- 🧭 `external/fmm2d`: Flatiron FMM2D checkout pinned to the same commit used by the `fmm2dpy` Python dependency.
 - 🧭 `docs/matlab-reference-setup.md`: local MATLAB checkout / fixture setup notes.
 - 🧭 `docs/special-quadrature.md`: special quadrature implementation notes.
 - 🧭 `src/chunkie/data/quadggq/*.npz`: packaged NumPy copies of upstream MATLAB GGQ near, log self, PV support, and HS support tables used at runtime.

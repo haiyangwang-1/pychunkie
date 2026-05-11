@@ -1,0 +1,9 @@
+[submodule "external/chunkie-matlab"]
+	path = external/chunkie-matlab
+	url = https://github.com/fastalgorithms/chunkie.git
+[submodule "external/FLAM"]
+	path = external/FLAM
+	url = https://github.com/fastalgorithms/FLAM.git
+[submodule "external/fmm2d"]
+	path = external/fmm2d
+	url = https://github.com/flatironinstitute/fmm2d.git

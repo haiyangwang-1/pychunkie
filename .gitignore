@@ -1,5 +1,8 @@
 .venv/
-external/
+external/*
+!external/chunkie-matlab/
+!external/FLAM/
+!external/fmm2d/
 __pycache__/
 *.py[cod]
 *.egg-info/

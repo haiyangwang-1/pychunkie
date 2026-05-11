@@ -10,7 +10,8 @@ Institute FMM2D library. The dependency is pinned to this upstream commit:
 The upstream repository is <https://github.com/flatironinstitute/fmm2d>. Its
 `pyproject.toml` builds the Python package with `scikit-build-core`, CMake, a C
 compiler, and a Fortran compiler. Install those native build tools before
-running `uv sync`.
+running `uv sync`. The same upstream commit is also pinned as the
+`external/fmm2d` submodule for CI and local reference setup.
 
 ## Verify the install
 

@@ -1,5 +1,17 @@
 # MATLAB Reference Setup
 
+Initialize the pinned reference dependencies from the repository root:
+
+```powershell
+git submodule update --init --recursive
+```
+
+Current submodule pins:
+
+- `external/chunkie-matlab`: `af34cc41c81114e693b515066e4d308067bf7e63`
+- `external/FLAM`: `73b7accda7c1a933517b008831d8404d8d3cc764`
+- `external/fmm2d`: `550dae5b77b1e006c8ffae37fc832f8c2b536871`
+
 Local status:
 
 - MATLAB R2026a is callable via `matlab -batch`.
