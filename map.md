@@ -178,6 +178,19 @@ src/
 | `resize` | ✅ 🧪 | `@chunker/chunker.m` storage behavior | Focused storage-growth test covers live storage preservation. |
 | `makedatarows` | ✅ 🧪 | `@chunker/makedatarows.m` | Tested for data row allocation. |
 | `cleardata` | ✅ 🧪 | `@chunker/makedatarows.m` / data field behavior | Tested for data-row reset behavior. |
+| `checkadjinfo` | ✅ 🧪 | `@chunker/checkadjinfo.m` | Python tested through adjacency checks. |
+| `sort` | ✅ 🧪 | `@chunker/sort.m` | Python tested on open segments. |
+| `flagnear` | ✅ 🧪 | `@chunker/flagnear.m`, `+chnk/flagnear*` helpers | Python tested against brute-force distances. |
+| `flagnear_rectangle` | ✅ 🧪 | `@chunker/flagnear_rectangle.m` | 2D only. |
+| `flagnear_rectangle_grid` | ✅ 🧪 | `@chunker/flagnear_rectangle_grid.m` | Python tested on meshgrid order. |
+| `nearest` | ✅ 🧪 | `@chunker/nearest.m` | Python tested for point/chunk selection. |
+| `recompute_geometry` | ✅ 🧪 | MATLAB geometry recomputation inside constructors/transforms | Python tested after transforms/refinement. |
+| `translate` | ✅ 🧪 | `@chunker/plus.m` | Python operator helper. |
+| `__add__`, `__radd__` | ✅ 🧪 | `@chunker/plus.m` | Translation operator. |
+| `chunkerpref` | ✅ 🧪 | `@chunkerpref/chunkerpref.m` | Python preference wrapper. |
+| `chunkerfuncuni` | ✅ 🧪 | `chunkerfuncuni.m` | Uniform panel count tested. |
+| `chunkerpoly` | ✅ 🧪 | `chunkerpoly.m`, `+chnk/+smoother/*` workflows | Straight-edge and rounded-corner polygon paths are implemented and tested. |
+| `_rounded_chunkerpoly`, `_polygon_widths`, `_fill_line_chunk`, `_fill_quadratic_chunk` | 🧩 ✅ 🧪 | `chunkerpoly.m`, `+chnk/+smoother/*` concepts | Internal rounded polygon construction helpers. |
 | `weights` | ✅ 🧪 🎯 | `@chunker/weights.m`, `@chunker/whts.m` | Returns quadrature weights; `geometry_core.mat` covers a noncircular chunker. |
 | `normals` | ✅ 🧪 🎯 | `@chunker/normals.m` | 2D only; raises for non-2D; strict geometry fixture covers stored and recomputed normals. |
 | `tangents` | ✅ 🧪 🎯 | `@chunker/tangents.m`, `@chunker/taus.m` | Tangent vectors from derivatives. |
@@ -188,29 +201,16 @@ src/
 | `signed_curvature` | ✅ 🧪 🎯 | `@chunker/signed_curvature.m` | Strict geometry fixture covers noncircular curvature values. |
 | `datares` | ✅ 🧪 🎯 | `@chunker/datares.m` | Python tested for high-order data flags and MATLAB fixture parity. |
 | `sortinfo` | ✅ 🧪 🎯 | `@chunker/sortinfo.m` | Strict geometry fixture covers sorted indices, adjacency, and info fields. |
-| `checkadjinfo` | ✅ 🧪 | `@chunker/checkadjinfo.m` | Python tested through adjacency checks. |
-| `sort` | ✅ 🧪 | `@chunker/sort.m` | Python tested on open segments. |
-| `flagnear` | ✅ 🧪 | `@chunker/flagnear.m`, `+chnk/flagnear*` helpers | Python tested against brute-force distances. |
-| `flagnear_rectangle` | ✅ 🧪 | `@chunker/flagnear_rectangle.m` | 2D only. |
-| `flagnear_rectangle_grid` | ✅ 🧪 | `@chunker/flagnear_rectangle_grid.m` | Python tested on meshgrid order. |
-| `nearest` | ✅ 🧪 | `@chunker/nearest.m` | Python tested for point/chunk selection. |
 | `min`, `max` | ✅ 🧪 🎯 | `@chunker/min.m`, `@chunker/max.m` | Tested against nodewise extrema and MATLAB fixture values. |
-| `recompute_geometry` | ✅ 🧪 | MATLAB geometry recomputation inside constructors/transforms | Python tested after transforms/refinement. |
 | `upsample` | ✅ 🧪 🎯 | `@chunker/upsample.m` | Python tested with density transfer and MATLAB fixture parity. |
 | `split` | ✅ 🧪 🎯 | `@chunker/split.m` | Focused parameter-space split parity covers geometry, weights, and adjacency. |
 | `refine` | ✅ 🧪 🎯 | `@chunker/refine.m` | Splits selected chunks, enforces max chunk length, arc-length level restriction, and oversampling; fixture covers selected split plus oversampling. |
 | `arcresample` | ✅ 🧪 🎯 | `@chunker/arcresample.m`, `+chnk/+arcparam/*` | Python tested for near-constant panel speed and MATLAB geometry parity. |
-| `translate` | ✅ 🧪 | `@chunker/plus.m` | Python operator helper. |
 | `reverse` | ✅ 🧪 🎯 | `@chunker/reverse.m` | Python tested with polygon helpers and MATLAB fixture parity. |
 | `rotate` | ✅ 🧪 🎯 | `@chunker/rotate.m` | Strict geometry fixture covers rotation about source/destination centers. |
 | `reflect` | ✅ 🧪 🎯 | `@chunker/reflect.m` | Strict geometry fixture covers reflection about shifted lines. |
-| `__add__`, `__radd__` | ✅ 🧪 | `@chunker/plus.m` | Translation operator. |
-| `chunkerpref` | ✅ 🧪 | `@chunkerpref/chunkerpref.m` | Python preference wrapper. |
-| `chunkerfuncuni` | ✅ 🧪 | `chunkerfuncuni.m` | Uniform panel count tested. |
-| `chunkerpoly` | ✅ 🧪 | `chunkerpoly.m`, `+chnk/+smoother/*` workflows | Straight-edge and rounded-corner polygon paths are implemented and tested. |
 | `chunkerpoints` | ✅ 🧪 🎯 | `chunkerpoints.m`, `@chunker/chunkerpoints.m` | Python tested with optional derivatives and MATLAB fixture parity. |
 | `merge` | ✅ 🧪 🎯 | `@chunker/merge.m` | Python tested for chunker/data row padding and MATLAB fixture parity. |
-| `_rounded_chunkerpoly`, `_polygon_widths`, `_fill_line_chunk`, `_fill_quadratic_chunk` | 🧩 ✅ 🧪 | `chunkerpoly.m`, `+chnk/+smoother/*` concepts | Internal rounded polygon construction helpers. |
 | `Chunker` | ✅ 🧪 🎯 | `@chunker/chunker.m` | Core storage and geometry object; MATLAB parity fixtures cover construction fields and many geometry transforms. |
 | `Chunker.__init__` | ✅ 🧪 🎯 | `@chunker/chunker.m` | Constructor defaults and validation covered by tests. |
 | `Chunker.k`, `dim`, `npt`, `datadim`, `nvert`, `vertdeg` | ✅ 🧪 🎯 | `@chunker/chunker.m` fields/properties | `k`, `dim`, geometry fields parity-tested through fixtures. |
@@ -236,28 +236,28 @@ src/
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
+| private graph helpers | 🧩 ✅ | Internal Python helpers | Include edge normalization, subchunking, simple cycles, polygon tests. |
+| `procverts` | ✅ 🧪 | `@chunkgraph/procverts.m` | Vertex incidence structure. |
+| `findregions` | ✅ 🧪 | `@chunkgraph/findregions.m` | Region/cycle discovery baseline. |
+| `refine` | ✅ 🧪 | `@chunkgraph/refine.m` | Delegates to edge chunker refinement. |
+| `copy` | ✅ 🧪 | MATLAB value-copy behavior | Python helper. |
+| `flagnear*` | ✅ 🧪 | `@chunkgraph/flagnear*.m` | Delegates to merged chunker helpers. |
+| operator overloads | ✅ 🧪 | `@chunkgraph/plus.m`, `mtimes.m` | Scalar/matrix/translation helpers. |
+| `tochunkgraph` | ✅ 🧪 | `@chunker/tochunkgraph.m` | Preserves closed/open components. |
+| `chunkgraphinregion` | ✅ 🧪 | `chunkgraphinregion.m` | Point-in-region baseline. |
 | `merged` | ✅ 🧪 🎯 | `@chunkgraph/*` merged geometry behavior | MATLAB fixture checks merged field access through `r`, `d`, `d2`, `n`, `wts`, and `adj`. |
 | `min`, `max` | ✅ 🧪 🎯 | `@chunkgraph/min.m`, `@chunkgraph/max.m` | MATLAB fixture covers nodewise extrema. |
-| private graph helpers | 🧩 ✅ | Internal Python helpers | Include edge normalization, subchunking, simple cycles, polygon tests. |
 | `SourceInfo` | ✅ 🧪 🎯 | MATLAB source-info structs | Python dataclass used by dense operators; fixture checks flattened source fields. |
 | `ChunkGraph` | ✅ 🧪 🎯 | `@chunkgraph/chunkgraph.m` | Core graph container. |
 | `ChunkGraph.__init__` | ✅ 🧪 🎯 | `@chunkgraph/chunkgraph.m` | Edge/vertex construction parity-tested on a square graph. |
 | properties `npt`, `k`, `dim`, `datadim`, `r`, `d`, `d2`, `n`, `wts`, `data`, `adj` | ✅ 🧪 🎯 | `@chunkgraph/chunkgraph.m` fields | Exposes merged edge chunker fields; core fields are fixture-tested. |
 | `sourceinfo` | ✅ 🧪 🎯 | MATLAB source-info structs | Used by dense operator tests and checked against geometry fixture fields. |
 | `build_v2emat` | ✅ 🧪 🎯 | `@chunkgraph/build_v2emat.m` | Vertex-to-edge incidence construction parity-tested. |
-| `procverts` | ✅ 🧪 | `@chunkgraph/procverts.m` | Vertex incidence structure. |
-| `findregions` | ✅ 🧪 | `@chunkgraph/findregions.m` | Region/cycle discovery baseline. |
 | `slicegraph` | ✅ 🧪 🎯 | `@chunkgraph/slicegraph.m` | Python tested and MATLAB fixture parity-tested. |
 | `edgeids` | ✅ 🧪 🎯 | `@chunkgraph/edgeids.m` | Python tested and MATLAB fixture parity-tested. |
-| `refine` | ✅ 🧪 | `@chunkgraph/refine.m` | Delegates to edge chunker refinement. |
-| `copy` | ✅ 🧪 | MATLAB value-copy behavior | Python helper. |
 | `translate`, `transform`, `rotate`, `reflect` | ✅ 🧪 🎯 | `@chunkgraph/plus.m`, `mtimes.m`, `rotate.m`, `reflect.m` | Translation/transform graph workflows have MATLAB fixture parity. |
 | `onesmat`, `normonesmat` | ✅ 🧪 🎯 | `@chunkgraph/onesmat.m`, `normonesmat.m` | Dense helper tests plus MATLAB fixture parity. |
-| `flagnear*` | ✅ 🧪 | `@chunkgraph/flagnear*.m` | Delegates to merged chunker helpers. |
-| operator overloads | ✅ 🧪 | `@chunkgraph/plus.m`, `mtimes.m` | Scalar/matrix/translation helpers. |
 | `chunkgraph` | ✅ 🧪 🎯 | `@chunkgraph/chunkgraph.m`, `chunkgraphinit.m` | Python constructor wrapper with square-graph fixture parity. |
-| `tochunkgraph` | ✅ 🧪 | `@chunker/tochunkgraph.m` | Preserves closed/open components. |
-| `chunkgraphinregion` | ✅ 🧪 | `chunkgraphinregion.m` | Point-in-region baseline. |
 
 #### `domain.py`
 
@@ -289,9 +289,9 @@ src/
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
+| `_pack` | 🧩 ✅ | Internal Python helper | No direct MATLAB file. |
 | `fpara` | ✅ 🧪 🎯 | `+chnk/+curves/fpara.m` | MATLAB fixture covers positions and first/second derivatives. |
 | `bymode` | ✅ 🧪 🎯 | `+chnk/+curves/bymode.m` | MATLAB fixture covers modes, center, and anisotropic scaling. |
-| `_pack` | 🧩 ✅ | Internal Python helper | No direct MATLAB file. |
 | `linefunc` | ✅ 🧪 🎯 | `+chnk/+curves/linefunc.m` | Tested and MATLAB fixture parity-tested. |
 | `fsine` | ✅ 🧪 🎯 | `+chnk/+curves/fsine.m` | Tested and MATLAB fixture parity-tested. |
 
@@ -300,12 +300,12 @@ src/
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
 | `_ptinfo_field` | 🧩 ✅ | Internal Python helper | No direct MATLAB file. |
-| `perp` | ✅ 🧪 🎯 | `+chnk/perp.m` | Tested and MATLAB fixture parity-tested. |
-| `normal2d` | ✅ 🧪 🎯 | `+chnk/normal2d.m` | Tested and MATLAB fixture parity-tested. |
-| `curvature2d` | ✅ 🧪 🎯 | `+chnk/curvature2d.m` | Tested and MATLAB fixture parity-tested. |
 | `flagnear` | ✅ 🧪 | `@chunker/flagnear.m` / `@chunkgraph/flagnear.m` behavior | Delegates to chunker implementation; chunker and chunkgraph paths tested. |
 | `flagnear_rectangle` | ✅ 🧪 | `@chunker/flagnear_rectangle.m` | Delegates to chunker implementation; per-chunk padding and chunkgraph delegation tested. |
 | `flagnear_rectangle_grid` | ✅ 🧪 | `@chunker/flagnear_rectangle_grid.m` | Delegates to chunker implementation. |
+| `perp` | ✅ 🧪 🎯 | `+chnk/perp.m` | Tested and MATLAB fixture parity-tested. |
+| `normal2d` | ✅ 🧪 🎯 | `+chnk/normal2d.m` | Tested and MATLAB fixture parity-tested. |
+| `curvature2d` | ✅ 🧪 🎯 | `+chnk/curvature2d.m` | Tested and MATLAB fixture parity-tested. |
 | `flagself` | ✅ 🧪 🎯 | `+chnk/flagself.m` | Tested and MATLAB fixture parity-tested with one-based MATLAB pair conversion. |
 | `chunk_nearparam` | ✅ 🧪 🎯 | `+chnk/chunk_nearparam.m` | Tested on a line segment and MATLAB fixture parity-tested on a curved panel. |
 
