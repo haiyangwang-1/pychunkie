@@ -16,6 +16,7 @@ from typing import Any
 
 import numpy as np
 from numpy.typing import ArrayLike
+from scipy import sparse
 
 from chunkie import lege
 from chunkie.chunker import Chunker
@@ -188,12 +189,75 @@ def buildmat(
     return mat
 
 
+def buildmattd(
+    chnkr: Chunker,
+    kern: Callable[[Any, Any], np.ndarray],
+    opdims: tuple[int, int] | None = None,
+    type: str = "log",
+    auxquads: AuxQuad | None = None,
+    ilist: ArrayLike | None = None,
+    corrections: bool = False,
+) -> sparse.csr_matrix:
+    """Build the sparse matrix of special self and neighbor blocks only."""
+
+    if opdims is None:
+        opdims = getattr(kern, "opdims", None)
+    if opdims is None or opdims == (0, 0):
+        raise ValueError("opdims must be provided for special quadrature assembly")
+
+    aux = setup(chnkr.k, type) if auxquads is None else auxquads
+    ignored = set() if ilist is None else {int(idx) for idx in np.asarray(ilist, dtype=int).reshape(-1)}
+    op0 = int(opdims[0])
+    op1 = int(opdims[1])
+    rows: list[np.ndarray] = []
+    cols: list[np.ndarray] = []
+    vals: list[np.ndarray] = []
+
+    def append_block(targ_chunk: int, src_chunk: int, block: np.ndarray) -> None:
+        row0 = targ_chunk * chnkr.k * op0
+        col0 = src_chunk * chnkr.k * op1
+        rr, cc = np.indices(block.shape)
+        rows.append((row0 + rr).reshape(-1))
+        cols.append((col0 + cc).reshape(-1))
+        vals.append(block.reshape(-1))
+
+    for src_chunk in range(chnkr.nch):
+        left, right = chnkr.adj[:, src_chunk]
+        for targ_chunk in (int(left) - 1, int(right) - 1):
+            if targ_chunk < 0 or targ_chunk >= chnkr.nch:
+                continue
+            if src_chunk in ignored and targ_chunk in ignored:
+                continue
+            append_block(
+                targ_chunk,
+                src_chunk,
+                nearbuildmat(chnkr, targ_chunk, src_chunk, kern, (op0, op1), aux, corrections=corrections),
+            )
+
+        if src_chunk in ignored:
+            continue
+        append_block(
+            src_chunk,
+            src_chunk,
+            diagbuildmat(chnkr, src_chunk, kern, (op0, op1), aux, corrections=corrections),
+        )
+
+    shape = (chnkr.npt * op0, chnkr.npt * op1)
+    if not vals:
+        return sparse.csr_matrix(shape, dtype=float)
+    data = np.concatenate(vals)
+    dtype = np.result_type(data, _kernel_dtype(chnkr, kern))
+    return sparse.coo_matrix((data.astype(dtype, copy=False), (np.concatenate(rows), np.concatenate(cols))), shape=shape).tocsr()
+
+
 def diagbuildmat(
     chnkr: Chunker,
     i: int,
     kern: Callable[[Any, Any], np.ndarray],
     opdims: tuple[int, int],
     aux: AuxQuad | None = None,
+    corrections: bool = False,
+    wtss: ArrayLike | None = None,
 ) -> np.ndarray:
     """Build a special self-interaction block for chunk ``i``."""
 
@@ -221,6 +285,20 @@ def diagbuildmat(
         block = kvals * np.repeat(weights, int(opdims[1]))[None, :]
         rows = slice(int(opdims[0]) * inode, int(opdims[0]) * (inode + 1))
         out[rows, :] = block @ np.kron(interp, np.eye(int(opdims[1])))
+    if corrections:
+        src0 = PointInfo(r=rs, d=ds, d2=d2s, n=ns, data=dd)
+        smooth = np.array(_eval_kernel(kern, src0, src0), copy=True)
+        op0 = int(opdims[0])
+        op1 = int(opdims[1])
+        for inode in range(k):
+            row = slice(op0 * inode, op0 * (inode + 1))
+            col = slice(op1 * inode, op1 * (inode + 1))
+            smooth[row, col] = 0.0
+        if wtss is None:
+            wtsi = chnkr.wts[:, i]
+        else:
+            wtsi = np.asarray(wtss)[:, i]
+        out = out - np.nan_to_num(smooth, nan=0.0, posinf=0.0, neginf=0.0) * np.repeat(wtsi, op1)[None, :]
     return out
 
 

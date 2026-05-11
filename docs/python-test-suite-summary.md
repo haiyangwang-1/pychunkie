@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 193 pytest cases because several MATLAB parity tests are
+collection expands to 194 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 
@@ -70,8 +70,7 @@ Should implement:
   families, including `chunkermat` FMM acceleration, `chunkerinterior` FMM
   acceleration, and missing selector wiring for remaining biharmonic selectors,
   elasticity, and other unsupported selectors.
-- Full adaptive/close quadrature: complete `quadadap` and
-  `quadggq/buildmattd`.
+- Full adaptive/close quadrature: complete `quadadap`.
 - Advanced RCIP workflows beyond the current two-edge corner fixture.
 - `chunkerinterior` close-boundary correction.
 
@@ -86,6 +85,7 @@ Implemented from this scope:
 - Remaining `+lege` helpers: `adapgauss`, `bernstein_ellipse`, `polsum`, and
   `tayl`.
 - Adaptive refinement in `chunker.refine` and `chunkerfunc`.
+- `quadggq/buildmattd` sparse special-block assembly.
 
 Deferred implementation:
 
@@ -952,6 +952,12 @@ the correction.
 blocks from a fully special matrix, a skipped matrix, and a force-smooth matrix.
 Ground truth is that skipped blocks use smooth/native assembly, while unrelated
 blocks still use special quadrature.
+
+`test_buildmattd_returns_sparse_special_blocks_only` checks sparse
+special-block assembly. The method calls `quadggq.buildmattd` and compares
+self and neighbor blocks against `quadggq.buildmat`, verifies a far block is
+zero, and checks `ilist` skip behavior. Ground truth is exact block equality
+and a SciPy sparse return type.
 
 `test_pv_and_hs_ggq_tables_are_available_for_matlab_orders` checks PV and
 hypersingular table availability. The method is `hqsuppavail`, `getpvquad`,

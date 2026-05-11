@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 193 tests: `192 passed, 1 failed` (`tests/test_devtools_parity.py::test_smoother_devtools_output_matches_matlab_thresholds`, current fixture lacks `fixture.chunker.npt`). Targeted geometry/domain run `uv run pytest tests/test_domain.py tests/test_chunkgraph.py tests/test_chunkerfunc.py`: `17 passed`; targeted chunker refinement run `uv run pytest tests/test_chunker.py tests/test_chunkerfunc.py`: `23 passed`; targeted kernel run `uv run pytest tests/test_kernel.py`: `11 passed`; targeted Legendre run `uv run pytest tests/test_lege.py`: `12 passed`.
+Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 194 tests: `193 passed, 1 failed` (`tests/test_devtools_parity.py::test_smoother_devtools_output_matches_matlab_thresholds`, current fixture lacks `fixture.chunker.npt`). Targeted quadrature run `uv run pytest tests/test_quadggq.py`: `11 passed`; targeted geometry/domain run `uv run pytest tests/test_domain.py tests/test_chunkgraph.py tests/test_chunkerfunc.py`: `17 passed`; targeted chunker refinement run `uv run pytest tests/test_chunker.py tests/test_chunkerfunc.py`: `23 passed`; targeted kernel run `uv run pytest tests/test_kernel.py`: `11 passed`; targeted Legendre run `uv run pytest tests/test_lege.py`: `12 passed`.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -396,12 +396,13 @@ their matching `@kernel` factories.
 | `getpvquad`, `gethsquad` | ✅ 🧪 | `hsupp_*`, `hqsupp_*` support tables | Convenience wrappers for PV and hypersingular support rules. |
 | `getremovablequad` | ✅ 🧪 | `+chnk/+quadggq/getremovablequad.m` | Tested through setup/build paths. |
 | `buildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/buildmat.m` | Log/PV/HS matrix assembly and `ilist` skipping are MATLAB-fixture tested. |
+| `buildmattd` | ✅ 🧪 | `+chnk/+quadggq/buildmattd.m` | Sparse special-block matrix for self/neighbor interactions with `ilist` skipping tested. |
 | `diagbuildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/diagbuildmat.m` | Tested through MATLAB-parity `buildmat` special-quadrature paths. |
 | `nearbuildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/nearbuildmat.m` | Oversampled neighbor block, MATLAB-style correction subtraction, and full matrix near blocks are tested. |
 | `_matlab_quadggq_dir`, `_parse_matlab_cell_table`, `_parse_cells`, `_parse_matlab_vector_assignment` | 🧩 ✅ 🧪 | MATLAB generated quadrature table files | Internal readers for reference `.m` table files. |
 | other private helpers | 🧩 ✅ | Internal Python helpers | Interpolation/block slicing/dtype helpers. |
 
-🚧 MATLAB files/workflows to implement here include full `quadadap` close-interaction behavior and `quadggq/buildmattd.m`. Log/PV/HS support tables are now consumed when the MATLAB reference checkout is available. `quadba` is an explicit non-goal for this port.
+🚧 MATLAB files/workflows to implement here include full `quadadap` close-interaction behavior. Log/PV/HS support tables are now consumed when the MATLAB reference checkout is available. `quadba` is an explicit non-goal for this port.
 
 ### `chnk/rcip.py`
 
@@ -544,7 +545,7 @@ Scope triage for MATLAB areas with no full Python equivalent yet:
 Should implement:
 
 - 🚧 FMM integration everywhere it applies to implemented kernel/operator families, including `chunkermat` FMM acceleration and missing selector wiring for remaining biharmonic selectors, elasticity, and other currently unsupported selectors.
-- 🚧 Full adaptive/close quadrature: complete `+chnk/+quadadap/*` and `+chnk/+quadggq/buildmattd.m`.
+- 🚧 Full adaptive/close quadrature: complete `+chnk/+quadadap/*`.
 - 🚧 Advanced RCIP workflows beyond the current two-edge corner fixture, including broader multi-kernel block coverage and production examples.
 - 🚧 `chunkerinterior` close-boundary correction and FMM interior acceleration.
 
