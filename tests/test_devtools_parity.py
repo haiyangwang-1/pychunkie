@@ -1,9 +1,24 @@
 import numpy as np
 import pytest
 
-from chunkie import Chunker, chunkerfit, chunkerfunc, chunkerfuncuni, chunkerintegral, chunkerinterior, chunkermat, chunkerpoly, chunkgraph, kernel, lege, tochunkgraph
+from chunkie import (
+    Chunker,
+    chunkerfit,
+    chunkerfunc,
+    chunkerfuncuni,
+    chunkerintegral,
+    chunkerinterior,
+    chunkerkerneval,
+    chunkerkernevalmat,
+    chunkermat,
+    chunkerpoly,
+    chunkgraph,
+    kernel,
+    lege,
+    tochunkgraph,
+)
 from chunkie.chnk import arcparam, curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, quadadap, smoother, spcl
-from chunkie.operators import PointInfo
+from chunkie.operators import PointInfo, pointinfo
 from _fixture_generation import load_generated_mat_fixture
 
 
@@ -44,6 +59,21 @@ def point_array(value) -> np.ndarray:
     if arr.ndim == 1:
         arr = arr.reshape(-1, 1)
     return arr
+
+
+def laplace_green_identity_quantities(fixture):
+    chnkr = chunker_from_fields(fixture.chunker)
+    src = PointInfo(r=point_array(fixture.sources))
+    targ = PointInfo(r=point_array(fixture.targets))
+    strengths = np.asarray(fixture.strengths).reshape(-1, order="F")
+    lap_s = kernel("lap", "s")
+    lap_sp = kernel("lap", "sprime")
+    lap_d = kernel("lap", "d")
+    boundary = pointinfo(chnkr)
+    densu = lap_s(src, boundary) @ strengths
+    densun = lap_sp(src, boundary) @ strengths
+    utarg = lap_s(src, targ) @ strengths
+    return chnkr, lap_s, lap_d, densu, densun, utarg
 
 
 def sorted_pairs(pairs: np.ndarray) -> np.ndarray:
@@ -593,6 +623,89 @@ def test_stokes_dtrac_devtools_output_matches_matlab():
     np.testing.assert_allclose(reconstructed, fixture.reconstructed, rtol=1e-13, atol=1e-13)
     np.testing.assert_allclose(reconstructed, kt, rtol=1e-13, atol=1e-13)
     assert float(fixture.residual_norm) < 1e-13
+
+
+def test_kernelclass_devtools_green_identity_matches_matlab():
+    fixture = load_devtools_easy().kernelclass
+    chnkr, lap_s, lap_d, densu, densun, utarg = laplace_green_identity_quantities(fixture)
+
+    Du = chunkerkerneval(chnkr, lap_d, densu, fixture.targets).reshape(-1, order="F")
+    Sun = chunkerkerneval(chnkr, lap_s, densun, fixture.targets).reshape(-1, order="F")
+    identity = Sun - Du
+    Du_fmm = chunkerkerneval(chnkr, lap_d, densu, fixture.targets, {"acceleration": "fmm", "eps": 1e-12}).reshape(-1, order="F")
+    Sun_fmm = chunkerkerneval(chnkr, lap_s, densun, fixture.targets, {"acceleration": "fmm", "eps": 1e-12}).reshape(-1, order="F")
+    identity_fmm = Sun_fmm - Du_fmm
+
+    np.testing.assert_allclose(densu, fixture.ubdry, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(densun, fixture.unbdry, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(utarg, fixture.utarg, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(Du, fixture.Du, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(Sun, fixture.Sun, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(identity, fixture.utarg_identity, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(Du_fmm, fixture.Du_fmm, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(Sun_fmm, fixture.Sun_fmm, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(identity_fmm, fixture.utarg_identity_fmm, rtol=1e-10, atol=1e-12)
+    assert np.linalg.norm(utarg - identity) / np.linalg.norm(utarg) < 1e-11
+    assert np.linalg.norm(utarg - identity_fmm) / np.linalg.norm(utarg) < 1e-11
+    assert float(fixture.relerr) < 1e-11
+    assert float(fixture.relerr_fmm) < 1e-11
+    assert bool(fixture.nankern_isnan)
+    assert bool(fixture.sum_isnan)
+    assert bool(fixture.scaled_isnan)
+    nan_k = kernel("nan")
+    assert nan_k.isnan
+    assert (lap_d + nan_k).isnan
+    assert (np.nan * lap_s).isnan
+
+
+def test_chunkerkerneval_greenlap_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().chunkerkerneval_greenlap
+    chnkr, lap_s, lap_d, densu, densun, utarg = laplace_green_identity_quantities(fixture)
+
+    Du_direct = chunkerkerneval(chnkr, lap_d, densu, fixture.targets).reshape(-1, order="F")
+    Sun_direct = chunkerkerneval(chnkr, lap_s, densun, fixture.targets).reshape(-1, order="F")
+    identity_direct = Sun_direct - Du_direct
+    Du_fmm = chunkerkerneval(chnkr, lap_d, densu, fixture.targets, {"acceleration": "fmm", "eps": 1e-12}).reshape(-1, order="F")
+    Sun_fmm = chunkerkerneval(chnkr, lap_s, densun, fixture.targets, {"acceleration": "fmm", "eps": 1e-12}).reshape(-1, order="F")
+    identity_fmm = Sun_fmm - Du_fmm
+
+    np.testing.assert_allclose(densu, fixture.densu, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(densun, fixture.densun, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(utarg, fixture.utarg, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(Du_direct, fixture.Du_direct, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(Sun_direct, fixture.Sun_direct, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(identity_direct, fixture.utarg_identity_direct, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(Du_fmm, fixture.Du_fmm, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(Sun_fmm, fixture.Sun_fmm, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(identity_fmm, fixture.utarg_identity_fmm, rtol=1e-10, atol=1e-12)
+    assert np.linalg.norm(utarg - identity_direct) / np.linalg.norm(utarg) < 1e-11
+    assert np.linalg.norm(utarg - identity_fmm) / np.linalg.norm(utarg) < 1e-11
+    assert float(fixture.relerr_direct) < 1e-11
+    assert float(fixture.relerr_fmm) < 1e-11
+    assert bool(fixture.flam_deferred)
+
+
+def test_chunkerkernevalmat_greenlap_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().chunkerkernevalmat_greenlap
+    chnkr, lap_s, lap_d, densu, densun, utarg = laplace_green_identity_quantities(fixture)
+
+    Dmat = chunkerkernevalmat(chnkr, lap_d, fixture.targets)
+    Smat = chunkerkernevalmat(chnkr, lap_s, fixture.targets)
+    Du = Dmat @ densu
+    Sun = Smat @ densun
+    identity = Sun - Du
+
+    np.testing.assert_allclose(densu, fixture.densu, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(densun, fixture.densun, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(utarg, fixture.utarg, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(Dmat, fixture.Dmat, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(Smat, fixture.Smat, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(Du, fixture.Du, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(Sun, fixture.Sun, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(identity, fixture.utarg_identity, rtol=1e-10, atol=1e-12)
+    assert np.linalg.norm(utarg - identity) / np.linalg.norm(utarg) < 1e-11
+    assert float(fixture.relerr) < 1e-11
+    assert float(fixture.relerr_forceadap) < 1e-11
 
 
 def test_chunkermat_quadadap_devtools_outputs_match_matlab():
