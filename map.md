@@ -12,7 +12,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-04 with Python 3.11.9: `149 passed`.
+Verification snapshot: `uv run pytest` on 2026-05-10 with Python 3.11.9: `154 passed`.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -167,9 +167,9 @@ src/
 | `Chunker.r`, `d`, `d2`, `n`, `wts`, `adj`, `data` | ✅ 🧪 🎯 | `@chunker/chunker.m` fields | `r`, `d`, `d2`, `n`, `wts`, `adj` checked against MATLAB fixtures. |
 | `copy` | ✅ 🧪 | MATLAB value-copy behavior | Python explicit copy helper. |
 | `addchunk` | ✅ 🧪 🎯 | `@chunker/chunker.m` storage behavior | Used by MATLAB fixture reconstruction. |
-| `resize` | ✅ | `@chunker/chunker.m` storage behavior | No direct focused test yet. |
+| `resize` | ✅ 🧪 | `@chunker/chunker.m` storage behavior | Focused storage-growth test covers live storage preservation. |
 | `makedatarows` | ✅ 🧪 | `@chunker/makedatarows.m` | Tested for data row allocation. |
-| `cleardata` | ✅ | `@chunker/makedatarows.m` / data field behavior | No focused test yet. |
+| `cleardata` | ✅ 🧪 | `@chunker/makedatarows.m` / data field behavior | Tested for data-row reset behavior. |
 | `weights` | ✅ 🧪 | `@chunker/weights.m`, `@chunker/whts.m` | Returns quadrature weights. |
 | `normals` | ✅ 🧪 | `@chunker/normals.m` | 2D only; raises for non-2D. |
 | `tangents` | ✅ 🧪 | `@chunker/tangents.m`, `@chunker/taus.m` | Tangent vectors from derivatives. |
@@ -177,7 +177,7 @@ src/
 | `arclengthder` | ✅ 🧪 | `@chunker/arclengthder.m` | Tested on circle data. |
 | `arclengthfun` | ✅ 🧪 | `@chunker/arclengthfun.m` | Tested on circle data. |
 | `chunklen` | ✅ 🧪 🎯 | `@chunker/chunklen.m` | MATLAB parity fixture checks values. |
-| `chunkends` | ✅ | `@chunker/chunkends.m` | Implemented; no focused test yet. |
+| `chunkends` | ✅ 🧪 | `@chunker/chunkends.m` | Endpoint and tangent normalization behavior tested. |
 | `area` | ✅ 🧪 🎯 | `@chunker/area.m` | MATLAB parity fixture checks values. |
 | `signed_curvature` | ✅ 🧪 | `@chunker/signed_curvature.m` | Python tested; not yet golden-parity tested. |
 | `exps` | ✅ 🧪 🎯 | `@chunker/exps.m`, `+lege/exps.m` | MATLAB parity via Legendre fixture and chunker fixture. |
@@ -194,7 +194,7 @@ src/
 | `flagnear_rectangle` | ✅ 🧪 | `@chunker/flagnear_rectangle.m` | 2D only. |
 | `flagnear_rectangle_grid` | ✅ 🧪 | `@chunker/flagnear_rectangle_grid.m` | Python tested on meshgrid order. |
 | `nearest` | ✅ 🧪 | `@chunker/nearest.m` | Python tested for point/chunk selection. |
-| `min`, `max` | ✅ | `@chunker/min.m`, `@chunker/max.m` | Implemented; no focused test yet. |
+| `min`, `max` | ✅ 🧪 | `@chunker/min.m`, `@chunker/max.m` | Tested against nodewise extrema. |
 | `recompute_geometry` | ✅ 🧪 | MATLAB geometry recomputation inside constructors/transforms | Python tested after transforms/refinement. |
 | `upsample` | ✅ 🧪 | `@chunker/upsample.m` | Python tested with density transfer. |
 | `split` | ✅ 🧪 | `@chunker/split.m` | Tested indirectly through `refine`; add focused parity later. |
@@ -254,21 +254,21 @@ src/
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
-| `Kernel` | ✅ 🧪 | `@kernel/kernel.m` | Callable wrapper with op dimensions, singularity metadata, and dense-direct FMM fallback hooks. |
+| `Kernel` | ✅ 🧪 | `@kernel/kernel.m` | Callable wrapper with op dimensions, singularity metadata, and `fmm2dpy`/dense-direct FMM hooks. |
 | `Kernel.__call__` | ✅ 🧪 | `@kernel/kernel.m` | Direct evaluation tested through operator/kernel tests. |
-| `Kernel.__add__`, `__sub__`, `__neg__` | ✅ 🧪 | `@kernel/plus.m`, `minus.m`, `uminus.m` | Arithmetic behavior and FMM-fallback algebra tested. |
-| `Kernel.__mul__`, `__rmul__`, `__truediv__` | ✅ 🧪 | `@kernel/times.m`, `mtimes.m`, `rdivide.m`, `mrdivide.m` | Scalar composition and FMM-fallback scaling tested. |
-| `Kernel.conj`, `conjugate` | ✅ 🧪 | `@kernel/conj.m` | Conjugation and FMM-fallback conjugation tested. |
+| `Kernel.__add__`, `__sub__`, `__neg__` | ✅ 🧪 | `@kernel/plus.m`, `minus.m`, `uminus.m` | Arithmetic behavior and FMM algebra tested. |
+| `Kernel.__mul__`, `__rmul__`, `__truediv__` | ✅ 🧪 | `@kernel/times.m`, `mtimes.m`, `rdivide.m`, `mrdivide.m` | Scalar composition and FMM scaling tested. |
+| `Kernel.conj`, `conjugate` | ✅ 🧪 | `@kernel/conj.m` | Conjugation and FMM conjugation tested. |
 | `Kernel.zeros`, `Kernel.nans`, module `zeros`, `nans` | ✅ 🧪 | `@kernel/zeros.m`, `@kernel/nans.m` | Tested. |
 | `kernel` | ✅ 🧪 | `@kernel/kernel.m` | Dispatches strings, callables, existing kernels, and block arrays for `interleave`. |
-| `lap2d_kernel` | ✅ 🧪 | `@kernel/lap2d.m`, `+chnk/+lap2d/kern.m` | Tested through string dispatch. |
-| `helm2d_kernel` | ✅ 🧪 | `@kernel/helm2d.m`, `+chnk/+helm2d/kern.m` | Tested through string dispatch. |
+| `lap2d_kernel` | ✅ 🧪 | `@kernel/lap2d.m`, `+chnk/+lap2d/kern.m`, `+chnk/+lap2d/fmm.m` concepts | String dispatch plus `fmm2dpy` single, double, and gradient layer paths tested against dense direct evaluation. |
+| `helm2d_kernel` | ✅ 🧪 | `@kernel/helm2d.m`, `+chnk/+helm2d/kern.m`, `+chnk/+helm2d/fmm.m` concepts | String dispatch plus `fmm2dpy` single, double, and single-gradient paths tested against dense direct evaluation. |
 | `helm1d_kernel` | ✅ 🧪 | `@kernel/helm1d.m`, `+chnk/+helm1d/kern.m` | Tested through string dispatch. |
 | `biharm2d_kernel` | ✅ 🧪 | `fmm2d/src/biharmonic/*`, `+chnk/+flex2d/bhgreen.m` concepts | Biharmonic Green-kernel factory and selectors tested. |
 | `stok2d_kernel` | ✅ 🧪 | `@kernel/stok2d.m`, `+chnk/+stok2d/kern.m` | Tested through string dispatch. |
 | `elast2d_kernel` | ✅ 🧪 | `@kernel/elast2d.m`, `+chnk/+elast2d/kern.m` | Tested through string dispatch. |
-| `interleave` | ✅ 🧪 | MATLAB block kernel composition patterns | Builds mixed block systems from kernel arrays; direct and FMM-fallback paths tested. |
-| `_direct_fmm`, `_sum_fmm`, `_interleave_fmm`, `_interleave_indices`, `_target_count` | 🧩 ✅ 🧪 | FMM-backed MATLAB kernel conventions | Current fallback applies dense direct matrices rather than external FMM acceleration. |
+| `interleave` | ✅ 🧪 | MATLAB block kernel composition patterns | Builds mixed block systems from kernel arrays; direct and FMM paths tested. |
+| `_lap2d_fmm`, `_helm2d_fmm`, `_direct_fmm`, `_sum_fmm`, `_interleave_fmm`, `_interleave_indices`, `_target_count` | 🧩 ✅ 🧪 | FMM-backed MATLAB kernel conventions | Laplace/Helmholtz supported selectors call `fmm2dpy`; unsupported kernels retain dense-direct fallback callables. |
 | `_infer_opdims`, `_worst_sing`, `_worst_many` | 🧩 ✅ | Internal Python helpers | No direct MATLAB file. |
 
 🚧 MATLAB kernel factories not yet represented in Python: `axissymhelm2d`, `axissymhelm2ddiff`, `helm2ddiff`, `helm2dquas`.
@@ -324,7 +324,7 @@ src/
 | `elast2d.kern` | ✅ 🧪 🎯 | `+chnk/+elast2d/kern.m` | Elasticity variants parity-tested. |
 | private kernel helpers | 🧩 ✅ | Internal Python helpers | Interleaving and validation helpers. |
 
-🚧 External FMM entry points are still absent for now: `+chnk/+lap2d/fmm.m`, `+chnk/+helm2d/fmm.m`, `+chnk/+stok2d/fmm.m`, and biharmonic FMM2D wrappers. The Python package now declares the upstream `fmm2dpy` dependency, but kernel objects currently still provide dense-direct fallback `fmm` callables for testing and API compatibility.
+⚠️ External FMM acceleration is partially wired through `fmm2dpy`: Laplace single, double, single-gradient, and double-gradient selectors and Helmholtz single, double, and single-gradient selectors use the compiled wrappers when `usefmm` is requested. Stokes, biharmonic, elasticity, Helmholtz double-gradient, and other unsupported selectors still use dense-direct fallback `fmm` callables for API compatibility.
 
 ### `chnk/geometry.py`
 
@@ -333,8 +333,8 @@ src/
 | `perp` | ✅ 🧪 | `+chnk/perp.m` | Tested. |
 | `normal2d` | ✅ 🧪 | `+chnk/normal2d.m` | Tested. |
 | `curvature2d` | ✅ 🧪 | `+chnk/curvature2d.m` | Tested. |
-| `flagnear` | ✅ 🧪 | `@chunker/flagnear.m` / `@chunkgraph/flagnear.m` behavior | Delegates to chunker implementation. |
-| `flagnear_rectangle` | ✅ 🧪 | `@chunker/flagnear_rectangle.m` | Delegates to chunker implementation. |
+| `flagnear` | ✅ 🧪 | `@chunker/flagnear.m` / `@chunkgraph/flagnear.m` behavior | Delegates to chunker implementation; chunker and chunkgraph paths tested. |
+| `flagnear_rectangle` | ✅ 🧪 | `@chunker/flagnear_rectangle.m` | Delegates to chunker implementation; per-chunk padding and chunkgraph delegation tested. |
 | `flagnear_rectangle_grid` | ✅ 🧪 | `@chunker/flagnear_rectangle_grid.m` | Delegates to chunker implementation. |
 | `flagself` | ✅ 🧪 | `+chnk/flagself.m` | Tested. |
 | `chunk_nearparam` | ✅ 🧪 | `+chnk/chunk_nearparam.m` | Tested on a line segment. |
@@ -367,7 +367,7 @@ src/
 | `getremovablequad` | ✅ 🧪 | `+chnk/+quadggq/getremovablequad.m` | Tested through setup/build paths. |
 | `buildmat` | ⚠️ 🧪 🎯 | `+chnk/+quadggq/buildmat.m` | Removes log/PV/HS singular diagonal issues; dense parity covered through `chunkermat`, while full MATLAB near-rule coverage remains partial. |
 | `diagbuildmat` | ✅ 🧪 | `+chnk/+quadggq/diagbuildmat.m` | Tested through `buildmat` special-quadrature paths. |
-| `nearbuildmat` | ⚠️ | `+chnk/+quadggq/nearbuildmat.m` | Present baseline; add near-field parity tests later. |
+| `nearbuildmat` | ⚠️ 🧪 | `+chnk/+quadggq/nearbuildmat.m` | Oversampled neighbor block and MATLAB-style correction subtraction path tested; generated near-rule parity remains partial. |
 | `_matlab_quadggq_dir`, `_parse_matlab_cell_table`, `_parse_cells` | 🧩 ✅ 🧪 | MATLAB generated quadrature table files | Internal readers for reference `.m` table files. |
 | other private helpers | 🧩 ✅ | Internal Python helpers | Interpolation/block slicing/dtype helpers. |
 
@@ -515,6 +515,6 @@ These are useful future implementation targets from `external/chunkie-matlab/chu
 ## Recommended Next Flags To Upgrade
 
 - Add golden MATLAB fixtures for `chunkerpoly` rounded paths, `chunkerfit`, `sortinfo`, `chunkgraph`, `arcparam`, `geometry`, `spcl`, `smoother`, `rcip`, and `biharm2d` to upgrade many ✅ 🧪 nodes to 🎯.
-- Add focused tests for implemented but currently untested methods such as `min`, `max`, `chunkends`, `resize`, `cleardata`, and `nearbuildmat`.
+- Add focused tests for remaining implemented but currently lightly tested methods, especially `ChunkGraph.min`/`max`, `ChunkGraph.merged`, `curves.fpara`, and `curves.bymode`.
 - Decide how far `rcip.py`, `smoother.py`, and `quadadap.py` should go in the near term: all are present and mapped, but their full MATLAB workflows still have ⚠️/🚧 areas.
-- Wire kernel `fmm` callables to `fmm2dpy` wrappers while keeping dense-direct fallbacks available for unsupported kernels and tests.
+- Extend `fmm2dpy` wiring to Stokes, biharmonic, Helmholtz double-gradient, and any safe elasticity/direct fallback selectors while keeping dense-direct fallbacks available for unsupported kernels and tests.
