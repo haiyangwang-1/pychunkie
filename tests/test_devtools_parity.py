@@ -5,7 +5,7 @@ import pytest
 from scipy.io import loadmat
 
 from chunkie import Chunker, kernel, lege
-from chunkie.chnk import flagself, spcl
+from chunkie.chnk import flagself, helm2d, spcl
 from chunkie.operators import PointInfo
 
 
@@ -144,6 +144,18 @@ def test_flagself_devtools_output_matches_matlab():
     assert int(fixture.err_count) == 0
     np.testing.assert_array_equal(sorted_pairs(actual), sorted_pairs(expected))
     np.testing.assert_allclose(fixture.srcs[:, actual[0]], fixture.targs[:, actual[1]], atol=1e-10)
+
+
+def test_helm2d_green_devtools_output_matches_matlab():
+    fixture = load_devtools_easy().helm2d_green
+    val, grad, hess = helm2d.green(fixture.zk, fixture.src, fixture.trg)
+
+    np.testing.assert_allclose(np.squeeze(val), np.squeeze(fixture.val), rtol=1e-13, atol=1e-13)
+    np.testing.assert_allclose(np.squeeze(grad), np.squeeze(fixture.grad), rtol=1e-13, atol=1e-13)
+    np.testing.assert_allclose(np.squeeze(hess), np.squeeze(fixture.hess), rtol=1e-13, atol=1e-13)
+    assert np.min(np.abs(fixture.errsf)) < 1e-10
+    assert np.min(np.abs(fixture.errsfx)) < 1e-8
+    assert np.min(np.abs(fixture.errsfy)) < 1e-8
 
 
 def test_kernelop_devtools_outputs_match_matlab():

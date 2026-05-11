@@ -129,6 +129,26 @@ fs.flagged_count = size(fs.flagslf, 2);
 fs.err_count = sum(vecnorm(fs.srcs(:,fs.flagslf(1,:)) - fs.targs(:,fs.flagslf(2,:))) > 1e-10);
 devtools_easy.flagself = fs;
 
+% helm2d_greenTest.m
+h2g = [];
+rng(8675309);
+h2g.zk = randn() + 1i*randn();
+h2g.start_eps = 1.0;
+h2g.src = randn(2,1);
+h2g.trg = randn(2,1);
+h2g.mu = randn(2,1);
+h2g.srcn = randn(2,1);
+h2g.srcn = h2g.srcn/(norm(h2g.srcn));
+[h2g.val, h2g.grad, h2g.hess] = chnk.helm2d.green(h2g.zk, h2g.src, h2g.trg);
+h2g.niter = 9;
+h2g.errsf = gradient_check(@(x) local_helm2d_green_val(h2g.zk, h2g.src, x), ...
+    h2g.trg, h2g.start_eps, h2g.niter, false);
+h2g.errsfx = gradient_check(@(x) local_helm2d_green_gradx(h2g.zk, h2g.src, x), ...
+    h2g.trg, h2g.start_eps, h2g.niter, false);
+h2g.errsfy = gradient_check(@(x) local_helm2d_green_grady(h2g.zk, h2g.src, x), ...
+    h2g.trg, h2g.start_eps, h2g.niter, false);
+devtools_easy.helm2d_green = h2g;
+
 % kernelopTest.m
 kop = [];
 rng(8675309);
@@ -166,4 +186,20 @@ save(fullfile(outdir, 'devtools_easy.mat'), 'devtools_easy', '-v7');
 
 function [d, d2] = local_absconvgauss_der(x, a, b, h)
 [~, d, d2] = chnk.spcl.absconvgauss(x, a, b, h);
+end
+
+function [f, g] = local_helm2d_green_val(zk, src, trg)
+[f, g] = chnk.helm2d.green(zk, src, trg);
+end
+
+function [f, g] = local_helm2d_green_gradx(zk, src, trg)
+[~, g1, h1] = chnk.helm2d.green(zk, src, trg);
+f = g1(1);
+g = h1(1:2);
+end
+
+function [f, g] = local_helm2d_green_grady(zk, src, trg)
+[~, g1, h1] = chnk.helm2d.green(zk, src, trg);
+f = g1(2);
+g = h1(2:3);
 end
