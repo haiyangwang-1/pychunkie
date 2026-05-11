@@ -12,3 +12,4 @@ run(fullfile(script_dir, 'generate_lege_extended_fixture.m'));
 run(fullfile(script_dir, 'generate_chunker_ops_fixture.m'));
 run(fullfile(script_dir, 'generate_kernel_pointinfo_fixture.m'));
 run(fullfile(script_dir, 'generate_operator_parity_fixture.m'));
+run(fullfile(script_dir, 'generate_devtools_easy_fixture.m'));
