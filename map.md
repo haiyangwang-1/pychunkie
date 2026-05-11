@@ -384,7 +384,7 @@ src/
 | `SchurBana` / `schurbana` | ✅ 🧪 | `+chnk/+rcip/SchurBana.m` | Block formula shape path tested. |
 | `shiftedlegbasismats`, `chunkerfunclocal` | ✅ 🧪 🎯 | `+chnk/+rcip/shiftedlegbasismats.m`, `chunkerfunclocal.m` | Ported helpers are exercised through recursive RCIP and MATLAB fixtures. |
 | `Rcompchunk` / `rcompchunk` | ✅ 🧪 🎯 | `+chnk/+rcip/Rcompchunk.m` | Recursive local compression solver implemented and tested against MATLAB fixture for a two-edge corner. |
-| `rhohatInterp` / `rhohatinterp` | ⚠️ 🧪 | `+chnk/+rcip/rhohatInterp.m` | Baseline saved-level interpolation tested. |
+| `rhohatInterp` / `rhohatinterp` | ✅ 🧪 🎯 | `+chnk/+rcip/rhohatInterp.m` | Saved-level backward density interpolation implemented and MATLAB-fixture tested. |
 | `corner_refine` | ⚠️ 🧪 | `+chnk/+rcip/chunkerfunclocal.m` and corner workflows | Convenience helper, not a direct MATLAB API match; tested on chunkgraph corner refinement. |
 
 ### `chnk/smoother.py`
@@ -513,7 +513,7 @@ These are useful future implementation targets from `external/chunkie-matlab/chu
 - 🚧 FLAM/FMM accelerated paths: `chunkerflam.m`, `@kernel/*` FMM-backed workflows, `+chnk/+flam/*`, bundled FLAM and FMM2D integrations.
 - 🚧 Axisymmetric / quasiperiodic / full flex kernels: `+chnk/+axissymhelm2d/*`, `+chnk/+helm2dquas/*`, most of `+chnk/+flex2d/*`, plus matching `@kernel` factories. A biharmonic Green-kernel baseline now exists.
 - 🚧 Adaptive and close quadrature packages beyond the current baseline: full `+chnk/+quadadap/*`, `+chnk/+quadba/*`, and time-domain `+chnk/+quadggq/buildmattd.m`.
-- 🚧 Remaining advanced RCIP workflows: broader multi-kernel block coverage and full `rhohatInterp` backward-recursion reconstruction.
+- 🚧 Remaining advanced RCIP workflows: broader multi-kernel block coverage and additional production examples beyond the two-edge MATLAB fixture.
 - 🚧 Full smoother and intchunk packages: MATLAB's full `+chnk/+smoother/*` nonlinear/local smoothing workflow and `+chnk/+intchunk/*`. A lightweight smoother/rounded-polygon workflow now exists.
 - 🚧 Plotting/visualization methods: `plot`, `plot3`, `scatter`, `quiver`, `plot_regions` on MATLAB classes.
 
@@ -521,5 +521,5 @@ These are useful future implementation targets from `external/chunkie-matlab/chu
 
 - Add golden MATLAB fixtures for `chunkerpoly` rounded paths, `chunkerfit`, `sortinfo`, `chunkgraph`, `arcparam`, `geometry`, `spcl`, `smoother`, `rcip`, and `biharm2d` to upgrade many ✅ 🧪 nodes to 🎯.
 - Add focused tests for remaining implemented but currently lightly tested methods, especially `ChunkGraph.min`/`max`, `ChunkGraph.merged`, `curves.fpara`, and `curves.bymode`.
-- Decide how far `rhohatInterp`, `smoother.py`, and `quadadap.py` should go in the near term: all are present and mapped, but their full MATLAB workflows still have ⚠️/🚧 areas.
+- Decide how far `smoother.py` and `quadadap.py` should go in the near term: both are present and mapped, but their full MATLAB workflows still have ⚠️/🚧 areas.
 - Extend `fmm2dpy` wiring to biharmonic, Helmholtz double-gradient, Stokes traction, and any safe elasticity/direct fallback selectors while keeping dense-direct fallbacks available for unsupported kernels and tests.
