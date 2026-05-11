@@ -10,6 +10,7 @@ MATLAB tests from easiest to hardest to port into Python parity tests.
 - 🎯 The slice is compared against MATLAB-generated devtools golden data.
 - ⚠️ Coverage is partial, has a known limitation, or the MATLAB test itself is diagnostic-only.
 - 🚧 Devtools parity is not implemented yet or is intentionally deferred.
+- 🚫 Explicit non-goal; do not port.
 - 🧩 Helper/support file rather than package behavior.
 - 🧭 Planning/reference item.
 
@@ -28,16 +29,59 @@ The parity rule for this repo is:
 - MATLAB fixture data: `tests/golden/devtools_easy.mat`
 - Python snapshot generator: `scripts/generate_devtools_easy_python_fixture.py`
 - Python comparisons: `tests/test_devtools_parity.py`
-- Covered now: `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`, `chunkerfuncuniTest.m`, `chunkerintegralTest.m`, `chunkerinteriorTest.m`, `chunkerpolyTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `kernelopTest.m`, `stokes_dtracTest.m`, and `tochunkgraphTest.m`
+- Covered now: `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`, `chunkerfuncuniTest.m`, `chunkerintegralTest.m`, `chunkerinteriorTest.m`, `chunkerpolyTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `kernelopTest.m`, `smootherTest.m`, `stokes_dtracTest.m`, and `tochunkgraphTest.m`
 
 ## Status At A Glance
 
 | Status | Count | Tests |
 | --- | ---: | --- |
 | ✅ 🧪 🎯 fully covered by devtools parity | 17 | `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`, `chunkerfuncuniTest.m`, `chunkerintegralTest.m`, `chunkerinteriorTest.m`, `chunkerpolyTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `kernelopTest.m`, `tochunkgraphTest.m` |
-| ✅ 🧪 🎯 ⚠️ diagnostic devtools parity | 1 | `stokes_dtracTest.m` |
+| ✅ 🧪 🎯 ⚠️ diagnostic devtools parity | 2 | `smootherTest.m`, `stokes_dtracTest.m` |
 | 🧩 🧭 helper/reference | 1 | `gradient_check.m` |
-| 🚧 not yet converted to devtools parity | 55 | All remaining ranked entries below. |
+| 🚧 should/deferred parity not yet converted | 43 | Remaining ranked entries below, excluding explicit non-goals. |
+| 🚫 explicit non-goal; do not port | 11 | `trappermatTest.m`, `quasiperiodicTest.m`, axisymmetric tests 63-68, and flexural tests 72-74. |
+
+## Scope Triage For Remaining Work
+
+Should implement:
+
+- FMM integration everywhere it applies to implemented kernel/operator
+  families, including `chunkermat`, `chunkerinterior`, biharmonic, elasticity,
+  Helmholtz double-gradient, Stokes traction, and other currently unsupported
+  selectors.
+- Full adaptive/close quadrature: complete `quadadap` and
+  `quadggq/buildmattd`.
+- Advanced RCIP workflows beyond the current two-edge corner fixture.
+- Remaining `+lege` helpers: `adapgauss`, `bernstein_ellipse`, `polsum`, and
+  `tayl`.
+- Adaptive refinement in `chunker.refine` and `chunkerfunc`.
+- `chunkerinterior` close-boundary correction.
+
+Implemented from this scope:
+
+- Top-level geometry/domain helpers: `checkcurveparam`, `ellipse`,
+  `hypoct_uni`, `mergeregions`, `nonflatinterface`, `pointinregion`, `redblue`,
+  `regioninside`, and `starfish`.
+
+Deferred implementation:
+
+- FLAM parity and integration, including `chunkerflam`, `+chnk/+flam`, full
+  MATLAB-style FLAM integrations, `chunkermat` FLAM acceleration, and
+  `chunkerinterior` FLAM acceleration. Revisit after `pyflam` is implemented.
+- Remaining `chunkerfit` modes beyond the implemented spline/open-line/circle
+  paths.
+
+Do not implement:
+
+- The `trapper` family.
+- Axisymmetric, quasiperiodic, and flexural kernel families, including
+  `axissymhelm2d`, `axissymhelm2ddiff`, `helm2dquas`, most of `flex2d`, and
+  matching kernel factories.
+- `quadba`.
+- Full nonlinear MATLAB smoother/Newton workflow and `+chnk/+intchunk`; the
+  lightweight rounded-polygon smoother remains the supported path.
+- MATLAB plotting/visualization methods: `plot`, `plot3`, `scatter`, `quiver`,
+  and `plot_regions`.
 
 ## Ranked Test Inventory
 
@@ -46,7 +90,7 @@ The parity rule for this repo is:
 | 1 | `gradient_check.m` | 🧩 🧭 | Easy | Helper routine for finite-difference gradient convergence checks; it perturbs inputs, compares function value changes to returned gradients, and reports convergence errors. | Port only as shared test utility if needed; no standalone Python package API is tested. |
 | 2 | `absconvgaussTest.m` | ✅ 🧪 🎯 | Easy | Checks `chnk.spcl.absconvgauss` value derivatives by running `gradient_check` on the smoothed absolute-value function and on its first derivative. | Covered in `devtools_easy.mat`: compare Python `spcl.absconvgauss` value, first derivative, second derivative, and saved MATLAB gradient-check thresholds. |
 | 3 | `legeexpsunitTest.m` | ✅ 🧪 🎯 | Easy | Verifies Legendre nodes/weights, derivative matrix, integration matrix, derivative of `sin(x)`, antiderivative of `sin(x)`, and coefficient-space integration via `lege.intpol`/`lege.exev`. | Covered in `devtools_easy.mat`: compare `lege.exps`, `dermat`, `intmat`, `intpol`, and `exev` outputs. |
-| 4 | `smootherTest.m` | ✅ 🧪 🚧 ⚠️ | Easy | Builds a smoothed chunker from a triangular polygon with `chnk.smoother.smooth` and asserts the returned smoothing error is below `1e-6`. | Generate triangle vertices, MATLAB `r/n/wts/err`, and compare to Python smoother once the Python smoother is more than the current lightweight rounded-polygon path. |
+| 4 | `smootherTest.m` | ✅ 🧪 🎯 ⚠️ | Easy | Builds a smoothed chunker from a triangular polygon with `chnk.smoother.smooth` and asserts the returned smoothing error is below `1e-6`. | Covered in `devtools_easy.mat`: compare triangle vertices plus MATLAB/Python smoother error thresholds. Python remains a lightweight rounded-polygon path, so exact geometry is not covered yet. |
 | 5 | `arclengthfunTest.m` | ✅ 🧪 🎯 | Easy | Computes arclength coordinates on a circle and on two merged circles, comparing each component to analytic polar angle, with the second circle scaled by `1.1`. | Covered in `devtools_easy.mat`: compare single-component and merged-component arclength coordinates against Python `Chunker.arclengthfun`. |
 | 6 | `chunker_diffintmatTest.m` | ✅ 🧪 🎯 | Easy | Builds ellipse/circle chunkers, checks `diffmat` produces unit arclength tangents, and checks `intmat` inverts differentiation up to a constant. | Covered in `devtools_easy.mat`: compare MATLAB `D`, `C`, tangent derivatives, integrated coordinates, and Python `Chunker.diffmat`/`intmat`. |
 | 7 | `chunker_nearestTest.m` | ✅ 🧪 🎯 | Easy | For 1000 random radial targets around a circle, checks `nearest` returns the closest circle angle to within `1e-12`. | Covered in `devtools_easy.mat`: compare saved targets, closest points, derivatives, second derivatives, distances, panel ids, local parameters, and angle error against Python `Chunker.nearest`. |
@@ -58,7 +102,7 @@ The parity rule for this repo is:
 | 13 | `helm2d_greenTest.m` | ✅ 🧪 🎯 | Easy-Medium | Uses `gradient_check` to verify `chnk.helm2d.green` potential and gradient components against finite differences. | Covered in `devtools_easy.mat`: compare source/target, MATLAB Green value/gradient/Hessian, and saved finite-difference thresholds against Python `helm2d.green`. |
 | 14 | `stokes_dtracTest.m` | ✅ 🧪 🎯 ⚠️ | Easy-Medium | Compares Stokes double-layer traction values against applying the double-layer gradient kernel and contracting with target normals. The MATLAB file prints the norm but does not assert. | Covered in `devtools_easy.mat`: compare saved Stokes `dtrac`, `dgrad`, `dpres`, reconstructed stress traction, and residual norm against Python kernels. |
 | 15 | `chunkerclassunitTest.m` | ✅ 🧪 🎯 | Medium | Exercises `chunker` constructor failures, chunk allocation/resizing, adjacency links, translations, rotations, affine transforms, and area scaling. | Covered in `devtools_easy.mat`: compare constructor failure flags, adjacency reciprocity, translated/transformed/scaled chunker fields, centroids, and area scaling against Python `Chunker`. |
-| 16 | `chunkerfitTest.m` | ✅ 🧪 🎯 | Medium | Samples a smooth curve at random points, fits a chunker, and checks adjacency after fitting and after an open-curve fit. | Covered in `devtools_easy.mat`: compare saved random sample points and MATLAB adjacency status against Python `chunkerfit` on the same closed/open inputs. |
+| 16 | `chunkerfitTest.m` | ✅ 🧪 🎯 | Medium | Samples a smooth curve at random points, fits a chunker, and checks adjacency after fitting and after an open-curve fit. | Covered in `devtools_easy.mat`: compare saved random sample points and MATLAB adjacency status against Python `chunkerfit` on the same closed/open inputs; remaining MATLAB fitting modes are deferred. |
 | 17 | `chunkerfuncuniTest.m` | ✅ 🧪 🎯 | Medium | Builds uniformly chunked starfish/random-mode/circle curves and checks adjacency plus circle area. Also exercises plot/quiver/sort/reverse utilities lightly. | Covered in `devtools_easy.mat`: compare uniform starfish, reversed random-mode, and circle chunker fields, adjacency, and area against Python `chunkerfuncuni`. |
 | 18 | `chunkerfuncTest.m` | ✅ 🧪 🚧 ⚠️ | Medium | Tests adaptive `chunkerfunc` on starfish, random Fourier-mode curves, reversal, circle area, and expected warnings for open/closed flags. | Save representative chunkers, warning conditions, `ab`, area, and adjacency info; compare Python `chunkerfunc`. Adaptive refinement remains a known scope gap. |
 | 19 | `chunkerpolyTest.m` | ✅ 🧪 🎯 | Medium | Builds rounded and adaptively refined polygon chunkers for a barbell-like polygon and checks adjacency. | Covered in `devtools_easy.mat`: compare saved vertices, edge data, MATLAB adjacency status, and area/length diagnostics against Python `chunkerpoly` adjacency behavior. |
@@ -72,16 +116,16 @@ The parity rule for this repo is:
 | 27 | `chunkgrphconstructTest.m` | ✅ 🧪 🚧 | Medium | Builds a pentagonal chunkgraph from circular/sine arcs and compares legacy connectivity construction against newer `edgesendverts` construction. | Save both graph forms and compare Python graph construction equivalence. |
 | 28 | `chunkgrphregionTest.m` | ✅ 🧪 🚧 | Medium | Builds several graph regions, checks region edge orientation, edge-to-region map, and region numbering against manually specified truth. | Save expected region lists and edge-region maps; compare Python region construction. |
 | 29 | `chunkrgrphOpdimTest.m` | ✅ 🚧 | Medium | Smoke-tests operator dimensions for chunkgraph kernels and block kernels. The file is short and mainly validates dimension plumbing. | Save kernel/operator dimension metadata and assembled shape outputs; compare Python once chunkgraph operator dimensions are supported. |
-| 30 | `datafieldTest.m` | ✅ 🚧 ⚠️ | Medium-Hard | Tests chunker data fields used by custom kernels, including Hilbert/cotangent-style kernels, directional derivative single-layer kernels, FLAM comparison, and data propagation to target info. | Save data fields, custom-kernel matrices, direct/FLAM values, and directional derivative results; compare Python custom `PointInfo.data` handling first, FLAM later. |
+| 30 | `datafieldTest.m` | ✅ 🚧 ⚠️ | Medium-Hard | Tests chunker data fields used by custom kernels, including Hilbert/cotangent-style kernels, directional derivative single-layer kernels, FLAM comparison, and data propagation to target info. | Save data fields, custom-kernel matrices, direct values, and directional derivative results; compare Python custom `PointInfo.data` handling first. FLAM comparison is deferred until `pyflam` exists. |
 | 31 | `kernelclassTest.m` | ✅ 🧪 🚧 | Medium-Hard | Tests `kernel` objects as carriers of FMM/singularity metadata through `chunkerkerneval`, verifies Green's identity, and checks NaN-kernel propagation. | Existing kernel tests cover algebra and NaNs; add devtools Green-identity fixture and FMM metadata parity. |
 | 32 | `elastickernelsTest.m` | ✅ 🧪 🚧 | Medium-Hard | Validates elasticity kernels by checking PDE residuals, alternative double-layer residuals, divergence, traction, Green's identity, gradient consistency, and direct kernel values. | Existing point-kernel fixtures cover some elasticity blocks; add saved PDE residual arrays and boundary identity values. |
 | 33 | `helm1d_greenTest.m` | ✅ 🧪 🚧 ⚠️ | Medium-Hard | Tests 1D/interface Helmholtz Green functions and a fast solve wrapper for a layered/flat interface setup, ending with a relative error below `1e-5`. | Start with Green/sweep outputs before attempting the full GMRES/interface solve. |
 | 34 | `complexificationTest.m` | 🚧 | Medium-Hard | Compares Sommerfeld-density solve/evaluation to a complexification solution for a flat interface point-charge setup. | Requires Python Sommerfeld/complexification support; fixture should save interface parameters, densities, potential, and exact solution. |
 | 35 | `adapgausswtsTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Compares adaptive Gaussian quadrature weights for a near interaction against a GGQ-built reference matrix block on a starfish geometry. | Save the exact chunk, target, adaptive weights, reference block, and compare Python adaptive quadrature internals. |
-| 36 | `chunkermat_quadadapTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Builds dense matrices with standard and adaptive quadrature for a starfish near-interaction case and asserts relative Frobenius agreement below `1e-9`. | Save both MATLAB matrices and geometry; compare Python `quadadap.buildmat`. |
+| 36 | `chunkermat_quadadapTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Builds dense matrices with standard and adaptive quadrature for a starfish near-interaction case and asserts relative Frobenius agreement below `1e-9`. | Save both MATLAB matrices and geometry; compare Python `quadadap.buildmat` as part of the full `quadadap` implementation target. |
 | 37 | `chunkerkerneval_correctionsTest.m` | ✅ 🚧 ⚠️ | Hard | Checks special near-target correction in `chunkerkerneval`: corrected evaluation matches truth while uncorrected smooth evaluation is measurably wrong. | Save source geometry, targets, density, corrected/unfixed values, and compare Python near-correction behavior. |
 | 38 | `chunkerkerneval_gaussidTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Uses Gauss' identity for the Laplace double-layer potential over grids and checks values are near `0` or `-1` depending on inside/outside classification. | Save grid/targets, classifications, and double-layer values; compare Python evaluation and interior classification. |
-| 39 | `chunkerkerneval_greenlapTest.m` | ✅ 🧪 🚧 | Hard | Tests Laplace Green's identity using direct, FMM, and FLAM/smooth-work paths for layer potential evaluation at targets. | Save source strengths, boundary data, target truth, and each MATLAB evaluation path; compare direct Python first. |
+| 39 | `chunkerkerneval_greenlapTest.m` | ✅ 🧪 🚧 | Hard | Tests Laplace Green's identity using direct, FMM, and FLAM/smooth-work paths for layer potential evaluation at targets. | Save source strengths, boundary data, target truth, and MATLAB direct/FMM outputs; compare direct and FMM Python paths. FLAM diagnostics are deferred until `pyflam` exists. |
 | 40 | `chunkerkerneval_greenhelmTest.m` | ✅ 🧪 🚧 | Hard | Tests Helmholtz Green's identity for a starfish geometry by comparing layer-potential evaluation to known field values at targets. | Save Helmholtz wave number, densities, targets, MATLAB evaluations, and compare Python direct evaluation. |
 | 41 | `chunkerkernevalmat_greenlapTest.m` | ✅ 🧪 🚧 | Hard | Builds Laplace target-evaluation matrices and checks applying them reproduces Green's identity target values. | Save evaluation matrices, densities, targets, and compare Python `chunkerkernevalmat`. |
 | 42 | `chunkermatTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Builds a Laplace Dirichlet dense system matrix on a starfish, solves it, evaluates at targets, and checks exterior solution accuracy. | Existing operator parity covers smaller dense paths; add full starfish solve fixture when native/special quadrature is ready. |
@@ -90,34 +134,37 @@ The parity rule for this repo is:
 | 45 | `chunkermat_stok_tractiontest.m` | ✅ 🚧 ⚠️ | Hard | Builds a Stokes traction system and compares target velocity/traction evaluation to analytic values. | Save traction matrix, RHS, solution, and target diagnostics; compare Python Stokes traction support. |
 | 46 | `chunkermat_l2scaleTest.m` | 🚧 | Hard | Constructs a Helmholtz transmission matrix manually and with `chunkermat` `l2scale`, then compares scaled matrix and density solution. | Save manual/scaled matrices, right-hand side, and solution; compare Python l2 scaling once implemented. |
 | 47 | `chunkermatapplyTest.m` | ✅ 🧪 🚧 | Hard | Tests matrix-free `chunkermatapply` against dense matrices for scalar, vector-valued, multi-boundary, and block-kernel cases; includes solve comparisons. | Save dense/matrix-free outputs by case; compare Python `chunkermatapply`. |
-| 48 | `chunkermat_quadadap_closetotouchingTest.m` | ✅ 🚧 ⚠️ | Hard | Solves an exterior Laplace Dirichlet problem on two nearly touching disks and demonstrates adaptive quadrature accuracy near close interactions. | Save two-disk geometry, matrix, solution, targets, adaptive/smooth diagnostics; compare Python adaptive close-evaluation. |
+| 48 | `chunkermat_quadadap_closetotouchingTest.m` | ✅ 🚧 ⚠️ | Hard | Solves an exterior Laplace Dirichlet problem on two nearly touching disks and demonstrates adaptive quadrature accuracy near close interactions. | Save two-disk geometry, matrix, solution, targets, adaptive/smooth diagnostics; compare Python adaptive close-evaluation as part of the full `quadadap` target. |
 | 49 | `chunkermat_truepolygonTest.m` | ✅ 🚧 ⚠️ | Hard | Solves a true-corner polygon Neumann problem using adaptive refinement/RCIP-style machinery and checks target accuracy. | Save refined polygon graph/chunker, system, RHS, solution, and targets; compare after Python true-corner support matures. |
 | 50 | `pquadTest.m` | 🚧 | Hard | Tests product quadrature for an interior Helmholtz problem by comparing product-quadrature layer-potential values to a reference solution. | Save product-quadrature matrices/values and compare Python pquad implementation when available. |
 | 51 | `singularkernelTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Checks principal-value and hypersingular quadratures by comparing boundary tangential and normal derivatives from singular kernels to analytic boundary data. | Save boundary fields, PV/HS values, and relative errors; compare Python singular GGQ paths. |
-| 52 | `trappermatTest.m` | 🚧 ⚠️ | Hard | Builds a trapper discretization, assembles a Laplace Dirichlet matrix, compares GMRES/backslash solutions, and evaluates target accuracy. The file prints diagnostics but has no final assert. | Save all printed diagnostics, matrix/solution/targets; port only after Python has trapper support or mark unsupported. |
+| 52 | `trappermatTest.m` | 🚫 | Hard | Builds a trapper discretization, assembles a Laplace Dirichlet matrix, compares GMRES/backslash solutions, and evaluates target accuracy. The file prints diagnostics but has no final assert. | Do not port; the trapper family is an explicit non-goal. |
 | 53 | `rcipTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Tests RCIP for an exterior Dirichlet problem on two circular arcs meeting at corners, comparing system matrices, solutions, interpolation to fine grid, and target accuracy. | Python has some RCIP helpers; save coarse/fine operators and densities before attempting full solve parity. |
 | 54 | `chunkgrphrcip_ignoreTest.m` | ✅ 🚧 ⚠️ | Very Hard | Tests chunkgraph RCIP with artificial vertices ignored, verifying solution accuracy improves when ignored vertices are treated correctly. | Save graph, ignored-vertex metadata, solutions with/without ignoring, and target values. |
 | 55 | `chunkgrphrcipTest.m` | ✅ 🚧 ⚠️ | Very Hard | Builds pentagonal chunkgraphs and solves an interior Helmholtz Dirichlet problem with RCIP refinement. | Save graph, RCIP setup, system, RHS, solution, targets; compare after Python chunkgraph RCIP exists. |
 | 56 | `chunkgrphrcipTransmissionTest.m` | ✅ 🚧 ⚠️ | Very Hard | Solves a Helmholtz transmission problem on a chunkgraph with RCIP refinement and block kernels. | Save block system, material parameters, graph, densities, and interior/exterior target values. |
 | 57 | `mixedbcTest.m` | ✅ 🚧 ⚠️ | Very Hard | Tests mixed boundary conditions: Dirichlet/Neumann and Dirichlet/transmission, variable operator dimensions, RCIP scaling, target evaluation, and correction matrices. | Save the two mixed systems separately; port block dimensions and direct evaluation before RCIP-corrected solve parity. |
-| 58 | `kernel_interleaveTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Tests invalid interleave detection, then solves an exterior Neumann problem with a block interleaved Helmholtz representation and fast-direct interfaces. | Port in stages: invalid interleave, block matrix entries, dense solve, then fast-direct parity. |
-| 59 | `quasiperiodicTest.m` | 🚧 | Very Hard | Tests quasi-periodic Helmholtz kernels, shifted phase relations, combined/transmission/all/gradient kernels, and an integral-equation solve for a periodic scattering setup. | Requires Python quasi-periodic kernels; save point-kernel identities before full periodic solve. |
-| 60 | `flamutilitiesTest.m` | 🚧 | Very Hard | Tests FLAM matrix builder utilities, dense-vs-FLAM matrix entry reconstruction, fast-direct solves, and target accuracy for Laplace problems. | Python currently lacks FLAM parity; save small matrix-entry fixtures first or keep unsupported. |
-| 61 | `flamproxybylevelTest.m` | 🚧 | Very Hard | Tests FLAM matrix building with level-dependent proxy points and checks solve/evaluation errors against tolerances. | Requires FLAM support; fixture should capture proxy configuration and built factors. |
-| 62 | `flamopdimsTest.m` | 🚧 | Very Hard | Tests FLAM with multi-operator-dimension Helmholtz systems across two chunkers and compares analytic solution accuracy. | Requires FLAM and block-opdim parity; defer until operator block support is stable. |
-| 63 | `axissymkernTest.m` | 🚧 ⚠️ | Very Hard | Compares axisymmetric Helmholtz kernel evaluations against explicit azimuthal integral reference kernels, including shifted-kernel behavior. The file prints errors rather than asserting. | Save reference submatrices and axisymmetric kernel outputs; add Python axisymmetric kernel implementation or mark unsupported. |
-| 64 | `axissymkernel_sphereTest.m` | 🚧 ⚠️ | Very Hard | Builds axisymmetric sphere geometry, solves/evaluates a modal layer potential, and compares against spherical Bessel/Hankel analytic values. It prints the error. | Requires axisymmetric modal kernels; save geometry, weights, mode, potential, and exact field. |
-| 65 | `chunkermat_axissymhelm2dTest.m` | 🚧 | Very Hard | Builds and solves an axisymmetric Helmholtz 2D matrix problem on a starfish-like generating curve and checks target accuracy. | Requires axisymmetric matrix builder; save system, solution, and target diagnostics. |
-| 66 | `chunkermat_axissymhelm_neumannTest.m` | 🚧 ⚠️ | Very Hard | Solves an axisymmetric Helmholtz exterior Neumann problem, compares adaptive target evaluation, matrix-entry reconstruction, and fast-direct solution diagnostics. It prints errors rather than asserting. | Save printed diagnostics plus matrices/solutions; port after axisymmetric kernels and fast-direct abstractions. |
-| 67 | `chunkermat_axissymhelm_transmissionTest.m` | 🚧 ⚠️ | Very Hard | Solves an axisymmetric Helmholtz transmission problem with interior/exterior target checks, matrix-entry reconstruction, and fast-direct diagnostics. | Save interior/exterior target data and block matrices; port after axisymmetric transmission kernels. |
-| 68 | `chunkermat_axissymhelm_transmissionTest_re.m` | 🚧 ⚠️ | Very Hard | Variant of the axisymmetric Helmholtz transmission test, using a related representation/scaling path and the same style of target/matrix/fast-direct diagnostics. | Save alongside the non-`_re` variant and compare representation differences once supported. |
+| 58 | `kernel_interleaveTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Tests invalid interleave detection, then solves an exterior Neumann problem with a block interleaved Helmholtz representation and fast-direct interfaces. | Port in stages: invalid interleave, block matrix entries, dense solve, and FMM paths where applicable; FLAM/fast-direct parity is deferred until `pyflam` exists. |
+| 59 | `quasiperiodicTest.m` | 🚫 | Very Hard | Tests quasi-periodic Helmholtz kernels, shifted phase relations, combined/transmission/all/gradient kernels, and an integral-equation solve for a periodic scattering setup. | Do not port; quasiperiodic kernels are explicit non-goals. |
+| 60 | `flamutilitiesTest.m` | ⚠️ 🚧 | Very Hard | Tests FLAM matrix builder utilities, dense-vs-FLAM matrix entry reconstruction, fast-direct solves, and target accuracy for Laplace problems. | Deferred until `pyflam` exists; revisit pychunkie integration after that dependency is available. |
+| 61 | `flamproxybylevelTest.m` | ⚠️ 🚧 | Very Hard | Tests FLAM matrix building with level-dependent proxy points and checks solve/evaluation errors against tolerances. | Deferred until `pyflam` exists; capture proxy/factor fixture needs when FLAM integration starts. |
+| 62 | `flamopdimsTest.m` | ⚠️ 🚧 | Very Hard | Tests FLAM with multi-operator-dimension Helmholtz systems across two chunkers and compares analytic solution accuracy. | Deferred until `pyflam` exists; revisit after FLAM and block-opdim integration are active. |
+| 63 | `axissymkernTest.m` | 🚫 ⚠️ | Very Hard | Compares axisymmetric Helmholtz kernel evaluations against explicit azimuthal integral reference kernels, including shifted-kernel behavior. The file prints errors rather than asserting. | Do not port; axisymmetric kernels are explicit non-goals. |
+| 64 | `axissymkernel_sphereTest.m` | 🚫 ⚠️ | Very Hard | Builds axisymmetric sphere geometry, solves/evaluates a modal layer potential, and compares against spherical Bessel/Hankel analytic values. It prints the error. | Do not port; axisymmetric modal kernels are explicit non-goals. |
+| 65 | `chunkermat_axissymhelm2dTest.m` | 🚫 | Very Hard | Builds and solves an axisymmetric Helmholtz 2D matrix problem on a starfish-like generating curve and checks target accuracy. | Do not port; axisymmetric matrix builders are explicit non-goals. |
+| 66 | `chunkermat_axissymhelm_neumannTest.m` | 🚫 ⚠️ | Very Hard | Solves an axisymmetric Helmholtz exterior Neumann problem, compares adaptive target evaluation, matrix-entry reconstruction, and fast-direct solution diagnostics. It prints errors rather than asserting. | Do not port; axisymmetric kernels and matrix builders are explicit non-goals. |
+| 67 | `chunkermat_axissymhelm_transmissionTest.m` | 🚫 ⚠️ | Very Hard | Solves an axisymmetric Helmholtz transmission problem with interior/exterior target checks, matrix-entry reconstruction, and fast-direct diagnostics. | Do not port; axisymmetric transmission kernels are explicit non-goals. |
+| 68 | `chunkermat_axissymhelm_transmissionTest_re.m` | 🚫 ⚠️ | Very Hard | Variant of the axisymmetric Helmholtz transmission test, using a related representation/scaling path and the same style of target/matrix/fast-direct diagnostics. | Do not port; axisymmetric transmission variants are explicit non-goals. |
 | 69 | `chunkermat_biharmonic_interiorsupportedTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Solves an interior biharmonic supported-plate boundary value problem and checks target accuracy below `1e-9`. | Python has biharmonic point kernels; save full supported-plate matrix/RHS/solution/targets for later operator parity. |
 | 70 | `chunkermat_biharmonic_interiorclampedTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Solves an interior biharmonic clamped-plate problem and checks target accuracy below `1e-9`. | Save matrix/RHS/solution/targets; port once biharmonic boundary operators are implemented. |
 | 71 | `chunkermat_biharmonic_interiorfreeTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Solves an interior biharmonic free-plate problem, including multiple boundary operators, and checks target accuracy below `1e-9`. | Save all operator blocks and solution diagnostics; likely harder than clamped/supported due free boundary conditions. |
-| 72 | `chunkermat_flex2d_exteriorsupportedTest.m` | 🚧 | Very Hard | Solves an exterior flexural-wave supported boundary problem with plate PDE coefficients and checks target accuracy below `1e-9`. | Save flexural kernels/system data; requires Python flex2d kernels. |
-| 73 | `chunkermat_flex2d_exteriorclampedTest.m` | 🚧 | Very Hard | Solves an exterior flexural-wave clamped boundary problem and checks target accuracy below `1e-9`. | Save matrix/RHS/solution/targets; requires Python flex2d operator support. |
-| 74 | `chunkermat_flex2d_exteriorfreeTest.m` | 🚧 | Very Hard | Solves an exterior flexural-wave free boundary problem with multiple boundary operators and checks target accuracy below `1e-9`. | Save all flex2d free-boundary blocks and diagnostics; likely one of the last PDE solve parity targets. |
+| 72 | `chunkermat_flex2d_exteriorsupportedTest.m` | 🚫 | Very Hard | Solves an exterior flexural-wave supported boundary problem with plate PDE coefficients and checks target accuracy below `1e-9`. | Do not port; flexural kernel/operator families are explicit non-goals. |
+| 73 | `chunkermat_flex2d_exteriorclampedTest.m` | 🚫 | Very Hard | Solves an exterior flexural-wave clamped boundary problem and checks target accuracy below `1e-9`. | Do not port; flexural kernel/operator families are explicit non-goals. |
+| 74 | `chunkermat_flex2d_exteriorfreeTest.m` | 🚫 | Very Hard | Solves an exterior flexural-wave free boundary problem with multiple boundary operators and checks target accuracy below `1e-9`. | Do not port; flexural kernel/operator families are explicit non-goals. |
 
 ## Suggested Next Ports
 
 1. `KernDerInterleaveTest.m`: mostly point-kernel algebra and extends the new `kernelopTest.m` fixture naturally.
+2. `chunkerfuncTest.m`: capture adaptive-refinement behavior for starfish/random-mode curves and close the current `chunkerfunc` scope gap.
+3. `chunkermat_quadadapTest.m` and `chunkermat_quadadap_closetotouchingTest.m`: drive the full `quadadap` implementation and close-interaction parity.
+4. FMM selector fixtures for biharmonic, elasticity, Helmholtz double-gradient, Stokes traction, and other currently dense-direct fallback selectors.
