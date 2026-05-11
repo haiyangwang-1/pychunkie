@@ -68,6 +68,50 @@ def test_quadggq_handles_complex_helmholtz_single_layer_blocks():
     assert np.isfinite(mat).all()
 
 
+def test_nearbuildmat_matches_buildmat_neighbor_block_and_correction():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 6}, {"k": 8})
+    lap_s = kernel("lap", "s")
+    aux = quadggq.setup(chnkr.k, "log")
+    src_chunk = 0
+    targ_chunk = int(chnkr.adj[1, src_chunk]) - 1
+
+    full = quadggq.buildmat(chnkr, lap_s, lap_s.opdims, type="log", auxquads=aux)
+    near = quadggq.nearbuildmat(chnkr, targ_chunk, src_chunk, lap_s, lap_s.opdims, aux)
+    rows = slice(targ_chunk * chnkr.k, (targ_chunk + 1) * chnkr.k)
+    cols = slice(src_chunk * chnkr.k, (src_chunk + 1) * chnkr.k)
+
+    np.testing.assert_allclose(near, full[rows, cols])
+
+    corrected = quadggq.nearbuildmat(
+        chnkr,
+        targ_chunk,
+        src_chunk,
+        lap_s,
+        lap_s.opdims,
+        aux,
+        corrections=True,
+    )
+    native = lap_s(
+        {"r": chnkr.r[:, :, src_chunk], "d": chnkr.d[:, :, src_chunk], "d2": chnkr.d2[:, :, src_chunk], "n": chnkr.n[:, :, src_chunk]},
+        {"r": chnkr.r[:, :, targ_chunk], "d": chnkr.d[:, :, targ_chunk], "d2": chnkr.d2[:, :, targ_chunk], "n": chnkr.n[:, :, targ_chunk]},
+    ) * chnkr.wts[:, src_chunk][None, :]
+    np.testing.assert_allclose(corrected, near - native)
+
+
+def test_buildmat_ilist_skips_bad_neighbor_and_self_special_blocks():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 6}, {"k": 8})
+    lap_s = kernel("lap", "s")
+
+    special = quadggq.buildmat(chnkr, lap_s, lap_s.opdims)
+    skipped = quadggq.buildmat(chnkr, lap_s, lap_s.opdims, ilist=np.array([0, 1]))
+    smooth = chunkermat(chnkr, lap_s, {"forcesmooth": True})
+
+    block = lambda mat, i, j: mat[i * chnkr.k : (i + 1) * chnkr.k, j * chnkr.k : (j + 1) * chnkr.k]
+    np.testing.assert_allclose(block(skipped, 1, 0), block(smooth, 1, 0))
+    np.testing.assert_allclose(block(skipped, 0, 0), block(smooth, 0, 0))
+    np.testing.assert_allclose(block(skipped, 2, 1), block(special, 2, 1))
+
+
 def test_pv_and_hs_ggq_tables_are_available_for_matlab_orders():
     assert 8 in quadggq.hqsuppavail()
     pv_xs, pv_ws = quadggq.getpvquad(8)
