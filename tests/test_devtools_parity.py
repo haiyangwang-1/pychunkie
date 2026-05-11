@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from scipy.io import loadmat
 
-from chunkie import Chunker, chunkerfit, chunkerfunc, chunkerfuncuni, chunkerintegral, chunkerinterior, chunkgraph, kernel, lege, tochunkgraph
+from chunkie import Chunker, chunkerfit, chunkerfunc, chunkerfuncuni, chunkerintegral, chunkerinterior, chunkerpoly, chunkgraph, kernel, lege, tochunkgraph
 from chunkie.chnk import curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, spcl
 from chunkie.operators import PointInfo
 
@@ -342,6 +342,43 @@ def test_chunkerinterior_devtools_outputs_match_matlab():
     stress_expected = np.asarray(fixture.stress_expected, dtype=bool)
     np.testing.assert_array_equal(np.asarray(fixture.stress_in, dtype=bool).reshape(-1), stress_expected.reshape(-1, order="F"))
     np.testing.assert_array_equal(stress_actual, stress_expected)
+
+
+def test_chunkerpoly_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().chunkerpoly
+    nverts = np.asarray(fixture.verts).shape[1]
+    rounded = chunkerpoly(
+        fixture.verts,
+        {"widths": 0.1 * np.ones(nverts), "eps": 1.0e-8},
+        {"k": 16, "dim": 2},
+        fixture.edgevals,
+    ).sort()[0]
+    truepoly = chunkerpoly(
+        fixture.verts,
+        {"rounded": False, "depth": 8},
+        {"k": 16, "dim": 2},
+        fixture.edgevals,
+    ).sort()[0]
+    open_chnkr = chunkerpoly(
+        fixture.open_verts,
+        {
+            "widths": 0.1 * np.ones(np.asarray(fixture.open_verts).shape[1]),
+            "autowidths": True,
+            "autowidthsfac": 0.1,
+            "ifclosed": False,
+            "eps": 1.0e-3,
+        },
+        {"k": 16, "dim": 2},
+    )
+
+    assert int(fixture.rounded_ier) == 0
+    assert int(fixture.truepoly_ier) == 0
+    assert int(fixture.open_ier) == 0
+    assert rounded.checkadjinfo() == int(fixture.rounded_ier)
+    assert truepoly.checkadjinfo() == int(fixture.truepoly_ier)
+    assert open_chnkr.checkadjinfo() == int(fixture.open_ier)
+    assert float(fixture.truepoly_area_err) < 1e-12
+    assert float(fixture.truepoly_length_err) < 1e-12
 
 
 def test_flagself_devtools_output_matches_matlab():

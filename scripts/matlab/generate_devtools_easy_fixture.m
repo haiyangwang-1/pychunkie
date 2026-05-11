@@ -400,6 +400,47 @@ cint2.stress_expected = and((xx.^2 + yy.^2) < a^2, ...
 cint2.stress_in = chunkerinterior(chnkr_stress, {cint2.stress_x, cint2.stress_x});
 devtools_easy.chunkerinterior = cint2;
 
+% chunkerpolyTest.m
+cpoly = [];
+rng(8675309);
+cpoly.verts = chnk.demo.barbell(2.0, 2.0, 1.0, 1.0);
+cpoly.barb_area = 9;
+cpoly.barb_length = 16;
+nv = size(cpoly.verts, 2);
+cpoly.edgevals = rand(3, nv);
+cparams = [];
+cparams.widths = 0.1*ones(nv, 1);
+cparams.eps = 1.0e-8;
+p = [];
+p.k = 16;
+p.dim = 2;
+chnkr = chunkerpoly(cpoly.verts, cparams, p, cpoly.edgevals);
+chnkr = chnkr.sort();
+cpoly.rounded = fixture_pack_chunker(chnkr);
+cpoly.rounded_ier = checkadjinfo(chnkr);
+
+cparams = [];
+cparams.rounded = false;
+cparams.depth = 8;
+chnkr2 = chunkerpoly(cpoly.verts, cparams, p, cpoly.edgevals);
+chnkr2 = chnkr2.sort();
+cpoly.truepoly = fixture_pack_chunker(chnkr2);
+cpoly.truepoly_ier = checkadjinfo(chnkr2);
+cpoly.truepoly_area_err = abs(cpoly.barb_area - area(chnkr2))/abs(cpoly.barb_area);
+cpoly.truepoly_length_err = abs(cpoly.barb_length - sum(sum(chnkr2.wts)))/abs(cpoly.barb_length);
+
+cpoly.open_verts = randn(2,5);
+cparams = [];
+cparams.widths = 0.1*ones(size(cpoly.open_verts,2),1);
+cparams.autowidths = true;
+cparams.autowidthsfac = 0.1;
+cparams.ifclosed = 0;
+cparams.eps = 1.0e-3;
+chnkr3 = chunkerpoly(cpoly.open_verts, cparams, p);
+cpoly.open_ier = checkadjinfo(chnkr3);
+cpoly.open_nch = chnkr3.nch;
+devtools_easy.chunkerpoly = cpoly;
+
 % flagselfTest.m
 fs = [];
 rng(8675309);
