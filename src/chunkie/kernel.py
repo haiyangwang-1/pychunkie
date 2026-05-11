@@ -384,7 +384,7 @@ def _helm2d_fmm(kind: str, zk: complex, coefs: Any | None = None) -> Callable[[f
     if typ in {"c", "combined"}:
         c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs)
         return _sum_raw_fmm(_helm2d_fmm("d", zk), _helm2d_fmm("s", zk), c[0], c[1])
-    if typ not in {"s", "single", "d", "double", "sgrad", "sg"}:
+    if typ not in {"s", "single", "d", "double", "sgrad", "sg", "dgrad", "dg"}:
         return None
 
     def fmm_eval(eps: float, srcinfo: Any, targinfo: Any, sigma: np.ndarray) -> np.ndarray:
@@ -398,7 +398,8 @@ def _helm2d_fmm(kind: str, zk: complex, coefs: Any | None = None) -> Callable[[f
         else:
             if src.n is None:
                 raise ValueError("source normals are required")
-            out = _fmm2dpy.hfmm2d(eps=eps, zk=zk, sources=src.r, dipstr=sig, dipvec=src.n, targets=targ.r, pgt=1)
+            pgt = 2 if typ in {"dgrad", "dg"} else 1
+            out = _fmm2dpy.hfmm2d(eps=eps, zk=zk, sources=src.r, dipstr=sig, dipvec=src.n, targets=targ.r, pgt=pgt)
         if typ in {"s", "single", "d", "double"}:
             return np.asarray(out.pottarg).reshape(-1, order="F")
         grad = np.asarray(out.gradtarg)
