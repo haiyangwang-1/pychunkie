@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 from scipy.io import loadmat
 
-from chunkie import Chunker, chunkerfit, chunkerfunc, chunkerfuncuni, chunkerintegral, chunkgraph, kernel, lege, tochunkgraph
+from chunkie import Chunker, chunkerfit, chunkerfunc, chunkerfuncuni, chunkerintegral, chunkerinterior, chunkgraph, kernel, lege, tochunkgraph
 from chunkie.chnk import curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, spcl
 from chunkie.operators import PointInfo
 
@@ -190,6 +190,22 @@ def build_snapshot() -> dict[str, np.ndarray]:
     out["tochunkgraph_edgesendverts"] = tcg_graph.edgesendverts
     out["tochunkgraph_manual_verts"] = tcg_manual.verts
     out["tochunkgraph_manual_edgesendverts"] = tcg_manual.edgesendverts
+
+    cint2 = fixture.chunkerinterior
+    cint2_chunker = chunker_from_fields(cint2.chunker)
+    out["chunkerinterior_in"] = chunkerinterior(cint2_chunker, cint2.targs, {"fmm": False, "flam": False})
+    out["chunkerinterior_in_flam"] = chunkerinterior(cint2_chunker, cint2.targs, {"fmm": False, "flam": True})
+    out["chunkerinterior_in_fmm"] = chunkerinterior(cint2_chunker, cint2.targs, {"fmm": True, "flam": False})
+    out["chunkerinterior_in_chunker"] = chunkerinterior(cint2_chunker, chunker_from_fields(cint2.inner_chunker), {"fmm": True})
+    out["chunkerinterior_axis"] = chunkerinterior(
+        chunker_from_fields(cint2.axis_chunker),
+        cint2.axis_targs,
+        {"axissym": True},
+    )
+    out["chunkerinterior_stress"] = chunkerinterior(
+        chunker_from_fields(cint2.stress_chunker),
+        [cint2.stress_x, cint2.stress_x],
+    )
 
     fs = fixture.flagself
     out["flagself_pairs"] = flagself(fs.srcs, fs.targs)

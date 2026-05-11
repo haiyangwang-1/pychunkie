@@ -28,16 +28,16 @@ The parity rule for this repo is:
 - MATLAB fixture data: `tests/golden/devtools_easy.mat`
 - Python snapshot generator: `scripts/generate_devtools_easy_python_fixture.py`
 - Python comparisons: `tests/test_devtools_parity.py`
-- Covered now: `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`, `chunkerfuncuniTest.m`, `chunkerintegralTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `kernelopTest.m`, `stokes_dtracTest.m`, and `tochunkgraphTest.m`
+- Covered now: `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`, `chunkerfuncuniTest.m`, `chunkerintegralTest.m`, `chunkerinteriorTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `kernelopTest.m`, `stokes_dtracTest.m`, and `tochunkgraphTest.m`
 
 ## Status At A Glance
 
 | Status | Count | Tests |
 | --- | ---: | --- |
-| ✅ 🧪 🎯 fully covered by devtools parity | 15 | `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`, `chunkerfuncuniTest.m`, `chunkerintegralTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `kernelopTest.m`, `tochunkgraphTest.m` |
+| ✅ 🧪 🎯 fully covered by devtools parity | 16 | `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`, `chunkerfuncuniTest.m`, `chunkerintegralTest.m`, `chunkerinteriorTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `kernelopTest.m`, `tochunkgraphTest.m` |
 | ✅ 🧪 🎯 ⚠️ diagnostic devtools parity | 1 | `stokes_dtracTest.m` |
 | 🧩 🧭 helper/reference | 1 | `gradient_check.m` |
-| 🚧 not yet converted to devtools parity | 57 | All remaining ranked entries below. |
+| 🚧 not yet converted to devtools parity | 56 | All remaining ranked entries below. |
 
 ## Ranked Test Inventory
 
@@ -63,7 +63,7 @@ The parity rule for this repo is:
 | 18 | `chunkerfuncTest.m` | ✅ 🧪 🚧 ⚠️ | Medium | Tests adaptive `chunkerfunc` on starfish, random Fourier-mode curves, reversal, circle area, and expected warnings for open/closed flags. | Save representative chunkers, warning conditions, `ab`, area, and adjacency info; compare Python `chunkerfunc`. Adaptive refinement remains a known scope gap. |
 | 19 | `chunkerpolyTest.m` | ✅ 🧪 🚧 | Medium | Builds rounded and adaptively refined polygon chunkers for a barbell-like polygon and checks adjacency. | Save vertices, rounded/refined fields, area/length diagnostics, and compare Python `chunkerpoly`. |
 | 20 | `chunkerintegralTest.m` | ✅ 🧪 🎯 | Medium | Integrates a scalar function over a starfish chunker several ways and checks all routes agree to `1e-9`. | Covered in `devtools_easy.mat`: compare saved starfish chunker, scalar function values, and MATLAB integral variants against Python `chunkerintegral`. |
-| 21 | `chunkerinteriorTest.m` | ✅ 🧪 🚧 ⚠️ | Medium | Classifies targets inside/outside starfish domains, including targets passed as arrays/chunkers, axisymmetric option, boundary convention, and a stress case against `inpolygon`. | Save target sets and MATLAB boolean classifications; compare Python `chunkerinterior`, noting current implementation is node-polygon fallback. |
+| 21 | `chunkerinteriorTest.m` | ✅ 🧪 🎯 | Medium | Classifies targets inside/outside starfish domains, including targets passed as arrays/chunkers, axisymmetric option, boundary convention, and a stress case against `inpolygon`. | Covered in `devtools_easy.mat`: compare saved starfish targets, chunker targets, axisymmetric targets, and multiply connected stress grid against Python `chunkerinterior`. |
 | 22 | `chunkerarcparamTest.m` | ✅ 🧪 🚧 | Medium | Tests arc-length parameterization initialization/evaluation, derivatives, reparameterized chunker area/length, boundary moving, and unit-speed condition. | Existing Python arcparam tests cover pieces; save MATLAB `param_data`, resampled chunkers, area/length, and compare Python `chnk.arcparam`. |
 | 23 | `tochunkgraphTest.m` | ✅ 🧪 🎯 | Medium | Converts merged circle/open-arc chunkers to a chunkgraph, checks vertices, edge count, point count, edge chunker preservation, and endpoint alignment after shift/scale. | Covered in `devtools_easy.mat`: compare merged chunker graph fields and manual `chunkgraph` endpoint alignment against Python `tochunkgraph`/`chunkgraph`. |
 | 24 | `slicegraphTest.m` | ✅ 🧪 🚧 | Medium | Builds concentric-square chunkgraphs, slices selected edges, checks sliced geometry, compares sliced system matrix to full submatrix, and verifies edge id ordering. | Save graph, selected edge ids, matrices, and expected ids; compare Python `ChunkGraph.slice`. |
