@@ -12,6 +12,7 @@ fields.tstor = chnkr.tstor;
 fields.wstor = chnkr.wstor;
 fields.k = chnkr.k;
 fields.nch = chnkr.nch;
+fields.npt = chnkr.npt;
 fields.dim = chnkr.dim;
 fields.area = area(chnkr);
 fields.chunklen = chunklen(chnkr);

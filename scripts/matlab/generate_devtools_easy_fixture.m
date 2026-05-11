@@ -83,6 +83,47 @@ chnkrtotal = merge(chnkrs);
 arc.chunker_merged = fixture_pack_chunker(chnkrtotal);
 devtools_easy.arclengthfun = arc;
 
+% chunkerarcparamTest.m
+cap = [];
+cparams = [];
+cparams.maxchunklen = 0.3;
+cparams.eps = 1.0e-8;
+fcurve = @(s) starfish(s, 3, 0.4);
+chnkra = chunkerfunc(fcurve, cparams);
+
+cparams = [];
+fcurve = @(s) starfish(s, 4, 0, [], pi, 3);
+chnkrb = chunkerfunc(fcurve, cparams);
+
+chnkr = merge([chnkra, chnkrb]);
+cap.chunker = fixture_pack_chunker(chnkr);
+param_data = chnk.arcparam.init(chnkr);
+ssa = arclengthfun(chnkra);
+ssb = arclengthfun(chnkrb);
+cap.lena = sum(chnkra.wts(:));
+cap.s_nodes = [ssa, ssb + cap.lena];
+[cap.r_nodes, cap.d_nodes, cap.d2_nodes] = chnk.arcparam.eval(cap.s_nodes(:), param_data);
+cap.node_residual = norm(chnkr.r(:) - cap.r_nodes(:));
+
+k = chnkr.k;
+[xs, ~, us, vs] = lege.exps(k);
+cap.a = 0.58;
+cap.b = cap.a + 0.2;
+cap.sample_s = (cap.b - cap.a) * (xs + 1) / 2 + cap.a;
+[cap.sample_r, cap.sample_d, cap.sample_d2] = chnk.arcparam.eval(cap.sample_s, param_data);
+dermat = (vs * [lege.derpol(us); zeros(1,k)]).';
+dermat = dermat * (2 / (cap.b - cap.a));
+cap.der_r_residual = cap.sample_r(:,:) * dermat - cap.sample_d(:,:);
+cap.der_d_residual = cap.sample_d(:,:) * dermat - cap.sample_d2(:,:);
+cap.orthogonality = sum(cap.sample_d .* cap.sample_d2, 1);
+
+[chnkr2, cap.resampled_eps] = arcresample(chnkr, struct('mv_bdries', 0));
+cap.resampled = fixture_pack_chunker(chnkr2);
+cap.resampled_area_err = abs(area(chnkr2) - area(chnkr));
+cap.resampled_len_err = abs(sum(chnkr2.wts(:)) - sum(chnkr.wts(:)));
+cap.resampled_speed_ratio = arclengthdens(chnkr2) ./ (chunklen(chnkr2) / 2).';
+devtools_easy.chunkerarcparam = cap;
+
 % chunker_diffintmatTest.m
 dimat = [];
 chnkr = chunkerfunc(@(t) [cos(t)'; 5*sin(t)']);
@@ -195,6 +236,71 @@ cfu.circle_sort_ier = info.ier;
 cfu.circle = fixture_pack_chunker(chnkr);
 cfu.circle_area_error = abs(area(chnkr) - pi*cfu.circle_radius^2);
 devtools_easy.chunkerfuncuni = cfu;
+
+% chunkerfuncTest.m
+cfunc = [];
+rng(8675309);
+cparams = [];
+cparams.eps = 1.0e-4;
+pref = [];
+pref.k = 16;
+cfunc.narms = 10;
+cfunc.amp = 0.5;
+chnkr = chunkerfunc(@(t) starfish(t, cfunc.narms, cfunc.amp), cparams, pref);
+cfunc.starfish = fixture_pack_chunker(chnkr);
+[~, ~, info] = sortinfo(chnkr);
+cfunc.starfish_ier = info.ier;
+
+cparams.nout = 3;
+chnkr = chunkerfunc(@(t) starfish(t, cfunc.narms, cfunc.amp), cparams, pref);
+cfunc.starfish_nout = fixture_pack_chunker(chnkr);
+[~, ~, info] = sortinfo(chnkr);
+cfunc.starfish_nout_ier = info.ier;
+
+cfunc.modes = randn(11,1);
+cfunc.modes(1) = 1.1 * sum(abs(cfunc.modes(2:end)));
+cfunc.mode_ctr = [1.0; -0.5];
+chnkr = chunkerfunc(@(t) chnk.curves.bymode(t, cfunc.modes, cfunc.mode_ctr), cparams);
+cfunc.bymode = fixture_pack_chunker(chnkr);
+[~, ~, info] = sortinfo(chnkr);
+cfunc.bymode_ier = info.ier;
+chnkr = reverse(chnkr);
+cfunc.bymode_reversed = fixture_pack_chunker(chnkr);
+[~, ~, info] = sortinfo(chnkr);
+cfunc.bymode_reversed_ier = info.ier;
+
+cfunc.circle_radius = 5 * rand();
+cfunc.circle_ctr = [1.0; -0.5];
+circfun = @(t) cfunc.circle_ctr + cfunc.circle_radius * [cos(t(:).'); sin(t(:).')];
+chnkr = chunkerfunc(circfun, cparams);
+cfunc.circle = fixture_pack_chunker(chnkr);
+[~, ~, info] = sortinfo(chnkr);
+cfunc.circle_ier = info.ier;
+cfunc.circle_area_error = abs(area(chnkr) - pi * cfunc.circle_radius^2);
+chnkr_refined = refine(chnkr, struct('nover', 1));
+cfunc.circle_refined = fixture_pack_chunker(chnkr_refined);
+cfunc.circle_refined_area_error = abs(area(chnkr_refined) - pi * cfunc.circle_radius^2);
+
+lastwarn('');
+cparams_warn = [];
+chunkerfunc(@(t) [cos(t(:).'); sin(t(:).'/2)], cparams_warn);
+[warnmsg, ~] = lastwarn;
+cfunc.closed_warning_seen = ~isempty(warnmsg);
+
+lastwarn('');
+cparams_warn = [];
+cparams_warn.ta = 0;
+cparams_warn.tb = 2*pi - 1e-3;
+chunkerfunc(@(t) [cos(t(:).'); sin(t(:).')], cparams_warn);
+[warnmsg, ~] = lastwarn;
+cfunc.near_closed_warning_seen = ~isempty(warnmsg);
+
+lastwarn('');
+cparams_warn.ifclosed = false;
+chunkerfunc(@(t) [cos(t(:).'); sin(t(:).')], cparams_warn);
+[warnmsg, ~] = lastwarn;
+cfunc.open_warning_seen = ~isempty(warnmsg);
+devtools_easy.chunkerfunc = cfunc;
 
 % chunkerclassunitTest.m
 ccls = [];
@@ -329,6 +435,34 @@ tcg.manual_graph_edgesendverts = cgrph.edgesendverts;
 tcg.manual_first_start = cgrph.echnks(1).r(:,1);
 tcg.manual_first_end = cgrph.echnks(1).r(:,end);
 devtools_easy.tochunkgraph = tcg;
+
+% slicegraphTest.m
+slc = [];
+verts_out = [[1;1], [1;-1], [-1;-1], [-1;1]];
+verts_in = verts_out / 2;
+slc.verts = [verts_out, verts_in];
+id_vert_out = 1:4;
+e2v_out = [id_vert_out; circshift(id_vert_out, 1)];
+id_vert_in = 5:8;
+e2v_in = [id_vert_in; circshift(id_vert_in, 1)];
+slc.edge_2_verts = [e2v_out, e2v_in];
+cgrph = chunkgraph(slc.verts, slc.edge_2_verts);
+slc.npt = cgrph.npt;
+slc.nedges = length(cgrph.echnks);
+slc.ichs_mixed = [1, 5:8];
+cgrph_slc = slicegraph(cgrph, slc.ichs_mixed);
+slc.mixed_r = cgrph_slc.r;
+slc.mixed_merge_r = merge(cgrph.echnks(slc.ichs_mixed)).r;
+dkern = -2 * kernel('lap', 'd');
+slc.full_sysmat = chunkermat(cgrph, dkern);
+slc.ichs_inner = 5:8;
+cgrph_inner = slicegraph(cgrph, slc.ichs_inner);
+slc.inner_sysmat = chunkermat(cgrph_inner, dkern);
+slc.idslce = (cgrph.npt - cgrph_inner.npt) + (1:cgrph_inner.npt);
+slc.inner_sysmat_from_full = slc.full_sysmat(slc.idslce, slc.idslce);
+slc.edgeids_outer_permuted = edgeids(cgrph, [3, 4, 2, 1]);
+slc.edgeids_inner = edgeids(cgrph, slc.ichs_inner);
+devtools_easy.slicegraph = slc;
 
 % chunkerinteriorTest.m
 cint2 = [];
@@ -619,6 +753,27 @@ f(2:2:end) = -p.*nty + (euxy.*ntx + euyy.*nty)*sdtr.mu;
 sdtr.reconstructed = f;
 sdtr.residual_norm = norm(f - sdtr.Kt);
 devtools_easy.stokes_dtrac = sdtr;
+
+% chunkermat_quadadapTest.m
+cqa = [];
+rng(8675309);
+cqa.zk = randn() + 1i*randn();
+cparams = [];
+cparams.eps = 1.0e-10;
+cparams.nover = 2;
+pref = [];
+pref.k = 16;
+cqa.narms = 3;
+cqa.amp = 0.25;
+chnkr = chunkerfunc(@(t) starfish(t, cqa.narms, cqa.amp), cparams, pref);
+cqa.chunker = fixture_pack_chunker(chnkr);
+fkern = @(s,t) chnk.helm2d.kern(cqa.zk, s, t, 'D');
+cqa.mat_ggq = chunkermat(chnkr, fkern);
+opts = [];
+opts.robust = false;
+cqa.mat_adap = chnk.quadadap.buildmat(chnkr, fkern, [1 1], 'log', opts);
+cqa.relerr = norm(cqa.mat_ggq - cqa.mat_adap, 'fro') / norm(cqa.mat_ggq, 'fro');
+devtools_easy.chunkermat_quadadap = cqa;
 
 save(fullfile(outdir, 'devtools_easy.mat'), 'devtools_easy', '-v7');
 

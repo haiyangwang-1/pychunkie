@@ -464,12 +464,17 @@ reconstructing a Python `Chunker` from fixture fields and running the Python
 helpers. Ground truth is the MATLAB arclength vector, expected parameter-space
 truth, and MATLAB chunk lengths.
 
-`test_arclengthfun_merged_components_devtools_output_matches_matlab` is marked
-strict `xfail`. It documents a known parity gap: MATLAB resets arclength per
-merged connected component, while Python currently accumulates through the
-whole merged chunker. The method and equation are the same cumulative
-arclength calculation as the single-component test. Ground truth is the MATLAB
-merged-component fixture, and the expected outcome today is failure.
+`test_arclengthfun_merged_components_devtools_output_matches_matlab` checks
+the same cumulative arclength calculation on a merged two-component chunker.
+Ground truth is MATLAB's merged-component fixture, including the second
+component scaled by `1.1`.
+
+`test_chunkerarcparam_devtools_outputs_match_matlab` checks arc-length
+parameterization against MATLAB. The method reconstructs the saved merged
+chunker, runs `arcparam.init/eval`, compares original-node and sample-point
+evaluations, verifies derivative residual diagnostics, and checks
+`arcresample` area/length preservation plus unit-speed panel output. Ground
+truth is `devtools_easy.mat`.
 
 `test_chunker_diffintmat_devtools_outputs_match_matlab` checks spectral
 differentiation and integration matrices on saved ellipse and circle chunkers.
@@ -516,6 +521,24 @@ subtraction, conjugation, and block interleave preserve the underlying kernel
 values. The method uses Laplace single layer, Helmholtz double layer, and the
 generic `kernel` wrapper. Ground truth is the MATLAB fixture for each algebraic
 combination.
+
+`test_chunkerfunc_devtools_outputs_match_matlab` checks adaptive
+`chunkerfunc` cases from the MATLAB devtools test: starfish construction,
+`nout=3`, random Fourier-mode construction, reversal, circle area, and
+refinement. Ground truth is MATLAB-saved chunker fields plus adjacency, area,
+and warning diagnostics.
+
+`test_slicegraph_devtools_outputs_match_matlab` checks the concentric-square
+`slicegraph` workflow. The method compares sliced geometry and edge id
+ordering against MATLAB, and verifies that both MATLAB and Python preserve the
+inner-slice/full-submatrix relation. Direct matrix values remain partial
+because current Python graph double-layer self blocks produce NaNs where the
+MATLAB fixture stores finite special entries.
+
+`test_chunkermat_quadadap_devtools_outputs_match_matlab` checks the starfish
+adaptive-neighbor matrix comparison from `chunkermat_quadadapTest.m`. The
+method compares MATLAB and Python Helmholtz double-layer GGQ and adaptive
+matrices and verifies both routes agree to the devtools Frobenius threshold.
 
 `test_stokes_dtrac_devtools_output_matches_matlab` checks the Stokes double
 layer traction relation against MATLAB. The continuum equation is the traction
