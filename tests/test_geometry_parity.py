@@ -7,9 +7,11 @@ from scipy.io import loadmat
 from chunkie import (
     Chunker,
     checkcurveparam,
+    chunkerfunc,
     chunkerfuncuni,
     chunkerpoints,
     chunkgraph,
+    chunkgraphinregion,
     ellipse,
     hypoct_uni,
     merge,
@@ -19,6 +21,7 @@ from chunkie import (
     redblue,
     regioninside,
     starfish,
+    tochunkgraph,
 )
 from chunkie import lege
 from chunkie.chnk import (
@@ -82,6 +85,22 @@ def assert_chunker_matches_fields(chnkr: Chunker, fields, atol: float = 1e-12) -
     np.testing.assert_array_equal(chnkr.adj, np.asarray(fields.adj, dtype=int))
     np.testing.assert_allclose(chnkr.chunklen(), fields.chunklen, atol=atol)
     np.testing.assert_allclose(chnkr.area(), fields.area, atol=atol)
+
+
+def assert_chunkgraph_matches_fields(cgrph, fields, atol: float = 1e-12) -> None:
+    np.testing.assert_allclose(cgrph.verts, np.asarray(fields.verts).reshape(cgrph.verts.shape, order="F"), atol=atol)
+    np.testing.assert_array_equal(cgrph.edgesendverts + 1, np.asarray(fields.edgesendverts, dtype=int).reshape(2, -1, order="F"))
+    np.testing.assert_array_equal(cgrph.v2emat, np.asarray(fields.v2emat, dtype=int).reshape(cgrph.v2emat.shape, order="F"))
+    assert cgrph.npt == int(fields.npt)
+    np.testing.assert_allclose(cgrph.r, fields.r, atol=atol)
+    np.testing.assert_allclose(cgrph.d, fields.d, atol=atol)
+    np.testing.assert_allclose(cgrph.d2, fields.d2, atol=atol)
+    np.testing.assert_allclose(cgrph.n, fields.n, atol=atol)
+    np.testing.assert_allclose(cgrph.wts, fields.wts, atol=atol)
+    np.testing.assert_array_equal(cgrph.adj, np.asarray(fields.adj, dtype=int))
+    np.testing.assert_allclose(cgrph.min(), np.asarray(fields.min).reshape(-1), atol=atol)
+    np.testing.assert_allclose(cgrph.max(), np.asarray(fields.max).reshape(-1), atol=atol)
+    np.testing.assert_array_equal([edge.npt for edge in cgrph.echnks], np.asarray(fields.edge_npt, dtype=int).reshape(-1))
 
 
 def padded_indices(rows: list[np.ndarray], width: int) -> np.ndarray:
@@ -342,3 +361,56 @@ def test_chunkgraph_helpers_match_matlab_fixture():
     np.testing.assert_allclose(cg.transform(np.array([[1.1, 0.2], [-0.3, 0.9]])).verts, fixture.transformed_verts, atol=1e-14)
     np.testing.assert_allclose(cg.rotate(0.31, [0.5, 0.5], [0.1, -0.2]).verts, fixture.rotated_verts, atol=1e-14)
     np.testing.assert_allclose(cg.reflect(-0.15, [0.5, 0.5], [0.25, -0.1]).verts, fixture.reflected_verts, atol=1e-14)
+
+
+def test_chunkgraph_region_flag_operator_and_conversion_helpers_match_matlab_fixture():
+    fixture = load_geometry_core().chunkgraph
+    cg = chunkgraph(fixture.verts, np.asarray(fixture.edges, dtype=int) - 1, cparams={"nchmin": 4}, pref={"k": 6})
+
+    for ivert, (edges, signs) in enumerate(cg.procverts()):
+        count = int(np.asarray(fixture.procverts_counts, dtype=int).reshape(-1)[ivert])
+        np.testing.assert_array_equal(edges + 1, np.asarray(fixture.procverts_edges, dtype=int)[:count, ivert])
+        np.testing.assert_array_equal(signs, np.asarray(fixture.procverts_signs, dtype=int)[:count, ivert])
+
+    regions = cg.findregions()
+    assert len(regions) == int(fixture.region_count)
+    assert regions[0] == []
+    np.testing.assert_array_equal(np.asarray(regions[1][0], dtype=int) + 1, np.asarray(fixture.region_first_loop, dtype=int))
+    np.testing.assert_array_equal(np.asarray(fixture.region_second_loop, dtype=int), [-1, -4, -3, -2])
+
+    refined = cg.refine({"nover": int(fixture.refine_opts.nover), "lvlr": str(fixture.refine_opts.lvlr)})
+    assert_chunkgraph_matches_fields(refined, fixture.refined, atol=2e-12)
+
+    flag_opts = {"fac": float(fixture.flag_fac)}
+    np.testing.assert_array_equal(cg.flagnear(fixture.flag_targets, flag_opts), np.asarray(fixture.flagnear, dtype=bool))
+
+    rect_opts = {"rho": float(fixture.rect_rho)}
+    np.testing.assert_array_equal(
+        cg.flagnear_rectangle(fixture.rect_targets, rect_opts),
+        np.asarray(fixture.flagnear_rectangle, dtype=bool),
+    )
+    np.testing.assert_array_equal(
+        cg.flagnear_rectangle_grid(fixture.rect_x, fixture.rect_y, rect_opts),
+        np.asarray(fixture.flagnear_rectangle_grid, dtype=bool),
+    )
+
+    assert_chunkgraph_matches_fields(fixture.translation_vector + cg, fixture.translated, atol=2e-12)
+    assert_chunkgraph_matches_fields(cg + fixture.translation_vector, fixture.translated_right, atol=2e-12)
+    assert_chunkgraph_matches_fields(fixture.transform_matrix @ cg, fixture.transformed, atol=2e-12)
+    assert_chunkgraph_matches_fields(fixture.scale * cg, fixture.scaled_left, atol=2e-12)
+    assert_chunkgraph_matches_fields(cg * fixture.scale, fixture.scaled_right, atol=2e-12)
+
+    closed = chunker_from_fields(load_geometry_core().chunker.circ1)
+    open_line, _ = chunkerfunc(
+        lambda t: curves.linefunc(t, [2.0, -0.5], [3.0, 0.2]),
+        {"ifclosed": False, "ifrefine": False, "nchmin": 2, "eps": 1.0e-3, "ta": 0.0, "tb": 1.0},
+        {"k": 8},
+    )
+    assert int(fixture.tochunkgraph_closed_edge_count) == 1
+    assert int(fixture.tochunkgraph_open_edge_count) == 1
+    assert_chunkgraph_matches_fields(tochunkgraph(closed), fixture.tochunkgraph_closed, atol=2e-12)
+    assert_chunkgraph_matches_fields(tochunkgraph(open_line), fixture.tochunkgraph_open, atol=2e-12)
+
+    np.testing.assert_array_equal(chunkgraphinregion(cg, fixture.region_points), np.asarray(fixture.inregion_points, dtype=int))
+    grid_ids = chunkgraphinregion(cg, (fixture.region_x, fixture.region_y)).reshape(-1, order="F")
+    np.testing.assert_array_equal(grid_ids, np.asarray(fixture.inregion_grid, dtype=int))

@@ -25,6 +25,8 @@ class SourceInfo:
 class ChunkGraph:
     """A graph whose edges are chunkers and whose vertices mark corners."""
 
+    __array_priority__ = 1000
+
     def __init__(
         self,
         verts: ArrayLike | None = None,
@@ -150,14 +152,22 @@ class ChunkGraph:
         for ivert in range(self.verts.shape[1]):
             edges: list[int] = []
             signs: list[int] = []
+            tangents: list[np.ndarray] = []
             for iedge, (start, end) in enumerate(self.edgesendverts.T):
-                if start == ivert:
-                    edges.append(iedge)
-                    signs.append(-1)
                 if end == ivert:
                     edges.append(iedge)
                     signs.append(1)
-            out.append((np.array(edges, dtype=int), np.array(signs, dtype=int)))
+                    tangents.append(-self.echnks[iedge].d[:, -1, -1])
+                if start == ivert:
+                    edges.append(iedge)
+                    signs.append(-1)
+                    tangents.append(self.echnks[iedge].d[:, 0, 0])
+            if edges:
+                angles = np.array([np.arctan2(vec[1], vec[0]) for vec in tangents])
+                order = np.argsort(angles)
+                out.append((np.array(edges, dtype=int)[order], np.array(signs, dtype=int)[order]))
+            else:
+                out.append((np.zeros(0, dtype=int), np.zeros(0, dtype=int)))
         return out
 
     def findregions(self) -> list[list[list[int]]]:
@@ -186,7 +196,9 @@ class ChunkGraph:
 
     def refine(self, opts: dict[str, Any] | None = None) -> "ChunkGraph":
         out = self.copy()
-        out.echnks = [edge.refine(opts) for edge in out.echnks]
+        out.echnks = [edge.refine(opts).sort()[0] for edge in out.echnks]
+        out.vstruc = out.procverts()
+        out.regions = out.findregions()
         return out
 
     def copy(self) -> "ChunkGraph":

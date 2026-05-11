@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 264 tests: `261 passed, 2 failed, 1 xfailed` (`tests/test_devtools_parity.py::test_slicegraph_devtools_outputs_match_matlab`, current dense graph diagonal handling produces NaNs where the optional devtools fixture has finite MATLAB values; `tests/test_devtools_parity.py::test_chunkermat_quadadap_devtools_outputs_match_matlab`, current Helmholtz adaptive matrix differs from the optional devtools fixture by up to `1.8e-9`). Targeted Section II parity run `uv run pytest tests/test_matlab_parity.py -q`: `97 passed, 1 xfailed`; targeted Section II kernel/operator run `uv run pytest tests/test_kernel.py tests/test_kernels.py tests/test_stok2d.py tests/test_elast2d.py tests/test_biharm2d.py tests/test_operators.py -q`: `40 passed`; targeted geometry parity/domain run `uv run pytest tests/test_geometry_parity.py tests/test_domain.py tests/test_geometry.py tests/test_chunkgraph.py tests/test_chunker.py tests/test_chunkerfunc.py`: `50 passed`; targeted quadrature run `uv run pytest tests/test_quadggq.py tests/test_matlab_parity.py::test_section_iii_quadratures_match_matlab_fixture`: `13 passed`; targeted RCIP run `uv run pytest tests/test_rcip.py`: `7 passed`; targeted Legendre run `uv run pytest tests/test_lege.py`: `12 passed`.
+Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 265 tests: `262 passed, 2 failed, 1 xfailed` (`tests/test_operators.py::test_chunkermatapply_fmm_matches_special_matrix_application` and `tests/test_operators.py::test_chunkermat_fmm_returns_matrix_free_operator_matching_dense_application`, current clean-tree FMM single-layer path returns `inf`). Targeted geometry parity/domain run `uv run pytest tests/test_geometry_parity.py tests/test_domain.py tests/test_geometry.py tests/test_chunkgraph.py tests/test_chunker.py tests/test_chunkerfunc.py`: `51 passed`; targeted devtools/adjacent parity run `uv run pytest tests/test_devtools_parity.py tests/test_arcparam.py tests/test_chunkerfunc.py tests/test_chunkgraph.py tests/test_matlab_parity.py tests/test_quadggq.py`: `148 passed, 1 xfailed`; targeted devtools-only run `uv run pytest tests/test_devtools_parity.py`: `24 passed`.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -236,15 +236,15 @@ src/
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
+| `findregions` | ⚠️ 🧪 🎯 | `@chunkgraph/findregions.m` | Region count and bounded cycle are MATLAB-fixture tested; Python keeps the outside region as an empty sentinel instead of MATLAB's signed unbounded loop. |
 | private graph helpers | 🧩 ✅ | Internal Python helpers | Include edge normalization, subchunking, simple cycles, polygon tests. |
-| `procverts` | ✅ 🧪 | `@chunkgraph/procverts.m` | Vertex incidence structure. |
-| `findregions` | ✅ 🧪 | `@chunkgraph/findregions.m` | Region/cycle discovery baseline. |
-| `refine` | ✅ 🧪 | `@chunkgraph/refine.m` | Delegates to edge chunker refinement. |
 | `copy` | ✅ 🧪 | MATLAB value-copy behavior | Python helper. |
-| `flagnear*` | ✅ 🧪 | `@chunkgraph/flagnear*.m` | Delegates to merged chunker helpers. |
-| operator overloads | ✅ 🧪 | `@chunkgraph/plus.m`, `mtimes.m` | Scalar/matrix/translation helpers. |
-| `tochunkgraph` | ✅ 🧪 | `@chunker/tochunkgraph.m` | Preserves closed/open components. |
-| `chunkgraphinregion` | ✅ 🧪 | `chunkgraphinregion.m` | Point-in-region baseline. |
+| `procverts` | ✅ 🧪 🎯 | `@chunkgraph/procverts.m` | MATLAB fixture covers counterclockwise tangent ordering and incident-edge signs. |
+| `refine` | ✅ 🧪 🎯 | `@chunkgraph/refine.m` | Fixture covers per-edge refinement with sorted refined chunks and refreshed graph metadata. |
+| `flagnear*` | ✅ 🧪 🎯 | `@chunkgraph/flagnear*.m` | Merged chunker near flags, rectangle flags, and grid flags are MATLAB-fixture tested. |
+| operator overloads | ✅ 🧪 🎯 | `@chunkgraph/plus.m`, `mtimes.m` | Left/right translation, scalar scaling, and NumPy-left matrix transforms are MATLAB-fixture tested. |
+| `tochunkgraph` | ✅ 🧪 🎯 | `@chunker/tochunkgraph.m` | Closed-loop and open-line conversions are MATLAB-fixture tested. |
+| `chunkgraphinregion` | ✅ 🧪 🎯 | `chunkgraphinregion.m` | Point and meshgrid region ids are MATLAB-fixture tested. |
 | `merged` | ✅ 🧪 🎯 | `@chunkgraph/*` merged geometry behavior | MATLAB fixture checks merged field access through `r`, `d`, `d2`, `n`, `wts`, and `adj`. |
 | `min`, `max` | ✅ 🧪 🎯 | `@chunkgraph/min.m`, `@chunkgraph/max.m` | MATLAB fixture covers nodewise extrema. |
 | `SourceInfo` | ✅ 🧪 🎯 | MATLAB source-info structs | Python dataclass used by dense operators; fixture checks flattened source fields. |
