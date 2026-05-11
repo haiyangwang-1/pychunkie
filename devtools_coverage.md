@@ -47,7 +47,7 @@ Should implement:
 
 - FMM integration everywhere it applies to implemented kernel/operator
   families, including `chunkermat`, `chunkerinterior`, biharmonic, elasticity,
-  Stokes traction, and other currently unsupported selectors.
+  and other currently unsupported selectors.
 - Full adaptive/close quadrature: complete `quadadap` and
   `quadggq/buildmattd`.
 - Advanced RCIP workflows beyond the current two-edge corner fixture.
@@ -62,6 +62,7 @@ Implemented from this scope:
   `hypoct_uni`, `mergeregions`, `nonflatinterface`, `pointinregion`, `redblue`,
   `regioninside`, and `starfish`.
 - Helmholtz double-gradient FMM selector wiring.
+- Stokes traction FMM selector wiring.
 
 Deferred implementation:
 
@@ -167,4 +168,4 @@ Do not implement:
 1. `KernDerInterleaveTest.m`: mostly point-kernel algebra and extends the new `kernelopTest.m` fixture naturally.
 2. `chunkerfuncTest.m`: capture adaptive-refinement behavior for starfish/random-mode curves and close the current `chunkerfunc` scope gap.
 3. `chunkermat_quadadapTest.m` and `chunkermat_quadadap_closetotouchingTest.m`: drive the full `quadadap` implementation and close-interaction parity.
-4. FMM selector fixtures for biharmonic, elasticity, Stokes traction, and other currently dense-direct fallback selectors.
+4. FMM selector fixtures for biharmonic, elasticity, and other currently dense-direct fallback selectors.
