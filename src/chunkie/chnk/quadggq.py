@@ -40,18 +40,24 @@ def setup(k: int, type: str = "log", nfac_self: int | None = None, nfac_near: in
     qtype = type.lower()
     if qtype not in {"log", "removable", "pv", "hs"}:
         raise ValueError("quadggq type must be one of log, removable, pv, or hs")
-    if nfac_self is None:
-        nfac_self = max(4, int(np.ceil(48 / max(k, 1))))
-    if nfac_near is None:
-        nfac_near = max(4, int(np.ceil(48 / max(k, 1))))
 
-    xs1, wts1 = lege.exps(int(nfac_near * k))[:2]
+    use_matlab_log = nfac_self is None and nfac_near is None
+    if use_matlab_log:
+        xs1, wts1, xs0, wts0 = getlogquad(k, 2)
+    else:
+        if nfac_self is None:
+            nfac_self = max(4, int(np.ceil(48 / max(k, 1))))
+        if nfac_near is None:
+            nfac_near = max(4, int(np.ceil(48 / max(k, 1))))
+        xs1, wts1 = lege.exps(int(nfac_near * k))[:2]
+        xs0, wts0 = getremovablequad(k, nfac_self)
+
     if qtype == "pv":
         xs0, wts0 = gethqsuppquad(k, 1)
     elif qtype == "hs":
         xs0, wts0 = gethqsuppquad(k, 2)
-    else:
-        xs0, wts0 = getremovablequad(k, nfac_self)
+    elif qtype == "removable":
+        xs0, wts0 = getremovablequad(k, 1 if use_matlab_log else int(nfac_self))
     return AuxQuad(
         xs1=xs1,
         wts1=wts1,
