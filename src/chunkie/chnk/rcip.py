@@ -402,23 +402,90 @@ def chunkerfunclocal(
 
 
 def rhohatInterp(rhohat: ArrayLike, rcipsav: RCIPSaved | dict[str, Any], ndepth: int | None = None):
-    """Return saved-level interpolants for an already compressed density."""
+    """Interpolate a compressed RCIP density back through saved levels."""
 
     rho = np.asarray(rhohat).reshape(-1, order="F")
     if isinstance(rcipsav, dict):
         nsub = int(rcipsav.get("nsub", 0))
+        savedepth = int(rcipsav.get("savedepth", nsub))
         locals_ = rcipsav.get("chnkrlocals", [])
+        rlist = rcipsav.get("R", [])
+        matlist = rcipsav.get("MAT", [])
+        pbc = np.asarray(rcipsav["Pbc"])
+        star_s = np.sort(np.asarray(rcipsav["starS"], dtype=int).reshape(-1))
+        circ_s = np.sort(np.asarray(rcipsav["circS"], dtype=int).reshape(-1))
+        star_l1 = np.sort(np.asarray(rcipsav["starL1"], dtype=int).reshape(-1))
+        circ_l1 = np.sort(np.asarray(rcipsav["circL1"], dtype=int).reshape(-1))
+        nedge = int(rcipsav["nedge"])
+        ileftright = np.asarray(rcipsav.get("ileftright", np.ones(nedge)), dtype=int).reshape(-1)
     else:
         nsub = rcipsav.nsub
+        savedepth = int(rcipsav.savedepth)
         locals_ = [] if rcipsav.chnkrlocals is None else rcipsav.chnkrlocals
+        rlist = [] if rcipsav.R is None else rcipsav.R
+        matlist = [] if rcipsav.MAT is None else rcipsav.MAT
+        pbc = rcipsav.Pbc
+        star_s = np.sort(rcipsav.starS)
+        circ_s = np.sort(rcipsav.circS)
+        star_l1 = np.sort(rcipsav.starL1)
+        circ_l1 = np.sort(rcipsav.circL1)
+        nedge = rcipsav.nedge
+        ileftright = np.ones(nedge, dtype=int) if rcipsav.ileftright is None else rcipsav.ileftright
+
+    if nsub <= 0:
+        return [rho.copy()], [None], [None]
+
     depth = nsub if ndepth is None else min(int(ndepth), nsub)
-    count = max(depth, 1)
-    srcinfo = [local.sourceinfo if hasattr(local, "sourceinfo") else None for local in locals_[:count]]
-    wts = [local.wts.reshape(-1, order="F") for local in locals_[:count]]
-    if not srcinfo:
-        srcinfo = [None]
-        wts = [None]
-    return [rho.copy() for _ in range(count)], srcinfo, wts
+    if depth > savedepth:
+        raise ValueError("requested interpolation depth exceeds saved RCIP depth")
+    if len(rlist) < depth + 1 or len(matlist) < depth or len(locals_) < depth:
+        raise ValueError("rcipsav does not contain enough saved recursion data")
+
+    nrho = circ_s.size + star_s.size
+    if rho.size % nrho != 0:
+        raise ValueError("rhohat has incompatible size for RCIP saved data")
+    ndens = rho.size // nrho
+    rhohat0 = rho.reshape(nrho, ndens, order="F")
+
+    circ_s_edges = _split_edge_indices(circ_s, nedge)
+    star_s_edges = _split_edge_indices(star_s, nedge)
+    circ_l1_edges = _split_edge_indices(circ_l1, nedge)
+    star_l1_edges = _split_edge_indices(star_l1, nedge)
+
+    cl = locals_[-1]
+    wt = cl.wts.reshape(-1, order="F")
+    rhohatinterp = [rhohat0[idx, :].copy() for idx in circ_s_edges]
+    srcinfo = [_pointinfo_subset(cl, idx) for idx in circ_l1_edges]
+    wts = [wt[idx].copy() for idx in circ_l1_edges]
+
+    r0 = rlist[-1]
+    for idepth in range(1, depth + 1):
+        r1 = rlist[-idepth - 1]
+        mat = matlist[-idepth]
+        rhotemp = np.linalg.solve(r0, rhohat0)
+        rhohat0 = r1 @ (pbc @ rhotemp[star_s, :] - mat @ rhohat0[circ_s, :])
+        if idepth == depth:
+            for iedge in range(nedge):
+                order = (
+                    np.concatenate((circ_s_edges[iedge], star_s_edges[iedge]))
+                    if int(ileftright[iedge]) == 1
+                    else np.concatenate((star_s_edges[iedge], circ_s_edges[iedge]))
+                )
+                rhohatinterp[iedge] = np.vstack((rhohatinterp[iedge], rhohat0[order, :]))
+                srcinfo[iedge] = _pointinfo_append(srcinfo[iedge], _pointinfo_subset(cl, star_l1_edges[iedge]))
+                wts[iedge] = np.concatenate((wts[iedge], wt[star_l1_edges[iedge]]))
+        else:
+            cl = locals_[-idepth - 1]
+            wt = cl.wts.reshape(-1, order="F")
+            for iedge in range(nedge):
+                rhohatinterp[iedge] = np.vstack((rhohatinterp[iedge], rhohat0[circ_s_edges[iedge], :]))
+                srcinfo[iedge] = _pointinfo_append(srcinfo[iedge], _pointinfo_subset(cl, circ_l1_edges[iedge]))
+                wts[iedge] = np.concatenate((wts[iedge], wt[circ_l1_edges[iedge]]))
+        r0 = r1
+
+    if ndens == 1:
+        rhohatinterp = [vals[:, 0] for vals in rhohatinterp]
+    return rhohatinterp, srcinfo, wts
 
 
 def corner_refine(cg: Any, vertices: ArrayLike | None = None, depth: int = 1, stype: str = "a") -> Any:
@@ -582,6 +649,35 @@ def _kernel_opdims(kern: Any, ndim: int) -> tuple[int, int]:
     if opdims is None or opdims == (0, 0):
         return (int(ndim), int(ndim))
     return tuple(int(x) for x in opdims)
+
+
+def _split_edge_indices(indices: np.ndarray, nedge: int) -> list[np.ndarray]:
+    if indices.size % int(nedge) != 0:
+        raise ValueError("RCIP saved indices are not evenly split by edge")
+    per_edge = indices.size // int(nedge)
+    return [indices[i * per_edge : (i + 1) * per_edge] for i in range(int(nedge))]
+
+
+def _pointinfo_subset(chnkr: Chunker, inds: np.ndarray) -> Any:
+    from ..operators import PointInfo
+
+    return PointInfo(
+        r=chnkr.r.reshape(chnkr.dim, chnkr.npt, order="F")[:, inds],
+        d=chnkr.d.reshape(chnkr.dim, chnkr.npt, order="F")[:, inds],
+        d2=chnkr.d2.reshape(chnkr.dim, chnkr.npt, order="F")[:, inds],
+        n=chnkr.n.reshape(chnkr.dim, chnkr.npt, order="F")[:, inds],
+    )
+
+
+def _pointinfo_append(left: Any, right: Any) -> Any:
+    from ..operators import PointInfo
+
+    return PointInfo(
+        r=np.column_stack((left.r, right.r)),
+        d=np.column_stack((left.d, right.d)),
+        d2=np.column_stack((left.d2, right.d2)),
+        n=np.column_stack((left.n, right.n)),
+    )
 
 
 ipinit = IPinit

@@ -279,3 +279,12 @@ def test_rcip_recursive_compression_matches_matlab_fixture():
     np.testing.assert_allclose(saved.R[-1], fixture.saved_R_final, rtol=1e-12, atol=1e-13)
     np.testing.assert_allclose(saved.MAT[-1], fixture.saved_MAT_last, rtol=1e-12, atol=1e-13)
     assert_chunker_matches_fields(saved.chnkrlocals[-1], fixture.saved_local_last, "rcip saved local chunker")
+
+    rhohatinterp, srcinfo, wts = rcip.rhohatInterp(fixture.rhohat, saved, 2)
+    for iedge in range(saved.nedge):
+        np.testing.assert_allclose(rhohatinterp[iedge], fixture.rhohatinterp[iedge], rtol=1e-12, atol=1e-13)
+        np.testing.assert_allclose(srcinfo[iedge].r, fixture.srcinfo[iedge].r, rtol=1e-12, atol=1e-13)
+        np.testing.assert_allclose(srcinfo[iedge].d, fixture.srcinfo[iedge].d, rtol=1e-12, atol=1e-13)
+        np.testing.assert_allclose(srcinfo[iedge].d2, fixture.srcinfo[iedge].d2, rtol=1e-12, atol=1e-13)
+        np.testing.assert_allclose(srcinfo[iedge].n, fixture.srcinfo[iedge].n, rtol=1e-12, atol=1e-13)
+        np.testing.assert_allclose(wts[iedge], fixture.wts[iedge], rtol=1e-12, atol=1e-13)
