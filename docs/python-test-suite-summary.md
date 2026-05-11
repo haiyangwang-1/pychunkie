@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 184 pytest cases because several MATLAB parity tests are
+collection expands to 185 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 
@@ -68,8 +68,8 @@ Should implement:
 
 - FMM integration everywhere it applies to implemented kernel/operator
   families, including `chunkermat` FMM acceleration, `chunkerinterior` FMM
-  acceleration, and missing selector wiring for biharmonic, elasticity,
-  Helmholtz double-gradient, Stokes traction, and other unsupported selectors.
+  acceleration, and missing selector wiring for biharmonic, elasticity, Stokes
+  traction, and other unsupported selectors.
 - Full adaptive/close quadrature: complete `quadadap` and
   `quadggq/buildmattd`.
 - Advanced RCIP workflows beyond the current two-edge corner fixture.
@@ -83,6 +83,7 @@ Implemented from this scope:
 - Top-level geometry/domain helpers: `checkcurveparam`, `ellipse`,
   `hypoct_uni`, `mergeregions`, `nonflatinterface`, `pointinregion`, `redblue`,
   `regioninside`, and `starfish`.
+- Helmholtz double-gradient FMM selector wiring.
 
 Deferred implementation:
 
@@ -634,6 +635,12 @@ Helmholtz single, double, and gradient layers. The equations are the Laplace
 and Helmholtz layer potentials applied to `cos(x)` density on a circle. The
 method compares FMM evaluation at several targets against dense direct
 evaluation with tolerance `1e-9`. Ground truth is the direct dense path.
+
+`test_helmholtz_double_gradient_fmm_requests_dipole_gradients` checks the
+new Helmholtz double-gradient FMM wiring with a fake `fmm2dpy` module. The
+method builds `kernel("helm","dgrad",zk)`, calls its FMM evaluator, and asserts
+that `hfmm2d` receives dipole strengths, source normals, and `pgt=2`. Ground
+truth is the fake module's `gradtarg` returned in Fortran target ordering.
 
 `test_fmm2dpy_stokes_layers_match_direct` checks FMM acceleration for Stokes
 velocity, pressure, gradient, and combined kernels. The vector density is

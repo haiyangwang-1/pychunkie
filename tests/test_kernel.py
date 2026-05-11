@@ -1,6 +1,9 @@
+import importlib
+
 import numpy as np
 
 from chunkie import Kernel, chunkerfunc, chunkerkerneval, kernel
+from chunkie.operators import PointInfo
 
 
 def circle(t):
@@ -84,6 +87,46 @@ def test_fmm2dpy_laplace_gradient_and_helmholtz_layers_match_direct():
 
         assert kern.fmm is not None
         np.testing.assert_allclose(via_fmm, direct, rtol=1e-9, atol=1e-10)
+
+
+def test_helmholtz_double_gradient_fmm_requests_dipole_gradients(monkeypatch):
+    kernel_mod = importlib.import_module("chunkie.kernel")
+
+    class FakeFmm2d:
+        def __init__(self):
+            self.kwargs = None
+
+        def hfmm2d(self, **kwargs):
+            self.kwargs = kwargs
+
+            class Output:
+                pottarg = np.array([10.0 + 1.0j, 20.0 + 2.0j])
+                gradtarg = np.array([[1.0 + 1.0j, 2.0 + 2.0j], [3.0 + 3.0j, 4.0 + 4.0j]])
+
+            return Output()
+
+    fake = FakeFmm2d()
+    monkeypatch.setattr(kernel_mod, "_fmm2dpy", fake)
+
+    kern = kernel_mod.helm2d_kernel("dgrad", 1.2 + 0.3j)
+    src = PointInfo(
+        r=np.array([[0.0, 1.0], [0.0, 0.0]]),
+        n=np.array([[0.0, 0.0], [1.0, 1.0]]),
+    )
+    targ = PointInfo(r=np.array([[0.25, -0.4], [0.1, 0.3]]))
+    sigma = np.array([0.5, -0.25])
+
+    vals = kern.fmm(1e-11, src, targ, sigma)
+
+    assert fake.kwargs["pgt"] == 2
+    assert "dipstr" in fake.kwargs
+    assert "dipvec" in fake.kwargs
+    assert "charges" not in fake.kwargs
+    np.testing.assert_allclose(fake.kwargs["dipvec"], src.n)
+    np.testing.assert_allclose(
+        vals,
+        np.asarray([[1.0 + 1.0j, 2.0 + 2.0j], [3.0 + 3.0j, 4.0 + 4.0j]]).reshape(-1, order="F"),
+    )
 
 
 def test_fmm2dpy_stokes_layers_match_direct():
