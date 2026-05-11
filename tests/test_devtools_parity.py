@@ -1,9 +1,10 @@
 from pathlib import Path
 
 import numpy as np
+import pytest
 from scipy.io import loadmat
 
-from chunkie import Chunker, chunkerfuncuni, chunkerintegral, kernel, lege
+from chunkie import Chunker, chunkerfunc, chunkerfuncuni, chunkerintegral, kernel, lege
 from chunkie.chnk import curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, spcl
 from chunkie.operators import PointInfo
 
@@ -222,6 +223,51 @@ def test_chunkerfuncuni_devtools_outputs_match_matlab():
     assert_chunker_fields_match(bymode_reversed, fixture.bymode_reversed, atol=1e-12)
     assert_chunker_fields_match(circle_chunker, fixture.circle, atol=1e-12)
     np.testing.assert_allclose(circle_chunker.area(), np.pi * float(fixture.circle_radius) ** 2, atol=1e-12)
+
+
+def test_chunkerclassunit_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().chunkerclassunit
+
+    with pytest.raises(ValueError):
+        Chunker({"k": -1})
+    with pytest.raises(ValueError):
+        t, w, *_ = lege.exps(8)
+        Chunker({"k": 9}, t, w)
+    with pytest.raises(ValueError):
+        chunkerfunc(lambda t: curves.starfish(t), {"nchmin": 101}, {"k": 4, "nchmax": 100})
+
+    chnkr = chunker_from_fields(fixture.chunker)
+    for j in range(chnkr.nch):
+        i1 = chnkr.adj[0, j]
+        i2 = chnkr.adj[1, j]
+        if i1 > 0:
+            assert chnkr.adj[1, i1 - 1] == j + 1
+        if i2 > 0:
+            assert chnkr.adj[0, i2 - 1] == j + 1
+
+    plus_left = fixture.v + chnkr
+    plus_right = chnkr + fixture.v
+    mat_left = fixture.A @ chnkr
+    scale_left = float(fixture.s) * chnkr
+    scale_right = chnkr * float(fixture.s)
+
+    assert bool(fixture.fail_negative_k)
+    assert bool(fixture.fail_wrong_nodes)
+    assert bool(fixture.fail_nchmax)
+    assert bool(fixture.fail_right_matrix)
+    assert bool(fixture.adj_ok)
+    assert_chunker_fields_match(plus_left, fixture.plus_left, atol=1e-12)
+    assert_chunker_fields_match(plus_right, fixture.plus_right, atol=1e-12)
+    assert_chunker_fields_match(mat_left, fixture.mat_left, atol=1e-12)
+    assert_chunker_fields_match(scale_left, fixture.scale_left, atol=1e-12)
+    assert_chunker_fields_match(scale_right, fixture.scale_right, atol=1e-12)
+    np.testing.assert_allclose(fixture.com_plus_left - fixture.com1, fixture.v, atol=1e-14)
+    np.testing.assert_allclose(fixture.com_plus_right - fixture.com1, fixture.v, atol=1e-14)
+    np.testing.assert_allclose(mat_left.area(), np.linalg.det(fixture.A) * chnkr.area(), atol=1e-13)
+    np.testing.assert_allclose(scale_left.area(), float(fixture.s) ** 2 * chnkr.area(), atol=1e-13)
+    np.testing.assert_allclose(scale_right.area(), float(fixture.s) ** 2 * chnkr.area(), atol=1e-13)
+    with pytest.raises(TypeError):
+        _ = chnkr * fixture.A
 
 
 def test_flagself_devtools_output_matches_matlab():

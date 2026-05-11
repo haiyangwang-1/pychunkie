@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 from scipy.io import loadmat
 
-from chunkie import Chunker, chunkerfuncuni, chunkerintegral, kernel, lege
+from chunkie import Chunker, chunkerfunc, chunkerfuncuni, chunkerintegral, kernel, lege
 from chunkie.chnk import curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, spcl
 from chunkie.operators import PointInfo
 
@@ -161,6 +161,14 @@ def build_snapshot() -> dict[str, np.ndarray]:
     out["chunkerfuncuni_starfish_r"] = cfu_starfish.r
     out["chunkerfuncuni_bymode_reversed_r"] = cfu_bymode.r
     out["chunkerfuncuni_circle_area"] = np.asarray(cfu_circle.area())
+
+    ccls = fixture.chunkerclassunit
+    ccls_chunker = chunker_from_fields(ccls.chunker)
+    out["chunkerclass_plus_left_r"] = (ccls.v + ccls_chunker).r
+    out["chunkerclass_plus_right_r"] = (ccls_chunker + ccls.v).r
+    out["chunkerclass_mat_left_r"] = (ccls.A @ ccls_chunker).r
+    out["chunkerclass_scale_left_area"] = np.asarray((float(ccls.s) * ccls_chunker).area())
+    out["chunkerclass_scale_right_area"] = np.asarray((ccls_chunker * float(ccls.s)).area())
 
     fs = fixture.flagself
     out["flagself_pairs"] = flagself(fs.srcs, fs.targs)

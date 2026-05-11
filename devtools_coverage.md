@@ -28,16 +28,16 @@ The parity rule for this repo is:
 - MATLAB fixture data: `tests/golden/devtools_easy.mat`
 - Python snapshot generator: `scripts/generate_devtools_easy_python_fixture.py`
 - Python comparisons: `tests/test_devtools_parity.py`
-- Covered now: `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `chunkerfuncuniTest.m`, `chunkerintegralTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `kernelopTest.m`, and `stokes_dtracTest.m`
+- Covered now: `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfuncuniTest.m`, `chunkerintegralTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `kernelopTest.m`, and `stokes_dtracTest.m`
 
 ## Status At A Glance
 
 | Status | Count | Tests |
 | --- | ---: | --- |
-| ✅ 🧪 🎯 fully covered by devtools parity | 12 | `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `chunkerfuncuniTest.m`, `chunkerintegralTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `kernelopTest.m` |
+| ✅ 🧪 🎯 fully covered by devtools parity | 13 | `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfuncuniTest.m`, `chunkerintegralTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `kernelopTest.m` |
 | ✅ 🧪 🎯 ⚠️ diagnostic devtools parity | 1 | `stokes_dtracTest.m` |
 | 🧩 🧭 helper/reference | 1 | `gradient_check.m` |
-| 🚧 not yet converted to devtools parity | 60 | All remaining ranked entries below. |
+| 🚧 not yet converted to devtools parity | 59 | All remaining ranked entries below. |
 
 ## Ranked Test Inventory
 
@@ -57,7 +57,7 @@ The parity rule for this repo is:
 | 12 | `KernDerInterleaveTest.m` | ✅ 🧪 🚧 | Easy-Medium | Verifies algebraic relationships among interleaved Helmholtz, Helmholtz-difference, and Laplace kernels, including combined kernels, transmission blocks, gradients, and normal derivative as gradient dot normal. | Existing point-kernel fixtures cover much of this; add devtools fixture with the exact source/target/coefficient cases and compare all interleaved blocks. |
 | 13 | `helm2d_greenTest.m` | ✅ 🧪 🎯 | Easy-Medium | Uses `gradient_check` to verify `chnk.helm2d.green` potential and gradient components against finite differences. | Covered in `devtools_easy.mat`: compare source/target, MATLAB Green value/gradient/Hessian, and saved finite-difference thresholds against Python `helm2d.green`. |
 | 14 | `stokes_dtracTest.m` | ✅ 🧪 🎯 ⚠️ | Easy-Medium | Compares Stokes double-layer traction values against applying the double-layer gradient kernel and contracting with target normals. The MATLAB file prints the norm but does not assert. | Covered in `devtools_easy.mat`: compare saved Stokes `dtrac`, `dgrad`, `dpres`, reconstructed stress traction, and residual norm against Python kernels. |
-| 15 | `chunkerclassunitTest.m` | ✅ 🧪 🚧 | Medium | Exercises `chunker` constructor failures, chunk allocation/resizing, adjacency links, translations, rotations, affine transforms, and area scaling. | Existing chunker tests cover pieces; save MATLAB transformed chunker fields and compare Python constructor errors, adjacency, centroids, and areas. |
+| 15 | `chunkerclassunitTest.m` | ✅ 🧪 🎯 | Medium | Exercises `chunker` constructor failures, chunk allocation/resizing, adjacency links, translations, rotations, affine transforms, and area scaling. | Covered in `devtools_easy.mat`: compare constructor failure flags, adjacency reciprocity, translated/transformed/scaled chunker fields, centroids, and area scaling against Python `Chunker`. |
 | 16 | `chunkerfitTest.m` | ✅ 🧪 🚧 | Medium | Samples a smooth curve at random points, fits a chunker, and checks adjacency after fitting and after a reversed input order. | Save sampled points and fitted fields; compare Python `chunkerfit` geometry and adjacency. |
 | 17 | `chunkerfuncuniTest.m` | ✅ 🧪 🎯 | Medium | Builds uniformly chunked starfish/random-mode/circle curves and checks adjacency plus circle area. Also exercises plot/quiver/sort/reverse utilities lightly. | Covered in `devtools_easy.mat`: compare uniform starfish, reversed random-mode, and circle chunker fields, adjacency, and area against Python `chunkerfuncuni`. |
 | 18 | `chunkerfuncTest.m` | ✅ 🧪 🚧 ⚠️ | Medium | Tests adaptive `chunkerfunc` on starfish, random Fourier-mode curves, reversal, circle area, and expected warnings for open/closed flags. | Save representative chunkers, warning conditions, `ab`, area, and adjacency info; compare Python `chunkerfunc`. Adaptive refinement remains a known scope gap. |
