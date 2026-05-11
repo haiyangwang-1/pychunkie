@@ -249,7 +249,7 @@ def elast2d_kernel(kind: str, lam: float, mu: float) -> Kernel:
         name="elasticity",
         type=typ,
         eval=lambda s, t: elast2d.kern(lam, mu, s, t, typ),
-        fmm=_direct_fmm(lambda s, t: elast2d.kern(lam, mu, s, t, typ)),
+        fmm=_elast2d_fmm(typ, lam, mu) or _direct_fmm(lambda s, t: elast2d.kern(lam, mu, s, t, typ)),
         opdims=opdims,
         sing="log" if typ in {"s", "single"} else "pv" if typ in {"d", "double", "strac"} else "smooth",
         params={"lam": lam, "mu": mu},
@@ -353,7 +353,13 @@ def _lap2d_fmm(kind: str, coefs: Any | None = None) -> Callable[[float, Any, Any
     if typ in {"c", "combined"}:
         c = np.ones(2) if coefs is None else np.asarray(coefs)
         return _sum_raw_fmm(_lap2d_fmm("d"), _lap2d_fmm("s"), c[0], c[1])
-    if typ not in {"s", "single", "d", "double", "sgrad", "sg", "dgrad", "dg"}:
+    if typ in {"cp", "cprime"}:
+        c = np.ones(2) if coefs is None else np.asarray(coefs)
+        return _sum_raw_fmm(_lap2d_fmm("dp"), _lap2d_fmm("sp"), c[0], c[1])
+    if typ in {"cg", "cgrad"}:
+        c = np.ones(2) if coefs is None else np.asarray(coefs)
+        return _sum_raw_fmm(_lap2d_fmm("dg"), _lap2d_fmm("sg"), c[0], c[1])
+    if typ not in {"s", "single", "d", "double", "sp", "sprime", "st", "stau", "hilb", "sgrad", "sg", "dgrad", "dg", "dp", "dprime"}:
         return None
 
     def fmm_eval(eps: float, srcinfo: Any, targinfo: Any, sigma: np.ndarray) -> np.ndarray:
@@ -362,36 +368,263 @@ def _lap2d_fmm(kind: str, coefs: Any | None = None) -> Callable[[float, Any, Any
         src = pointinfo(srcinfo)
         targ = pointinfo(targinfo)
         sig = np.asarray(sigma).reshape(-1, order="F")
-        if typ in {"s", "single", "sgrad", "sg"}:
+        if typ in {"s", "single", "sgrad", "sg", "sp", "sprime", "st", "stau"}:
             out = _fmm2dpy.lfmm2d(eps=eps, sources=src.r, charges=sig, targets=targ.r, pgt=2)
+        elif typ in {"hilb"}:
+            if src.n is None:
+                raise ValueError("source normals are required")
+            dipvec = np.vstack((-src.n[1], src.n[0]))
+            out = _fmm2dpy.lfmm2d(eps=eps, sources=src.r, dipstr=2.0 * sig, dipvec=dipvec, targets=targ.r, pgt=1)
         else:
             if src.n is None:
                 raise ValueError("source normals are required")
             out = _fmm2dpy.lfmm2d(eps=eps, sources=src.r, dipstr=sig, dipvec=src.n, targets=targ.r, pgt=3)
         scale = -1.0 / (2.0 * np.pi)
-        if typ in {"s", "single", "d", "double"}:
+        if typ in {"s", "single", "d", "double", "hilb"}:
             return np.real_if_close(scale * np.asarray(out.pottarg).reshape(-1, order="F"))
-        grad = np.asarray(out.gradtarg)
-        return np.real_if_close(scale * grad.reshape(-1, order="F"))
+        grad = scale * np.asarray(out.gradtarg)
+        if typ in {"sgrad", "sg", "dgrad", "dg"}:
+            return np.real_if_close(grad.reshape(-1, order="F"))
+        if typ in {"sp", "sprime"}:
+            if targ.n is None:
+                raise ValueError("target normals are required")
+            return np.real_if_close(grad[0] * targ.n[0] + grad[1] * targ.n[1])
+        if typ in {"st", "stau"}:
+            if targ.n is None:
+                raise ValueError("target normals are required")
+            return np.real_if_close(-grad[0] * targ.n[1] + grad[1] * targ.n[0])
+        if typ in {"dp", "dprime"}:
+            if targ.n is None:
+                raise ValueError("target normals are required")
+            return np.real_if_close(grad[0] * targ.n[0] + grad[1] * targ.n[1])
+        raise ValueError(f"Unknown Laplace FMM selector {kind!r}")
 
     return fmm_eval
 
 
 def _biharm2d_fmm(kind: str) -> Callable[[float, Any, Any, np.ndarray], np.ndarray] | None:
     typ = kind.lower()
-    if typ not in {"lap", "slap", "laplacian"}:
+    if _fmm2dpy is None:
         return None
-    lap_fmm = _lap2d_fmm("s")
-    if lap_fmm is None:
+    if typ not in {"s", "single", "d", "double", "sp", "sprime", "sgrad", "sg", "shess", "hess", "lap", "slap", "laplacian"}:
         return None
 
     def fmm_eval(eps: float, srcinfo: Any, targinfo: Any, sigma: np.ndarray) -> np.ndarray:
+        from .operators import pointinfo
+
+        src = pointinfo(srcinfo)
+        targ = pointinfo(targinfo)
         sig = np.asarray(sigma).reshape(-1, order="F")
-        lap_vals = np.asarray(lap_fmm(eps, srcinfo, targinfo, sig)).reshape(-1, order="F")
-        correction = np.sum(sig) / (2.0 * np.pi)
-        return -lap_vals + correction * np.ones(_target_count(targinfo), dtype=np.result_type(lap_vals, correction))
+        sx = src.r[0]
+        sy = src.r[1]
+        tx = targ.r[0]
+        ty = targ.r[1]
+        nt = targ.r.shape[1]
+
+        if typ in {"d", "double"}:
+            if src.n is None:
+                raise ValueError("source normals are required")
+            nx = src.n[0]
+            ny = src.n[1]
+            charges = np.vstack((sig * nx, sig * ny, sig * (nx * sx + ny * sy)))
+            pot, _, _ = _laplace_log_moments(eps, src, targ, charges, pgt=1)
+            moment = tx * pot[0] + ty * pot[1] - pot[2]
+            affine = tx * np.sum(sig * nx) + ty * np.sum(sig * ny) - np.sum(sig * (nx * sx + ny * sy))
+            return -(2.0 * moment + affine) / (8.0 * np.pi)
+
+        if typ in {"sp", "sprime"}:
+            if targ.n is None:
+                raise ValueError("target normals are required")
+            grad = _biharm2d_fmm("sgrad")(eps, src, targ, sig).reshape(2, nt, order="F")
+            return grad[0] * targ.n[0] + grad[1] * targ.n[1]
+
+        if typ in {"lap", "slap", "laplacian"}:
+            pot, _, _ = _laplace_log_moments(eps, src, targ, sig, pgt=2)
+            return (pot[0] + np.sum(sig)) / (2.0 * np.pi)
+
+        charges = np.vstack((sig, sig * sx, sig * sy, sig * (sx * sx + sy * sy)))
+        pot, grad, _ = _laplace_log_moments(eps, src, targ, charges, pgt=2)
+        p0, px, py, p2 = pot
+        g0, gx, gy, g2 = grad
+        t2 = tx * tx + ty * ty
+
+        if typ in {"s", "single"}:
+            vals = t2 * p0 - 2.0 * tx * px - 2.0 * ty * py + p2
+            return vals / (8.0 * np.pi)
+
+        if typ in {"sgrad", "sg"}:
+            out_x = 2.0 * tx * p0 + t2 * g0[0] - 2.0 * px - 2.0 * tx * gx[0] - 2.0 * ty * gy[0] + g2[0]
+            out_y = 2.0 * ty * p0 + t2 * g0[1] - 2.0 * tx * gx[1] - 2.0 * py - 2.0 * ty * gy[1] + g2[1]
+            return (np.vstack((out_x, out_y)) / (8.0 * np.pi)).reshape(-1, order="F")
+
+        rx2 = tx * g0[0] - gx[0]
+        rxy = ty * g0[0] - gy[0]
+        ry2 = ty * g0[1] - gy[1]
+        total = np.sum(sig)
+        hxx = 2.0 * p0 + total + 2.0 * rx2
+        hxy = 2.0 * rxy
+        hyy = 2.0 * p0 + total + 2.0 * ry2
+        if typ in {"shess", "hess"}:
+            return (np.vstack((hxx, hxy, hyy)) / (8.0 * np.pi)).reshape(-1, order="F")
+        return (hxx + hyy) / (8.0 * np.pi)
 
     return fmm_eval
+
+
+def _elast2d_fmm(kind: str, lam: float, mu: float) -> Callable[[float, Any, Any, np.ndarray], np.ndarray] | None:
+    if _fmm2dpy is None:
+        return None
+    typ = kind.lower()
+    if typ not in {"s", "single", "strac", "sgrad", "sg", "d", "double", "dalt", "daltgrad", "daltg", "dalttrac"}:
+        return None
+    beta = (lam + 3.0 * mu) / (4.0 * np.pi * mu * (lam + 2.0 * mu))
+    gamma = -(lam + mu) / (4.0 * np.pi * mu * (lam + 2.0 * mu))
+    eta = mu / (2.0 * np.pi * (lam + 2.0 * mu))
+    zeta = (lam + mu) / (np.pi * (lam + 2.0 * mu))
+    lap_d = _lap2d_fmm("d")
+    lap_dgrad = _lap2d_fmm("dgrad")
+    stok_d = _stok2d_fmm("d", mu)
+    stok_dgrad = _stok2d_fmm("dgrad", mu)
+
+    def fmm_eval(eps: float, srcinfo: Any, targinfo: Any, sigma: np.ndarray) -> np.ndarray:
+        from .operators import pointinfo
+
+        src = pointinfo(srcinfo)
+        targ = pointinfo(targinfo)
+        sig = np.asarray(sigma).reshape(2, -1, order="F")
+        nt = targ.r.shape[1]
+        if typ in {"s", "single", "sgrad", "sg", "strac"}:
+            grad = typ in {"sgrad", "sg", "strac"}
+            vals = _elast_single_fmm(eps, src, targ, sig, beta, gamma, want_grad=grad)
+            if typ in {"s", "single"}:
+                return vals
+            grad_vals = vals.reshape(4, nt, order="F")
+            if typ in {"sgrad", "sg"}:
+                return vals
+            if targ.n is None:
+                raise ValueError("target normals are required")
+            return _elastic_traction_from_grad(grad_vals, targ.n, lam, mu).reshape(-1, order="F")
+
+        if src.n is None:
+            raise ValueError("source normals are required")
+        if typ in {"d", "double"}:
+            if lap_d is None or stok_d is None:
+                raise ValueError("Laplace and Stokes FMM backends are required for elasticity double-layer FMM")
+            vel = -zeta * np.pi * np.asarray(stok_d(eps, src, targ, sig.reshape(-1, order="F"))).reshape(2, nt, order="F")
+            norm = np.asarray(lap_d(eps, src, targ, sig[0])).reshape(nt, order="F")
+            rot_x = np.asarray(lap_d(eps, _with_normals(src, np.vstack((-src.n[1], src.n[0]))), targ, sig[1])).reshape(nt, order="F")
+            rot_y = np.asarray(lap_d(eps, _with_normals(src, np.vstack((src.n[1], -src.n[0]))), targ, sig[0])).reshape(nt, order="F")
+            norm_y = np.asarray(lap_d(eps, src, targ, sig[1])).reshape(nt, order="F")
+            vel[0] += -eta * (2.0 * np.pi) * (norm + rot_x)
+            vel[1] += -eta * (2.0 * np.pi) * (rot_y + norm_y)
+            return vel.reshape(-1, order="F")
+
+        if typ in {"dalt", "daltgrad", "daltg", "dalttrac"}:
+            if lap_d is None or stok_d is None or (typ not in {"dalt"} and (lap_dgrad is None or stok_dgrad is None)):
+                raise ValueError("Laplace and Stokes FMM backends are required for elasticity alternate double-layer FMM")
+            if typ == "dalt":
+                vel = -zeta * np.pi * np.asarray(stok_d(eps, src, targ, sig.reshape(-1, order="F"))).reshape(2, nt, order="F")
+                vel[0] += -4.0 * np.pi * eta * np.asarray(lap_d(eps, src, targ, sig[0])).reshape(nt, order="F")
+                vel[1] += -4.0 * np.pi * eta * np.asarray(lap_d(eps, src, targ, sig[1])).reshape(nt, order="F")
+                return vel.reshape(-1, order="F")
+
+            grad_vals = -zeta * np.pi * np.asarray(stok_dgrad(eps, src, targ, sig.reshape(-1, order="F"))).reshape(4, nt, order="F")
+            gx = np.asarray(lap_dgrad(eps, src, targ, sig[0])).reshape(2, nt, order="F")
+            gy = np.asarray(lap_dgrad(eps, src, targ, sig[1])).reshape(2, nt, order="F")
+            grad_vals[0] += -4.0 * np.pi * eta * gx[0]
+            grad_vals[1] += -4.0 * np.pi * eta * gx[1]
+            grad_vals[2] += -4.0 * np.pi * eta * gy[0]
+            grad_vals[3] += -4.0 * np.pi * eta * gy[1]
+            if typ in {"daltgrad", "daltg"}:
+                return grad_vals.reshape(-1, order="F")
+            if targ.n is None:
+                raise ValueError("target normals are required")
+            return _elastic_traction_from_grad(grad_vals, targ.n, lam, mu).reshape(-1, order="F")
+
+        raise ValueError(f"Unknown elasticity FMM selector {kind!r}")
+
+    return fmm_eval
+
+
+def _laplace_log_moments(
+    eps: float,
+    src: Any,
+    targ: Any,
+    charges: np.ndarray,
+    pgt: int,
+) -> tuple[np.ndarray, np.ndarray | None, np.ndarray | None]:
+    charge_arr = np.asarray(charges)
+    if charge_arr.ndim == 1:
+        charge_arr = charge_arr.reshape(1, -1)
+    nd = int(charge_arr.shape[0])
+    nt = int(targ.r.shape[1])
+    out = _fmm2dpy.lfmm2d(eps=eps, sources=src.r, charges=charge_arr if nd > 1 else charge_arr[0], targets=targ.r, pgt=pgt, nd=nd)
+    pot = np.asarray(out.pottarg).reshape(nd, nt, order="C")
+    grad = None
+    hess = None
+    if pgt >= 2:
+        grad = np.asarray(out.gradtarg).reshape(nd, 2, nt, order="C")
+    if pgt >= 3:
+        hess = np.asarray(out.hesstarg).reshape(nd, 3, nt, order="C")
+    return pot, grad, hess
+
+
+def _elast_single_fmm(
+    eps: float,
+    src: Any,
+    targ: Any,
+    sig: np.ndarray,
+    beta: float,
+    gamma: float,
+    *,
+    want_grad: bool,
+) -> np.ndarray:
+    sx = src.r[0]
+    sy = src.r[1]
+    tx = targ.r[0]
+    ty = targ.r[1]
+    a = sig[0]
+    b = sig[1]
+    charges = np.vstack((a, b, a * sx, a * sy, b * sx, b * sy))
+    pot, grad, hess = _laplace_log_moments(eps, src, targ, charges, pgt=3 if want_grad else 2)
+    pa, pb = pot[0], pot[1]
+    ga, gb, gasx, gasy, gbsx, gbsy = grad
+
+    axx_a = tx * ga[0] - gasx[0]
+    axy_a = ty * ga[0] - gasy[0]
+    axy_b = ty * gb[0] - gbsy[0]
+    ayy_b = ty * gb[1] - gbsy[1]
+
+    ux = beta * pa + 0.5 * gamma * np.sum(a) + gamma * (axx_a + axy_b)
+    uy = beta * pb + 0.5 * gamma * np.sum(b) + gamma * (axy_a + ayy_b)
+
+    if not want_grad:
+        return np.vstack((ux, uy)).reshape(-1, order="F")
+
+    ha, hb, hasx, hasy, hbsx, hbsy = hess
+    dux_dx = beta * ga[0] + gamma * ((ga[0] + tx * ha[0] - hasx[0]) + (ty * hb[0] - hbsy[0]))
+    dux_dy = beta * ga[1] + gamma * ((tx * ha[1] - hasx[1]) + (gb[0] + ty * hb[1] - hbsy[1]))
+    duy_dx = beta * gb[0] + gamma * ((ty * ha[0] - hasy[0]) + (ty * hb[1] - hbsy[1]))
+    duy_dy = beta * gb[1] + gamma * ((ga[0] + ty * ha[1] - hasy[1]) + (gb[1] + ty * hb[2] - hbsy[2]))
+    return np.vstack((dux_dx, dux_dy, duy_dx, duy_dy)).reshape(-1, order="F")
+
+
+def _elastic_traction_from_grad(grad: np.ndarray, normals: np.ndarray, lam: float, mu: float) -> np.ndarray:
+    nx = normals[0]
+    ny = normals[1]
+    du11, du12, du21, du22 = grad
+    div = du11 + du22
+    shear = float(mu) * (du12 + du21)
+    tx = float(lam) * nx * div + shear * ny + 2.0 * float(mu) * du11 * nx
+    ty = float(lam) * ny * div + shear * nx + 2.0 * float(mu) * du22 * ny
+    return np.vstack((tx, ty))
+
+
+def _with_normals(src: Any, normals: np.ndarray) -> Any:
+    from .operators import PointInfo, pointinfo
+
+    base = pointinfo(src)
+    return PointInfo(r=base.r, d=base.d, d2=base.d2, n=np.asarray(normals), data=base.data)
 
 
 def _helm2d_fmm(kind: str, zk: complex, coefs: Any | None = None) -> Callable[[float, Any, Any, np.ndarray], np.ndarray] | None:
@@ -401,7 +634,10 @@ def _helm2d_fmm(kind: str, zk: complex, coefs: Any | None = None) -> Callable[[f
     if typ in {"c", "combined"}:
         c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs)
         return _sum_raw_fmm(_helm2d_fmm("d", zk), _helm2d_fmm("s", zk), c[0], c[1])
-    if typ not in {"s", "single", "d", "double", "sgrad", "sg", "dgrad", "dg"}:
+    if typ in {"cp", "cprime"}:
+        c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs)
+        return _sum_raw_fmm(_helm2d_fmm("dp", zk), _helm2d_fmm("sp", zk), c[0], c[1])
+    if typ not in {"s", "single", "d", "double", "sp", "sprime", "stau", "st", "sgrad", "sg", "dgrad", "dg", "dp", "dprime"}:
         return None
 
     def fmm_eval(eps: float, srcinfo: Any, targinfo: Any, sigma: np.ndarray) -> np.ndarray:
@@ -410,17 +646,28 @@ def _helm2d_fmm(kind: str, zk: complex, coefs: Any | None = None) -> Callable[[f
         src = pointinfo(srcinfo)
         targ = pointinfo(targinfo)
         sig = np.asarray(sigma).reshape(-1, order="F")
-        if typ in {"s", "single", "sgrad", "sg"}:
+        if typ in {"s", "single", "sgrad", "sg", "sp", "sprime", "stau", "st"}:
             out = _fmm2dpy.hfmm2d(eps=eps, zk=zk, sources=src.r, charges=sig, targets=targ.r, pgt=2)
         else:
             if src.n is None:
                 raise ValueError("source normals are required")
-            pgt = 2 if typ in {"dgrad", "dg"} else 1
+            pgt = 2 if typ in {"dgrad", "dg", "dp", "dprime"} else 1
             out = _fmm2dpy.hfmm2d(eps=eps, zk=zk, sources=src.r, dipstr=sig, dipvec=src.n, targets=targ.r, pgt=pgt)
         if typ in {"s", "single", "d", "double"}:
             return np.asarray(out.pottarg).reshape(-1, order="F")
         grad = np.asarray(out.gradtarg)
-        return grad.reshape(-1, order="F")
+        if typ in {"sgrad", "sg", "dgrad", "dg"}:
+            return grad.reshape(-1, order="F")
+        if typ in {"sp", "sprime", "dp", "dprime"}:
+            if targ.n is None:
+                raise ValueError("target normals are required")
+            return grad[0] * targ.n[0] + grad[1] * targ.n[1]
+        if typ in {"stau", "st"}:
+            if targ.d is None:
+                raise ValueError("target tangents are required")
+            speed = np.sqrt(targ.d[0] ** 2 + targ.d[1] ** 2)
+            return (grad[0] * targ.d[0] + grad[1] * targ.d[1]) / speed
+        raise ValueError(f"Unknown Helmholtz FMM selector {kind!r}")
 
     return fmm_eval
 
