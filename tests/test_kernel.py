@@ -129,6 +129,38 @@ def test_helmholtz_double_gradient_fmm_requests_dipole_gradients(monkeypatch):
     )
 
 
+def test_biharmonic_laplacian_fmm_reuses_laplace_single_layer(monkeypatch):
+    kernel_mod = importlib.import_module("chunkie.kernel")
+
+    class FakeFmm2d:
+        def __init__(self):
+            self.kwargs = None
+
+        def lfmm2d(self, **kwargs):
+            self.kwargs = kwargs
+
+            class Output:
+                pottarg = np.array([6.0, 8.0])
+                gradtarg = np.zeros((2, 2))
+
+            return Output()
+
+    fake = FakeFmm2d()
+    monkeypatch.setattr(kernel_mod, "_fmm2dpy", fake)
+
+    kern = kernel_mod.biharm2d_kernel("lap")
+    src = PointInfo(r=np.array([[0.0, 1.0], [0.0, 0.0]]))
+    targ = PointInfo(r=np.array([[0.25, -0.4], [0.1, 0.3]]))
+    sigma = np.array([0.5, -0.25])
+
+    vals = kern.fmm(1e-11, src, targ, sigma)
+
+    assert fake.kwargs["pgt"] == 2
+    assert "charges" in fake.kwargs
+    expected = (np.array([6.0, 8.0]) + np.sum(sigma)) / (2.0 * np.pi)
+    np.testing.assert_allclose(vals, expected)
+
+
 def test_fmm2dpy_stokes_layers_match_direct():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 5}, {"k": 8})
     target = np.array([[0.25, -0.4, 1.5], [0.1, 0.3, -0.2]])

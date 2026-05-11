@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 186 pytest cases because several MATLAB parity tests are
+collection expands to 187 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 
@@ -68,8 +68,8 @@ Should implement:
 
 - FMM integration everywhere it applies to implemented kernel/operator
   families, including `chunkermat` FMM acceleration, `chunkerinterior` FMM
-  acceleration, and missing selector wiring for biharmonic, elasticity, and
-  other unsupported selectors.
+  acceleration, and missing selector wiring for remaining biharmonic selectors,
+  elasticity, and other unsupported selectors.
 - Full adaptive/close quadrature: complete `quadadap` and
   `quadggq/buildmattd`.
 - Advanced RCIP workflows beyond the current two-edge corner fixture.
@@ -85,6 +85,7 @@ Implemented from this scope:
   `regioninside`, and `starfish`.
 - Helmholtz double-gradient FMM selector wiring.
 - Stokes traction FMM selector wiring.
+- Biharmonic Laplacian FMM selector wiring.
 
 Deferred implementation:
 
@@ -642,6 +643,12 @@ new Helmholtz double-gradient FMM wiring with a fake `fmm2dpy` module. The
 method builds `kernel("helm","dgrad",zk)`, calls its FMM evaluator, and asserts
 that `hfmm2d` receives dipole strengths, source normals, and `pgt=2`. Ground
 truth is the fake module's `gradtarg` returned in Fortran target ordering.
+
+`test_biharmonic_laplacian_fmm_reuses_laplace_single_layer` checks the
+biharmonic Laplacian FMM wiring with a fake `fmm2dpy` module. The method builds
+`biharm2d_kernel("lap")`, calls its FMM evaluator, and asserts that the path
+uses the Laplace single-layer FMM with the analytic constant correction. Ground
+truth is the fake module's potential output combined with `sum(sigma)/(2 pi)`.
 
 `test_fmm2dpy_stokes_layers_match_direct` checks FMM acceleration for Stokes
 velocity, pressure, gradient, and combined kernels. The vector density is

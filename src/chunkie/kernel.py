@@ -222,7 +222,7 @@ def biharm2d_kernel(kind: str) -> Kernel:
         name="biharmonic",
         type=typ,
         eval=lambda s, t: biharm2d.kern(s, t, typ),
-        fmm=_direct_fmm(lambda s, t: biharm2d.kern(s, t, typ)),
+        fmm=_biharm2d_fmm(typ) or _direct_fmm(lambda s, t: biharm2d.kern(s, t, typ)),
         opdims=opdims,
         sing="log" if typ in {"s", "single", "lap", "slap", "laplacian"} else "pv",
     )
@@ -373,6 +373,23 @@ def _lap2d_fmm(kind: str, coefs: Any | None = None) -> Callable[[float, Any, Any
             return np.real_if_close(scale * np.asarray(out.pottarg).reshape(-1, order="F"))
         grad = np.asarray(out.gradtarg)
         return np.real_if_close(scale * grad.reshape(-1, order="F"))
+
+    return fmm_eval
+
+
+def _biharm2d_fmm(kind: str) -> Callable[[float, Any, Any, np.ndarray], np.ndarray] | None:
+    typ = kind.lower()
+    if typ not in {"lap", "slap", "laplacian"}:
+        return None
+    lap_fmm = _lap2d_fmm("s")
+    if lap_fmm is None:
+        return None
+
+    def fmm_eval(eps: float, srcinfo: Any, targinfo: Any, sigma: np.ndarray) -> np.ndarray:
+        sig = np.asarray(sigma).reshape(-1, order="F")
+        lap_vals = np.asarray(lap_fmm(eps, srcinfo, targinfo, sig)).reshape(-1, order="F")
+        correction = np.sum(sig) / (2.0 * np.pi)
+        return -lap_vals + correction * np.ones(_target_count(targinfo), dtype=np.result_type(lap_vals, correction))
 
     return fmm_eval
 
