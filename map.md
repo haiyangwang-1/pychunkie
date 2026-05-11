@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 201 tests: `200 passed, 1 failed` (`tests/test_devtools_parity.py::test_smoother_devtools_output_matches_matlab_thresholds`, current fixture lacks `fixture.chunker.npt`). Targeted operator run `uv run pytest tests/test_operators.py`: `9 passed`; targeted quadrature run `uv run pytest tests/test_quadggq.py`: `12 passed`; targeted geometry/domain run `uv run pytest tests/test_domain.py tests/test_chunkgraph.py tests/test_chunkerfunc.py`: `17 passed`; targeted chunker refinement run `uv run pytest tests/test_chunker.py tests/test_chunkerfunc.py`: `23 passed`; targeted kernel run `uv run pytest tests/test_kernel.py`: `15 passed`; targeted Legendre run `uv run pytest tests/test_lege.py`: `12 passed`.
+Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 203 tests: `202 passed, 1 failed` (`tests/test_devtools_parity.py::test_smoother_devtools_output_matches_matlab_thresholds`, current fixture lacks `fixture.chunker.npt`). Targeted operator run `uv run pytest tests/test_operators.py`: `9 passed`; targeted quadrature run `uv run pytest tests/test_quadggq.py`: `12 passed`; targeted geometry/domain run `uv run pytest tests/test_domain.py tests/test_chunkgraph.py tests/test_chunkerfunc.py`: `17 passed`; targeted chunker refinement run `uv run pytest tests/test_chunker.py tests/test_chunkerfunc.py`: `23 passed`; targeted kernel run `uv run pytest tests/test_kernel.py`: `15 passed`; targeted RCIP run `uv run pytest tests/test_rcip.py`: `7 passed`; targeted Legendre run `uv run pytest tests/test_lege.py`: `12 passed`.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -129,9 +129,9 @@ src/
     │   │   ├── buildmat
     │   │   └── _pointinfo_for_chunks
     │   ├── rcip.py
-    │   │   ├── class RCIPSaved
+    │   │   ├── class RCIPSaved, class RCIPChunkGraphResult
     │   │   ├── IPinit, Pbcinit, setup, SchurBana
-    │   │   ├── Rcompchunk, rhohatInterp, corner_refine
+    │   │   ├── Rcompchunk, rhohatInterp, corner_refine, chunkgraph_rcip
     │   │   └── lowercase MATLAB-style aliases
     │   ├── smoother.py
     │   │   ├── class UniformMesh, class SmoothMesh
@@ -408,6 +408,7 @@ Log/PV/HS support tables are consumed when the MATLAB reference checkout is avai
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
 | `RCIPSaved` | ✅ 🧪 🎯 | `+chnk/+rcip/*` saved structs | Metadata holder populated by recursive compression and checked through MATLAB RCIP fixture fields. |
+| `RCIPChunkGraphResult` | ✅ 🧪 | Chunkgraph RCIP workflow result struct | Holds per-vertex compression matrices, saved recursion metadata, incident edge lists, and selected local kernels. |
 | `IPinit` / `ipinit` | ✅ 🧪 | `+chnk/+rcip/IPinit.m` | Interpolation and weighted preservation tested. |
 | `Pbcinit` / `pbcinit` | ✅ 🧪 | `+chnk/+rcip/Pbcinit.m` | Tested through `setup` block-shape checks. |
 | `setup` | ✅ 🧪 | `+chnk/+rcip/setup.m` | Zero-based Python index translation and block shapes tested. |
@@ -416,6 +417,7 @@ Log/PV/HS support tables are consumed when the MATLAB reference checkout is avai
 | `Rcompchunk` / `rcompchunk` | ✅ 🧪 🎯 | `+chnk/+rcip/Rcompchunk.m` | Recursive local compression solver implemented and tested against MATLAB fixture for a two-edge corner. |
 | `rhohatInterp` / `rhohatinterp` | ✅ 🧪 🎯 | `+chnk/+rcip/rhohatInterp.m` | Saved-level backward density interpolation implemented and MATLAB-fixture tested. |
 | `corner_refine` | ⚠️ 🧪 | `+chnk/+rcip/chunkerfunclocal.m` and corner workflows | Convenience helper, not a direct MATLAB API match; tested on chunkgraph corner refinement. |
+| `chunkgraph_rcip` / `chunkgraphrcip` / `rcipchunkgraph` | ✅ 🧪 | `chunkgrphrcip*` workflow concepts | Runs RCIP compression over selected chunkgraph vertices, supports ignored vertices, and subselects global edge-by-edge block kernels for local corner solves. |
 
 ### `chnk/smoother.py`
 
@@ -543,7 +545,7 @@ Scope triage for MATLAB areas with no full Python equivalent yet:
 
 Should implement:
 
-- 🚧 Advanced RCIP workflows beyond the current two-edge corner fixture, including broader multi-kernel block coverage and production examples.
+- No active items remain from the current triage. FMM integration and advanced RCIP workflows now have Python implementations and focused tests.
 
 Deferred implementation:
 

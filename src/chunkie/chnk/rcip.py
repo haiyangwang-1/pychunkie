@@ -49,6 +49,15 @@ class RCIPSaved:
     glws: np.ndarray | None = None
 
 
+@dataclass
+class RCIPChunkGraphResult:
+    vertices: np.ndarray
+    edge_indices: list[np.ndarray]
+    R: list[np.ndarray]
+    saved: list[RCIPSaved]
+    kernels: list[Any]
+
+
 def IPinit(T: ArrayLike, W: ArrayLike) -> tuple[np.ndarray, np.ndarray]:
     """Build the RCIP prolongation matrix and weighted prolongation."""
 
@@ -505,6 +514,59 @@ def corner_refine(cg: Any, vertices: ArrayLike | None = None, depth: int = 1, st
     return out
 
 
+def chunkgraph_rcip(
+    cg: Any,
+    fkern: Any,
+    ndim: int,
+    vertices: ArrayLike | None = None,
+    opts: dict[str, Any] | None = None,
+    ignore_vertices: ArrayLike | None = None,
+) -> RCIPChunkGraphResult:
+    """Run RCIP compression at selected chunkgraph vertices.
+
+    ``fkern`` may be a scalar kernel/callable used at every local corner or a
+    global edge-by-edge block matrix. Global block matrices are restricted to
+    the incident edges of each vertex before calling ``Rcompchunk``.
+    """
+
+    if not hasattr(cg, "echnks") or not hasattr(cg, "vstruc") or not hasattr(cg, "verts"):
+        raise TypeError("chunkgraph_rcip expects a chunkgraph-like object")
+    nvert = int(cg.verts.shape[1])
+    vinds = _normalize_vertex_list(np.arange(nvert) if vertices is None else vertices, nvert)
+    ignored = set(_normalize_vertex_list([] if ignore_vertices is None else ignore_vertices, nvert).tolist())
+    options = {} if opts is None else dict(opts)
+
+    used_vertices: list[int] = []
+    edge_indices: list[np.ndarray] = []
+    rmats: list[np.ndarray] = []
+    saved_list: list[RCIPSaved] = []
+    kernels: list[Any] = []
+
+    for ivert in vinds:
+        iv = int(ivert)
+        if iv in ignored:
+            continue
+        edges, _ = cg.vstruc[iv]
+        edges = np.asarray(edges, dtype=int).reshape(-1)
+        if edges.size < 2:
+            continue
+        local_kernel = _select_vertex_kernel(fkern, edges)
+        rmat, saved = Rcompchunk(cg.echnks, edges, local_kernel, ndim, cg.verts[:, iv], opts=options)
+        used_vertices.append(iv)
+        edge_indices.append(edges.copy())
+        rmats.append(rmat)
+        saved_list.append(saved)
+        kernels.append(local_kernel)
+
+    return RCIPChunkGraphResult(
+        vertices=np.array(used_vertices, dtype=int),
+        edge_indices=edge_indices,
+        R=rmats,
+        saved=saved_list,
+        kernels=kernels,
+    )
+
+
 def _rcip_edge_records(
     chunks: list[Chunker],
     iedgechunks: ArrayLike,
@@ -644,6 +706,29 @@ def _select_local_kernel(fkern: Any, itarg: int, isrc: int) -> Any:
     return fkern
 
 
+def _select_vertex_kernel(fkern: Any, edges: np.ndarray) -> Any:
+    arr = np.asarray(fkern, dtype=object) if isinstance(fkern, (list, tuple, np.ndarray)) else None
+    if arr is None or arr.ndim != 2:
+        return fkern
+    if arr.shape == (edges.size, edges.size):
+        return arr
+    if edges.size and (np.max(edges) >= arr.shape[0] or np.max(edges) >= arr.shape[1]):
+        raise ValueError("global RCIP block kernel matrix is too small for selected vertex edges")
+    return arr[np.ix_(edges, edges)]
+
+
+def _normalize_vertex_list(vertices: ArrayLike, nvert: int) -> np.ndarray:
+    arr = np.asarray(vertices, dtype=int).reshape(-1)
+    if arr.size and np.max(arr) >= int(nvert):
+        if np.min(arr) >= 1 and np.max(arr) <= int(nvert):
+            arr = arr - 1
+        else:
+            raise ValueError("vertex index out of range")
+    if np.any(arr < 0) or np.any(arr >= int(nvert)):
+        raise ValueError("vertex index out of range")
+    return arr
+
+
 def _kernel_opdims(kern: Any, ndim: int) -> tuple[int, int]:
     opdims = getattr(kern, "opdims", None)
     if opdims is None or opdims == (0, 0):
@@ -685,5 +770,7 @@ pbcinit = Pbcinit
 schurbana = SchurBana
 rcompchunk = Rcompchunk
 rhohatinterp = rhohatInterp
+chunkgraphrcip = chunkgraph_rcip
+rcipchunkgraph = chunkgraph_rcip
 shiftedlegbasismats = shiftedlegbasismats
 chunkerfunclocal = chunkerfunclocal

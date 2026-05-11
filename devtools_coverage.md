@@ -45,7 +45,7 @@ The parity rule for this repo is:
 
 Should implement:
 
-- Advanced RCIP workflows beyond the current two-edge corner fixture.
+- No active items remain from the current triage.
 
 Implemented from this scope:
 
@@ -67,6 +67,8 @@ Implemented from this scope:
 - `chunkermatapply` FMM acceleration with sparse special-quadrature
   corrections for singular kernels.
 - `chunkerinterior` FMM classification with direct close-boundary correction.
+- Advanced RCIP chunkgraph workflows: selected vertices, ignored vertices, and
+  global block-kernel subselection for local corner compression.
 
 Deferred implementation:
 
@@ -145,9 +147,9 @@ Do not implement:
 | 51 | `singularkernelTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Checks principal-value and hypersingular quadratures by comparing boundary tangential and normal derivatives from singular kernels to analytic boundary data. | Save boundary fields, PV/HS values, and relative errors; compare Python singular GGQ paths. |
 | 52 | `trappermatTest.m` | 🚫 | Hard | Builds a trapper discretization, assembles a Laplace Dirichlet matrix, compares GMRES/backslash solutions, and evaluates target accuracy. The file prints diagnostics but has no final assert. | Do not port; the trapper family is an explicit non-goal. |
 | 53 | `rcipTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Tests RCIP for an exterior Dirichlet problem on two circular arcs meeting at corners, comparing system matrices, solutions, interpolation to fine grid, and target accuracy. | Python has some RCIP helpers; save coarse/fine operators and densities before attempting full solve parity. |
-| 54 | `chunkgrphrcip_ignoreTest.m` | ✅ 🚧 ⚠️ | Very Hard | Tests chunkgraph RCIP with artificial vertices ignored, verifying solution accuracy improves when ignored vertices are treated correctly. | Save graph, ignored-vertex metadata, solutions with/without ignoring, and target values. |
-| 55 | `chunkgrphrcipTest.m` | ✅ 🚧 ⚠️ | Very Hard | Builds pentagonal chunkgraphs and solves an interior Helmholtz Dirichlet problem with RCIP refinement. | Save graph, RCIP setup, system, RHS, solution, targets; compare after Python chunkgraph RCIP exists. |
-| 56 | `chunkgrphrcipTransmissionTest.m` | ✅ 🚧 ⚠️ | Very Hard | Solves a Helmholtz transmission problem on a chunkgraph with RCIP refinement and block kernels. | Save block system, material parameters, graph, densities, and interior/exterior target values. |
+| 54 | `chunkgrphrcip_ignoreTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Tests chunkgraph RCIP with artificial vertices ignored, verifying solution accuracy improves when ignored vertices are treated correctly. | Python now covers selected/ignored vertex RCIP compression; save graph, ignored-vertex metadata, solutions with/without ignoring, and target values for strict solve parity. |
+| 55 | `chunkgrphrcipTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Builds pentagonal chunkgraphs and solves an interior Helmholtz Dirichlet problem with RCIP refinement. | Python now has a chunkgraph-level RCIP compression driver; save graph, RCIP setup, system, RHS, solution, targets for full solve parity. |
+| 56 | `chunkgrphrcipTransmissionTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Solves a Helmholtz transmission problem on a chunkgraph with RCIP refinement and block kernels. | Python now subselects global edge-by-edge block kernels for local RCIP compression; save block system, material parameters, graph, densities, and interior/exterior target values for full solve parity. |
 | 57 | `mixedbcTest.m` | ✅ 🚧 ⚠️ | Very Hard | Tests mixed boundary conditions: Dirichlet/Neumann and Dirichlet/transmission, variable operator dimensions, RCIP scaling, target evaluation, and correction matrices. | Save the two mixed systems separately; port block dimensions and direct evaluation before RCIP-corrected solve parity. |
 | 58 | `kernel_interleaveTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Tests invalid interleave detection, then solves an exterior Neumann problem with a block interleaved Helmholtz representation and fast-direct interfaces. | Port in stages: invalid interleave, block matrix entries, dense solve, and FMM paths where applicable; FLAM/fast-direct parity is deferred until `pyflam` exists. |
 | 59 | `quasiperiodicTest.m` | 🚫 | Very Hard | Tests quasi-periodic Helmholtz kernels, shifted phase relations, combined/transmission/all/gradient kernels, and an integral-equation solve for a periodic scattering setup. | Do not port; quasiperiodic kernels are explicit non-goals. |
