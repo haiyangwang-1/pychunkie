@@ -13,7 +13,7 @@ import numpy as np
 from scipy.io import loadmat
 
 from chunkie import Chunker, kernel, lege
-from chunkie.chnk import flagnear, flagself, helm2d, spcl
+from chunkie.chnk import flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, spcl
 from chunkie.operators import PointInfo
 
 
@@ -127,6 +127,11 @@ def build_snapshot() -> dict[str, np.ndarray]:
 
     fn = fixture.flagnear
     out["flagnear_flags"] = flagnear(chunker_from_fields(fn.chunker), fn.targs, {"fac": float(fn.fac)})
+
+    fr = fixture.flagrect
+    fr_chunker = chunker_from_fields(fr.chunker)
+    out["flagrect_flags"] = flagnear_rectangle(fr_chunker, fr.targets)
+    out["flagrect_grid_flags"] = flagnear_rectangle_grid(fr_chunker, fr.x, fr.y)
 
     h2g = fixture.helm2d_green
     h2g_val, h2g_grad, h2g_hess = helm2d.green(h2g.zk, h2g.src, h2g.trg)

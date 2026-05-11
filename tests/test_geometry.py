@@ -43,7 +43,7 @@ def test_flagnear_rectangle_grid_matches_direct_meshgrid_order():
     x = np.linspace(-1.5, 1.5, 21)
     y = np.linspace(-1.25, 1.25, 17)
     xx, yy = np.meshgrid(x, y)
-    pts = np.vstack((xx.ravel(), yy.ravel()))
+    pts = np.vstack((xx.ravel(order="F"), yy.ravel(order="F")))
 
     direct = flagnear_rectangle(chnkr, pts, {"rho": 1.5})
     grid = flagnear_rectangle_grid(chnkr, x, y, {"rho": 1.5})
