@@ -14,6 +14,19 @@ from .chunker import (
     merge,
 )
 from .chunkgraph import ChunkGraph, chunkgraph, chunkgraphinregion, tochunkgraph
+from .domain import (
+    HypOctNode,
+    HypOctTree,
+    checkcurveparam,
+    ellipse,
+    hypoct_uni,
+    mergeregions,
+    nonflatinterface,
+    pointinregion,
+    redblue,
+    regioninside,
+    starfish,
+)
 from .kernel import Kernel, kernel
 from .operators import (
     PointInfo,
@@ -32,6 +45,9 @@ __all__ = [
     "ChunkGraph",
     "Kernel",
     "PointInfo",
+    "HypOctNode",
+    "HypOctTree",
+    "checkcurveparam",
     "chunker",
     "chunkerfit",
     "chunkerfunc",
@@ -47,9 +63,17 @@ __all__ = [
     "chunkermat",
     "chunkermatapply",
     "chunkerpref",
+    "ellipse",
+    "hypoct_uni",
     "kernel",
+    "mergeregions",
     "merge",
+    "nonflatinterface",
     "lege",
+    "pointinregion",
     "pointinfo",
+    "redblue",
+    "regioninside",
+    "starfish",
     "tochunkgraph",
 ]
