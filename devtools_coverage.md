@@ -46,8 +46,8 @@ The parity rule for this repo is:
 Should implement:
 
 - FMM integration everywhere it applies to implemented kernel/operator
-  families, including `chunkermat`, `chunkerinterior`, biharmonic, elasticity,
-  and other currently unsupported selectors.
+  families, including `chunkermat`, `chunkerinterior`, remaining biharmonic
+  selectors, elasticity, and other currently unsupported selectors.
 - Full adaptive/close quadrature: complete `quadadap` and
   `quadggq/buildmattd`.
 - Advanced RCIP workflows beyond the current two-edge corner fixture.
@@ -63,6 +63,7 @@ Implemented from this scope:
   `regioninside`, and `starfish`.
 - Helmholtz double-gradient FMM selector wiring.
 - Stokes traction FMM selector wiring.
+- Biharmonic Laplacian FMM selector wiring.
 
 Deferred implementation:
 
