@@ -28,17 +28,17 @@ The parity rule for this repo is:
 - MATLAB fixture data: `tests/golden/devtools_easy.mat`
 - Python snapshot generator: `scripts/generate_devtools_easy_python_fixture.py`
 - Python comparisons: `tests/test_devtools_parity.py`
-- Covered now: `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m` single-component output, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `flagselfTest.m`, `helm2d_greenTest.m`, and `kernelopTest.m`
+- Covered now: `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m` single-component output, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, and `kernelopTest.m`
 - Known exposed gap: merged-component `arclengthfunTest.m` output is marked strict `xfail` because Python currently accumulates arclength through all chunks instead of resetting per connected component.
 
 ## Status At A Glance
 
 | Status | Count | Tests |
 | --- | ---: | --- |
-| ✅ 🧪 🎯 fully covered by devtools parity | 7 | `absconvgaussTest.m`, `legeexpsunitTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `flagselfTest.m`, `helm2d_greenTest.m`, `kernelopTest.m` |
+| ✅ 🧪 🎯 fully covered by devtools parity | 8 | `absconvgaussTest.m`, `legeexpsunitTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `kernelopTest.m` |
 | ✅ 🧪 🎯 ⚠️ partially covered by devtools parity | 1 | `arclengthfunTest.m` |
 | 🧩 🧭 helper/reference | 1 | `gradient_check.m` |
-| 🚧 not yet converted to devtools parity | 65 | All remaining ranked entries below. |
+| 🚧 not yet converted to devtools parity | 64 | All remaining ranked entries below. |
 
 ## Ranked Test Inventory
 
@@ -53,7 +53,7 @@ The parity rule for this repo is:
 | 7 | `chunker_nearestTest.m` | ✅ 🧪 🎯 | Easy | For 1000 random radial targets around a circle, checks `nearest` returns the closest circle angle to within `1e-12`. | Covered in `devtools_easy.mat`: compare saved targets, closest points, derivatives, second derivatives, distances, panel ids, local parameters, and angle error against Python `Chunker.nearest`. |
 | 8 | `flagselfTest.m` | ✅ 🧪 🎯 | Easy | Flags overlapping source and target point sets and checks the reported source permutation matches duplicated target coordinates. | Covered in `devtools_easy.mat`: compare deterministic source/target arrays and expected overlap index pairs against Python `geometry.flagself`. |
 | 9 | `flagrectTest.m` | ✅ 🧪 🚧 | Easy | Tests rectangle-based near-flagging by comparing rectangle flags to brute-force or ellipse-derived flags on a starfish chunker. | Save starfish chunker, target grid, rectangle flags, and compare Python `flagnear_rectangle`/grid behavior. |
-| 10 | `flagnearTest.m` | ✅ 🧪 🚧 | Easy | Tests near-point flagging against a brute-force distance check for targets scaled radially around a starfish curve. | Save targets and MATLAB near flags; compare Python `geometry.flagnear`. |
+| 10 | `flagnearTest.m` | ✅ 🧪 🎯 | Easy | Tests near-point flagging against a brute-force distance check for targets scaled radially around a starfish curve. | Covered in `devtools_easy.mat`: compare saved starfish chunker, targets, MATLAB near flags, and brute-force flags against Python `geometry.flagnear`. |
 | 11 | `kernelopTest.m` | ✅ 🧪 🎯 | Easy | Verifies kernel algebra: interleave, scalar multiply/divide, negation, addition, subtraction, and conjugation on Laplace/Helmholtz kernels. | Covered in `devtools_easy.mat`: compare saved kernel matrices from deterministic source/target normals. |
 | 12 | `KernDerInterleaveTest.m` | ✅ 🧪 🚧 | Easy-Medium | Verifies algebraic relationships among interleaved Helmholtz, Helmholtz-difference, and Laplace kernels, including combined kernels, transmission blocks, gradients, and normal derivative as gradient dot normal. | Existing point-kernel fixtures cover much of this; add devtools fixture with the exact source/target/coefficient cases and compare all interleaved blocks. |
 | 13 | `helm2d_greenTest.m` | ✅ 🧪 🎯 | Easy-Medium | Uses `gradient_check` to verify `chnk.helm2d.green` potential and gradient components against finite differences. | Covered in `devtools_easy.mat`: compare source/target, MATLAB Green value/gradient/Hessian, and saved finite-difference thresholds against Python `helm2d.green`. |
@@ -122,6 +122,6 @@ The parity rule for this repo is:
 ## Suggested Next Ports
 
 1. `KernDerInterleaveTest.m`: mostly point-kernel algebra and extends the new `kernelopTest.m` fixture naturally.
-2. `flagnearTest.m` and `flagrectTest.m`: geometry flags already have Python tests and should be compact fixture additions.
+2. `flagrectTest.m`: geometry rectangle flags already have Python tests and should be a compact fixture addition.
 3. `stokes_dtracTest.m`: focused Stokes kernel identity, but decide how to treat the MATLAB file's diagnostic-only assertion style.
 4. Fix the `arclengthfunTest.m` merged-component `xfail`, then remove the partial-coverage warning.
