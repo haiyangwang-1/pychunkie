@@ -64,16 +64,26 @@ def setup(k: int, type: str = "log", nfac_self: int | None = None, nfac_near: in
 
 
 def getlogquad(k: int, npolyfac: int = 2) -> tuple[np.ndarray, np.ndarray, list[np.ndarray], list[np.ndarray]]:
-    """Return generated neighbor and self rules for logarithmic kernels."""
+    """Return MATLAB GGQ neighbor and self rules for logarithmic kernels."""
 
-    aux = setup(k, "log", nfac_self=npolyfac, nfac_near=npolyfac)
-    return aux.xs1, aux.wts1, aux.xs0, aux.wts0
+    order = int(k)
+    nfac = int(npolyfac)
+    near_order = _log_near_order(order)
+    table_dir = _matlab_quadggq_dir()
+    near_table = table_dir / f"ggqnear{near_order}.m" if near_order is not None else None
+    self_table = table_dir / f"ggqself_nnode{order:03d}_npoly{nfac * order:03d}.m"
+    if near_table is None or not near_table.exists() or not self_table.exists():
+        return _generated_logquad(order, nfac)
+    xs1 = _parse_matlab_vector_assignment(near_table, "x")
+    wts1 = _parse_matlab_vector_assignment(near_table, "w")
+    xs0, wts0 = _parse_matlab_cell_table(self_table)
+    return xs1, wts1, xs0, wts0
 
 
 def logavail() -> np.ndarray:
-    """Return panel orders supported by the generated log rules."""
+    """Return panel orders supported by MATLAB log GGQ tables."""
 
-    return np.arange(1, 65, dtype=int)
+    return np.array([*range(1, 17), 20, 24, 28, 32, 36], dtype=int)
 
 
 def hqsuppavail() -> np.ndarray:
@@ -117,6 +127,12 @@ def getremovablequad(k: int, nfac: int = 1) -> tuple[list[np.ndarray], list[np.n
         xs0.append(np.concatenate((xleft, xright)))
         wts0.append(np.concatenate((wleft, wright)))
     return xs0, wts0
+
+
+def _generated_logquad(k: int, npolyfac: int = 2) -> tuple[np.ndarray, np.ndarray, list[np.ndarray], list[np.ndarray]]:
+    xs1, wts1 = lege.exps(max(int(npolyfac * k), k))[:2]
+    xs0, wts0 = getremovablequad(k, npolyfac)
+    return xs1, wts1, xs0, wts0
 
 
 def getpvquad(k: int) -> tuple[list[np.ndarray], list[np.ndarray]]:
@@ -304,6 +320,31 @@ def _parse_matlab_cell_table(path: Path) -> tuple[list[np.ndarray], list[np.ndar
     if len(xs) != len(ws):
         raise ValueError(f"malformed MATLAB GGQ table: {path}")
     return xs, ws
+
+
+def _parse_matlab_vector_assignment(path: Path, name: str) -> np.ndarray:
+    text = path.read_text(encoding="utf-8")
+    match = re.search(rf"\b{name}\s*=\s*\[(.*?)\];", text, flags=re.S)
+    if match is None:
+        raise ValueError(f"no {name} vector found in MATLAB table: {path}")
+    clean = match.group(1).replace("D", "E").replace("d", "e")
+    return np.fromstring(clean, sep=" ")
+
+
+def _log_near_order(k: int) -> int | None:
+    if k <= 16:
+        return 16
+    if k <= 20:
+        return 20
+    if k <= 24:
+        return 24
+    if k <= 30:
+        return 30
+    if k <= 40:
+        return 40
+    if k <= 60:
+        return 60
+    return None
 
 
 def _parse_cells(text: str, name: str) -> list[np.ndarray]:
