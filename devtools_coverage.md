@@ -45,9 +45,6 @@ The parity rule for this repo is:
 
 Should implement:
 
-- FMM integration everywhere it applies to implemented kernel/operator
-  families, including remaining biharmonic selectors, elasticity, and other
-  currently unsupported selectors.
 - Advanced RCIP workflows beyond the current two-edge corner fixture.
 
 Implemented from this scope:
@@ -57,7 +54,10 @@ Implemented from this scope:
   `regioninside`, and `starfish`.
 - Helmholtz double-gradient FMM selector wiring.
 - Stokes traction FMM selector wiring.
-- Biharmonic Laplacian FMM selector wiring.
+- FMM integration across the implemented 2D kernel selector surface, including
+  Laplace derived selectors, Helmholtz target-derivative selectors, full
+  biharmonic scalar selector wiring, Stokes traction/combined paths, and
+  elasticity single/traction/double/alternate-double workflows.
 - Remaining `+lege` helpers: `adapgauss`, `bernstein_ellipse`, `polsum`, and
   `tayl`.
 - Adaptive refinement in `chunker.refine` and `chunkerfunc`.
@@ -171,4 +171,4 @@ Do not implement:
 
 1. `KernDerInterleaveTest.m`: mostly point-kernel algebra and extends the new `kernelopTest.m` fixture naturally.
 2. `chunkermat_quadadapTest.m` and `chunkermat_quadadap_closetotouchingTest.m`: add strict MATLAB fixtures for adaptive close-interaction parity.
-3. FMM selector fixtures for biharmonic, elasticity, and other currently dense-direct fallback selectors.
+3. MATLAB parity fixtures for the newly wired FMM selector families, especially biharmonic and elasticity selector outputs.

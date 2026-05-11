@@ -89,6 +89,51 @@ def test_fmm2dpy_laplace_gradient_and_helmholtz_layers_match_direct():
         np.testing.assert_allclose(via_fmm, direct, rtol=1e-9, atol=1e-10)
 
 
+def test_fmm2dpy_laplace_derived_selectors_match_direct():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 5}, {"k": 8})
+    target = PointInfo(
+        r=np.array([[0.25, -0.4, 1.5], [0.1, 0.3, -0.2]]),
+        n=np.array([[1.0, 0.0, 0.6], [0.0, 1.0, 0.8]]),
+    )
+    dens = np.cos(chnkr.r.reshape(2, -1, order="F")[0])
+
+    for kern in (
+        kernel("lap", "sp"),
+        kernel("lap", "stau"),
+        kernel("lap", "hilb"),
+        kernel("lap", "dp"),
+        kernel("lap", "cp", [0.4, -0.7]),
+        kernel("lap", "cg", [0.4, -0.7]),
+    ):
+        direct = chunkerkerneval(chnkr, kern, dens, target)
+        via_fmm = chunkerkerneval(chnkr, kern, dens, target, {"usefmm": True, "eps": 1e-12})
+
+        assert kern.fmm is not None
+        np.testing.assert_allclose(via_fmm, direct, rtol=1e-9, atol=1e-10)
+
+
+def test_fmm2dpy_helmholtz_derived_selectors_match_direct():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 5}, {"k": 8})
+    target = PointInfo(
+        r=np.array([[0.25, -0.4, 1.5], [0.1, 0.3, -0.2]]),
+        n=np.array([[1.0, 0.0, 0.6], [0.0, 1.0, 0.8]]),
+        d=np.array([[0.0, 1.0, -0.8], [1.0, 0.0, 0.6]]),
+    )
+    dens = np.cos(chnkr.r.reshape(2, -1, order="F")[0])
+
+    for kern in (
+        kernel("helm", "sp", 1.3 + 0.2j),
+        kernel("helm", "stau", 1.3 + 0.2j),
+        kernel("helm", "dp", 1.3 + 0.2j),
+        kernel("helm", "cp", 1.3 + 0.2j, [0.4, -0.7]),
+    ):
+        direct = chunkerkerneval(chnkr, kern, dens, target)
+        via_fmm = chunkerkerneval(chnkr, kern, dens, target, {"usefmm": True, "eps": 1e-12})
+
+        assert kern.fmm is not None
+        np.testing.assert_allclose(via_fmm, direct, rtol=1e-9, atol=1e-10)
+
+
 def test_helmholtz_double_gradient_fmm_requests_dipole_gradients(monkeypatch):
     kernel_mod = importlib.import_module("chunkie.kernel")
 
@@ -161,6 +206,29 @@ def test_biharmonic_laplacian_fmm_reuses_laplace_single_layer(monkeypatch):
     np.testing.assert_allclose(vals, expected)
 
 
+def test_fmm2dpy_biharmonic_selectors_match_direct():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 5}, {"k": 8})
+    target = PointInfo(
+        r=np.array([[0.25, -0.4, 1.5], [0.1, 0.3, -0.2]]),
+        n=np.array([[1.0, 0.0, 0.6], [0.0, 1.0, 0.8]]),
+    )
+    dens = np.cos(chnkr.r.reshape(2, -1, order="F")[0])
+
+    for kern in (
+        kernel("biharm", "s"),
+        kernel("biharm", "sgrad"),
+        kernel("biharm", "shess"),
+        kernel("biharm", "lap"),
+        kernel("biharm", "d"),
+        kernel("biharm", "sp"),
+    ):
+        direct = chunkerkerneval(chnkr, kern, dens, target)
+        via_fmm = chunkerkerneval(chnkr, kern, dens, target, {"usefmm": True, "eps": 1e-12})
+
+        assert kern.fmm is not None
+        np.testing.assert_allclose(via_fmm, direct, rtol=1e-9, atol=1e-10)
+
+
 def test_fmm2dpy_stokes_layers_match_direct():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 5}, {"k": 8})
     target = np.array([[0.25, -0.4, 1.5], [0.1, 0.3, -0.2]])
@@ -220,6 +288,31 @@ def test_stokes_traction_fmm_reconstructs_stress_from_pressure_and_gradient(monk
     assert all("stoklet" in call for call in fake.calls)
     expected = np.array([0.0, 5.0 / (2.0 * np.pi), 13.0 / (2.0 * np.pi), 13.0 / (2.0 * np.pi)])
     np.testing.assert_allclose(vals, expected)
+
+
+def test_fmm2dpy_elasticity_selectors_match_direct():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 5}, {"k": 8})
+    target = PointInfo(
+        r=np.array([[0.25, -0.4, 1.5], [0.1, 0.3, -0.2]]),
+        n=np.array([[1.0, 0.0, 0.6], [0.0, 1.0, 0.8]]),
+    )
+    pts = chnkr.r.reshape(2, -1, order="F")
+    dens = np.vstack((np.cos(pts[0]), np.sin(pts[1]))).reshape(-1, order="F")
+
+    for kern in (
+        kernel("elast", "s", 1.5, 2.1),
+        kernel("elast", "sgrad", 1.5, 2.1),
+        kernel("elast", "strac", 1.5, 2.1),
+        kernel("elast", "d", 1.5, 2.1),
+        kernel("elast", "dalt", 1.5, 2.1),
+        kernel("elast", "daltgrad", 1.5, 2.1),
+        kernel("elast", "dalttrac", 1.5, 2.1),
+    ):
+        direct = chunkerkerneval(chnkr, kern, dens, target)
+        via_fmm = chunkerkerneval(chnkr, kern, dens, target, {"usefmm": True, "eps": 1e-12})
+
+        assert kern.fmm is not None
+        np.testing.assert_allclose(via_fmm, direct, rtol=1e-9, atol=1e-10)
 
 
 def test_kernel_fmm_fallback_tracks_kernel_algebra():

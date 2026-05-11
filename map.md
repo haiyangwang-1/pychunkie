@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 197 tests: `196 passed, 1 failed` (`tests/test_devtools_parity.py::test_smoother_devtools_output_matches_matlab_thresholds`, current fixture lacks `fixture.chunker.npt`). Targeted operator run `uv run pytest tests/test_operators.py`: `9 passed`; targeted quadrature run `uv run pytest tests/test_quadggq.py`: `12 passed`; targeted geometry/domain run `uv run pytest tests/test_domain.py tests/test_chunkgraph.py tests/test_chunkerfunc.py`: `17 passed`; targeted chunker refinement run `uv run pytest tests/test_chunker.py tests/test_chunkerfunc.py`: `23 passed`; targeted kernel run `uv run pytest tests/test_kernel.py`: `11 passed`; targeted Legendre run `uv run pytest tests/test_lege.py`: `12 passed`.
+Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 201 tests: `200 passed, 1 failed` (`tests/test_devtools_parity.py::test_smoother_devtools_output_matches_matlab_thresholds`, current fixture lacks `fixture.chunker.npt`). Targeted operator run `uv run pytest tests/test_operators.py`: `9 passed`; targeted quadrature run `uv run pytest tests/test_quadggq.py`: `12 passed`; targeted geometry/domain run `uv run pytest tests/test_domain.py tests/test_chunkgraph.py tests/test_chunkerfunc.py`: `17 passed`; targeted chunker refinement run `uv run pytest tests/test_chunker.py tests/test_chunkerfunc.py`: `23 passed`; targeted kernel run `uv run pytest tests/test_kernel.py`: `15 passed`; targeted Legendre run `uv run pytest tests/test_lege.py`: `12 passed`.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -286,19 +286,18 @@ src/
 | `Kernel.conj`, `conjugate` | ✅ 🧪 | `@kernel/conj.m` | Conjugation and FMM conjugation tested. |
 | `Kernel.zeros`, `Kernel.nans`, module `zeros`, `nans` | ✅ 🧪 | `@kernel/zeros.m`, `@kernel/nans.m` | Tested. |
 | `kernel` | ✅ 🧪 | `@kernel/kernel.m` | Dispatches strings, callables, existing kernels, and block arrays for `interleave`. |
-| `lap2d_kernel` | ✅ 🧪 | `@kernel/lap2d.m`, `+chnk/+lap2d/kern.m`, `+chnk/+lap2d/fmm.m` concepts | String dispatch plus `fmm2dpy` single, double, and gradient layer paths tested against dense direct evaluation. |
-| `helm2d_kernel` | ✅ 🧪 | `@kernel/helm2d.m`, `+chnk/+helm2d/kern.m`, `+chnk/+helm2d/fmm.m` concepts | String dispatch plus `fmm2dpy` single, double, single-gradient, and double-gradient paths tested against dense direct evaluation or FMM wiring tests. |
+| `lap2d_kernel` | ✅ 🧪 | `@kernel/lap2d.m`, `+chnk/+lap2d/kern.m`, `+chnk/+lap2d/fmm.m` concepts | String dispatch plus `fmm2dpy` single, double, target-normal/tangential derivatives, Hilbert, double-prime, combined-prime, and gradient paths tested against dense direct evaluation. |
+| `helm2d_kernel` | ✅ 🧪 | `@kernel/helm2d.m`, `+chnk/+helm2d/kern.m`, `+chnk/+helm2d/fmm.m` concepts | String dispatch plus `fmm2dpy` single, double, target-normal/tangential derivatives, double-prime, combined-prime, single-gradient, and double-gradient paths tested against dense direct evaluation or FMM wiring tests. |
 | `helm1d_kernel` | ✅ 🧪 | `@kernel/helm1d.m`, `+chnk/+helm1d/kern.m` | Tested through string dispatch. |
-| `biharm2d_kernel` | ✅ 🧪 | `fmm2d/src/biharmonic/*`, `+chnk/+flex2d/bhgreen.m` concepts | Biharmonic Green-kernel factory and selectors tested; Laplacian selector has FMM wiring through the equivalent Laplace single-layer relation. |
+| `biharm2d_kernel` | ✅ 🧪 | `fmm2d/src/biharmonic/*`, `+chnk/+flex2d/bhgreen.m` concepts | Biharmonic Green-kernel factory and selectors tested; single, double, target-normal derivative, gradient, Hessian, and Laplacian selectors have FMM wiring through Laplace moment decompositions. |
 | `stok2d_kernel` | ✅ 🧪 | `@kernel/stok2d.m`, `+chnk/+stok2d/kern.m`, `+chnk/+stok2d/fmm.m` concepts | String dispatch plus `fmm2dpy` velocity, pressure, gradient, traction, and combined Stokes paths tested against dense direct evaluation or FMM wiring tests. |
-| `elast2d_kernel` | ✅ 🧪 | `@kernel/elast2d.m`, `+chnk/+elast2d/kern.m` | Tested through string dispatch. |
+| `elast2d_kernel` | ✅ 🧪 | `@kernel/elast2d.m`, `+chnk/+elast2d/kern.m` | Elasticity single, gradient, traction, double, alternate double, alternate gradient, and alternate traction selectors have FMM wiring through Laplace/Stokes decompositions and are tested against dense direct evaluation. |
 | `interleave` | ✅ 🧪 | MATLAB block kernel composition patterns | Builds mixed block systems from kernel arrays; direct and FMM paths tested. |
-| `_lap2d_fmm`, `_helm2d_fmm`, `_stok2d_fmm`, `_direct_fmm`, `_sum_fmm`, `_interleave_fmm`, `_interleave_indices`, `_target_count` | 🧩 ✅ 🧪 | FMM-backed MATLAB kernel conventions | Laplace/Helmholtz/Stokes supported selectors call `fmm2dpy`; unsupported kernels retain dense-direct fallback callables. |
+| `_lap2d_fmm`, `_helm2d_fmm`, `_biharm2d_fmm`, `_stok2d_fmm`, `_elast2d_fmm`, `_direct_fmm`, `_sum_fmm`, `_interleave_fmm`, `_interleave_indices`, `_target_count` | 🧩 ✅ 🧪 | FMM-backed MATLAB kernel conventions | Implemented Laplace/Helmholtz/Biharmonic/Stokes/Elasticity selectors call `fmm2dpy` or algebraic combinations of `fmm2dpy` outputs; dense-direct fallback callables remain available for custom or unsupported kernels. |
 | `_infer_opdims`, `_worst_sing`, `_worst_many` | 🧩 ✅ | Internal Python helpers | No direct MATLAB file. |
 
-Scope note: full FMM integration for the implemented kernel families should be
-implemented, including remaining biharmonic selectors, elasticity, and other
-currently dense-direct fallback selectors. Axisymmetric,
+Scope note: FMM integration for the currently implemented 2D kernel families is
+wired where the existing kernel selector surface applies. Axisymmetric,
 quasiperiodic, and flexural kernel families are explicit non-goals for this
 port: `axissymhelm2d`, `axissymhelm2ddiff`, `helm2dquas`, most of `flex2d`, and
 their matching `@kernel` factories.
@@ -354,7 +353,7 @@ their matching `@kernel` factories.
 | `elast2d.kern` | ✅ 🧪 🎯 | `+chnk/+elast2d/kern.m` | Elasticity variants parity-tested. |
 | private kernel helpers | 🧩 ✅ | Internal Python helpers | Interleaving and validation helpers. |
 
-⚠️ External FMM acceleration is partially wired through `fmm2dpy`: Laplace single, double, single-gradient, and double-gradient selectors; Helmholtz single, double, single-gradient, and double-gradient selectors; biharmonic Laplacian selectors; and Stokes velocity/pressure/gradient/traction/combined selectors use the compiled wrappers when `usefmm` is requested. FMM wiring should be completed for remaining biharmonic selectors, elasticity, and other currently unsupported selectors, while keeping dense-direct fallbacks available for compatibility and tests.
+✅ External FMM acceleration is wired through `fmm2dpy` for the implemented 2D selector surface: Laplace single/double/normal/tangential/Hilbert/prime/gradient/combined paths; Helmholtz single/double/normal/tangential/prime/gradient/combined-prime paths; biharmonic single/double/normal derivative/gradient/Hessian/Laplacian paths via Laplace moment decompositions; Stokes velocity/pressure/gradient/traction/combined paths; and elasticity single/gradient/traction/double/alternate-double workflows via Laplace/Stokes decompositions. Dense-direct fallbacks remain available for custom kernels, optional dependency absence, and compatibility tests.
 
 ### `chnk/geometry.py`
 
@@ -544,7 +543,6 @@ Scope triage for MATLAB areas with no full Python equivalent yet:
 
 Should implement:
 
-- 🚧 FMM integration everywhere it applies to implemented kernel/operator families, including missing selector wiring for remaining biharmonic selectors, elasticity, and other currently unsupported selectors.
 - 🚧 Advanced RCIP workflows beyond the current two-edge corner fixture, including broader multi-kernel block coverage and production examples.
 
 Deferred implementation:
@@ -567,4 +565,4 @@ Do not implement:
 - Add golden MATLAB fixtures for `chunkerpoly` rounded paths, `chunkerfit`, `sortinfo`, `chunkgraph`, `arcparam`, `geometry`, `spcl`, `smoother`, `rcip`, and `biharm2d` to upgrade many ✅ 🧪 nodes to 🎯.
 - Add focused tests for remaining implemented but currently lightly tested methods, especially `ChunkGraph.min`/`max`, `ChunkGraph.merged`, `curves.fpara`, and `curves.bymode`.
 - Add stricter MATLAB fixtures for `quadadap.py`; `smoother.py` remains a lightweight rounded-polygon path and full MATLAB smoothing/Newton behavior is a non-goal.
-- Extend `fmm2dpy` wiring to remaining biharmonic selectors, elasticity, and other implemented-kernel selectors while keeping dense-direct fallbacks available for compatibility and tests.
+- Add stricter MATLAB fixtures for the newly wired FMM selector families, especially biharmonic and elasticity selectors, while keeping dense-direct fallbacks available for compatibility and tests.

@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 197 pytest cases because several MATLAB parity tests are
+collection expands to 201 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 
@@ -66,9 +66,6 @@ The living docs split remaining MATLAB parity work into three buckets.
 
 Should implement:
 
-- FMM integration everywhere it applies to implemented kernel/operator
-  families, including missing selector wiring for remaining biharmonic
-  selectors, elasticity, and other unsupported selectors.
 - Advanced RCIP workflows beyond the current two-edge corner fixture.
 
 Implemented from this scope:
@@ -78,7 +75,10 @@ Implemented from this scope:
   `regioninside`, and `starfish`.
 - Helmholtz double-gradient FMM selector wiring.
 - Stokes traction FMM selector wiring.
-- Biharmonic Laplacian FMM selector wiring.
+- FMM integration across the implemented 2D kernel selector surface, including
+  Laplace derived selectors, Helmholtz target-derivative selectors, full
+  biharmonic scalar selector wiring, Stokes traction/combined paths, and
+  elasticity single/traction/double/alternate-double workflows.
 - Remaining `+lege` helpers: `adapgauss`, `bernstein_ellipse`, `polsum`, and
   `tayl`.
 - Adaptive refinement in `chunker.refine` and `chunkerfunc`.
@@ -651,6 +651,18 @@ and Helmholtz layer potentials applied to `cos(x)` density on a circle. The
 method compares FMM evaluation at several targets against dense direct
 evaluation with tolerance `1e-9`. Ground truth is the direct dense path.
 
+`test_fmm2dpy_laplace_derived_selectors_match_direct` checks FMM wiring for
+Laplace target-normal derivative, target-tangential derivative, Hilbert,
+double-prime, combined-prime, and combined-gradient selectors. The method
+compares FMM evaluation against dense direct evaluation on the same circle
+density. Ground truth is the direct dense path.
+
+`test_fmm2dpy_helmholtz_derived_selectors_match_direct` checks FMM wiring for
+Helmholtz target-normal derivative, target-tangential derivative,
+double-prime, and combined-prime selectors. The method uses the existing
+Helmholtz gradient FMM output and compares against dense direct evaluation.
+Ground truth is the direct dense path.
+
 `test_helmholtz_double_gradient_fmm_requests_dipole_gradients` checks the
 new Helmholtz double-gradient FMM wiring with a fake `fmm2dpy` module. The
 method builds `kernel("helm","dgrad",zk)`, calls its FMM evaluator, and asserts
@@ -662,6 +674,12 @@ biharmonic Laplacian FMM wiring with a fake `fmm2dpy` module. The method builds
 `biharm2d_kernel("lap")`, calls its FMM evaluator, and asserts that the path
 uses the Laplace single-layer FMM with the analytic constant correction. Ground
 truth is the fake module's potential output combined with `sum(sigma)/(2 pi)`.
+
+`test_fmm2dpy_biharmonic_selectors_match_direct` checks FMM wiring for
+biharmonic single, double, target-normal derivative, gradient, Hessian, and
+Laplacian selectors. The implementation uses Laplace log-moment decompositions;
+the test compares against dense direct evaluation. Ground truth is the direct
+dense path.
 
 `test_fmm2dpy_stokes_layers_match_direct` checks FMM acceleration for Stokes
 velocity, pressure, gradient, and combined kernels. The vector density is
@@ -675,6 +693,12 @@ evaluates `kernel("stok","strac",mu)` through its FMM callback and verifies
 that pressure and gradient FMM calls are combined as
 `-p n + mu (grad u + grad u^T) n`. Ground truth is the explicit stress
 contraction for two target normals.
+
+`test_fmm2dpy_elasticity_selectors_match_direct` checks FMM wiring for
+elasticity single, gradient, traction, double, alternate double, alternate
+gradient, and alternate traction selectors. The implementation decomposes the
+elasticity kernels into Laplace and Stokes FMM calls; the test compares against
+dense direct evaluation. Ground truth is the direct dense path.
 
 `test_kernel_fmm_fallback_tracks_kernel_algebra` checks that composed kernels
 preserve a usable FMM evaluator. The equation is the algebraic combination
