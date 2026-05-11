@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 194 tests: `193 passed, 1 failed` (`tests/test_devtools_parity.py::test_smoother_devtools_output_matches_matlab_thresholds`, current fixture lacks `fixture.chunker.npt`). Targeted quadrature run `uv run pytest tests/test_quadggq.py`: `11 passed`; targeted geometry/domain run `uv run pytest tests/test_domain.py tests/test_chunkgraph.py tests/test_chunkerfunc.py`: `17 passed`; targeted chunker refinement run `uv run pytest tests/test_chunker.py tests/test_chunkerfunc.py`: `23 passed`; targeted kernel run `uv run pytest tests/test_kernel.py`: `11 passed`; targeted Legendre run `uv run pytest tests/test_lege.py`: `12 passed`.
+Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 195 tests: `194 passed, 1 failed` (`tests/test_devtools_parity.py::test_smoother_devtools_output_matches_matlab_thresholds`, current fixture lacks `fixture.chunker.npt`). Targeted quadrature run `uv run pytest tests/test_quadggq.py`: `12 passed`; targeted geometry/domain run `uv run pytest tests/test_domain.py tests/test_chunkgraph.py tests/test_chunkerfunc.py`: `17 passed`; targeted chunker refinement run `uv run pytest tests/test_chunker.py tests/test_chunkerfunc.py`: `23 passed`; targeted kernel run `uv run pytest tests/test_kernel.py`: `11 passed`; targeted Legendre run `uv run pytest tests/test_lege.py`: `12 passed`.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -381,7 +381,7 @@ their matching `@kernel` factories.
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
-| `buildmat` | ⚠️ 🧪 | `+chnk/+quadadap/buildmat.m` | Public adaptive-special quadrature entry point is present, but currently delegates replacement blocks to `quadggq`; full MATLAB adaptive close-interaction behavior should be implemented. |
+| `buildmat` | ✅ 🧪 | `+chnk/+quadadap/buildmat.m` | Uses GGQ self blocks, adaptive Gauss neighbor blocks, and optional robust close non-neighbor replacement for log kernels; other singularity types delegate to `quadggq`. |
 
 ### `chnk/quadggq.py`
 
@@ -402,7 +402,7 @@ their matching `@kernel` factories.
 | `_matlab_quadggq_dir`, `_parse_matlab_cell_table`, `_parse_cells`, `_parse_matlab_vector_assignment` | 🧩 ✅ 🧪 | MATLAB generated quadrature table files | Internal readers for reference `.m` table files. |
 | other private helpers | 🧩 ✅ | Internal Python helpers | Interpolation/block slicing/dtype helpers. |
 
-🚧 MATLAB files/workflows to implement here include full `quadadap` close-interaction behavior. Log/PV/HS support tables are now consumed when the MATLAB reference checkout is available. `quadba` is an explicit non-goal for this port.
+Log/PV/HS support tables are consumed when the MATLAB reference checkout is available. `quadadap` covers MATLAB-style log self, neighbor, and robust close replacement. `quadba` is an explicit non-goal for this port.
 
 ### `chnk/rcip.py`
 
@@ -545,7 +545,6 @@ Scope triage for MATLAB areas with no full Python equivalent yet:
 Should implement:
 
 - 🚧 FMM integration everywhere it applies to implemented kernel/operator families, including `chunkermat` FMM acceleration and missing selector wiring for remaining biharmonic selectors, elasticity, and other currently unsupported selectors.
-- 🚧 Full adaptive/close quadrature: complete `+chnk/+quadadap/*`.
 - 🚧 Advanced RCIP workflows beyond the current two-edge corner fixture, including broader multi-kernel block coverage and production examples.
 - 🚧 `chunkerinterior` close-boundary correction and FMM interior acceleration.
 
@@ -568,5 +567,5 @@ Do not implement:
 
 - Add golden MATLAB fixtures for `chunkerpoly` rounded paths, `chunkerfit`, `sortinfo`, `chunkgraph`, `arcparam`, `geometry`, `spcl`, `smoother`, `rcip`, and `biharm2d` to upgrade many ✅ 🧪 nodes to 🎯.
 - Add focused tests for remaining implemented but currently lightly tested methods, especially `ChunkGraph.min`/`max`, `ChunkGraph.merged`, `curves.fpara`, and `curves.bymode`.
-- Implement `quadadap.py` fully; `smoother.py` remains a lightweight rounded-polygon path and full MATLAB smoothing/Newton behavior is a non-goal.
+- Add stricter MATLAB fixtures for `quadadap.py`; `smoother.py` remains a lightweight rounded-polygon path and full MATLAB smoothing/Newton behavior is a non-goal.
 - Extend `fmm2dpy` wiring to remaining biharmonic selectors, elasticity, and other implemented-kernel selectors while keeping dense-direct fallbacks available for compatibility and tests.

@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import sparse
 
-from chunkie import chunkerfunc, chunkerkerneval, chunkermat, kernel
+from chunkie import chunkerfunc, chunkerkerneval, chunkermat, kernel, merge
 from chunkie.chnk import quadadap, quadggq
 
 
@@ -176,11 +176,47 @@ def test_chunkermat_uses_special_quadrature_for_pv_and_hs_kernels():
     assert np.isfinite(hs_mat).all()
 
 
-def test_quadadap_buildmat_delegates_to_special_quadrature():
+def test_quadadap_buildmat_uses_adaptive_neighbor_blocks(monkeypatch):
     chnkr, _ = chunkerfunc(circle, {"nchmin": 6}, {"k": 8})
     lap_s = kernel("lap", "s")
+    calls = []
+    original = quadadap.adapgausswts
+
+    def wrapped(*args, **kwargs):
+        calls.append((args[1], args[2].r.shape[1]))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(quadadap, "adapgausswts", wrapped)
 
     adap = quadadap.buildmat(chnkr, lap_s, opts={"sing": "log"})
     ggq = quadggq.buildmat(chnkr, lap_s, lap_s.opdims, type="log")
 
+    assert len(calls) == 2 * chnkr.nch
+    assert {ntarg for _, ntarg in calls} == {chnkr.k}
     np.testing.assert_allclose(adap, ggq)
+
+
+def test_quadadap_robust_mode_repairs_non_neighbor_close_blocks(monkeypatch):
+    left, _ = chunkerfunc(lambda t: circle(t), {"nchmin": 8}, {"k": 8})
+
+    def shifted(t):
+        r, d, d2 = circle(t)
+        r = r + np.array([[2.05], [0.0]])
+        return r, d, d2
+
+    right, _ = chunkerfunc(shifted, {"nchmin": 8}, {"k": 8})
+    chnkr = merge([left, right])
+    lap_s = kernel("lap", "s")
+    calls = []
+    original = quadadap.adapgausswts
+
+    def wrapped(*args, **kwargs):
+        calls.append((args[1], args[2].r.shape[1]))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(quadadap, "adapgausswts", wrapped)
+
+    robust = quadadap.buildmat(chnkr, lap_s, opts={"sing": "log", "robust": True})
+
+    assert np.isfinite(robust).all()
+    assert any(ntarg != chnkr.k for _, ntarg in calls)
