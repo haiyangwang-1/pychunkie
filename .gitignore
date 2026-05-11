@@ -4,3 +4,9 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+
+# Large generated parity snapshots. Regenerate locally when needed; do not
+# commit them. Singular quadrature/package data is intentionally not ignored.
+tests/golden/devtools_easy.mat
+tests/golden/devtools_easy_python.npz
+tests/golden/chunker_ops.mat

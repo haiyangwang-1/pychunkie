@@ -20,13 +20,16 @@ The parity rule for this repo is:
 
 1. Do not edit `external/chunkie-matlab/devtools/test`.
 2. Add MATLAB wrapper scripts under `scripts/matlab` when fixture data is needed.
-3. Save compact MATLAB outputs under `tests/golden`.
+3. Save compact MATLAB outputs under `tests/golden`. Keep large generated
+   snapshots local/ignored; commit only small stable fixtures. Singular
+   quadrature fixture data stays tracked because it is part of the package
+   behavior.
 4. Recompute the same quantities from Python in `tests`, then compare.
 
 ## Current Snapshot
 
 - MATLAB fixture generator: `scripts/matlab/generate_devtools_easy_fixture.m`
-- MATLAB fixture data: `tests/golden/devtools_easy.mat`
+- MATLAB fixture data: optional local `tests/golden/devtools_easy.mat`
 - Python snapshot generator: `scripts/generate_devtools_easy_python_fixture.py`
 - Python comparisons: `tests/test_devtools_parity.py`
 - Covered now: `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`, `chunkerfuncuniTest.m`, `chunkerintegralTest.m`, `chunkerinteriorTest.m`, `chunkerpolyTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `kernelopTest.m`, `smootherTest.m`, `stokes_dtracTest.m`, and `tochunkgraphTest.m`

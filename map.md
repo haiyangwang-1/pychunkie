@@ -489,7 +489,6 @@ tests/
 ├── golden/
 │   ├── README.md
 │   ├── chunker_circle.mat
-│   ├── chunker_ops.mat
 │   ├── kernel_pointinfo.mat
 │   ├── lege_basic.mat
 │   ├── lege_extended.mat
@@ -534,7 +533,7 @@ Support file roles:
 - 🧭 `docs/matlab-reference-setup.md`: local MATLAB checkout / fixture setup notes.
 - 🧭 `docs/special-quadrature.md`: special quadrature implementation notes.
 - 🧭 `scripts/matlab/*.m`: MATLAB fixture-generation scripts; these are the source of the `.mat` golden data used for 🎯 flags.
-- 🧪 `tests/golden/*.mat`: MATLAB-generated parity fixtures.
+- 🧪 `tests/golden/*.mat`: small MATLAB-generated parity fixtures. Large generated parity snapshots such as `devtools_easy.mat`, `devtools_easy_python.npz`, and `chunker_ops.mat` are ignored and optional; tests skip cleanly when an optional fixture is absent. `quadggq.mat` remains tracked because it covers singular quadrature behavior.
 - 🧪 `tests/test_matlab_parity.py`: main exact-behavior comparison suite against golden data.
 - 🧪 `tests/test_matlab_fixtures.py`: basic fixture comparison suite.
 - 🧪 Other `tests/test_*.py`: Python behavioral/unit coverage.

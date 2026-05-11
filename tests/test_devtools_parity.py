@@ -13,7 +13,10 @@ GOLDEN = Path(__file__).parent / "golden"
 
 
 def load_devtools_easy():
-    return loadmat(GOLDEN / "devtools_easy.mat", squeeze_me=True, struct_as_record=False)["devtools_easy"]
+    path = GOLDEN / "devtools_easy.mat"
+    if not path.exists():
+        pytest.skip("optional devtools parity fixture is not present: devtools_easy.mat")
+    return loadmat(path, squeeze_me=True, struct_as_record=False)["devtools_easy"]
 
 
 def chunker_from_fields(fields) -> Chunker:

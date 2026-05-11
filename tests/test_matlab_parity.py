@@ -13,7 +13,10 @@ GOLDEN = Path(__file__).parent / "golden"
 
 
 def load_fixture(name: str):
-    return loadmat(GOLDEN / name, squeeze_me=True, struct_as_record=False)
+    path = GOLDEN / name
+    if not path.exists():
+        pytest.skip(f"optional MATLAB parity fixture is not present: {name}")
+    return loadmat(path, squeeze_me=True, struct_as_record=False)
 
 
 def mat_fields(obj) -> dict:
