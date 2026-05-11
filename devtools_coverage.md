@@ -46,10 +46,9 @@ The parity rule for this repo is:
 Should implement:
 
 - FMM integration everywhere it applies to implemented kernel/operator
-  families, including `chunkerinterior`, remaining biharmonic selectors,
-  elasticity, and other currently unsupported selectors.
+  families, including remaining biharmonic selectors, elasticity, and other
+  currently unsupported selectors.
 - Advanced RCIP workflows beyond the current two-edge corner fixture.
-- `chunkerinterior` close-boundary correction.
 
 Implemented from this scope:
 
@@ -67,6 +66,7 @@ Implemented from this scope:
   neighbor blocks, and robust close non-neighbor replacement for log kernels.
 - `chunkermatapply` FMM acceleration with sparse special-quadrature
   corrections for singular kernels.
+- `chunkerinterior` FMM classification with direct close-boundary correction.
 
 Deferred implementation:
 

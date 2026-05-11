@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 196 pytest cases because several MATLAB parity tests are
+collection expands to 197 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 
@@ -46,9 +46,9 @@ GGQ rules; principal-value kernels use PV support tables; hypersingular kernels
 use HS support tables. FMM tests request `{"usefmm": True}` and compare the
 accelerated path against the dense direct path. RCIP tests exercise recursive
 compressed inverse preconditioning for corner edges. There is no active Python
-test that exercises FLAM compression; `chunkerinterior` explicitly uses a
-direct node-polygon fallback. Close-boundary correction and FMM interior
-acceleration should be implemented; FLAM interior acceleration is deferred.
+test that exercises FLAM compression; `chunkerinterior` has both a direct
+node-polygon fallback and an FMM classifier with direct close-boundary
+correction. FLAM interior acceleration is deferred.
 
 Ground truth comes from four places:
 
@@ -67,11 +67,9 @@ The living docs split remaining MATLAB parity work into three buckets.
 Should implement:
 
 - FMM integration everywhere it applies to implemented kernel/operator
-  families, including `chunkerinterior` FMM acceleration and missing selector
-  wiring for remaining biharmonic selectors, elasticity, and other unsupported
-  selectors.
+  families, including missing selector wiring for remaining biharmonic
+  selectors, elasticity, and other unsupported selectors.
 - Advanced RCIP workflows beyond the current two-edge corner fixture.
-- `chunkerinterior` close-boundary correction.
 
 Implemented from this scope:
 
@@ -89,6 +87,7 @@ Implemented from this scope:
   neighbor blocks, and robust close non-neighbor replacement for log kernels.
 - `chunkermatapply` FMM acceleration with sparse special-quadrature
   corrections for singular kernels.
+- `chunkerinterior` FMM classification with direct close-boundary correction.
 
 Deferred implementation:
 
@@ -921,6 +920,12 @@ classification for a closed square. The method is the direct node-polygon
 fallback in `chunkerinterior`, applied to both a point list and an `(x,y)`
 grid specification. Ground truth is the obvious square membership of the
 sample targets.
+
+`test_chunkerinterior_usefmm_matches_direct_with_close_correction` checks the
+accelerated interior classifier. The method monkeypatches `chunkerkerneval` to
+verify the FMM path is used, evaluates points inside, outside, and very close
+to a circle boundary, and compares against the direct classifier. Ground truth
+is exact direct/FMM classification agreement after close-boundary correction.
 
 ## `tests/test_quadggq.py`
 

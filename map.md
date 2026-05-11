@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 196 tests: `195 passed, 1 failed` (`tests/test_devtools_parity.py::test_smoother_devtools_output_matches_matlab_thresholds`, current fixture lacks `fixture.chunker.npt`). Targeted operator run `uv run pytest tests/test_operators.py`: `8 passed`; targeted quadrature run `uv run pytest tests/test_quadggq.py`: `12 passed`; targeted geometry/domain run `uv run pytest tests/test_domain.py tests/test_chunkgraph.py tests/test_chunkerfunc.py`: `17 passed`; targeted chunker refinement run `uv run pytest tests/test_chunker.py tests/test_chunkerfunc.py`: `23 passed`; targeted kernel run `uv run pytest tests/test_kernel.py`: `11 passed`; targeted Legendre run `uv run pytest tests/test_lege.py`: `12 passed`.
+Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 197 tests: `196 passed, 1 failed` (`tests/test_devtools_parity.py::test_smoother_devtools_output_matches_matlab_thresholds`, current fixture lacks `fixture.chunker.npt`). Targeted operator run `uv run pytest tests/test_operators.py`: `9 passed`; targeted quadrature run `uv run pytest tests/test_quadggq.py`: `12 passed`; targeted geometry/domain run `uv run pytest tests/test_domain.py tests/test_chunkgraph.py tests/test_chunkerfunc.py`: `17 passed`; targeted chunker refinement run `uv run pytest tests/test_chunker.py tests/test_chunkerfunc.py`: `23 passed`; targeted kernel run `uv run pytest tests/test_kernel.py`: `11 passed`; targeted Legendre run `uv run pytest tests/test_lege.py`: `12 passed`.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -314,7 +314,7 @@ their matching `@kernel` factories.
 | `chunkermat` | ⚠️ 🧪 🎯 | `chunkermat.m` | Dense native/special matrix path parity-tested; dense return remains non-FMM by design; FLAM acceleration is deferred. |
 | `chunkermatapply` | ✅ 🧪 | `chunkermatapply.m` | Matrix application helper with FMM acceleration plus sparse special-quadrature corrections for singular kernels. |
 | `chunkerintegral` | ✅ 🧪 | `chunkerintegral.m` | Values and callables tested. |
-| `chunkerinterior` | ⚠️ 🧪 | `chunkerinterior.m` | Polygon/ray baseline; close-boundary correction and FMM interior acceleration should be implemented; FLAM interior acceleration is deferred. |
+| `chunkerinterior` | ✅ 🧪 | `chunkerinterior.m` | Direct polygon/ray classifier plus optional Laplace double-layer FMM classification with direct close-boundary correction; FLAM interior acceleration is deferred. |
 | `chunkerkerneval` | ✅ 🧪 🎯 | `chunkerkerneval.m` | MATLAB parity fixture checks dense target evaluation. |
 | `chunkerkernevalmat` | ✅ 🧪 🎯 | `chunkerkernevalmat.m` | MATLAB parity fixture checks eval matrix. |
 | private helpers | 🧩 ✅ | Internal Python helpers | Chunker coercion, weighted density flattening, kernel evaluation, special-quadrature dispatch. |
@@ -546,7 +546,6 @@ Should implement:
 
 - 🚧 FMM integration everywhere it applies to implemented kernel/operator families, including missing selector wiring for remaining biharmonic selectors, elasticity, and other currently unsupported selectors.
 - 🚧 Advanced RCIP workflows beyond the current two-edge corner fixture, including broader multi-kernel block coverage and production examples.
-- 🚧 `chunkerinterior` close-boundary correction and FMM interior acceleration.
 
 Deferred implementation:
 
