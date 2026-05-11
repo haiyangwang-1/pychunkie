@@ -51,7 +51,6 @@ Should implement:
 - Full adaptive/close quadrature: complete `quadadap` and
   `quadggq/buildmattd`.
 - Advanced RCIP workflows beyond the current two-edge corner fixture.
-- Adaptive refinement in `chunker.refine` and `chunkerfunc`.
 - `chunkerinterior` close-boundary correction.
 
 Implemented from this scope:
@@ -64,6 +63,7 @@ Implemented from this scope:
 - Biharmonic Laplacian FMM selector wiring.
 - Remaining `+lege` helpers: `adapgauss`, `bernstein_ellipse`, `polsum`, and
   `tayl`.
+- Adaptive refinement in `chunker.refine` and `chunkerfunc`.
 
 Deferred implementation:
 
@@ -106,7 +106,7 @@ Do not implement:
 | 15 | `chunkerclassunitTest.m` | ✅ 🧪 🎯 | Medium | Exercises `chunker` constructor failures, chunk allocation/resizing, adjacency links, translations, rotations, affine transforms, and area scaling. | Covered in `devtools_easy.mat`: compare constructor failure flags, adjacency reciprocity, translated/transformed/scaled chunker fields, centroids, and area scaling against Python `Chunker`. |
 | 16 | `chunkerfitTest.m` | ✅ 🧪 🎯 | Medium | Samples a smooth curve at random points, fits a chunker, and checks adjacency after fitting and after an open-curve fit. | Covered in `devtools_easy.mat`: compare saved random sample points and MATLAB adjacency status against Python `chunkerfit` on the same closed/open inputs; remaining MATLAB fitting modes are deferred. |
 | 17 | `chunkerfuncuniTest.m` | ✅ 🧪 🎯 | Medium | Builds uniformly chunked starfish/random-mode/circle curves and checks adjacency plus circle area. Also exercises plot/quiver/sort/reverse utilities lightly. | Covered in `devtools_easy.mat`: compare uniform starfish, reversed random-mode, and circle chunker fields, adjacency, and area against Python `chunkerfuncuni`. |
-| 18 | `chunkerfuncTest.m` | ✅ 🧪 🚧 ⚠️ | Medium | Tests adaptive `chunkerfunc` on starfish, random Fourier-mode curves, reversal, circle area, and expected warnings for open/closed flags. | Save representative chunkers, warning conditions, `ab`, area, and adjacency info; compare Python `chunkerfunc`. Adaptive refinement remains a known scope gap. |
+| 18 | `chunkerfuncTest.m` | ✅ 🧪 🚧 ⚠️ | Medium | Tests adaptive `chunkerfunc` on starfish, random Fourier-mode curves, reversal, circle area, and expected warnings for open/closed flags. | Python now covers adaptive curve/speed refinement and level restriction; save representative MATLAB chunkers, warning conditions, `ab`, area, and adjacency info for strict devtools parity. |
 | 19 | `chunkerpolyTest.m` | ✅ 🧪 🎯 | Medium | Builds rounded and adaptively refined polygon chunkers for a barbell-like polygon and checks adjacency. | Covered in `devtools_easy.mat`: compare saved vertices, edge data, MATLAB adjacency status, and area/length diagnostics against Python `chunkerpoly` adjacency behavior. |
 | 20 | `chunkerintegralTest.m` | ✅ 🧪 🎯 | Medium | Integrates a scalar function over a starfish chunker several ways and checks all routes agree to `1e-9`. | Covered in `devtools_easy.mat`: compare saved starfish chunker, scalar function values, and MATLAB integral variants against Python `chunkerintegral`. |
 | 21 | `chunkerinteriorTest.m` | ✅ 🧪 🎯 | Medium | Classifies targets inside/outside starfish domains, including targets passed as arrays/chunkers, axisymmetric option, boundary convention, and a stress case against `inpolygon`. | Covered in `devtools_easy.mat`: compare saved starfish targets, chunker targets, axisymmetric targets, and multiply connected stress grid against Python `chunkerinterior`. |
@@ -167,6 +167,5 @@ Do not implement:
 ## Suggested Next Ports
 
 1. `KernDerInterleaveTest.m`: mostly point-kernel algebra and extends the new `kernelopTest.m` fixture naturally.
-2. `chunkerfuncTest.m`: capture adaptive-refinement behavior for starfish/random-mode curves and close the current `chunkerfunc` scope gap.
-3. `chunkermat_quadadapTest.m` and `chunkermat_quadadap_closetotouchingTest.m`: drive the full `quadadap` implementation and close-interaction parity.
-4. FMM selector fixtures for biharmonic, elasticity, and other currently dense-direct fallback selectors.
+2. `chunkermat_quadadapTest.m` and `chunkermat_quadadap_closetotouchingTest.m`: drive the full `quadadap` implementation and close-interaction parity.
+3. FMM selector fixtures for biharmonic, elasticity, and other currently dense-direct fallback selectors.

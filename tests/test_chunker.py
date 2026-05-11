@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
 
-from chunkie import Chunker, chunker, chunkerpoints, chunkerpoly, chunkerpref, lege, merge
+from chunkie import Chunker, chunker, chunkerfunc, chunkerpoints, chunkerpoly, chunkerpref, lege, merge
+from chunkie.chnk import curves
 
 
 def circle_chunker(k=16):
@@ -198,6 +199,25 @@ def test_refine_oversamples_by_splitting_chunks():
     np.testing.assert_array_equal(refined.adj, [[2, 1], [2, 1]])
     np.testing.assert_allclose(refined.area(), chnkr.area(), atol=1e-12)
     np.testing.assert_allclose(np.sum(refined.chunklen()), np.sum(chnkr.chunklen()), atol=1e-12)
+
+
+def test_refine_enforces_arc_length_level_restriction():
+    chnkr = chunkerfunc(
+        lambda t: curves.linefunc(t, [0.0, 0.0], [1.0, 0.0]),
+        {"ta": 0.0, "tb": 1.0, "ifclosed": False, "tsplits": [0.05, 0.1], "ifrefine": False, "lvlr": "n"},
+        {"k": 8, "nchmax": 64},
+    )[0]
+
+    refined = chnkr.refine({"lvlr": "a", "lvlrfac": 2.1, "stype": "t"})
+    lengths = refined.chunklen()
+
+    assert refined.nch > chnkr.nch
+    for idx, length in enumerate(lengths):
+        left, right = refined.adj[:, idx]
+        left_len = lengths[left - 1] if left > 0 else length
+        right_len = lengths[right - 1] if right > 0 else length
+        assert length <= 2.1 * left_len + 1e-13
+        assert length <= 2.1 * right_len + 1e-13
 
 
 def test_chunkerpoints_builds_from_nodes_and_optional_derivatives():

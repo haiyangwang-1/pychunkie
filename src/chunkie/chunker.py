@@ -43,6 +43,7 @@ class Chunker:
     """
 
     __array_priority__ = 1000
+    lvlrfacdefault = 2.1
 
     def __init__(
         self,
@@ -715,20 +716,53 @@ class Chunker:
     def refine(self, opts: dict[str, Any] | None = None) -> "Chunker":
         opts = {} if opts is None else dict(opts)
         out = self.copy()
+        nchmax = int(opts.get("nchmax", out.nchmax))
+        if nchmax < out.nch:
+            raise ValueError("nchmax must be at least the current number of chunks")
+        out.nchmax = nchmax
         stype = str(opts.get("stype", "a"))
         for idx in sorted(np.asarray(opts.get("splitchunks", []), dtype=int).reshape(-1), reverse=True):
             out.split(int(idx), stype=stype)
 
         maxchunklen = float(opts.get("maxchunklen", np.inf))
         if np.isfinite(maxchunklen):
+            maxiter = int(opts.get("maxiter_maxlen", 1000))
             changed = True
-            while changed:
+            for _ in range(maxiter):
                 changed = False
                 for idx, length in enumerate(out.chunklen().copy()):
                     if length > maxchunklen:
                         out.split(idx, stype=stype)
                         changed = True
                         break
+                if not changed:
+                    break
+            if changed:
+                raise RuntimeError("maximum chunk length refinement did not converge")
+
+        lvlr = str(opts.get("lvlr", "a")).lower()
+        if lvlr == "a":
+            lvlrfac = float(opts.get("lvlrfac", self.lvlrfacdefault))
+            maxiter = int(opts.get("maxiter_lvlr", 1000))
+            changed = True
+            for _ in range(maxiter):
+                changed = False
+                lengths = out.chunklen()
+                for idx, length in enumerate(lengths.copy()):
+                    left = int(out.adj[0, idx])
+                    right = int(out.adj[1, idx])
+                    left_len = lengths[left - 1] if left > 0 else length
+                    right_len = lengths[right - 1] if right > 0 else length
+                    if length > lvlrfac * left_len or length > lvlrfac * right_len:
+                        out.split(idx, stype=stype)
+                        changed = True
+                        break
+                if not changed:
+                    break
+            if changed:
+                raise RuntimeError("level-restriction refinement did not converge")
+        elif lvlr not in {"n", "none"}:
+            raise ValueError("lvlr must be 'a' or 'n'")
 
         for _ in range(int(opts.get("nover", 0))):
             nchold = out.nch
@@ -903,9 +937,9 @@ def chunkerfunc(
 ) -> tuple[Chunker, np.ndarray]:
     """Create a chunker for a parameterized curve.
 
-    This is the fixed-layout first port of MATLAB ``chunkerfunc``. It honors
-    ``ta``, ``tb``, ``ifclosed``, ``tsplits``, ``nover``, and ``nchmin``.
-    Adaptive refinement options are intentionally deferred.
+    The implementation follows MATLAB ``chunkerfunc``: initial parameter
+    intervals are adaptively split until the curve and speed are spectrally
+    resolved, then optional level restriction and oversampling are applied.
     """
 
     cparams = {} if cparams is None else dict(cparams)
@@ -917,11 +951,25 @@ def chunkerfunc(
     nover = int(cparams.get("nover", 0))
     nchmin = int(cparams.get("nchmin", 0))
     tsplits = np.asarray(cparams.get("tsplits", []), dtype=float).reshape(-1)
+    eps = float(cparams.get("eps", 1.0e-6))
+    ifrefine = bool(cparams.get("ifrefine", True))
+    lvlr = str(cparams.get("lvlr", "a")).lower()
+    lvlrfac = float(cparams.get("lvlrfac", Chunker.lvlrfacdefault))
+    maxchunklen = float(cparams.get("maxchunklen", np.inf))
+    chsmall = np.asarray(cparams.get("chsmall", [np.inf, np.inf]), dtype=float).reshape(-1)
+    if chsmall.size == 1:
+        chsmall = np.repeat(chsmall, 2)
+    if chsmall.size != 2:
+        raise ValueError("chsmall must be scalar or length 2")
 
     if tb <= ta:
         raise ValueError("tb must be greater than ta")
     if np.any(tsplits < ta) or np.any(tsplits > tb):
         raise ValueError("tsplits outside interval of definition")
+
+    first = _curve_outputs(fcurve, np.array([ta]))
+    dim = first[0].shape[0]
+    nout = min(len(first), 3)
 
     breaks = np.unique(np.concatenate(([ta], tsplits, [tb])))
     breaks.sort()
@@ -932,37 +980,36 @@ def chunkerfunc(
         while breaks.size - 1 < nchmin:
             breaks = np.sort(np.concatenate((breaks, 0.5 * (breaks[:-1] + breaks[1:]))))
 
+    if ifrefine:
+        breaks = _adaptive_curve_breaks(
+            fcurve, breaks, p.k, p.nchmax, dim, nout, eps, maxchunklen, chsmall, ifclosed
+        )
+    elif np.isfinite(maxchunklen):
+        breaks = _maxlen_curve_breaks(fcurve, breaks, p.k, p.nchmax, dim, nout, maxchunklen)
+
+    if lvlr in {"a", "t"}:
+        breaks = _level_restrict_curve_breaks(
+            fcurve, breaks, p.k, p.nchmax, dim, nout, ifclosed, lvlrfac, lvlr
+        )
+    elif lvlr not in {"n", "none"}:
+        raise ValueError("lvlr must be 'a', 't', or 'n'")
+
+    stype = str(cparams.get("stype", "a")).lower()
     for _ in range(max(nover, 0)):
-        breaks = np.sort(np.concatenate((breaks, 0.5 * (breaks[:-1] + breaks[1:]))))
+        breaks = _oversample_curve_breaks(fcurve, breaks, p.k, p.nchmax, dim, nout, stype)
 
     ab = np.vstack((breaks[:-1], breaks[1:]))
     nch = ab.shape[1]
     if nch > p.nchmax:
         raise ValueError("CHUNKERFUNC: nchmax exceeded")
 
-    first = _curve_outputs(fcurve, np.array([ta]))
-    dim = first[0].shape[0]
     p = ChunkerPref(p.nchmax, p.k, dim, max(p.nchstor, min(nch, p.nchmax)), p.verttol)
     chnkr = Chunker(p).addchunk(nch)
     dmat = lege.dermat(chnkr.k)
 
     for i in range(nch):
         a, b = ab[:, i]
-        h = (b - a) / 2.0
-        ts = a + h * (chnkr.tstor + 1.0)
-        outs = _curve_outputs(fcurve, ts)
-        r = outs[0]
-        if r.shape != (dim, chnkr.k):
-            raise ValueError("curve position output has incompatible shape")
-
-        if len(outs) >= 2:
-            d = outs[1] * h
-        else:
-            d = r @ dmat.T
-        if len(outs) >= 3:
-            d2 = outs[2] * h * h
-        else:
-            d2 = d @ dmat.T
+        r, d, d2 = _curve_interval_outputs(fcurve, a, b, chnkr.tstor, dmat, dim, nout)
 
         chnkr.rstor[:, :, i] = r
         chnkr.dstor[:, :, i] = d
@@ -982,6 +1029,251 @@ def chunkerfunc(
     return chnkr, ab
 
 
+def _curve_interval_outputs(
+    fcurve: Callable[[np.ndarray], Any],
+    a: float,
+    b: float,
+    nodes: np.ndarray,
+    dmat: np.ndarray,
+    dim: int,
+    nout: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    h = (b - a) / 2.0
+    ts = a + h * (nodes + 1.0)
+    outs = _curve_outputs(fcurve, ts)
+    r = outs[0]
+    if r.shape != (dim, nodes.size):
+        raise ValueError("curve position output has incompatible shape")
+    if nout >= 2 and len(outs) >= 2:
+        d = outs[1] * h
+    else:
+        d = r @ dmat.T
+    if nout >= 3 and len(outs) >= 3:
+        d2 = outs[2] * h * h
+    else:
+        d2 = d @ dmat.T
+    return r, d, d2
+
+
+def _adaptive_curve_breaks(
+    fcurve: Callable[[np.ndarray], Any],
+    breaks: np.ndarray,
+    k: int,
+    nchmax: int,
+    dim: int,
+    nout: int,
+    eps: float,
+    maxchunklen: float,
+    chsmall: np.ndarray,
+    ifclosed: bool,
+) -> np.ndarray:
+    nodes, weights, u, _ = lege.exps(2 * k)
+    dmat = lege.dermat(2 * k)
+    for _ in range(max(nchmax, 1)):
+        radius = _curve_radius_on_breaks(fcurve, breaks, nodes, dim)
+        new_breaks = [float(breaks[0])]
+        changed = False
+        ninterval = breaks.size - 1
+        for idx, (a, b) in enumerate(zip(breaks[:-1], breaks[1:])):
+            r, d, d2 = _curve_interval_outputs(fcurve, float(a), float(b), nodes, dmat, dim, nout)
+            length = _local_curve_length(d, weights)
+            unresolved = _curve_interval_unresolved(r, d, d2, weights, u, k, eps, radius, nout, b - a)
+            if np.isfinite(maxchunklen):
+                unresolved = unresolved or length > maxchunklen
+            if not ifclosed and idx == 0:
+                unresolved = unresolved or length > chsmall[0]
+            if not ifclosed and idx == ninterval - 1:
+                unresolved = unresolved or length > chsmall[1]
+            if unresolved:
+                new_breaks.append(float(0.5 * (a + b)))
+                changed = True
+            new_breaks.append(float(b))
+            if len(new_breaks) - 1 > nchmax:
+                raise ValueError("CHUNKERFUNC: nchmax exceeded. Unable to resolve curve.")
+        breaks = np.asarray(new_breaks, dtype=float)
+        if not changed:
+            return breaks
+    raise RuntimeError("adaptive chunkerfunc refinement did not converge")
+
+
+def _curve_interval_unresolved(
+    r: np.ndarray,
+    d: np.ndarray,
+    d2: np.ndarray,
+    weights: np.ndarray,
+    u: np.ndarray,
+    k: int,
+    eps: float,
+    radius: float,
+    nout: int,
+    width: float,
+) -> bool:
+    speed = np.sqrt(np.sum(np.abs(d) ** 2, axis=0))
+    speed_cfs = u @ speed
+    low = float(np.sum(np.abs(speed_cfs[:k]) ** 2))
+    high = float(np.sum(np.abs(speed_cfs[k:]) ** 2))
+    speed_err = np.sqrt(high / max(low, np.finfo(float).eps) / k)
+    speed_bad = speed_err > eps if nout >= 2 else speed_err * width > eps * k
+
+    pos_cfs = u @ r.T
+    pos_err = np.sqrt(np.max(np.sum(np.abs(pos_cfs[k:, :]) ** 2, axis=0) / k))
+    curve_bad = pos_err / max(radius, np.finfo(float).eps) > eps
+
+    curvature_bad = False
+    if r.shape[0] == 2:
+        zd = d[0] + 1j * d[1]
+        zdd = d2[0] + 1j * d2[1]
+        denom = np.maximum(np.abs(zd) ** 2, np.finfo(float).eps)
+        dkappa = np.imag(zdd * np.conj(zd)) / denom
+        curvature_bad = float(np.dot(np.abs(dkappa), weights)) >= (2.0 * np.pi) / 3.0
+    return bool(speed_bad or curve_bad or curvature_bad)
+
+
+def _curve_radius_on_breaks(
+    fcurve: Callable[[np.ndarray], Any], breaks: np.ndarray, nodes: np.ndarray, dim: int
+) -> float:
+    mins = np.full(dim, np.inf)
+    maxs = np.full(dim, -np.inf)
+    for a, b in zip(breaks[:-1], breaks[1:]):
+        ts = float(a) + (float(b) - float(a)) * (nodes + 1.0) / 2.0
+        r = _curve_outputs(fcurve, ts)[0]
+        mins = np.minimum(mins, np.min(r, axis=1))
+        maxs = np.maximum(maxs, np.max(r, axis=1))
+    radius = float(np.max(maxs - mins))
+    return radius if radius > 0.0 else 1.0
+
+
+def _maxlen_curve_breaks(
+    fcurve: Callable[[np.ndarray], Any],
+    breaks: np.ndarray,
+    k: int,
+    nchmax: int,
+    dim: int,
+    nout: int,
+    maxchunklen: float,
+) -> np.ndarray:
+    nodes, weights, _, _ = lege.exps(k)
+    dmat = lege.dermat(k)
+    for _ in range(max(nchmax, 1)):
+        new_breaks = [float(breaks[0])]
+        changed = False
+        for a, b in zip(breaks[:-1], breaks[1:]):
+            _, d, _ = _curve_interval_outputs(fcurve, float(a), float(b), nodes, dmat, dim, nout)
+            if _local_curve_length(d, weights) > maxchunklen:
+                new_breaks.append(float(0.5 * (a + b)))
+                changed = True
+            new_breaks.append(float(b))
+            if len(new_breaks) - 1 > nchmax:
+                raise ValueError("CHUNKERFUNC: nchmax exceeded while enforcing maxchunklen")
+        breaks = np.asarray(new_breaks, dtype=float)
+        if not changed:
+            return breaks
+    raise RuntimeError("maxchunklen chunkerfunc refinement did not converge")
+
+
+def _level_restrict_curve_breaks(
+    fcurve: Callable[[np.ndarray], Any],
+    breaks: np.ndarray,
+    k: int,
+    nchmax: int,
+    dim: int,
+    nout: int,
+    ifclosed: bool,
+    lvlrfac: float,
+    lvlr: str,
+) -> np.ndarray:
+    nodes, weights, _, _ = lege.exps(k)
+    dmat = lege.dermat(k)
+    for _ in range(1000):
+        lengths = np.diff(breaks) if lvlr == "t" else np.array([
+            _curve_interval_length(fcurve, float(a), float(b), nodes, weights, dmat, dim, nout)
+            for a, b in zip(breaks[:-1], breaks[1:])
+        ])
+        flags = np.zeros(lengths.size, dtype=bool)
+        for idx, length in enumerate(lengths):
+            left = lengths[idx - 1] if idx > 0 else (lengths[-1] if ifclosed else length)
+            right = lengths[idx + 1] if idx + 1 < lengths.size else (lengths[0] if ifclosed else length)
+            flags[idx] = length > lvlrfac * left or length > lvlrfac * right
+        if not np.any(flags):
+            return breaks
+        new_breaks = [float(breaks[0])]
+        for idx, (a, b) in enumerate(zip(breaks[:-1], breaks[1:])):
+            if flags[idx]:
+                new_breaks.append(float(0.5 * (a + b)))
+            new_breaks.append(float(b))
+            if len(new_breaks) - 1 > nchmax:
+                raise ValueError("CHUNKERFUNC: nchmax exceeded during level restriction")
+        breaks = np.asarray(new_breaks, dtype=float)
+    raise RuntimeError("level-restriction chunkerfunc refinement did not converge")
+
+
+def _oversample_curve_breaks(
+    fcurve: Callable[[np.ndarray], Any],
+    breaks: np.ndarray,
+    k: int,
+    nchmax: int,
+    dim: int,
+    nout: int,
+    stype: str,
+) -> np.ndarray:
+    nodes, weights, _, _ = lege.exps(k)
+    dmat = lege.dermat(k)
+    new_breaks = [float(breaks[0])]
+    for a, b in zip(breaks[:-1], breaks[1:]):
+        if stype.startswith("a"):
+            mid = _curve_arclength_midpoint(fcurve, float(a), float(b), nodes, weights, dmat, dim, nout)
+        else:
+            mid = float(0.5 * (a + b))
+        new_breaks.extend((mid, float(b)))
+        if len(new_breaks) - 1 > nchmax:
+            raise ValueError("CHUNKERFUNC: nchmax exceeded while oversampling")
+    return np.asarray(new_breaks, dtype=float)
+
+
+def _curve_arclength_midpoint(
+    fcurve: Callable[[np.ndarray], Any],
+    a: float,
+    b: float,
+    nodes: np.ndarray,
+    weights: np.ndarray,
+    dmat: np.ndarray,
+    dim: int,
+    nout: int,
+) -> float:
+    total = _curve_interval_length(fcurve, a, b, nodes, weights, dmat, dim, nout)
+    target = 0.5 * total
+    lo = a
+    hi = b
+    for _ in range(52):
+        mid = 0.5 * (lo + hi)
+        left = _curve_interval_length(fcurve, a, mid, nodes, weights, dmat, dim, nout)
+        if abs(left - target) <= 1e-13 * max(total, 1.0):
+            return mid
+        if left < target:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
+
+
+def _curve_interval_length(
+    fcurve: Callable[[np.ndarray], Any],
+    a: float,
+    b: float,
+    nodes: np.ndarray,
+    weights: np.ndarray,
+    dmat: np.ndarray,
+    dim: int,
+    nout: int,
+) -> float:
+    _, d, _ = _curve_interval_outputs(fcurve, a, b, nodes, dmat, dim, nout)
+    return _local_curve_length(d, weights)
+
+
+def _local_curve_length(d: np.ndarray, weights: np.ndarray) -> float:
+    return float(np.dot(np.sqrt(np.sum(np.abs(d) ** 2, axis=0)), weights))
+
+
 def chunkerfuncuni(
     fcurve: Callable[[np.ndarray], Any],
     nch: int = 16,
@@ -994,8 +1286,12 @@ def chunkerfuncuni(
     nch = int(nch)
     ta = float(params.get("ta", 0.0))
     tb = float(params.get("tb", 2.0 * np.pi))
+    ifclosed = bool(params.get("ifclosed", True))
+    params = {"ta": ta, "tb": tb, "ifclosed": ifclosed}
     params["tsplits"] = np.linspace(ta, tb, nch + 1)[1:-1]
-    params.setdefault("nover", 0)
+    params["ifrefine"] = False
+    params["lvlr"] = "n"
+    params["nover"] = 0
     chnkr, _ = chunkerfunc(fcurve, params, pref)
     return chnkr
 
