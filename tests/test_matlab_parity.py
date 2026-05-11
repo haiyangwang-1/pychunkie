@@ -6,7 +6,7 @@ from scipy import sparse
 from scipy.io import loadmat
 
 from chunkie import Chunker, chunkerkerneval, chunkerkernevalmat, chunkermat, kernel, lege
-from chunkie.chnk import elast2d, helm1d, helm2d, lap2d, quadggq, quadnative, stok2d
+from chunkie.chnk import elast2d, helm1d, helm2d, lap2d, quadggq, quadnative, rcip, stok2d
 
 
 GOLDEN = Path(__file__).parent / "golden"
@@ -252,3 +252,30 @@ def test_quadggq_special_quadrature_matches_matlab_fixture():
     np.testing.assert_array_equal(np.isinf(skipped), np.isinf(fixture.log_mat_skip))
     finite = np.isfinite(fixture.log_mat_skip)
     np.testing.assert_allclose(skipped[finite], fixture.log_mat_skip[finite], rtol=1e-12, atol=1e-13)
+
+
+def test_rcip_recursive_compression_matches_matlab_fixture():
+    fixture = load_fixture("rcip.mat")["rcip_fixture"]
+    edge1 = chunker_from_fields(fixture.edge1)
+    edge2 = chunker_from_fields(fixture.edge2)
+    sbclmat, sbcrmat, lvmat, rvmat, u = rcip.shiftedlegbasismats(edge1.k)
+
+    np.testing.assert_allclose(sbclmat, fixture.sbclmat, rtol=1e-13, atol=1e-13)
+    np.testing.assert_allclose(sbcrmat, fixture.sbcrmat, rtol=1e-13, atol=1e-13)
+    np.testing.assert_allclose(lvmat, fixture.lvmat, rtol=1e-13, atol=1e-13)
+    np.testing.assert_allclose(rvmat, fixture.rvmat, rtol=1e-13, atol=1e-13)
+    np.testing.assert_allclose(u, fixture.u, rtol=1e-13, atol=1e-13)
+
+    rmat, saved = rcip.Rcompchunk(
+        [edge1, edge2],
+        np.asarray(fixture.iedgechunks0, dtype=int),
+        kernel("lap", "d"),
+        1,
+        fixture.vert0,
+        opts={"nsub": 2, "rcip_savedepth": 2},
+    )
+
+    np.testing.assert_allclose(rmat, fixture.R, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(saved.R[-1], fixture.saved_R_final, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(saved.MAT[-1], fixture.saved_MAT_last, rtol=1e-12, atol=1e-13)
+    assert_chunker_matches_fields(saved.chnkrlocals[-1], fixture.saved_local_last, "rcip saved local chunker")

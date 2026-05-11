@@ -1,6 +1,6 @@
 import numpy as np
 
-from chunkie import chunkgraph, lege
+from chunkie import chunkgraph, kernel, lege
 from chunkie.chnk import rcip
 
 
@@ -80,3 +80,26 @@ def test_rcompchunk_identity_baseline_and_corner_refine():
     np.testing.assert_array_equal(rho[0], np.arange(rmat.shape[0]))
     assert srcinfo == [None]
     assert wts == [None]
+
+
+def test_rcompchunk_runs_recursive_compression_for_corner_edges():
+    verts = np.array([[0.0, 1.0, 1.0], [0.0, 0.0, 1.0]])
+    edges = np.array([[0, 1], [1, 2]])
+    cg = chunkgraph(verts, edges, pref={"k": 4}, cparams={"nchmin": 2})
+
+    rmat, saved = rcip.Rcompchunk(
+        cg.echnks,
+        np.array([0, 1]),
+        kernel("lap", "d"),
+        1,
+        cg.verts[:, 1],
+        opts={"nsub": 2, "rcip_savedepth": 2},
+    )
+
+    assert rmat.shape == (2 * 2 * cg.k, 2 * 2 * cg.k)
+    assert np.isfinite(rmat).all()
+    assert saved.nsub == 2
+    assert len(saved.R) == 3
+    assert len(saved.MAT) == 2
+    assert len(saved.chnkrlocals) == 2
+    assert np.linalg.norm(rmat - np.eye(rmat.shape[0])) > 1e-3

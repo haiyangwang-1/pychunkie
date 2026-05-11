@@ -15,7 +15,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from .. import lege
-from ..chunker import Chunker
+from ..chunker import Chunker, ChunkerPref, merge
 
 
 @dataclass
@@ -38,6 +38,15 @@ class RCIPSaved:
     MAT: list[np.ndarray] | None = None
     chnkrlocals: list[Chunker] | None = None
     starind: np.ndarray | None = None
+    ctr: np.ndarray | None = None
+    rcs: np.ndarray | None = None
+    dcs: np.ndarray | None = None
+    d2cs: np.ndarray | None = None
+    dscal: np.ndarray | None = None
+    d2scal: np.ndarray | None = None
+    ileftright: np.ndarray | None = None
+    glxs: np.ndarray | None = None
+    glws: np.ndarray | None = None
 
 
 def IPinit(T: ArrayLike, W: ArrayLike) -> tuple[np.ndarray, np.ndarray]:
@@ -186,18 +195,49 @@ def Rcompchunk(
     circS: ArrayLike | None = None,
     opts: dict[str, Any] | None = None,
 ) -> tuple[np.ndarray, RCIPSaved]:
-    """Return an identity RCIP compression and MATLAB-like saved metadata."""
+    """Compute the RCIP compression matrix for chunks adjacent to a corner."""
 
-    _ = fkern
-    _ = np.asarray(vert0, dtype=float)
     options = {} if opts is None else dict(opts)
     chunks = [chnkr] if isinstance(chnkr, Chunker) else list(chnkr)
     if not chunks:
         raise ValueError("Rcompchunk requires at least one edge chunker")
     k = chunks[0].k
-    edge_chunks = np.asarray(iedgechunks, dtype=int)
-    nedge = int(edge_chunks.size if edge_chunks.ndim == 1 else edge_chunks.shape[-1])
-    isstart = np.ones(nedge, dtype=bool)
+    dim = chunks[0].dim
+    ndim = int(ndim)
+    vert = np.asarray(vert0, dtype=float).reshape(dim)
+    nsub = int(options.get("nsub", options.get("rcip_nsub", 0)))
+    if nsub <= 0:
+        edge_chunks = np.asarray(iedgechunks, dtype=int)
+        nedge0 = int(edge_chunks.size if edge_chunks.ndim == 1 else edge_chunks.shape[-1])
+        pbc, pwbc, sl, cl, ss, cs, ilist, sl1, cl1 = setup(k, ndim, nedge0, np.ones(nedge0, dtype=bool))
+        size = 2 * nedge0 * k * ndim
+        rmat = np.eye(size)
+        saved = RCIPSaved(
+            k=k,
+            ndim=ndim,
+            nedge=nedge0,
+            Pbc=pbc,
+            PWbc=pwbc,
+            starL=sl,
+            circL=cl,
+            starS=ss,
+            circS=cs,
+            ilist=ilist,
+            starL1=sl1,
+            circL1=cl1,
+            nsub=0,
+            savedepth=0,
+            R=[rmat],
+            MAT=[],
+            chnkrlocals=[],
+            starind=np.arange(size, dtype=int),
+        )
+        return rmat, saved
+
+    sbclmat, sbcrmat, lvmat, rvmat, u = shiftedlegbasismats(k)
+    records = _rcip_edge_records(chunks, iedgechunks, vert, sbclmat, sbcrmat, lvmat, rvmat, u)
+    nedge = len(records)
+    isstart = np.array([rec["ileftright"] == 1 for rec in records], dtype=bool)
 
     if Pbc is None or PWbc is None or starL is None or circL is None or starS is None or circS is None:
         pbc, pwbc, sl, cl, ss, cs, ilist, sl1, cl1 = setup(k, ndim, nedge, isstart)
@@ -213,10 +253,73 @@ def Rcompchunk(
         cl1 = cl // int(ndim)
 
     size = 2 * nedge * k * int(ndim)
-    rmat = np.eye(size)
+    savedepth = int(options.get("rcip_savedepth", options.get("save_depth", 10)))
+    savedepth = min(max(savedepth, 0), nsub)
+    nsys = 3 * k * nedge * ndim
+    pref = ChunkerPref(k=k, dim=dim, nchstor=5, nchmax=5)
+    rmat: np.ndarray | None = None
+    saved_R: list[np.ndarray | None] = [None] * (nsub + 1)
+    saved_MAT: list[np.ndarray | None] = [None] * nsub
+    saved_locals: list[Chunker | None] = [None] * nsub
+
+    for level in range(1, nsub + 1):
+        h = np.ones(nedge) / (2 ** (nsub - level))
+        locals_: list[Chunker] = []
+        for iedge, rec in enumerate(records):
+            if rec["ileftright"] == -1:
+                ts = np.array([0.0, 0.5, 1.0]) * h[iedge] if level == nsub else np.array([0.0, 0.5, 1.0, 2.0]) * h[iedge]
+            else:
+                ts = -np.array([1.0, 0.5, 0.0]) * h[iedge] if level == nsub else -np.array([2.0, 1.0, 0.5, 0.0]) * h[iedge]
+            locals_.append(
+                chunkerfunclocal(
+                    lambda t, rec=rec: _shiftedcurve(t, rec["rcs"], rec["dcs"], rec["dscal"], rec["d2cs"], rec["d2scal"], rec["ileftright"]),
+                    ts,
+                    pref,
+                    chunks[0].tstor,
+                    chunks[0].wstor,
+                )
+            )
+
+        if level == nsub:
+            for iedge, rec in enumerate(records):
+                local = locals_[iedge]
+                next_chunk = rec["nextchunk"]
+                source_chunker = chunks[rec["chunker"]]
+                old_nch = local.nch
+                local.addchunk(1)
+                local.rstor[:, :, old_nch] = source_chunker.r[:, :, next_chunk] - rec["ctr"][:, None]
+                local.dstor[:, :, old_nch] = source_chunker.d[:, :, next_chunk]
+                local.d2stor[:, :, old_nch] = source_chunker.d2[:, :, next_chunk]
+                if rec["ileftright"] == -1:
+                    local.adjstor[0, old_nch] = old_nch
+                    local.adjstor[1, old_nch] = -1
+                    local.adjstor[1, old_nch - 1] = old_nch + 1
+                else:
+                    local.adjstor[0, old_nch] = -1
+                    local.adjstor[1, old_nch] = 1
+                    local.adjstor[0, 0] = old_nch + 1
+                    local = local.sort()[0]
+                local.recompute_geometry()
+                locals_[iedge] = local
+
+        ilistl = None if level == 1 else ilist
+        mat = np.eye(nsys) + _local_chunkermat(locals_, fkern, ndim, ilistl)
+        if level == 1:
+            rmat = np.linalg.inv(mat[np.ix_(sl, sl)])
+            if level >= nsub - savedepth + 1:
+                saved_R[0] = rmat
+        if savedepth < nsub and level == nsub - savedepth + 1:
+            saved_R[level - 1] = rmat
+        rmat = SchurBana(pbc, pwbc, mat, rmat, sl, cl, ss, cs)
+        if level >= nsub - savedepth + 1:
+            saved_R[level] = rmat
+            saved_MAT[level - 1] = mat[np.ix_(sl, cl)]
+            saved_locals[level - 1] = merge(locals_)
+
+    assert rmat is not None
     saved = RCIPSaved(
         k=k,
-        ndim=int(ndim),
+        ndim=ndim,
         nedge=nedge,
         Pbc=pbc,
         PWbc=pwbc,
@@ -227,14 +330,75 @@ def Rcompchunk(
         ilist=ilist,
         starL1=sl1,
         circL1=cl1,
-        nsub=0,
-        savedepth=float(options.get("rcip_savedepth", options.get("save_depth", np.inf))),
-        R=[rmat],
-        MAT=[],
-        chnkrlocals=[],
+        nsub=nsub,
+        savedepth=savedepth,
+        R=[item for item in saved_R if item is not None],
+        MAT=[item for item in saved_MAT if item is not None],
+        chnkrlocals=[item for item in saved_locals if item is not None],
         starind=np.arange(size, dtype=int),
+        ctr=np.column_stack([rec["ctr"] for rec in records]),
+        rcs=np.stack([rec["rcs"] for rec in records], axis=2),
+        dcs=np.stack([rec["dcs"] for rec in records], axis=2),
+        d2cs=np.stack([rec["d2cs"] for rec in records], axis=2),
+        dscal=np.array([rec["dscal"] for rec in records]),
+        d2scal=np.array([rec["d2scal"] for rec in records]),
+        ileftright=np.array([rec["ileftright"] for rec in records], dtype=int),
+        glxs=chunks[0].tstor.copy(),
+        glws=chunks[0].wstor.copy(),
     )
     return rmat, saved
+
+
+def shiftedlegbasismats(k: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    t0, _, u, v = lege.exps(int(k))
+    t = (t0 + 1.0) / 2.0
+    basis = t[:, None] * v[:, :-1]
+    uu, ss, vv_t = np.linalg.svd(basis, full_matrices=False)
+    sbclmat = vv_t[: k - 1, :].T @ (np.diag(1.0 / ss[: k - 1]) @ uu[:, : k - 1].T)
+
+    t = (t0 - 1.0) / 2.0
+    basis = t[:, None] * v[:, :-1]
+    uu, ss, vv_t = np.linalg.svd(basis, full_matrices=False)
+    sbcrmat = vv_t[: k - 1, :].T @ (np.diag(1.0 / ss[: k - 1]) @ uu[:, : k - 1].T)
+
+    pm1 = lege.pols(np.array([-1.0]), k - 1)[0].reshape(-1)
+    p1 = lege.pols(np.array([1.0]), k - 1)[0].reshape(-1)
+    leftvalmat = pm1 @ u
+    rightvalmat = p1 @ u
+    return sbclmat, sbcrmat, leftvalmat, rightvalmat, u
+
+
+def chunkerfunclocal(
+    fcurve: Any,
+    ts: ArrayLike,
+    pref: ChunkerPref | dict[str, Any] | None = None,
+    xs: ArrayLike | None = None,
+    ws: ArrayLike | None = None,
+) -> Chunker:
+    p = ChunkerPref.from_any(pref)
+    tbreaks = np.asarray(ts, dtype=float).reshape(-1)
+    if tbreaks.size < 2:
+        raise ValueError("ts must contain at least two endpoints")
+    xnodes = lege.exps(p.k)[0] if xs is None else np.asarray(xs, dtype=float).reshape(-1)
+    wnodes = lege.exps(p.k)[1] if ws is None else np.asarray(ws, dtype=float).reshape(-1)
+    r0, _, _ = fcurve(np.array([tbreaks[0]]))
+    dim = np.asarray(r0).reshape(-1, 1).shape[0]
+    out = Chunker(ChunkerPref(nchmax=max(p.nchmax, tbreaks.size - 1), k=p.k, dim=dim, nchstor=max(p.nchstor, tbreaks.size - 1)), xnodes, wnodes)
+    out.addchunk(tbreaks.size - 1)
+    out.adj = np.vstack((np.arange(0, out.nch), np.arange(2, out.nch + 2)))
+    out.adj[0, 0] = -1
+    out.adj[1, -1] = -1
+    for ich in range(out.nch):
+        a = tbreaks[ich]
+        b = tbreaks[ich + 1]
+        ts_panel = a + (b - a) * (xnodes + 1.0) / 2.0
+        r, d, d2 = fcurve(ts_panel)
+        h = (b - a) / 2.0
+        out.rstor[:, :, ich] = np.asarray(r).reshape(dim, p.k)
+        out.dstor[:, :, ich] = np.asarray(d).reshape(dim, p.k) * h
+        out.d2stor[:, :, ich] = np.asarray(d2).reshape(dim, p.k) * h * h
+    out.recompute_geometry()
+    return out
 
 
 def rhohatInterp(rhohat: ArrayLike, rcipsav: RCIPSaved | dict[str, Any], ndepth: int | None = None):
@@ -274,8 +438,156 @@ def corner_refine(cg: Any, vertices: ArrayLike | None = None, depth: int = 1, st
     return out
 
 
+def _rcip_edge_records(
+    chunks: list[Chunker],
+    iedgechunks: ArrayLike,
+    vert: np.ndarray,
+    sbclmat: np.ndarray,
+    sbcrmat: np.ndarray,
+    lvmat: np.ndarray,
+    rvmat: np.ndarray,
+    u: np.ndarray,
+) -> list[dict[str, Any]]:
+    pairs = _normalize_edge_chunk_pairs(chunks, iedgechunks, vert)
+    out: list[dict[str, Any]] = []
+    for chunker_idx, chunk_idx in pairs:
+        ch = chunks[int(chunker_idx)]
+        r = ch.r[:, :, int(chunk_idx)].copy()
+        d = ch.d[:, :, int(chunk_idx)]
+        d2 = ch.d2[:, :, int(chunk_idx)]
+        left, right = ch.adj[:, int(chunk_idx)]
+        if left > 0 and right < 0:
+            nextchunk = int(left) - 1
+            ileftright = 1
+            ctr = (rvmat @ r.T).reshape(ch.dim)
+            rcentered = r - ctr[:, None]
+            rcs = sbcrmat @ rcentered.T
+        elif left < 0 and right > 0:
+            nextchunk = int(right) - 1
+            ileftright = -1
+            ctr = (lvmat @ r.T).reshape(ch.dim)
+            rcentered = r - ctr[:, None]
+            rcs = sbclmat @ rcentered.T
+        else:
+            raise ValueError("RCIP edge chunk must be adjacent to one vertex and one neighbor")
+        out.append(
+            {
+                "chunker": int(chunker_idx),
+                "chunk": int(chunk_idx),
+                "nextchunk": nextchunk,
+                "ctr": ctr,
+                "rcs": rcs,
+                "dcs": u @ d.T,
+                "d2cs": u @ d2.T,
+                "dscal": 2.0,
+                "d2scal": 4.0,
+                "ileftright": ileftright,
+            }
+        )
+    return out
+
+
+def _normalize_edge_chunk_pairs(chunks: list[Chunker], iedgechunks: ArrayLike, vert: np.ndarray) -> list[tuple[int, int]]:
+    arr = np.asarray(iedgechunks, dtype=int)
+    if arr.ndim == 1:
+        pairs = []
+        for chunker_idx in arr.reshape(-1):
+            ch = chunks[int(chunker_idx)]
+            pairs.append((int(chunker_idx), _chunk_adjacent_to_vertex(ch, vert)))
+        return pairs
+    if arr.shape[0] != 2:
+        raise ValueError("iedgechunks must be a 1D chunker list or a 2 x nedge array")
+    pairs = []
+    for col in range(arr.shape[1]):
+        chunker_idx = int(arr[0, col])
+        chunk_idx = int(arr[1, col])
+        if chunker_idx >= len(chunks) and chunker_idx - 1 >= 0:
+            chunker_idx -= 1
+        if chunk_idx >= chunks[chunker_idx].nch and chunk_idx - 1 >= 0:
+            chunk_idx -= 1
+        pairs.append((chunker_idx, chunk_idx))
+    return pairs
+
+
+def _chunk_adjacent_to_vertex(chnkr: Chunker, vert: np.ndarray) -> int:
+    rend, _ = chnkr.chunkends()
+    candidates: list[tuple[float, int]] = []
+    for ich in range(chnkr.nch):
+        if chnkr.adj[0, ich] < 0:
+            candidates.append((float(np.linalg.norm(rend[:, 0, ich] - vert)), ich))
+        if chnkr.adj[1, ich] < 0:
+            candidates.append((float(np.linalg.norm(rend[:, 1, ich] - vert)), ich))
+    if not candidates:
+        raise ValueError("could not identify a vertex-adjacent chunk")
+    return min(candidates, key=lambda item: item[0])[1]
+
+
+def _shiftedcurve(
+    t: ArrayLike,
+    rc: np.ndarray,
+    dc: np.ndarray,
+    scald: float,
+    d2c: np.ndarray,
+    scald2: float,
+    ilr: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    tt_in = np.asarray(t, dtype=float).reshape(-1)
+    tt = 2.0 * tt_in - 1.0 if int(ilr) == -1 else 2.0 * tt_in + 1.0
+    pols = lege.pols(tt, dc.shape[0] - 1)[0].T
+    r = (tt_in[:, None] * (pols[:, : rc.shape[0]] @ rc)).T
+    d = (float(scald) * (pols @ dc)).T
+    d2 = (float(scald2) * (pols @ d2c)).T
+    return r, d, d2
+
+
+def _local_chunkermat(
+    chunks: list[Chunker],
+    fkern: Any,
+    ndim: int,
+    ilist: np.ndarray | None = None,
+) -> np.ndarray:
+    from ..operators import chunkerkernevalmat, chunkermat
+    from . import quadggq, quadnative
+
+    starts = np.cumsum([0] + [ch.npt * int(ndim) for ch in chunks])
+    out = np.zeros((starts[-1], starts[-1]))
+    for itarg, targ in enumerate(chunks):
+        rows = slice(starts[itarg], starts[itarg + 1])
+        for isrc, src in enumerate(chunks):
+            cols = slice(starts[isrc], starts[isrc + 1])
+            kern = _select_local_kernel(fkern, itarg, isrc)
+            opdims = _kernel_opdims(kern, ndim)
+            if itarg == isrc:
+                if ilist is not None and getattr(kern, "sing", "") in {"log", "pv", "hs"}:
+                    block = quadggq.buildmat(src, kern, opdims, getattr(kern, "sing", "log"), ilist=ilist[:, isrc])
+                elif getattr(kern, "sing", "") in {"log", "pv", "hs"}:
+                    block = chunkermat(src, kern)
+                else:
+                    block = quadnative.buildmat(src, kern, opdims)
+            else:
+                block = chunkerkernevalmat(src, kern, targ, {"forcesmooth": True})
+            out[rows, cols] = np.nan_to_num(block, nan=0.0, posinf=0.0, neginf=0.0)
+    return out
+
+
+def _select_local_kernel(fkern: Any, itarg: int, isrc: int) -> Any:
+    arr = np.asarray(fkern, dtype=object) if isinstance(fkern, (list, tuple, np.ndarray)) else None
+    if arr is not None and arr.ndim == 2:
+        return arr[itarg, isrc]
+    return fkern
+
+
+def _kernel_opdims(kern: Any, ndim: int) -> tuple[int, int]:
+    opdims = getattr(kern, "opdims", None)
+    if opdims is None or opdims == (0, 0):
+        return (int(ndim), int(ndim))
+    return tuple(int(x) for x in opdims)
+
+
 ipinit = IPinit
 pbcinit = Pbcinit
 schurbana = SchurBana
 rcompchunk = Rcompchunk
 rhohatinterp = rhohatInterp
+shiftedlegbasismats = shiftedlegbasismats
+chunkerfunclocal = chunkerfunclocal
