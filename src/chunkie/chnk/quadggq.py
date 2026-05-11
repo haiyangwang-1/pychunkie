@@ -1,17 +1,16 @@
 """Special quadrature builders for singular and near-panel interactions.
 
-This module mirrors the MATLAB ``chnk.quadggq`` entry points. The current
-Python rules are generated dynamically from split and oversampled
-Gauss-Legendre rules, avoiding tabulated data while still replacing the
-native diagonal and neighbor blocks where singular kernels need help.
+This module mirrors the MATLAB ``chnk.quadggq`` entry points. MATLAB's
+tabulated GGQ rules are vendored as NumPy package data, so runtime quadrature
+loading does not depend on a local MATLAB checkout.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
-import re
+from functools import lru_cache
+from importlib import resources
 from typing import Any
 
 import numpy as np
@@ -22,6 +21,9 @@ from chunkie import lege
 from chunkie.chunker import Chunker
 from chunkie.operators import PointInfo
 from chunkie.chnk import quadnative
+
+
+_QUADGGQ_DATA_PATH = ("data", "quadggq")
 
 
 @dataclass
@@ -76,14 +78,12 @@ def getlogquad(k: int, npolyfac: int = 2) -> tuple[np.ndarray, np.ndarray, list[
     order = int(k)
     nfac = int(npolyfac)
     near_order = _log_near_order(order)
-    table_dir = _matlab_quadggq_dir()
-    near_table = table_dir / f"ggqnear{near_order}.m" if near_order is not None else None
-    self_table = table_dir / f"ggqself_nnode{order:03d}_npoly{nfac * order:03d}.m"
-    if near_table is None or not near_table.exists() or not self_table.exists():
+    near = _load_near_table(f"ggqnear{near_order}") if near_order is not None else None
+    self_rule = _load_cell_table(f"ggqself_nnode{order:03d}_npoly{nfac * order:03d}")
+    if near is None or self_rule is None:
         return _generated_logquad(order, nfac)
-    xs1 = _parse_matlab_vector_assignment(near_table, "x")
-    wts1 = _parse_matlab_vector_assignment(near_table, "w")
-    xs0, wts0 = _parse_matlab_cell_table(self_table)
+    xs1, wts1 = near
+    xs0, wts0 = self_rule
     return xs1, wts1, xs0, wts0
 
 
@@ -103,18 +103,19 @@ def gethqsuppquad(k: int, itype: int = 2) -> tuple[list[np.ndarray], list[np.nda
     """Return MATLAB GGQ support tables for PV or HS self interactions.
 
     ``itype=1`` corresponds to principal-value support and ``itype=2`` to
-    hypersingular support. When the cloned MATLAB reference is unavailable,
-    a generated removable split rule is returned as a conservative fallback.
+    hypersingular support. When a table is not vendored for the requested
+    order, a generated removable split rule is returned as a conservative
+    fallback.
     """
 
     order = int(k)
     if order not in set(hqsuppavail().tolist()):
         return getremovablequad(order, 2)
     prefix = "hsupp" if int(itype) == 1 else "hqsupp"
-    table = _matlab_quadggq_dir() / f"{prefix}_nnode{order:03d}_npoly{2 * order:03d}.m"
-    if not table.exists():
+    table = _load_cell_table(f"{prefix}_nnode{order:03d}_npoly{2 * order:03d}")
+    if table is None:
         return getremovablequad(order, 2)
-    return _parse_matlab_cell_table(table)
+    return table
 
 
 def getremovablequad(k: int, nfac: int = 1) -> tuple[list[np.ndarray], list[np.ndarray]]:
@@ -393,26 +394,32 @@ def _kernel_dtype(chnkr: Chunker, kern: Callable[[Any, Any], np.ndarray]) -> np.
         return np.dtype(float)
 
 
-def _matlab_quadggq_dir() -> Path:
-    return Path(__file__).resolve().parents[3] / "external" / "chunkie-matlab" / "chunkie" / "+chnk" / "+quadggq"
+def _load_near_table(stem: str) -> tuple[np.ndarray, np.ndarray] | None:
+    table = _load_npz_table(stem)
+    if table is None:
+        return None
+    return table["x"].copy(), table["w"].copy()
 
 
-def _parse_matlab_cell_table(path: Path) -> tuple[list[np.ndarray], list[np.ndarray]]:
-    text = path.read_text(encoding="utf-8")
-    xs = _parse_cells(text, "xs0")
-    ws = _parse_cells(text, "ws0")
-    if len(xs) != len(ws):
-        raise ValueError(f"malformed MATLAB GGQ table: {path}")
+def _load_cell_table(stem: str) -> tuple[list[np.ndarray], list[np.ndarray]] | None:
+    table = _load_npz_table(stem)
+    if table is None:
+        return None
+    count = int(np.asarray(table["count"]).item())
+    xs = [table[f"xs0_{idx:03d}"].copy() for idx in range(count)]
+    ws = [table[f"ws0_{idx:03d}"].copy() for idx in range(count)]
     return xs, ws
 
 
-def _parse_matlab_vector_assignment(path: Path, name: str) -> np.ndarray:
-    text = path.read_text(encoding="utf-8")
-    match = re.search(rf"\b{name}\s*=\s*\[(.*?)\];", text, flags=re.S)
-    if match is None:
-        raise ValueError(f"no {name} vector found in MATLAB table: {path}")
-    clean = match.group(1).replace("D", "E").replace("d", "e")
-    return np.fromstring(clean, sep=" ")
+@lru_cache(maxsize=None)
+def _load_npz_table(stem: str) -> dict[str, np.ndarray] | None:
+    resource = resources.files("chunkie").joinpath(*_QUADGGQ_DATA_PATH, f"{stem}.npz")
+    try:
+        with resources.as_file(resource) as path:
+            with np.load(path) as data:
+                return {name: data[name].copy() for name in data.files}
+    except FileNotFoundError:
+        return None
 
 
 def _log_near_order(k: int) -> int | None:
@@ -429,15 +436,3 @@ def _log_near_order(k: int) -> int | None:
     if k <= 60:
         return 60
     return None
-
-
-def _parse_cells(text: str, name: str) -> list[np.ndarray]:
-    matches = re.findall(rf"{name}\{{\s*(\d+)\s*\}}\s*=\s*\[(.*?)\];", text, flags=re.S)
-    if not matches:
-        raise ValueError(f"no {name} cells found in MATLAB GGQ table")
-    out: list[np.ndarray] = [np.array([])] * len(matches)
-    for idx, block in matches:
-        clean = block.replace("D", "E").replace("d", "e")
-        vals = np.fromstring(clean, sep=" ")
-        out[int(idx) - 1] = vals
-    return out

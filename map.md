@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: clean-worktree `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 272 tests: `238 passed, 25 skipped, 8 failed, 1 xfailed` (failures are the existing Section III/`quadggq` table paths plus `tests/test_operators.py::test_chunkermatapply_fmm_matches_special_matrix_application` and `tests/test_operators.py::test_chunkermat_fmm_returns_matrix_free_operator_matching_dense_application`). Targeted geometry parity/domain run `uv run pytest tests/test_geometry_parity.py tests/test_domain.py tests/test_geometry.py tests/test_chunkgraph.py tests/test_chunker.py tests/test_chunkerfunc.py tests/test_arcparam.py`: `55 passed`; targeted devtools/adjacent parity run `uv run pytest tests/test_devtools_parity.py tests/test_arcparam.py tests/test_chunkerfunc.py tests/test_chunkgraph.py tests/test_matlab_parity.py tests/test_quadggq.py`: `148 passed, 1 xfailed`; targeted devtools-only run `uv run pytest tests/test_devtools_parity.py`: `24 passed`; targeted RCIP parity run `uv run pytest tests/test_rcip.py tests/test_rcip_parity.py tests/test_matlab_parity.py::test_rcip_recursive_compression_matches_matlab_fixture`: `14 passed`.
+Verification snapshot: clean-worktree `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 273 tests: `272 passed, 1 xfailed`.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -144,6 +144,13 @@ src/
     │   └── stok2d.py
     │       ├── kern
     │       └── private helpers
+    ├── data/
+    │   └── quadggq/
+    │       ├── metadata.npz
+    │       ├── ggqnear*.npz
+    │       ├── ggqself_*.npz
+    │       ├── hsupp_*.npz
+    │       └── hqsupp_*.npz
     └── lege/
         ├── __init__.py
         └── core.py
@@ -397,21 +404,21 @@ their matching `@kernel` factories.
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
 | other private helpers | 🧩 ✅ | Internal Python helpers | Interpolation/block slicing/dtype helpers. |
-| `_matlab_quadggq_dir`, `_parse_matlab_cell_table`, `_parse_cells`, `_parse_matlab_vector_assignment` | 🧩 ✅ 🧪 | MATLAB generated quadrature table files | Internal readers for reference `.m` table files. |
+| `_load_npz_table`, `_load_near_table`, `_load_cell_table` | 🧩 ✅ 🧪 | MATLAB generated quadrature table files | Internal readers for packaged NumPy GGQ data under `src/chunkie/data/quadggq`. |
 | `AuxQuad` | ✅ 🧪 🎯 | MATLAB aux quadrature structs/tables | Python holder fields are checked through MATLAB `setup` fixture outputs. |
 | `logavail` | ✅ 🧪 🎯 | `+chnk/+quadggq/logavail.m` | Matches MATLAB near-rule availability orders. |
 | `hqsuppavail` | ✅ 🧪 🎯 | `+chnk/+quadggq/gethqsuppquad.m`, `hqsupp_*`, `hsupp_*` tables | Fixture records MATLAB table orders for PV/HS support rules. |
-| `gethqsuppquad` | ✅ 🧪 🎯 | `+chnk/+quadggq/gethqsuppquad.m`, generated support table files | Reads MATLAB support table files when present, with removable-rule fallback. |
+| `gethqsuppquad` | ✅ 🧪 🎯 | `+chnk/+quadggq/gethqsuppquad.m`, generated support table files | Reads packaged NumPy support tables, with removable-rule fallback for unavailable orders. |
 | `getpvquad`, `gethsquad` | ✅ 🧪 🎯 | `hsupp_*`, `hqsupp_*` support tables | Convenience wrappers for PV and hypersingular support rules, fixture-tested through saved support tables. |
 | `getremovablequad` | ✅ 🧪 🎯 | `+chnk/+quadggq/getremovablequad.m` | MATLAB fixture checks removable split rules. |
 | `buildmattd` | ✅ 🧪 🎯 | `+chnk/+quadggq/buildmattd.m` | Sparse special-block matrix, correction matrix, and `ilist` skipping are MATLAB-fixture tested. |
 | `setup` | ✅ 🧪 🎯 | `+chnk/+quadggq/setup.m` | Supports `log`, `removable`, `pv`, and `hs`; aux tables are MATLAB-fixture tested. |
-| `getlogquad` | ✅ 🧪 🎯 | `+chnk/+quadggq/getlogquad.m`, `ggqnear*`, `ggqself_*` | Reads MATLAB log near/self tables when available, with generated fallback. |
+| `getlogquad` | ✅ 🧪 🎯 | `+chnk/+quadggq/getlogquad.m`, `ggqnear*`, `ggqself_*` | Reads packaged NumPy log near/self tables, with generated fallback for unavailable orders. |
 | `buildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/buildmat.m` | Log/PV/HS matrix assembly and `ilist` skipping are MATLAB-fixture tested. |
 | `diagbuildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/diagbuildmat.m` | Self-block and correction-block outputs are MATLAB-fixture tested. |
 | `nearbuildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/nearbuildmat.m` | Oversampled neighbor block and MATLAB-style correction subtraction are fixture-tested. |
 
-Log/PV/HS support tables are consumed when the MATLAB reference checkout is available. `quadadap` covers MATLAB-style log self, neighbor, and robust close replacement. `quadba` is an explicit non-goal for this port.
+Log/PV/HS support tables are packaged as `.npz` assets and loaded with `importlib.resources`; runtime no longer depends on a MATLAB reference checkout for GGQ tables. `quadadap` covers MATLAB-style log self, neighbor, and robust close replacement. `quadba` is an explicit non-goal for this port.
 
 #### `chnk/rcip.py`
 
@@ -482,6 +489,7 @@ docs/
 └── special-quadrature.md
 
 scripts/
+├── generate_quadggq_package_data.py
 └── matlab/
     ├── fixture_context.m
     ├── fixture_circle_curve.m
@@ -551,6 +559,8 @@ Support file roles:
 
 - 🧭 `docs/matlab-reference-setup.md`: local MATLAB checkout / fixture setup notes.
 - 🧭 `docs/special-quadrature.md`: special quadrature implementation notes.
+- 🧭 `src/chunkie/data/quadggq/*.npz`: packaged NumPy copies of upstream MATLAB GGQ near, log self, PV support, and HS support tables used at runtime.
+- 🧭 `scripts/generate_quadggq_package_data.py`: converts upstream MATLAB `+chnk/+quadggq` table files into the package `.npz` data assets.
 - 🧭 `scripts/matlab/*.m`: MATLAB fixture-generation scripts; these are the source of the `.mat` golden data used for 🎯 flags.
 - 🧪 `tests/golden/*.mat`: small MATLAB-generated parity fixtures. Large generated parity snapshots such as `devtools_easy.mat`, `devtools_easy_python.npz`, and `chunker_ops.mat` are ignored and optional; tests skip cleanly when an optional fixture is absent. `devtools_easy.mat` now covers the low/mid devtools track through adaptive `chunkerfunc`, `chunkerarcparam`, partial `slicegraph`, and `chunkermat_quadadap` parity. `geometry_core.mat` covers compact I GEOMETRY parity excluding `chunkerfit` and smoother workflows. `quadggq.mat` remains tracked because it covers Section III native, GGQ, and adaptive quadrature behavior; `rcip.mat` covers Section III RCIP helpers, Schur updates, chunkgraph driver metadata, and recursive compression.
 - 🧪 `tests/test_matlab_parity.py`: main exact-behavior comparison suite against golden data.

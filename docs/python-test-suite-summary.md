@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 272 pytest cases because several MATLAB parity tests are
+collection expands to 273 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 
@@ -1082,12 +1082,18 @@ is exact direct/FMM classification agreement after close-boundary correction.
 
 ## `tests/test_quadggq.py`
 
+`test_quadggq_tables_are_loaded_from_packaged_numpy_data` checks that a
+representative GGQ near table is available as package-owned `.npz` data and
+that `quadggq` no longer exposes the old MATLAB checkout path helper. The
+method opens `chunkie/data/quadggq/ggqnear16.npz` through
+`importlib.resources` and verifies known first node/weight entries.
+
 `test_matlab_log_quadrature_tables_load_for_each_legendre_node` checks log GGQ
 table loading/generation for Legendre order 8. The method is `quadggq.setup`,
 `getlogquad`, and MATLAB-style `logavail` near-rule availability. Ground truth
-is known table entries, one self rule per Legendre node, interpolation matrix
-shapes, no quadrature node exactly at the singular target node, and self-rule
-weights summing to `2`.
+is known packaged table entries, one self rule per Legendre node,
+interpolation matrix shapes, no quadrature node exactly at the singular target
+node, and self-rule weights summing to `2`.
 
 `test_quadggq_buildmat_removes_laplace_single_layer_diagonal_infinities` checks
 that log special quadrature replaces singular diagonal entries for the Laplace
