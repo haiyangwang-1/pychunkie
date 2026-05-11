@@ -1,8 +1,5 @@
-from pathlib import Path
-
 import numpy as np
 import pytest
-from scipy.io import loadmat
 
 from chunkie import (
     Chunker,
@@ -36,19 +33,11 @@ from chunkie.chnk import (
     normal2d,
     perp,
 )
-
-
-GOLDEN = Path(__file__).parent / "golden"
+from _fixture_generation import load_generated_mat_fixture
 
 
 def load_geometry_core():
-    path = GOLDEN / "geometry_core.mat"
-    if not path.exists():
-        pytest.fail(
-            "missing MATLAB parity fixture data file: tests/golden/geometry_core.mat. "
-            "Regenerate it locally before running these parity tests."
-        )
-    return loadmat(path, squeeze_me=True, struct_as_record=False)["geometry_core"]
+    return load_generated_mat_fixture("geometry_core.mat", squeeze_me=True, struct_as_record=False)["geometry_core"]
 
 
 def chunker_from_fields(fields) -> Chunker:

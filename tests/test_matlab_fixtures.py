@@ -1,12 +1,7 @@
-from pathlib import Path
-
 import numpy as np
-from scipy.io import loadmat
 
 from chunkie import chunkerfunc, lege
-
-
-GOLDEN = Path(__file__).parent / "golden"
+from _fixture_generation import load_generated_mat_fixture
 
 
 def circle(t, radius):
@@ -19,7 +14,7 @@ def circle(t, radius):
 
 
 def test_legendre_basic_fixture_matches_matlab():
-    fixture = loadmat(GOLDEN / "lege_basic.mat", squeeze_me=True)
+    fixture = load_generated_mat_fixture("lege_basic.mat", squeeze_me=True)
     k = int(fixture["k"])
     x, w, u, v = lege.exps(k)
     dmat = lege.dermat(k, u, v)
@@ -32,7 +27,7 @@ def test_legendre_basic_fixture_matches_matlab():
 
 
 def test_circle_chunker_fixture_matches_matlab():
-    fixture = loadmat(GOLDEN / "chunker_circle.mat", squeeze_me=True, struct_as_record=False)
+    fixture = load_generated_mat_fixture("chunker_circle.mat", squeeze_me=True, struct_as_record=False)
     radius = float(fixture["radius"])
     chnkr, ab = chunkerfunc(lambda t: circle(t, radius), {"nchmin": 4}, {"k": 16})
     fields = fixture["chunker_fields"]

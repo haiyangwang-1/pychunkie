@@ -4,9 +4,14 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+.coverage
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+htmlcov/
 
-# Large generated parity snapshots. Regenerate locally when needed; do not
-# commit them. Singular quadrature/package data is intentionally not ignored.
-tests/golden/devtools_easy.mat
-tests/golden/devtools_easy_python.npz
-tests/golden/chunker_ops.mat
+# Generated parity fixture data. Tests regenerate these files on demand; use
+# scripts/clean_test_data.py to remove local copies.
+tests/golden/*.mat
+tests/golden/*.npz

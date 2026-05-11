@@ -1,4 +1,4 @@
-%GENERATE_BASIC_FIXTURES Generate all committed MATLAB chunkIE fixtures.
+%GENERATE_BASIC_FIXTURES Generate all MATLAB chunkIE test fixtures.
 %
 % Run from the repository root after cloning external/chunkie-matlab:
 %
@@ -13,4 +13,6 @@ run(fullfile(script_dir, 'generate_lege_extended_fixture.m'));
 run(fullfile(script_dir, 'generate_chunker_ops_fixture.m'));
 run(fullfile(script_dir, 'generate_kernel_pointinfo_fixture.m'));
 run(fullfile(script_dir, 'generate_operator_parity_fixture.m'));
+run(fullfile(script_dir, 'generate_quadggq_fixture.m'));
+run(fullfile(script_dir, 'generate_rcip_fixture.m'));
 run(fullfile(script_dir, 'generate_devtools_easy_fixture.m'));

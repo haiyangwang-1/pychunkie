@@ -1,25 +1,14 @@
-from pathlib import Path
-
 import numpy as np
 import pytest
-from scipy.io import loadmat
 
 from chunkie import Chunker, chunkerfit, chunkerfunc, chunkerfuncuni, chunkerintegral, chunkerinterior, chunkermat, chunkerpoly, chunkgraph, kernel, lege, tochunkgraph
 from chunkie.chnk import arcparam, curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, quadadap, smoother, spcl
 from chunkie.operators import PointInfo
-
-
-GOLDEN = Path(__file__).parent / "golden"
+from _fixture_generation import load_generated_mat_fixture
 
 
 def load_devtools_easy():
-    path = GOLDEN / "devtools_easy.mat"
-    if not path.exists():
-        pytest.fail(
-            "missing MATLAB parity fixture data file: tests/golden/devtools_easy.mat. "
-            "Regenerate it locally before running these parity tests."
-        )
-    return loadmat(path, squeeze_me=True, struct_as_record=False)["devtools_easy"]
+    return load_generated_mat_fixture("devtools_easy.mat", squeeze_me=True, struct_as_record=False)["devtools_easy"]
 
 
 def chunker_from_fields(fields) -> Chunker:

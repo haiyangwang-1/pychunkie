@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 280 tests: `280 passed`.
+Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 280 tests: `280 passed` before fixture blobs were removed from Git. After the fixture-generation cleanup, the non-MATLAB-fixture subset collected 140 tests and passed; full MATLAB parity runs now generate ignored `tests/golden/*.mat` files on demand and require a populated `external/chunkie-matlab` checkout.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -489,6 +489,7 @@ docs/
 └── special-quadrature.md
 
 scripts/
+├── clean_test_data.py
 ├── generate_quadggq_package_data.py
 └── matlab/
     ├── fixture_context.m
@@ -511,15 +512,8 @@ scripts/
 
 tests/
 ├── golden/
-│   ├── README.md
-│   ├── chunker_circle.mat
-│   ├── geometry_core.mat
-│   ├── kernel_pointinfo.mat
-│   ├── lege_basic.mat
-│   ├── lege_extended.mat
-│   ├── operator_parity.mat
-│   ├── quadggq.mat
-│   └── rcip.mat
+│   └── README.md
+├── _fixture_generation.py
 ├── test_arcparam.py
 ├── test_biharm2d.py
 ├── test_chunker.py
@@ -552,7 +546,6 @@ root files:
 ├── .python-version
 ├── README.md
 ├── easy-test.md
-├── main.py
 ├── pyproject.toml
 └── uv.lock
 ```
@@ -562,9 +555,11 @@ Support file roles:
 - 🧭 `docs/matlab-reference-setup.md`: local MATLAB checkout / fixture setup notes.
 - 🧭 `docs/special-quadrature.md`: special quadrature implementation notes.
 - 🧭 `src/chunkie/data/quadggq/*.npz`: packaged NumPy copies of upstream MATLAB GGQ near, log self, PV support, and HS support tables used at runtime.
+- 🧭 `scripts/clean_test_data.py`: removes local generated `.mat`/`.npz` parity fixture files under `tests/golden`.
 - 🧭 `scripts/generate_quadggq_package_data.py`: converts upstream MATLAB `+chnk/+quadggq` table files into the package `.npz` data assets.
 - 🧭 `scripts/matlab/*.m`: MATLAB fixture-generation scripts; these are the source of the `.mat` golden data used for 🎯 flags.
-- 🧪 `tests/golden/*.mat`: small MATLAB-generated parity fixtures. Large generated parity snapshots such as `devtools_easy.mat`, `devtools_easy_python.npz`, and `chunker_ops.mat` remain ignored to avoid committing large data files; tests that need a missing fixture now fail directly with the missing data file as the reason. `devtools_easy.mat` covers the low/mid devtools track through adaptive `chunkerfunc`, `chunkerarcparam`, partial `slicegraph`, and `chunkermat_quadadap` parity when regenerated locally. `geometry_core.mat` covers compact I GEOMETRY parity excluding `chunkerfit` and smoother workflows. `quadggq.mat` remains tracked because it covers Section III native, GGQ, and adaptive quadrature behavior; `rcip.mat` covers Section III RCIP helpers, Schur updates, chunkgraph driver metadata, and recursive compression.
+- 🧪 `tests/_fixture_generation.py`: ensures missing MATLAB parity fixture files are generated on demand before tests load them; generation failure is a test failure.
+- 🧪 `tests/golden/*.mat`: ignored MATLAB-generated parity fixture files created on demand by tests. `devtools_easy.mat` covers the low/mid devtools track through adaptive `chunkerfunc`, `chunkerarcparam`, partial `slicegraph`, and `chunkermat_quadadap` parity. `geometry_core.mat` covers compact I GEOMETRY parity excluding `chunkerfit` and smoother workflows. `quadggq.mat` covers Section III native, GGQ, and adaptive quadrature behavior; `rcip.mat` covers Section III RCIP helpers, Schur updates, chunkgraph driver metadata, and recursive compression.
 - 🧪 `tests/test_matlab_parity.py`: main exact-behavior comparison suite against golden data.
 - 🧪 `tests/test_geometry_parity.py`: focused I GEOMETRY comparison suite against `geometry_core.mat`.
 - 🧪 `tests/test_matlab_fixtures.py`: basic fixture comparison suite.
@@ -597,7 +592,7 @@ Do not implement:
 
 ## Recommended Next Flags To Upgrade
 
-- Promote more optional devtools parity into compact tracked fixtures where size allows; current ignored coverage includes `chunkerfunc`, `chunkerarcparam`, `slicegraph`, and `chunkermat_quadadap`.
+- Promote more optional devtools parity into generated fixtures where runtime cost allows; current generated coverage includes `chunkerfunc`, `chunkerarcparam`, `slicegraph`, and `chunkermat_quadadap`.
 - Add focused tests for remaining implemented but currently lightly tested methods that are outside the compact I GEOMETRY and devtools fixtures.
 - Add stricter MATLAB fixtures for full devtools solve/evaluation workflows around adaptive close quadrature; `smoother.py` remains a lightweight rounded-polygon path and full MATLAB smoothing/Newton behavior is a non-goal.
 - Add stricter MATLAB fixtures for FMM-heavy solve/evaluation workflows and implemented selector families, especially direct/FMM layer-potential Green identity paths.

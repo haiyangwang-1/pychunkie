@@ -20,16 +20,15 @@ The parity rule for this repo is:
 
 1. Do not edit `external/chunkie-matlab/devtools/test`.
 2. Add MATLAB wrapper scripts under `scripts/matlab` when fixture data is needed.
-3. Save compact MATLAB outputs under `tests/golden`. Keep large generated
-   snapshots local/ignored; commit only small stable fixtures. Singular
-   quadrature fixture data stays tracked because it is part of the package
-   behavior.
-4. Recompute the same quantities from Python in `tests`, then compare.
+3. Save MATLAB outputs under ignored `tests/golden` fixture files. Tests
+   generate missing fixture files on demand and fail if generation fails.
+4. Recompute the same quantities from Python in `tests`, then compare. Remove
+   local generated fixture files with `uv run python scripts/clean_test_data.py`.
 
 ## Current Snapshot
 
 - MATLAB fixture generator: `scripts/matlab/generate_devtools_easy_fixture.m`
-- MATLAB fixture data: generated local `tests/golden/devtools_easy.mat`
+- MATLAB fixture data: generated-on-demand local `tests/golden/devtools_easy.mat`
 - Python snapshot generator: `scripts/generate_devtools_easy_python_fixture.py`
 - Python comparisons: `tests/test_devtools_parity.py`
 - Python verification: `uv run pytest tests/test_devtools_parity.py` on

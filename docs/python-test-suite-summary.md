@@ -4,6 +4,9 @@ This document summarizes the Python tests under `tests/test_*.py`. The current
 collection expands to 280 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
+MATLAB parity fixture files under `tests/golden` are ignored and generated on
+demand during tests, so the full suite requires a populated
+`external/chunkie-matlab` checkout.
 
 ## What The Suite Is Checking
 
@@ -58,10 +61,9 @@ Ground truth comes from four places:
 - Dense direct/native computation, used as the reference for FMM, special
   dispatch, and operator wrapper tests.
 - MATLAB-generated golden fixtures in `tests/golden`, used for strict parity
-  with the MATLAB `chunkIE` implementation. Large generated parity snapshots
-  can remain ignored to avoid committing large data files, but tests that need
-  a missing fixture now fail directly with the missing data file as the reason.
-  The singular-quadrature fixture remains tracked.
+  with the MATLAB `chunkIE` implementation. The `.mat` fixture files are
+  ignored and generated on demand by `tests/_fixture_generation.py`; if MATLAB
+  setup or fixture generation fails, the requesting test fails.
 
 ## Implementation Scope Tracked By Tests
 
@@ -980,8 +982,7 @@ matrices. The equations are affine geometry transforms, determinant area
 scaling, spectral differentiation, cumulative integration, scalar/vector ones
 matrices, and centroids. The method reconstructs a MATLAB-saved chunker,
 applies Python transforms, and compares helper matrices. Ground truth is
-the generated local `tests/golden/chunker_ops.mat` fixture; the test fails
-directly if that missing data file has not been regenerated.
+`tests/golden/chunker_ops.mat`, generated on demand when missing.
 
 `test_laplace_point_kernels_match_matlab_fixture` is parametrized over
 `s`, `d`, `sp`, `stau`, `hilb`, `sgrad`, `dgrad`, `dp`, `c`, `cp`, and

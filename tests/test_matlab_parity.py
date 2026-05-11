@@ -1,9 +1,6 @@
-from pathlib import Path
-
 import numpy as np
 import pytest
 from scipy import sparse
-from scipy.io import loadmat
 
 from chunkie import (
     Chunker,
@@ -18,19 +15,11 @@ from chunkie import (
     pointinfo,
 )
 from chunkie.chnk import biharm2d, elast2d, helm1d, helm2d, lap2d, quadadap, quadggq, quadnative, rcip, stok2d
-
-
-GOLDEN = Path(__file__).parent / "golden"
+from _fixture_generation import load_generated_mat_fixture
 
 
 def load_fixture(name: str):
-    path = GOLDEN / name
-    if not path.exists():
-        pytest.fail(
-            f"missing MATLAB parity fixture data file: tests/golden/{name}. "
-            "Regenerate it locally before running these parity tests."
-        )
-    return loadmat(path, squeeze_me=True, struct_as_record=False)
+    return load_generated_mat_fixture(name, squeeze_me=True, struct_as_record=False)
 
 
 def mat_fields(obj) -> dict:

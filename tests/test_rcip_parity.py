@@ -1,24 +1,13 @@
-from pathlib import Path
-
 import numpy as np
 import pytest
-from scipy.io import loadmat
 
 from chunkie import Chunker, chunkgraph, kernel
 from chunkie.chnk import rcip
-
-
-GOLDEN = Path(__file__).parent / "golden"
+from _fixture_generation import load_generated_mat_fixture
 
 
 def load_fixture(name: str):
-    path = GOLDEN / name
-    if not path.exists():
-        pytest.fail(
-            f"missing MATLAB parity fixture data file: tests/golden/{name}. "
-            "Regenerate it locally before running these parity tests."
-        )
-    return loadmat(path, squeeze_me=True, struct_as_record=False)
+    return load_generated_mat_fixture(name, squeeze_me=True, struct_as_record=False)
 
 
 def chunker_from_fields(fields) -> Chunker:
