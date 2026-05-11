@@ -46,8 +46,8 @@ The parity rule for this repo is:
 Should implement:
 
 - FMM integration everywhere it applies to implemented kernel/operator
-  families, including `chunkermat`, `chunkerinterior`, remaining biharmonic
-  selectors, elasticity, and other currently unsupported selectors.
+  families, including `chunkerinterior`, remaining biharmonic selectors,
+  elasticity, and other currently unsupported selectors.
 - Advanced RCIP workflows beyond the current two-edge corner fixture.
 - `chunkerinterior` close-boundary correction.
 
@@ -65,6 +65,8 @@ Implemented from this scope:
 - `quadggq/buildmattd` sparse special-block assembly.
 - Full adaptive/close quadrature for `quadadap`: GGQ self blocks, adaptive
   neighbor blocks, and robust close non-neighbor replacement for log kernels.
+- `chunkermatapply` FMM acceleration with sparse special-quadrature
+  corrections for singular kernels.
 
 Deferred implementation:
 
@@ -136,7 +138,7 @@ Do not implement:
 | 44 | `chunkermat_stok2dTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Validates Stokes single/double/pressure/traction/gradient kernels, then builds and solves a Stokes boundary integral problem with target accuracy checks. | Existing point-kernel fixtures cover Stokes blocks; add full Stokes matrix/solve fixture later. |
 | 45 | `chunkermat_stok_tractiontest.m` | ✅ 🚧 ⚠️ | Hard | Builds a Stokes traction system and compares target velocity/traction evaluation to analytic values. | Save traction matrix, RHS, solution, and target diagnostics; compare Python Stokes traction support. |
 | 46 | `chunkermat_l2scaleTest.m` | 🚧 | Hard | Constructs a Helmholtz transmission matrix manually and with `chunkermat` `l2scale`, then compares scaled matrix and density solution. | Save manual/scaled matrices, right-hand side, and solution; compare Python l2 scaling once implemented. |
-| 47 | `chunkermatapplyTest.m` | ✅ 🧪 🚧 | Hard | Tests matrix-free `chunkermatapply` against dense matrices for scalar, vector-valued, multi-boundary, and block-kernel cases; includes solve comparisons. | Save dense/matrix-free outputs by case; compare Python `chunkermatapply`. |
+| 47 | `chunkermatapplyTest.m` | ✅ 🧪 🚧 | Hard | Tests matrix-free `chunkermatapply` against dense matrices for scalar, vector-valued, multi-boundary, and block-kernel cases; includes solve comparisons. | Python covers dense and FMM-accelerated special-corrected application; save dense/matrix-free outputs by case for strict MATLAB parity. |
 | 48 | `chunkermat_quadadap_closetotouchingTest.m` | ✅ 🚧 ⚠️ | Hard | Solves an exterior Laplace Dirichlet problem on two nearly touching disks and demonstrates adaptive quadrature accuracy near close interactions. | Save two-disk geometry, matrix, solution, targets, adaptive/smooth diagnostics; compare against Python robust close-evaluation. |
 | 49 | `chunkermat_truepolygonTest.m` | ✅ 🚧 ⚠️ | Hard | Solves a true-corner polygon Neumann problem using adaptive refinement/RCIP-style machinery and checks target accuracy. | Save refined polygon graph/chunker, system, RHS, solution, and targets; compare after Python true-corner support matures. |
 | 50 | `pquadTest.m` | 🚧 | Hard | Tests product quadrature for an interior Helmholtz problem by comparing product-quadrature layer-potential values to a reference solution. | Save product-quadrature matrices/values and compare Python pquad implementation when available. |
