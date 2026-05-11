@@ -110,6 +110,38 @@ dimat.circle_D = D;
 dimat.circle_test_quant = D * chnkr.r(1,:).' + chnkr.r(2,:).';
 devtools_easy.chunker_diffintmat = dimat;
 
+% chunker_nearestTest.m
+near = [];
+rng(1234);
+circ = chunkerfunc(@(t) chnk.curves.bymode(t, 1));
+near.circle = fixture_pack_chunker(circ);
+near.nt = 1000;
+near.thetas = -pi + 2*pi*rand(1, near.nt);
+near.scal = 0.1 + 2*rand(1, near.nt);
+near.targs = [cos(near.thetas); sin(near.thetas)].*near.scal;
+near.rn = zeros(2, near.nt);
+near.dn = zeros(2, near.nt);
+near.d2n = zeros(2, near.nt);
+near.dist = zeros(1, near.nt);
+near.tn = zeros(1, near.nt);
+near.ichn = zeros(1, near.nt);
+near.err = zeros(1, near.nt);
+for j = 1:near.nt
+    [rn, dn, d2n, dist, tn, ichn] = nearest(circ, near.targs(:,j));
+    th1 = atan2(near.targs(2,j), near.targs(1,j));
+    th2 = atan2(rn(2), rn(1));
+    err = min(abs(th1-th2), abs(th1-th2+2*pi));
+    err = min(err, abs(th1-th2-2*pi));
+    near.rn(:,j) = rn;
+    near.dn(:,j) = dn;
+    near.d2n(:,j) = d2n;
+    near.dist(j) = dist;
+    near.tn(j) = tn;
+    near.ichn(j) = ichn;
+    near.err(j) = err;
+end
+devtools_easy.chunker_nearest = near;
+
 % flagselfTest.m
 fs = [];
 rng(8675309);

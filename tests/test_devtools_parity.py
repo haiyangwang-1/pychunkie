@@ -134,6 +134,27 @@ def test_chunker_diffintmat_devtools_outputs_match_matlab():
     assert np.linalg.norm(circle_test_quant) < 1e-10
 
 
+def test_chunker_nearest_devtools_output_matches_matlab():
+    fixture = load_devtools_easy().chunker_nearest
+    circle = chunker_from_fields(fixture.circle)
+
+    rn, dn, d2n, dist, tn, ichn = circle.nearest(fixture.targs)
+    theta_targ = np.arctan2(fixture.targs[1], fixture.targs[0])
+    theta_near = np.arctan2(rn[1], rn[0])
+    angle_err = np.abs(np.angle(np.exp(1j * (theta_targ - theta_near))))
+    expected_ichn = np.asarray(fixture.ichn, dtype=int).reshape(-1) - 1
+
+    np.testing.assert_allclose(rn, fixture.rn, rtol=0, atol=5e-12)
+    np.testing.assert_allclose(dn, fixture.dn, rtol=0, atol=5e-12)
+    np.testing.assert_allclose(d2n, fixture.d2n, rtol=0, atol=3e-11)
+    np.testing.assert_allclose(dist, fixture.dist, rtol=0, atol=1e-12)
+    np.testing.assert_allclose(tn, fixture.tn, rtol=0, atol=5e-12)
+    np.testing.assert_array_equal(ichn, expected_ichn)
+    np.testing.assert_array_less(fixture.err, 1e-12)
+    np.testing.assert_allclose(angle_err, fixture.err, rtol=0, atol=4e-12)
+    np.testing.assert_array_less(angle_err, 5e-12)
+
+
 def test_flagself_devtools_output_matches_matlab():
     fixture = load_devtools_easy().flagself
     actual = flagself(fixture.srcs, fixture.targs)

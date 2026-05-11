@@ -109,6 +109,19 @@ def build_snapshot() -> dict[str, np.ndarray]:
     out["chunker_diffintmat_circle_D"] = circle_d
     out["chunker_diffintmat_circle_test_quant"] = circle_d @ circle_x + circle_y
 
+    near = fixture.chunker_nearest
+    near_circle = chunker_from_fields(near.circle)
+    rn, dn, d2n, dist, tn, ichn = near_circle.nearest(near.targs)
+    out["chunker_nearest_rn"] = rn
+    out["chunker_nearest_dn"] = dn
+    out["chunker_nearest_d2n"] = d2n
+    out["chunker_nearest_dist"] = dist
+    out["chunker_nearest_tn"] = tn
+    out["chunker_nearest_ichn"] = ichn
+    theta_targ = np.arctan2(near.targs[1], near.targs[0])
+    theta_near = np.arctan2(rn[1], rn[0])
+    out["chunker_nearest_angle_err"] = np.abs(np.angle(np.exp(1j * (theta_targ - theta_near))))
+
     fs = fixture.flagself
     out["flagself_pairs"] = flagself(fs.srcs, fs.targs)
 
