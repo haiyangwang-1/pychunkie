@@ -48,7 +48,6 @@ Should implement:
 - FMM integration everywhere it applies to implemented kernel/operator
   families, including `chunkermat`, `chunkerinterior`, remaining biharmonic
   selectors, elasticity, and other currently unsupported selectors.
-- Full adaptive/close quadrature: complete `quadadap`.
 - Advanced RCIP workflows beyond the current two-edge corner fixture.
 - `chunkerinterior` close-boundary correction.
 
@@ -64,6 +63,8 @@ Implemented from this scope:
   `tayl`.
 - Adaptive refinement in `chunker.refine` and `chunkerfunc`.
 - `quadggq/buildmattd` sparse special-block assembly.
+- Full adaptive/close quadrature for `quadadap`: GGQ self blocks, adaptive
+  neighbor blocks, and robust close non-neighbor replacement for log kernels.
 
 Deferred implementation:
 
@@ -124,7 +125,7 @@ Do not implement:
 | 33 | `helm1d_greenTest.m` | ✅ 🧪 🚧 ⚠️ | Medium-Hard | Tests 1D/interface Helmholtz Green functions and a fast solve wrapper for a layered/flat interface setup, ending with a relative error below `1e-5`. | Start with Green/sweep outputs before attempting the full GMRES/interface solve. |
 | 34 | `complexificationTest.m` | 🚧 | Medium-Hard | Compares Sommerfeld-density solve/evaluation to a complexification solution for a flat interface point-charge setup. | Requires Python Sommerfeld/complexification support; fixture should save interface parameters, densities, potential, and exact solution. |
 | 35 | `adapgausswtsTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Compares adaptive Gaussian quadrature weights for a near interaction against a GGQ-built reference matrix block on a starfish geometry. | Save the exact chunk, target, adaptive weights, reference block, and compare Python adaptive quadrature internals. |
-| 36 | `chunkermat_quadadapTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Builds dense matrices with standard and adaptive quadrature for a starfish near-interaction case and asserts relative Frobenius agreement below `1e-9`. | Save both MATLAB matrices and geometry; compare Python `quadadap.buildmat` as part of the full `quadadap` implementation target. |
+| 36 | `chunkermat_quadadapTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Builds dense matrices with standard and adaptive quadrature for a starfish near-interaction case and asserts relative Frobenius agreement below `1e-9`. | Python now implements adaptive neighbor and robust close replacement; save both MATLAB matrices and geometry for strict parity. |
 | 37 | `chunkerkerneval_correctionsTest.m` | ✅ 🚧 ⚠️ | Hard | Checks special near-target correction in `chunkerkerneval`: corrected evaluation matches truth while uncorrected smooth evaluation is measurably wrong. | Save source geometry, targets, density, corrected/unfixed values, and compare Python near-correction behavior. |
 | 38 | `chunkerkerneval_gaussidTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Uses Gauss' identity for the Laplace double-layer potential over grids and checks values are near `0` or `-1` depending on inside/outside classification. | Save grid/targets, classifications, and double-layer values; compare Python evaluation and interior classification. |
 | 39 | `chunkerkerneval_greenlapTest.m` | ✅ 🧪 🚧 | Hard | Tests Laplace Green's identity using direct, FMM, and FLAM/smooth-work paths for layer potential evaluation at targets. | Save source strengths, boundary data, target truth, and MATLAB direct/FMM outputs; compare direct and FMM Python paths. FLAM diagnostics are deferred until `pyflam` exists. |
@@ -136,7 +137,7 @@ Do not implement:
 | 45 | `chunkermat_stok_tractiontest.m` | ✅ 🚧 ⚠️ | Hard | Builds a Stokes traction system and compares target velocity/traction evaluation to analytic values. | Save traction matrix, RHS, solution, and target diagnostics; compare Python Stokes traction support. |
 | 46 | `chunkermat_l2scaleTest.m` | 🚧 | Hard | Constructs a Helmholtz transmission matrix manually and with `chunkermat` `l2scale`, then compares scaled matrix and density solution. | Save manual/scaled matrices, right-hand side, and solution; compare Python l2 scaling once implemented. |
 | 47 | `chunkermatapplyTest.m` | ✅ 🧪 🚧 | Hard | Tests matrix-free `chunkermatapply` against dense matrices for scalar, vector-valued, multi-boundary, and block-kernel cases; includes solve comparisons. | Save dense/matrix-free outputs by case; compare Python `chunkermatapply`. |
-| 48 | `chunkermat_quadadap_closetotouchingTest.m` | ✅ 🚧 ⚠️ | Hard | Solves an exterior Laplace Dirichlet problem on two nearly touching disks and demonstrates adaptive quadrature accuracy near close interactions. | Save two-disk geometry, matrix, solution, targets, adaptive/smooth diagnostics; compare Python adaptive close-evaluation as part of the full `quadadap` target. |
+| 48 | `chunkermat_quadadap_closetotouchingTest.m` | ✅ 🚧 ⚠️ | Hard | Solves an exterior Laplace Dirichlet problem on two nearly touching disks and demonstrates adaptive quadrature accuracy near close interactions. | Save two-disk geometry, matrix, solution, targets, adaptive/smooth diagnostics; compare against Python robust close-evaluation. |
 | 49 | `chunkermat_truepolygonTest.m` | ✅ 🚧 ⚠️ | Hard | Solves a true-corner polygon Neumann problem using adaptive refinement/RCIP-style machinery and checks target accuracy. | Save refined polygon graph/chunker, system, RHS, solution, and targets; compare after Python true-corner support matures. |
 | 50 | `pquadTest.m` | 🚧 | Hard | Tests product quadrature for an interior Helmholtz problem by comparing product-quadrature layer-potential values to a reference solution. | Save product-quadrature matrices/values and compare Python pquad implementation when available. |
 | 51 | `singularkernelTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Checks principal-value and hypersingular quadratures by comparing boundary tangential and normal derivatives from singular kernels to analytic boundary data. | Save boundary fields, PV/HS values, and relative errors; compare Python singular GGQ paths. |
@@ -167,5 +168,5 @@ Do not implement:
 ## Suggested Next Ports
 
 1. `KernDerInterleaveTest.m`: mostly point-kernel algebra and extends the new `kernelopTest.m` fixture naturally.
-2. `chunkermat_quadadapTest.m` and `chunkermat_quadadap_closetotouchingTest.m`: drive the full `quadadap` implementation and close-interaction parity.
+2. `chunkermat_quadadapTest.m` and `chunkermat_quadadap_closetotouchingTest.m`: add strict MATLAB fixtures for adaptive close-interaction parity.
 3. FMM selector fixtures for biharmonic, elasticity, and other currently dense-direct fallback selectors.

@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 194 pytest cases because several MATLAB parity tests are
+collection expands to 195 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 
@@ -70,7 +70,6 @@ Should implement:
   families, including `chunkermat` FMM acceleration, `chunkerinterior` FMM
   acceleration, and missing selector wiring for remaining biharmonic selectors,
   elasticity, and other unsupported selectors.
-- Full adaptive/close quadrature: complete `quadadap`.
 - Advanced RCIP workflows beyond the current two-edge corner fixture.
 - `chunkerinterior` close-boundary correction.
 
@@ -86,6 +85,8 @@ Implemented from this scope:
   `tayl`.
 - Adaptive refinement in `chunker.refine` and `chunkerfunc`.
 - `quadggq/buildmattd` sparse special-block assembly.
+- Full adaptive/close quadrature for `quadadap`: GGQ self blocks, adaptive
+  neighbor blocks, and robust close non-neighbor replacement for log kernels.
 
 Deferred implementation:
 
@@ -974,10 +975,16 @@ dispatch for Laplace `sgrad` and `dgrad`, which are marked PV and HS
 respectively. The method is `chunkermat` on a circle. Ground truth is finite
 matrices with shape `2*npt x npt`.
 
-`test_quadadap_buildmat_delegates_to_special_quadrature` checks that the
-adaptive quadrature facade currently delegates to GGQ special quadrature for
-log kernels. The method compares `quadadap.buildmat(..., sing="log")` to
-`quadggq.buildmat(..., type="log")`. Ground truth is matrix equality.
+`test_quadadap_buildmat_uses_adaptive_neighbor_blocks` checks adaptive
+near-neighbor assembly. The method monkeypatches `quadadap.adapgausswts`,
+builds a Laplace single-layer matrix, and verifies two adaptive neighbor calls
+per chunk while preserving equality with the GGQ special matrix on a circle.
+
+`test_quadadap_robust_mode_repairs_non_neighbor_close_blocks` checks robust
+close-interaction replacement. The method merges two nearly touching circles,
+enables `quadadap.buildmat(..., robust=True)`, and verifies adaptive correction
+calls for target subsets outside the self/neighbor blocks. Ground truth is a
+finite matrix and at least one non-panel-sized adaptive target set.
 
 ## `tests/test_rcip.py`
 
