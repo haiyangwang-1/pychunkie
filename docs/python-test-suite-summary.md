@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 187 pytest cases because several MATLAB parity tests are
+collection expands to 191 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 
@@ -73,8 +73,6 @@ Should implement:
 - Full adaptive/close quadrature: complete `quadadap` and
   `quadggq/buildmattd`.
 - Advanced RCIP workflows beyond the current two-edge corner fixture.
-- Remaining `+lege` helpers: `adapgauss`, `bernstein_ellipse`, `polsum`, and
-  `tayl`.
 - Adaptive refinement in `chunker.refine` and `chunkerfunc`.
 - `chunkerinterior` close-boundary correction.
 
@@ -86,6 +84,8 @@ Implemented from this scope:
 - Helmholtz double-gradient FMM selector wiring.
 - Stokes traction FMM selector wiring.
 - Biharmonic Laplacian FMM selector wiring.
+- Remaining `+lege` helpers: `adapgauss`, `bernstein_ellipse`, `polsum`, and
+  `tayl`.
 
 Deferred implementation:
 
@@ -754,6 +754,24 @@ antiderivatives.
 weights for Gauss-Legendre nodes. The method is `lege.barywts`. Ground truth
 is the expected length and alternating sign pattern of barycentric weights on
 ordered Legendre nodes.
+
+`test_bernstein_ellipse_matches_conformal_map` checks Bernstein ellipse point
+generation. The method is `lege.bernstein_ellipse(8, 2.0)`. Ground truth is the
+conformal map `(z + 1/z)/2` applied to equally spaced circle nodes.
+
+`test_polsum_matches_pols_and_recurrence_total` checks the `polsum` recurrence.
+The method is `lege.polsum(xs, 5)`. Ground truth is direct `lege.pols`
+evaluation plus the weighted normalization sum used by MATLAB root helpers.
+
+`test_tayl_matches_direct_legendre_step` checks Taylor stepping for Legendre
+polynomials. The method advances `P_6` and its derivative from `x` to `x+h`
+with `lege.tayl`. Ground truth is direct `lege.pol(x+h, 6)` evaluation,
+including the zero-step case.
+
+`test_adapgauss_integrates_scalar_and_vector_functions` checks adaptive
+Gauss-Legendre integration. The method is `lege.adapgauss` on a polynomial
+scalar integrand and a two-column vector integrand. Ground truth is the exact
+polynomial integrals and successful MATLAB-style status metadata.
 
 ## `tests/test_matlab_fixtures.py`
 

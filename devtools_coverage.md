@@ -51,8 +51,6 @@ Should implement:
 - Full adaptive/close quadrature: complete `quadadap` and
   `quadggq/buildmattd`.
 - Advanced RCIP workflows beyond the current two-edge corner fixture.
-- Remaining `+lege` helpers: `adapgauss`, `bernstein_ellipse`, `polsum`, and
-  `tayl`.
 - Adaptive refinement in `chunker.refine` and `chunkerfunc`.
 - `chunkerinterior` close-boundary correction.
 
@@ -64,6 +62,8 @@ Implemented from this scope:
 - Helmholtz double-gradient FMM selector wiring.
 - Stokes traction FMM selector wiring.
 - Biharmonic Laplacian FMM selector wiring.
+- Remaining `+lege` helpers: `adapgauss`, `bernstein_ellipse`, `polsum`, and
+  `tayl`.
 
 Deferred implementation:
 
