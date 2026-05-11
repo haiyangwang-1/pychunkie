@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 187 tests: `186 passed, 1 failed` (`tests/test_devtools_parity.py::test_smoother_devtools_output_matches_matlab_thresholds`, current fixture lacks `fixture.chunker.npt`). Targeted domain/adjacent run `uv run pytest tests/test_domain.py tests/test_chunkgraph.py tests/test_chunkerfunc.py`: `16 passed`; targeted kernel run `uv run pytest tests/test_kernel.py`: `11 passed`.
+Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 191 tests: `190 passed, 1 failed` (`tests/test_devtools_parity.py::test_smoother_devtools_output_matches_matlab_thresholds`, current fixture lacks `fixture.chunker.npt`). Targeted domain/adjacent run `uv run pytest tests/test_domain.py tests/test_chunkgraph.py tests/test_chunkerfunc.py`: `16 passed`; targeted kernel run `uv run pytest tests/test_kernel.py`: `11 passed`; targeted Legendre run `uv run pytest tests/test_lege.py`: `12 passed`.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -149,7 +149,7 @@ src/
             ├── pol, pols, exps, rts, rts_stab
             ├── exev, derpol, dermat
             ├── intpol, intmat, matrin
-            └── barywts
+            └── barywts, adapgauss, bernstein_ellipse, polsum, tayl
 ```
 
 ## Python To MATLAB Map
@@ -437,7 +437,7 @@ their matching `@kernel` factories.
 
 ### `lege/core.py`
 
-- ✅ 🧪 🎯 [src/chunkie/lege/core.py](src/chunkie/lege/core.py) maps most of MATLAB `+lege`.
+- ✅ 🧪 🎯 [src/chunkie/lege/core.py](src/chunkie/lege/core.py) maps MATLAB `+lege`.
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
@@ -453,8 +453,10 @@ their matching `@kernel` factories.
 | `intmat` | ✅ 🧪 🎯 | `+lege/intmat.m` | MATLAB parity fixture checks matrix values. |
 | `matrin` | ✅ 🧪 🎯 | `+lege/matrin.m` | MATLAB parity fixture checks interpolation matrix. |
 | `barywts` | ✅ 🧪 🎯 | `+lege/barywts.m` | MATLAB parity fixture checks weights. |
-
-🚧 MATLAB `+lege` helpers not yet ported: `adapgauss.m`, `bernstein_ellipse.m`, `polsum.m`, `tayl.m`.
+| `adapgauss` | ✅ 🧪 | `+lege/adapgauss.m` | Adaptive Gauss-Legendre scalar/vector integration tested. |
+| `bernstein_ellipse` | ✅ 🧪 | `+lege/bernstein_ellipse.m` | Conformal-map ellipse nodes tested. |
+| `polsum` | ✅ 🧪 | `+lege/polsum.m` | Recurrence value, derivative, and normalization total tested. |
+| `tayl` | ✅ 🧪 | `+lege/tayl.m` | Taylor stepping tested against direct Legendre evaluation. |
 
 ## Support Tree
 
@@ -544,7 +546,6 @@ Should implement:
 - 🚧 FMM integration everywhere it applies to implemented kernel/operator families, including `chunkermat` FMM acceleration and missing selector wiring for remaining biharmonic selectors, elasticity, and other currently unsupported selectors.
 - 🚧 Full adaptive/close quadrature: complete `+chnk/+quadadap/*` and `+chnk/+quadggq/buildmattd.m`.
 - 🚧 Advanced RCIP workflows beyond the current two-edge corner fixture, including broader multi-kernel block coverage and production examples.
-- 🚧 Remaining `+lege` helpers: `adapgauss.m`, `bernstein_ellipse.m`, `polsum.m`, `tayl.m`.
 - 🚧 Adaptive refinement for `Chunker.refine` and `chunkerfunc`.
 - 🚧 `chunkerinterior` close-boundary correction and FMM interior acceleration.
 
