@@ -1010,8 +1010,9 @@ fixture.
 `ctrac`, and `cgrad`. The equations are 2D Stokes velocity, pressure,
 traction, gradient, and combined layer blocks at viscosity `mu`. The method is
 direct `stok2d.kern`. Ground truth is the MATLAB point-kernel fixture; direct
-lower-level `cgrad` is xfailed because MATLAB combines `sgrad` twice while
-Python keeps the intended `dgrad`/`sgrad` combination.
+lower-level `cgrad` uses MATLAB's saved `dgrad` and `sgrad` component blocks as
+the reference because the saved MATLAB combined `cgrad` value combines `sgrad`
+twice.
 
 `test_elasticity_point_kernels_match_matlab_fixture` is parametrized over
 `s`, `sgrad`, `strac`, `d`, `dalt`, `dalttrac`, and `daltgrad`. The equations

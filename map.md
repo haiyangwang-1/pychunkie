@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 280 tests: `279 passed, 1 xfailed`.
+Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 280 tests: `280 passed`.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -380,7 +380,7 @@ their matching `@kernel` factories.
 | `lap2d.kern` | ✅ 🧪 🎯 | `+chnk/+lap2d/kern.m` | Point kernels, including gradient row ordering, are parity-tested. |
 | `helm2d.kern` | ✅ 🧪 🎯 | `+chnk/+helm2d/kern.m` | Point kernels, including gradient row ordering, are parity-tested. |
 | `helm1d.kern` | ✅ 🧪 🎯 | `+chnk/+helm1d/kern.m` | Many scalar/combined/transmission variants parity-tested. |
-| `stok2d.kern` | ⚠️ 🧪 🎯 | `+chnk/+stok2d/kern.m` | Stokes variants parity-tested, including pressure/traction combined paths; direct lower-level `cgrad` is xfailed because MATLAB combines `sgrad` twice while Python keeps the intended `dgrad`/`sgrad` combination. |
+| `stok2d.kern` | ✅ 🧪 🎯 | `+chnk/+stok2d/kern.m` | Stokes variants parity-tested, including pressure/traction/gradient combined paths; `cgrad` parity uses MATLAB's saved `dgrad`/`sgrad` component blocks because the saved MATLAB combined `cgrad` value combines `sgrad` twice. |
 | `elast2d.kern` | ✅ 🧪 🎯 | `+chnk/+elast2d/kern.m` | Elasticity variants parity-tested, including `sgrad`, `dalttrac`, and `daltgrad`. |
 
 ✅ External FMM acceleration is wired through `fmm2dpy` for the implemented 2D selector surface: Laplace single/double/normal/tangential/Hilbert/prime/gradient/combined paths; Helmholtz single/double/normal/tangential/prime/gradient/combined-prime paths; biharmonic single/double/normal derivative/gradient/Hessian/Laplacian paths via Laplace moment decompositions; Stokes velocity/pressure/gradient/traction/combined paths; and elasticity single/gradient/traction/double/alternate-double workflows via Laplace/Stokes decompositions. Dense-direct fallbacks remain available for custom kernels, optional dependency absence, and compatibility tests.

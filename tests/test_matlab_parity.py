@@ -291,7 +291,7 @@ def test_helmholtz_1d_point_kernels_match_matlab_fixture(kind):
         "c",
         "cpres",
         "ctrac",
-        pytest.param("cgrad", marks=pytest.mark.xfail(reason="MATLAB chnk.stok2d cgrad combines sgrad twice.")),
+        "cgrad",
     ],
 )
 def test_stokes_point_kernels_match_matlab_fixture(kind):
@@ -301,7 +301,12 @@ def test_stokes_point_kernels_match_matlab_fixture(kind):
     coefs = fixture["stok_coefs"] if kind in {"c", "cpres", "ctrac", "cgrad"} else None
 
     actual = stok2d.kern(fixture["stok_mu"], src, targ, kind, coefs)
-    expected = getattr(fixture["stok2d"], kind)
+    if kind == "cgrad":
+        # MATLAB's saved cgrad fixture combines sgrad twice; keep the Python
+        # reference tied to MATLAB's individual dgrad/sgrad component blocks.
+        expected = coefs[0] * fixture["stok2d"].dgrad + coefs[1] * fixture["stok2d"].sgrad
+    else:
+        expected = getattr(fixture["stok2d"], kind)
     np.testing.assert_allclose(actual, expected, rtol=1e-12, atol=1e-13)
 
 

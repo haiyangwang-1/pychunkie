@@ -17,8 +17,9 @@ Current fixtures cover Legendre helpers, including extended helper parity,
 basic circle chunking, core geometry/domain/chunkgraph helpers, chunker
 transforms, point-kernel evaluators, MATLAB `@kernel` object algebra/factories,
 Green helpers, biharmonic `bhgreen`-derived selectors, and dense/native
-operator paths. Strict `xfail` entries document known MATLAB parity gaps while
-keeping the rest of the suite actionable.
+operator paths. For known MATLAB fixture inconsistencies, tests prefer
+component-wise references over expected failures when the intended Python
+behavior is clear.
 
 `devtools_easy.mat` is a generated local snapshot produced by
 `scripts/matlab/generate_devtools_easy_fixture.m`. It starts the
