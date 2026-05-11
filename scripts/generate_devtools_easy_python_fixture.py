@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 from scipy.io import loadmat
 
-from chunkie import Chunker, chunkerfit, chunkerfunc, chunkerfuncuni, chunkerintegral, kernel, lege
+from chunkie import Chunker, chunkerfit, chunkerfunc, chunkerfuncuni, chunkerintegral, chunkgraph, kernel, lege, tochunkgraph
 from chunkie.chnk import curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, spcl
 from chunkie.operators import PointInfo
 
@@ -177,6 +177,19 @@ def build_snapshot() -> dict[str, np.ndarray]:
     out["chunkerfit_r"] = cfit_r
     out["chunkerfit_closed_ier"] = np.asarray(cfit_closed.checkadjinfo())
     out["chunkerfit_open_ier"] = np.asarray(cfit_open.checkadjinfo())
+
+    tcg = fixture.tochunkgraph
+    tcg_total = chunker_from_fields(tcg.total)
+    tcg_graph = tochunkgraph(tcg_total)
+    tcg_manual = chunkgraph(
+        tcg.manual_verts,
+        tcg.manual_edge2verts,
+        [chunker_from_fields(tcg.arc), chunker_from_fields(tcg.circle)],
+    )
+    out["tochunkgraph_verts"] = tcg_graph.verts
+    out["tochunkgraph_edgesendverts"] = tcg_graph.edgesendverts
+    out["tochunkgraph_manual_verts"] = tcg_manual.verts
+    out["tochunkgraph_manual_edgesendverts"] = tcg_manual.edgesendverts
 
     fs = fixture.flagself
     out["flagself_pairs"] = flagself(fs.srcs, fs.targs)

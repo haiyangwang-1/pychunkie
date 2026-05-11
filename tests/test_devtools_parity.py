@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from scipy.io import loadmat
 
-from chunkie import Chunker, chunkerfit, chunkerfunc, chunkerfuncuni, chunkerintegral, kernel, lege
+from chunkie import Chunker, chunkerfit, chunkerfunc, chunkerfuncuni, chunkerintegral, chunkgraph, kernel, lege, tochunkgraph
 from chunkie.chnk import curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, spcl
 from chunkie.operators import PointInfo
 
@@ -282,6 +282,32 @@ def test_chunkerfit_devtools_outputs_match_matlab():
     assert int(fixture.open_ier) == 0
     assert closed.checkadjinfo() == int(fixture.closed_ier)
     assert open_chnkr.checkadjinfo() == int(fixture.open_ier)
+
+
+def test_tochunkgraph_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().tochunkgraph
+    total = chunker_from_fields(fixture.total)
+    arc = chunker_from_fields(fixture.arc)
+    circle = chunker_from_fields(fixture.circle)
+
+    graph = tochunkgraph(total)
+
+    assert graph.verts.shape[1] == int(fixture.graph_nverts)
+    assert len(graph.echnks) == int(fixture.graph_nedges)
+    assert graph.npt == int(fixture.graph_npt)
+    assert graph.npt == total.npt
+    np.testing.assert_allclose(graph.verts, fixture.graph_verts, atol=1e-12)
+    np.testing.assert_array_equal(graph.edgesendverts, np.asarray(fixture.graph_edgesendverts, dtype=int) - 1)
+    assert_chunker_fields_match(graph.echnks[0], fixture.graph_first_edge, atol=1e-12)
+    np.testing.assert_allclose(graph.echnks[0].r, arc.r, atol=1e-14)
+
+    manual = chunkgraph(fixture.manual_verts, fixture.manual_edge2verts, [arc, circle])
+    np.testing.assert_allclose(manual.verts, fixture.manual_graph_verts, atol=1e-14)
+    np.testing.assert_array_equal(manual.edgesendverts, np.asarray(fixture.manual_graph_edgesendverts, dtype=int) - 1)
+    np.testing.assert_allclose(manual.echnks[0].r[:, 0, 0], fixture.manual_verts[:, 0], atol=1e-2)
+    np.testing.assert_allclose(manual.echnks[0].r[:, -1, -1], fixture.manual_verts[:, 1], atol=1e-2)
+    np.testing.assert_allclose(manual.echnks[0].r[:, 0, 0], fixture.manual_first_start, atol=1e-12)
+    np.testing.assert_allclose(manual.echnks[0].r[:, -1, -1], fixture.manual_first_end, atol=1e-12)
 
 
 def test_flagself_devtools_output_matches_matlab():
