@@ -54,7 +54,9 @@ Implemented from this scope:
 
 - Top-level geometry/domain helpers: `checkcurveparam`, `ellipse`,
   `hypoct_uni`, `mergeregions`, `nonflatinterface`, `pointinregion`, `redblue`,
-  `regioninside`, and `starfish`.
+  `regioninside`, and `starfish`; compact non-devtools fixture parity in
+  `geometry_core.mat` now covers these helpers plus core chunker/chunkgraph
+  geometry surfaces.
 - Helmholtz double-gradient FMM selector wiring.
 - Stokes traction FMM selector wiring.
 - FMM integration across the implemented 2D kernel selector surface, including
