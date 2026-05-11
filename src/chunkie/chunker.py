@@ -267,7 +267,16 @@ class Chunker:
     def arclengthfun(self) -> np.ndarray:
         aint = lege.intmat(self.k)[0]
         s = aint @ self.arclengthdens()
-        starts = np.concatenate(([0.0], np.cumsum(self.chunklen()[:-1])))
+        starts = np.zeros(self.nch)
+        inds, _, info = self.sortinfo()
+        chunklens = self.chunklen()
+        offset = 0
+        for nch in np.asarray(info["nchs"], dtype=int):
+            sstart = 0.0
+            for idx in inds[offset : offset + nch]:
+                starts[idx] = sstart
+                sstart += chunklens[idx]
+            offset += nch
         return s + starts[None, :]
 
     def chunklen(self, ich: ArrayLike | None = None) -> np.ndarray:

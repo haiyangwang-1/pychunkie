@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import numpy as np
-import pytest
 from scipy.io import loadmat
 
 from chunkie import Chunker, kernel, lege
@@ -100,7 +99,6 @@ def test_arclengthfun_single_component_devtools_output_matches_matlab():
     np.testing.assert_allclose(chnkr.chunklen(), fixture.chunker_single.chunklen, atol=1e-13)
 
 
-@pytest.mark.xfail(strict=True, reason="Python arclengthfun does not yet reset arclength per merged component.")
 def test_arclengthfun_merged_components_devtools_output_matches_matlab():
     fixture = load_devtools_easy().arclengthfun
     chnkr = chunker_from_fields(fixture.chunker_merged)

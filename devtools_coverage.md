@@ -28,15 +28,14 @@ The parity rule for this repo is:
 - MATLAB fixture data: `tests/golden/devtools_easy.mat`
 - Python snapshot generator: `scripts/generate_devtools_easy_python_fixture.py`
 - Python comparisons: `tests/test_devtools_parity.py`
-- Covered now: `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m` single-component output, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `kernelopTest.m`, and `stokes_dtracTest.m`
-- Known exposed gap: merged-component `arclengthfunTest.m` output is marked strict `xfail` because Python currently accumulates arclength through all chunks instead of resetting per connected component.
+- Covered now: `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `kernelopTest.m`, and `stokes_dtracTest.m`
 
 ## Status At A Glance
 
 | Status | Count | Tests |
 | --- | ---: | --- |
-| ✅ 🧪 🎯 fully covered by devtools parity | 9 | `absconvgaussTest.m`, `legeexpsunitTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `kernelopTest.m` |
-| ✅ 🧪 🎯 ⚠️ partially covered or diagnostic devtools parity | 2 | `arclengthfunTest.m`, `stokes_dtracTest.m` |
+| ✅ 🧪 🎯 fully covered by devtools parity | 10 | `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `kernelopTest.m` |
+| ✅ 🧪 🎯 ⚠️ diagnostic devtools parity | 1 | `stokes_dtracTest.m` |
 | 🧩 🧭 helper/reference | 1 | `gradient_check.m` |
 | 🚧 not yet converted to devtools parity | 62 | All remaining ranked entries below. |
 
@@ -48,7 +47,7 @@ The parity rule for this repo is:
 | 2 | `absconvgaussTest.m` | ✅ 🧪 🎯 | Easy | Checks `chnk.spcl.absconvgauss` value derivatives by running `gradient_check` on the smoothed absolute-value function and on its first derivative. | Covered in `devtools_easy.mat`: compare Python `spcl.absconvgauss` value, first derivative, second derivative, and saved MATLAB gradient-check thresholds. |
 | 3 | `legeexpsunitTest.m` | ✅ 🧪 🎯 | Easy | Verifies Legendre nodes/weights, derivative matrix, integration matrix, derivative of `sin(x)`, antiderivative of `sin(x)`, and coefficient-space integration via `lege.intpol`/`lege.exev`. | Covered in `devtools_easy.mat`: compare `lege.exps`, `dermat`, `intmat`, `intpol`, and `exev` outputs. |
 | 4 | `smootherTest.m` | ✅ 🧪 🚧 ⚠️ | Easy | Builds a smoothed chunker from a triangular polygon with `chnk.smoother.smooth` and asserts the returned smoothing error is below `1e-6`. | Generate triangle vertices, MATLAB `r/n/wts/err`, and compare to Python smoother once the Python smoother is more than the current lightweight rounded-polygon path. |
-| 5 | `arclengthfunTest.m` | ✅ 🧪 🎯 ⚠️ | Easy | Computes arclength coordinates on a circle and on two merged circles, comparing each component to analytic polar angle, with the second circle scaled by `1.1`. | Single-component output is covered. Merged-component output is an intentional `xfail` until Python resets arclength per connected component. |
+| 5 | `arclengthfunTest.m` | ✅ 🧪 🎯 | Easy | Computes arclength coordinates on a circle and on two merged circles, comparing each component to analytic polar angle, with the second circle scaled by `1.1`. | Covered in `devtools_easy.mat`: compare single-component and merged-component arclength coordinates against Python `Chunker.arclengthfun`. |
 | 6 | `chunker_diffintmatTest.m` | ✅ 🧪 🎯 | Easy | Builds ellipse/circle chunkers, checks `diffmat` produces unit arclength tangents, and checks `intmat` inverts differentiation up to a constant. | Covered in `devtools_easy.mat`: compare MATLAB `D`, `C`, tangent derivatives, integrated coordinates, and Python `Chunker.diffmat`/`intmat`. |
 | 7 | `chunker_nearestTest.m` | ✅ 🧪 🎯 | Easy | For 1000 random radial targets around a circle, checks `nearest` returns the closest circle angle to within `1e-12`. | Covered in `devtools_easy.mat`: compare saved targets, closest points, derivatives, second derivatives, distances, panel ids, local parameters, and angle error against Python `Chunker.nearest`. |
 | 8 | `flagselfTest.m` | ✅ 🧪 🎯 | Easy | Flags overlapping source and target point sets and checks the reported source permutation matches duplicated target coordinates. | Covered in `devtools_easy.mat`: compare deterministic source/target arrays and expected overlap index pairs against Python `geometry.flagself`. |
@@ -122,4 +121,3 @@ The parity rule for this repo is:
 ## Suggested Next Ports
 
 1. `KernDerInterleaveTest.m`: mostly point-kernel algebra and extends the new `kernelopTest.m` fixture naturally.
-2. Fix the `arclengthfunTest.m` merged-component `xfail`, then remove the partial-coverage warning.
