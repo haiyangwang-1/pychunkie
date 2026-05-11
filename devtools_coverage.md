@@ -48,8 +48,7 @@ Should implement:
 - FMM integration everywhere it applies to implemented kernel/operator
   families, including `chunkermat`, `chunkerinterior`, remaining biharmonic
   selectors, elasticity, and other currently unsupported selectors.
-- Full adaptive/close quadrature: complete `quadadap` and
-  `quadggq/buildmattd`.
+- Full adaptive/close quadrature: complete `quadadap`.
 - Advanced RCIP workflows beyond the current two-edge corner fixture.
 - `chunkerinterior` close-boundary correction.
 
@@ -64,6 +63,7 @@ Implemented from this scope:
 - Remaining `+lege` helpers: `adapgauss`, `bernstein_ellipse`, `polsum`, and
   `tayl`.
 - Adaptive refinement in `chunker.refine` and `chunkerfunc`.
+- `quadggq/buildmattd` sparse special-block assembly.
 
 Deferred implementation:
 
