@@ -209,6 +209,8 @@ def nearbuildmat(
     kern: Callable[[Any, Any], np.ndarray],
     opdims: tuple[int, int],
     aux: AuxQuad | None = None,
+    corrections: bool = False,
+    wtss: ArrayLike | None = None,
 ) -> np.ndarray:
     """Build an oversampled near-neighbor block from source chunk ``j`` to target chunk ``i``."""
 
@@ -232,7 +234,22 @@ def nearbuildmat(
     weights = np.sqrt(np.sum(np.abs(src.d) ** 2, axis=0)) * aux.wts1
     kvals = np.nan_to_num(_eval_kernel(kern, src, targ), nan=0.0, posinf=0.0, neginf=0.0)
     mat = kvals * np.repeat(weights, int(opdims[1]))[None, :]
-    return mat @ np.kron(interp, np.eye(int(opdims[1])))
+    out = mat @ np.kron(interp, np.eye(int(opdims[1])))
+    if corrections:
+        if wtss is None:
+            wtss_arr = chnkr.wts
+        else:
+            wtss_arr = np.asarray(wtss)
+        src0 = PointInfo(
+            r=chnkr.r[:, :, j],
+            d=chnkr.d[:, :, j],
+            d2=chnkr.d2[:, :, j],
+            n=chnkr.n[:, :, j],
+            data=chnkr.data[:, :, j] if chnkr.datadim else None,
+        )
+        smooth = _eval_kernel(kern, src0, targ)
+        out = out - smooth * np.repeat(wtss_arr[:, j], int(opdims[1]))[None, :]
+    return out
 
 
 def _interpolated_pointinfo(
