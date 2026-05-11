@@ -305,14 +305,93 @@ cgfx.sliced = slicegraph(cgrph, [1, 3]);
 cgfx.sliced_edgesendverts = cgfx.sliced.edgesendverts;
 cgfx.sliced_v2emat = full(cgfx.sliced.v2emat);
 cgfx.sliced_npt = cgfx.sliced.npt;
-translated = [0.4; -0.25] + cgrph;
-transformed = [1.1, 0.2; -0.3, 0.9] * cgrph;
+cgfx.procverts_edges = zeros(2, size(cgfx.verts, 2));
+cgfx.procverts_signs = zeros(2, size(cgfx.verts, 2));
+cgfx.procverts_counts = zeros(1, size(cgfx.verts, 2));
+for iv = 1:numel(cgrph.vstruc)
+    edges_here = cgrph.vstruc{iv}{1};
+    signs_here = cgrph.vstruc{iv}{2};
+    cgfx.procverts_counts(iv) = numel(edges_here);
+    cgfx.procverts_edges(1:numel(edges_here), iv) = edges_here;
+    cgfx.procverts_signs(1:numel(signs_here), iv) = signs_here;
+end
+cgfx.region_count = numel(cgrph.regions);
+cgfx.region_loop_count = cellfun(@numel, cgrph.regions);
+cgfx.region_first_loop = cgrph.regions{1}{1};
+cgfx.region_second_loop = cgrph.regions{2}{1};
+
+graph_ref_opts = [];
+graph_ref_opts.nover = 1;
+graph_ref_opts.lvlr = 'n';
+cgfx.refine_opts = graph_ref_opts;
+cgfx.refined = local_pack_chunkgraph(refine(cgrph, graph_ref_opts));
+
+cgfx.flag_targets = [
+    -0.2, 0.5, 1.2, 0.5, 0.5;
+     0.5, 0.5, 0.5, -0.2, 1.2
+];
+cgfx.flag_fac = 0.8;
+graph_flag_opts = [];
+graph_flag_opts.fac = cgfx.flag_fac;
+cgfx.flagnear = full(flagnear(cgrph, cgfx.flag_targets, graph_flag_opts));
+cgfx.rect_x = linspace(-0.25, 1.25, 6);
+cgfx.rect_y = linspace(-0.25, 1.25, 5);
+[cg_rect_xx, cg_rect_yy] = meshgrid(cgfx.rect_x, cgfx.rect_y);
+cgfx.rect_targets = [cg_rect_xx(:).'; cg_rect_yy(:).'];
+cgfx.rect_rho = 1.25;
+graph_rect_opts = [];
+graph_rect_opts.rho = cgfx.rect_rho;
+cgfx.flagnear_rectangle = full(flagnear_rectangle(cgrph, cgfx.rect_targets, graph_rect_opts));
+cgfx.flagnear_rectangle_grid = full(flagnear_rectangle_grid(cgrph, cgfx.rect_x, cgfx.rect_y, graph_rect_opts));
+
+cgfx.translation_vector = [0.4; -0.25];
+cgfx.transform_matrix = [1.1, 0.2; -0.3, 0.9];
+cgfx.scale = 1.35;
+translated = cgfx.translation_vector + cgrph;
+translated_right = cgrph + cgfx.translation_vector;
+transformed = cgfx.transform_matrix * cgrph;
+scaled_left = cgfx.scale * cgrph;
+scaled_right = cgrph * cgfx.scale;
 rotated_graph = rotate(cgrph, 0.31, [0.5; 0.5], [0.1; -0.2]);
 reflected_graph = reflect(cgrph, -0.15, [0.5; 0.5], [0.25; -0.1]);
 cgfx.translated_verts = translated.verts;
+cgfx.translated_right_verts = translated_right.verts;
 cgfx.transformed_verts = transformed.verts;
+cgfx.scaled_left_verts = scaled_left.verts;
+cgfx.scaled_right_verts = scaled_right.verts;
+cgfx.translated = local_pack_chunkgraph(translated);
+cgfx.translated_right = local_pack_chunkgraph(translated_right);
+cgfx.transformed = local_pack_chunkgraph(transformed);
+cgfx.scaled_left = local_pack_chunkgraph(scaled_left);
+cgfx.scaled_right = local_pack_chunkgraph(scaled_right);
 cgfx.rotated_verts = rotated_graph.verts;
 cgfx.reflected_verts = reflected_graph.verts;
+
+line_params = [];
+line_params.ifclosed = false;
+line_params.ifrefine = false;
+line_params.nchmin = 2;
+line_params.eps = 1.0e-3;
+line_params.ta = 0.0;
+line_params.tb = 1.0;
+line_pref = [];
+line_pref.k = 8;
+[open_line, ~] = chunkerfunc(@(t) chnk.curves.linefunc(t, [2.0; -0.5], [3.0; 0.2]), line_params, line_pref);
+to_closed = tochunkgraph(circ1);
+to_open = tochunkgraph(open_line);
+cgfx.tochunkgraph_closed = local_pack_chunkgraph(to_closed);
+cgfx.tochunkgraph_open = local_pack_chunkgraph(to_open);
+cgfx.tochunkgraph_closed_edge_count = numel(to_closed.echnks);
+cgfx.tochunkgraph_open_edge_count = numel(to_open.echnks);
+
+cgfx.region_points = [
+    0.5, 1.5, 0.25;
+    0.5, 0.5, 1.25
+];
+cgfx.inregion_points = chunkgraphinregion(cgrph, cgfx.region_points);
+cgfx.region_x = [-0.25, 0.5, 1.25];
+cgfx.region_y = [0.25, 0.75];
+cgfx.inregion_grid = chunkgraphinregion(cgrph, {cgfx.region_x, cgfx.region_y});
 geometry_core.chunkgraph = cgfx;
 
 save(fullfile(outdir, 'geometry_core.mat'), 'geometry_core');
@@ -331,4 +410,24 @@ function [r, d, d2] = local_circle(t, ctr, radius)
     r = ctr + radius*[cos(tt); sin(tt)];
     d = radius*[-sin(tt); cos(tt)];
     d2 = radius*[-cos(tt); -sin(tt)];
+end
+
+function fields = local_pack_chunkgraph(cg)
+    fields = [];
+    fields.verts = cg.verts;
+    fields.edgesendverts = cg.edgesendverts;
+    fields.v2emat = full(cg.v2emat);
+    fields.npt = cg.npt;
+    fields.r = cg.r;
+    fields.d = cg.d;
+    fields.d2 = cg.d2;
+    fields.n = cg.n;
+    fields.wts = cg.wts;
+    fields.adj = cg.adj;
+    fields.min = min(cg);
+    fields.max = max(cg);
+    fields.edge_npt = zeros(1, numel(cg.echnks));
+    for iedge = 1:numel(cg.echnks)
+        fields.edge_npt(iedge) = cg.echnks(iedge).npt;
+    end
 end

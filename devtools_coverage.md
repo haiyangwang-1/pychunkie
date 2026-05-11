@@ -57,7 +57,8 @@ Implemented from this scope:
   `regioninside`, and `starfish`; compact non-devtools fixture parity in
   `geometry_core.mat` now covers these helpers plus core chunker/chunkgraph
   geometry surfaces, chunker near-flag/nearest/translation helpers, and
-  `chunkerfuncuni` uniform geometry.
+  `chunkerfuncuni` uniform geometry, plus chunkgraph procverts/refine/near-flag
+  wrappers, conversion, operators, and region classification.
 - Helmholtz double-gradient FMM selector wiring.
 - Stokes traction FMM selector wiring.
 - FMM integration across the implemented 2D kernel selector surface, including

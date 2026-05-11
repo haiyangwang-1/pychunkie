@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 264 pytest cases because several MATLAB parity tests are
+collection expands to 265 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 
@@ -652,6 +652,12 @@ one-based MATLAB pair indices converted at assertion time.
 construction, merged field access, source info, incidence matrices, extrema,
 dense helper matrices, `edgeids`, `slicegraph`, translation, matrix transform,
 rotation, and reflection.
+
+`test_chunkgraph_region_flag_operator_and_conversion_helpers_match_matlab_fixture`
+checks `procverts`, `findregions`, graph `refine`, graph near-flag wrappers,
+left/right translation and scalar/matrix operator overloads, `tochunkgraph`
+for closed and open components, and `chunkgraphinregion` point/grid ids
+against MATLAB fixture data.
 
 ## `tests/test_helm1d.py`
 
