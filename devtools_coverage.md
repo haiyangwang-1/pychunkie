@@ -28,7 +28,7 @@ The parity rule for this repo is:
 - MATLAB fixture data: `tests/golden/devtools_easy.mat`
 - Python snapshot generator: `scripts/generate_devtools_easy_python_fixture.py`
 - Python comparisons: `tests/test_devtools_parity.py`
-- Covered now: `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m` single-component output, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, and `kernelopTest.m`
+- Covered now: `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m` single-component output, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `kernelopTest.m`, and `stokes_dtracTest.m`
 - Known exposed gap: merged-component `arclengthfunTest.m` output is marked strict `xfail` because Python currently accumulates arclength through all chunks instead of resetting per connected component.
 
 ## Status At A Glance
@@ -36,9 +36,9 @@ The parity rule for this repo is:
 | Status | Count | Tests |
 | --- | ---: | --- |
 | ✅ 🧪 🎯 fully covered by devtools parity | 9 | `absconvgaussTest.m`, `legeexpsunitTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `kernelopTest.m` |
-| ✅ 🧪 🎯 ⚠️ partially covered by devtools parity | 1 | `arclengthfunTest.m` |
+| ✅ 🧪 🎯 ⚠️ partially covered or diagnostic devtools parity | 2 | `arclengthfunTest.m`, `stokes_dtracTest.m` |
 | 🧩 🧭 helper/reference | 1 | `gradient_check.m` |
-| 🚧 not yet converted to devtools parity | 63 | All remaining ranked entries below. |
+| 🚧 not yet converted to devtools parity | 62 | All remaining ranked entries below. |
 
 ## Ranked Test Inventory
 
@@ -57,7 +57,7 @@ The parity rule for this repo is:
 | 11 | `kernelopTest.m` | ✅ 🧪 🎯 | Easy | Verifies kernel algebra: interleave, scalar multiply/divide, negation, addition, subtraction, and conjugation on Laplace/Helmholtz kernels. | Covered in `devtools_easy.mat`: compare saved kernel matrices from deterministic source/target normals. |
 | 12 | `KernDerInterleaveTest.m` | ✅ 🧪 🚧 | Easy-Medium | Verifies algebraic relationships among interleaved Helmholtz, Helmholtz-difference, and Laplace kernels, including combined kernels, transmission blocks, gradients, and normal derivative as gradient dot normal. | Existing point-kernel fixtures cover much of this; add devtools fixture with the exact source/target/coefficient cases and compare all interleaved blocks. |
 | 13 | `helm2d_greenTest.m` | ✅ 🧪 🎯 | Easy-Medium | Uses `gradient_check` to verify `chnk.helm2d.green` potential and gradient components against finite differences. | Covered in `devtools_easy.mat`: compare source/target, MATLAB Green value/gradient/Hessian, and saved finite-difference thresholds against Python `helm2d.green`. |
-| 14 | `stokes_dtracTest.m` | ✅ 🚧 ⚠️ | Easy-Medium | Compares Stokes double-layer traction values against applying the double-layer gradient kernel and contracting with target normals. The MATLAB file prints the norm but does not assert. | Save the two computed arrays and add an explicit Python tolerance; decide whether to match the printed diagnostic or strengthen it into an assert. |
+| 14 | `stokes_dtracTest.m` | ✅ 🧪 🎯 ⚠️ | Easy-Medium | Compares Stokes double-layer traction values against applying the double-layer gradient kernel and contracting with target normals. The MATLAB file prints the norm but does not assert. | Covered in `devtools_easy.mat`: compare saved Stokes `dtrac`, `dgrad`, `dpres`, reconstructed stress traction, and residual norm against Python kernels. |
 | 15 | `chunkerclassunitTest.m` | ✅ 🧪 🚧 | Medium | Exercises `chunker` constructor failures, chunk allocation/resizing, adjacency links, translations, rotations, affine transforms, and area scaling. | Existing chunker tests cover pieces; save MATLAB transformed chunker fields and compare Python constructor errors, adjacency, centroids, and areas. |
 | 16 | `chunkerfitTest.m` | ✅ 🧪 🚧 | Medium | Samples a smooth curve at random points, fits a chunker, and checks adjacency after fitting and after a reversed input order. | Save sampled points and fitted fields; compare Python `chunkerfit` geometry and adjacency. |
 | 17 | `chunkerfuncuniTest.m` | ✅ 🧪 🚧 | Medium | Builds uniformly chunked starfish/random-mode/circle curves and checks adjacency plus circle area. Also exercises plot/quiver/sort/reverse utilities lightly. | Save uniform chunker fields and area; compare Python `chunkerfuncuni`, adjacency, orientation reversal, and area. |
@@ -122,5 +122,4 @@ The parity rule for this repo is:
 ## Suggested Next Ports
 
 1. `KernDerInterleaveTest.m`: mostly point-kernel algebra and extends the new `kernelopTest.m` fixture naturally.
-2. `stokes_dtracTest.m`: focused Stokes kernel identity, but decide how to treat the MATLAB file's diagnostic-only assertion style.
-3. Fix the `arclengthfunTest.m` merged-component `xfail`, then remove the partial-coverage warning.
+2. Fix the `arclengthfunTest.m` merged-component `xfail`, then remove the partial-coverage warning.

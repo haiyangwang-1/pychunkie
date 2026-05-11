@@ -44,11 +44,18 @@ def chunker_from_fields(fields) -> Chunker:
 
 def pointinfo_from_mat(obj) -> PointInfo:
     return PointInfo(
-        r=np.asarray(obj.r),
-        d=np.asarray(obj.d) if hasattr(obj, "d") else None,
-        d2=np.asarray(obj.d2) if hasattr(obj, "d2") else None,
-        n=np.asarray(obj.n) if hasattr(obj, "n") else None,
+        r=point_array(obj.r),
+        d=point_array(obj.d) if hasattr(obj, "d") else None,
+        d2=point_array(obj.d2) if hasattr(obj, "d2") else None,
+        n=point_array(obj.n) if hasattr(obj, "n") else None,
     )
+
+
+def point_array(value) -> np.ndarray:
+    arr = np.asarray(value)
+    if arr.ndim == 1:
+        arr = arr.reshape(-1, 1)
+    return arr
 
 
 def build_snapshot() -> dict[str, np.ndarray]:
@@ -155,6 +162,23 @@ def build_snapshot() -> dict[str, np.ndarray]:
     out["kernelop_ckern1"] = (skern + dkern)(src, targ)
     out["kernelop_ckern2"] = (skern - dkern)(src, targ)
     out["kernelop_conj_dkern"] = dkern.conj()(src, targ)
+
+    sdtr = fixture.stokes_dtrac
+    src = pointinfo_from_mat(sdtr.srcinfo)
+    targ = pointinfo_from_mat(sdtr.targinfo)
+    strengths = np.asarray(sdtr.strengths).reshape(-1)
+    kt = kernel("stok", "dtrac", float(sdtr.mu))(src, targ) @ strengths
+    kg = kernel("stok", "dgrad", float(sdtr.mu))(src, targ) @ strengths
+    kp = kernel("stok", "dpres", float(sdtr.mu))(src, targ) @ strengths
+    du = kg.reshape(2, 2, 1, order="F")
+    eu = du + np.transpose(du, (1, 0, 2))
+    reconstructed = np.zeros(2)
+    reconstructed[0::2] = -kp * targ.n[0] + (eu[0, 0] * targ.n[0] + eu[0, 1] * targ.n[1]) * float(sdtr.mu)
+    reconstructed[1::2] = -kp * targ.n[1] + (eu[0, 1] * targ.n[0] + eu[1, 1] * targ.n[1]) * float(sdtr.mu)
+    out["stokes_dtrac_Kt"] = kt
+    out["stokes_dtrac_Kg"] = kg
+    out["stokes_dtrac_Kp"] = kp
+    out["stokes_dtrac_reconstructed"] = reconstructed
     return out
 
 
