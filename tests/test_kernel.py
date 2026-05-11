@@ -66,6 +66,26 @@ def test_kernel_fmm_fallback_matches_direct_layer_evaluation():
     np.testing.assert_allclose(via_fmm, direct)
 
 
+def test_fmm2dpy_laplace_gradient_and_helmholtz_layers_match_direct():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 5}, {"k": 8})
+    target = np.array([[0.25, -0.4, 1.5], [0.1, 0.3, -0.2]])
+    dens = np.cos(chnkr.r.reshape(2, -1, order="F")[0])
+
+    for kern in (
+        kernel("lap", "sgrad"),
+        kernel("lap", "d"),
+        kernel("lap", "dgrad"),
+        kernel("helm", "s", 1.3 + 0.2j),
+        kernel("helm", "d", 1.3 + 0.2j),
+        kernel("helm", "sgrad", 1.3 + 0.2j),
+    ):
+        direct = chunkerkerneval(chnkr, kern, dens, target)
+        via_fmm = chunkerkerneval(chnkr, kern, dens, target, {"usefmm": True, "eps": 1e-12})
+
+        assert kern.fmm is not None
+        np.testing.assert_allclose(via_fmm, direct, rtol=1e-9, atol=1e-10)
+
+
 def test_kernel_fmm_fallback_tracks_kernel_algebra():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
     target = np.array([[0.25], [0.1]])

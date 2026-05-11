@@ -10,6 +10,11 @@ import numpy as np
 
 from .chnk import biharm2d, elast2d, helm1d, helm2d, lap2d, stok2d
 
+try:  # pragma: no cover - exercised when the optional compiled package imports.
+    import fmm2dpy as _fmm2dpy
+except Exception:  # pragma: no cover - keep source installs usable without FMM2D.
+    _fmm2dpy = None
+
 
 @dataclass
 class Kernel:
@@ -173,7 +178,7 @@ def lap2d_kernel(kind: str, coefs: Any | None = None) -> Kernel:
         name="laplace",
         type=typ,
         eval=lambda s, t: lap2d.kern(s, t, typ, coefs),
-        fmm=_direct_fmm(lambda s, t: lap2d.kern(s, t, typ, coefs)),
+        fmm=_lap2d_fmm(typ, coefs) or _direct_fmm(lambda s, t: lap2d.kern(s, t, typ, coefs)),
         opdims=opdims,
         sing=sing,
         params={} if coefs is None else {"coefs": coefs},
@@ -190,7 +195,7 @@ def helm2d_kernel(kind: str, zk: complex, coefs: Any | None = None) -> Kernel:
         name="helmholtz",
         type=typ,
         eval=lambda s, t: helm2d.kern(zk, s, t, typ, coefs),
-        fmm=_direct_fmm(lambda s, t: helm2d.kern(zk, s, t, typ, coefs)),
+        fmm=_helm2d_fmm(typ, zk, coefs) or _direct_fmm(lambda s, t: helm2d.kern(zk, s, t, typ, coefs)),
         opdims=opdims,
         sing="log" if typ in {"s", "single", "d", "double", "sp", "sprime"} else "hs",
         params={"zk": zk} if coefs is None else {"zk": zk, "coefs": coefs},
@@ -337,6 +342,82 @@ def _direct_fmm(func: Callable[[Any, Any], np.ndarray]) -> Callable[[float, Any,
         src = pointinfo(srcinfo)
         targ = pointinfo(targinfo)
         return func(src, targ) @ np.asarray(sigma).reshape(-1, order="F")
+
+    return fmm_eval
+
+
+def _lap2d_fmm(kind: str, coefs: Any | None = None) -> Callable[[float, Any, Any, np.ndarray], np.ndarray] | None:
+    if _fmm2dpy is None:
+        return None
+    typ = kind.lower()
+    if typ in {"c", "combined"}:
+        c = np.ones(2) if coefs is None else np.asarray(coefs)
+        return _sum_raw_fmm(_lap2d_fmm("d"), _lap2d_fmm("s"), c[0], c[1])
+    if typ not in {"s", "single", "d", "double", "sgrad", "sg", "dgrad", "dg"}:
+        return None
+
+    def fmm_eval(eps: float, srcinfo: Any, targinfo: Any, sigma: np.ndarray) -> np.ndarray:
+        from .operators import pointinfo
+
+        src = pointinfo(srcinfo)
+        targ = pointinfo(targinfo)
+        sig = np.asarray(sigma).reshape(-1, order="F")
+        if typ in {"s", "single", "sgrad", "sg"}:
+            out = _fmm2dpy.lfmm2d(eps=eps, sources=src.r, charges=sig, targets=targ.r, pgt=2)
+        else:
+            if src.n is None:
+                raise ValueError("source normals are required")
+            out = _fmm2dpy.lfmm2d(eps=eps, sources=src.r, dipstr=sig, dipvec=src.n, targets=targ.r, pgt=3)
+        scale = -1.0 / (2.0 * np.pi)
+        if typ in {"s", "single", "d", "double"}:
+            return np.real_if_close(scale * np.asarray(out.pottarg).reshape(-1, order="F"))
+        grad = np.asarray(out.gradtarg)
+        return np.real_if_close(scale * grad.reshape(-1, order="F"))
+
+    return fmm_eval
+
+
+def _helm2d_fmm(kind: str, zk: complex, coefs: Any | None = None) -> Callable[[float, Any, Any, np.ndarray], np.ndarray] | None:
+    if _fmm2dpy is None:
+        return None
+    typ = kind.lower()
+    if typ in {"c", "combined"}:
+        c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs)
+        return _sum_raw_fmm(_helm2d_fmm("d", zk), _helm2d_fmm("s", zk), c[0], c[1])
+    if typ not in {"s", "single", "d", "double", "sgrad", "sg"}:
+        return None
+
+    def fmm_eval(eps: float, srcinfo: Any, targinfo: Any, sigma: np.ndarray) -> np.ndarray:
+        from .operators import pointinfo
+
+        src = pointinfo(srcinfo)
+        targ = pointinfo(targinfo)
+        sig = np.asarray(sigma).reshape(-1, order="F")
+        if typ in {"s", "single", "sgrad", "sg"}:
+            out = _fmm2dpy.hfmm2d(eps=eps, zk=zk, sources=src.r, charges=sig, targets=targ.r, pgt=2)
+        else:
+            if src.n is None:
+                raise ValueError("source normals are required")
+            out = _fmm2dpy.hfmm2d(eps=eps, zk=zk, sources=src.r, dipstr=sig, dipvec=src.n, targets=targ.r, pgt=1)
+        if typ in {"s", "single", "d", "double"}:
+            return np.asarray(out.pottarg).reshape(-1, order="F")
+        grad = np.asarray(out.gradtarg)
+        return grad.reshape(-1, order="F")
+
+    return fmm_eval
+
+
+def _sum_raw_fmm(
+    left: Callable[[float, Any, Any, np.ndarray], np.ndarray] | None,
+    right: Callable[[float, Any, Any, np.ndarray], np.ndarray] | None,
+    left_scale: float | complex,
+    right_scale: float | complex,
+) -> Callable[[float, Any, Any, np.ndarray], np.ndarray] | None:
+    if left is None or right is None:
+        return None
+
+    def fmm_eval(eps: float, srcinfo: Any, targinfo: Any, sigma: np.ndarray) -> np.ndarray:
+        return left_scale * left(eps, srcinfo, targinfo, sigma) + right_scale * right(eps, srcinfo, targinfo, sigma)
 
     return fmm_eval
 
