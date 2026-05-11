@@ -13,14 +13,19 @@ def circle(t):
     )
 
 
-def test_generated_self_quadrature_splits_at_each_legendre_node():
+def test_matlab_log_quadrature_tables_load_for_each_legendre_node():
     aux = quadggq.setup(8)
     xleg = np.polynomial.legendre.leggauss(8)[0]
 
-    xs1, wts1, xs0, wts0 = quadggq.getlogquad(8, 4)
+    xs1, wts1, xs0, wts0 = quadggq.getlogquad(8, 2)
     assert xs1.shape == wts1.shape
     assert len(xs0) == len(wts0) == 8
     assert 8 in quadggq.logavail()
+    assert 17 not in quadggq.logavail()
+    np.testing.assert_allclose(xs1[0], -0.9999983834562877, atol=1e-15)
+    np.testing.assert_allclose(wts1[0], 4.264322824107065e-06, atol=1e-18)
+    np.testing.assert_allclose(xs0[0][0], 0.9764569073834163, atol=1e-15)
+    np.testing.assert_allclose(wts0[0][0], 0.06013321084659288, atol=1e-15)
 
     assert len(aux.xs0) == 8
     assert aux.ainterp1.shape[1] == 8
