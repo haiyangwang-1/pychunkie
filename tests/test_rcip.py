@@ -109,3 +109,57 @@ def test_rcompchunk_runs_recursive_compression_for_corner_edges():
     assert rho[0].size == 4 * cg.k
     assert srcinfo[0].r.shape == (2, 4 * cg.k)
     assert wts[0].shape == (4 * cg.k,)
+
+
+def test_chunkgraph_rcip_runs_selected_vertices_and_ignores_marked_vertices():
+    verts = np.array([[0.0, 1.0, 1.0, 0.0], [0.0, 0.0, 1.0, 1.0]])
+    edges = np.array([[0, 1, 2, 3], [1, 2, 3, 0]])
+    cg = chunkgraph(verts, edges, pref={"k": 4}, cparams={"nchmin": 2})
+
+    result = rcip.chunkgraph_rcip(
+        cg,
+        kernel("lap", "d"),
+        1,
+        opts={"nsub": 1, "rcip_savedepth": 1},
+        ignore_vertices=[0],
+    )
+
+    np.testing.assert_array_equal(result.vertices, [1, 2, 3])
+    assert len(result.R) == 3
+    assert len(result.saved) == 3
+    for rmat, saved, edge_indices in zip(result.R, result.saved, result.edge_indices):
+        assert edge_indices.size == 2
+        assert rmat.shape == (4 * cg.k, 4 * cg.k)
+        assert saved.nedge == 2
+        assert saved.nsub == 1
+        assert np.isfinite(rmat).all()
+
+
+def test_chunkgraph_rcip_subselects_global_block_kernels():
+    verts = np.array([[0.0, 1.0, 1.0, 0.0], [0.0, 0.0, 1.0, 1.0]])
+    edges = np.array([[0, 1, 2, 3], [1, 2, 3, 0]])
+    cg = chunkgraph(verts, edges, pref={"k": 4}, cparams={"nchmin": 2})
+    calls: list[tuple[int, int]] = []
+
+    def zero_kernel(label):
+        def kern(src, targ):
+            calls.append(label)
+            return np.zeros((targ.r.shape[1], src.r.shape[1]))
+
+        return kern
+
+    blocks = np.empty((4, 4), dtype=object)
+    for iedge in range(4):
+        for jedge in range(4):
+            blocks[iedge, jedge] = zero_kernel((iedge, jedge))
+
+    result = rcip.chunkgraph_rcip(cg, blocks, 1, vertices=[1], opts={"nsub": 1, "rcip_savedepth": 1})
+
+    np.testing.assert_array_equal(result.vertices, [1])
+    np.testing.assert_array_equal(result.edge_indices[0], [0, 1])
+    assert result.kernels[0].shape == (2, 2)
+    assert result.kernels[0][0, 1] is blocks[0, 1]
+    assert set(calls) <= {(0, 0), (0, 1), (1, 0), (1, 1)}
+    assert calls
+    assert result.R[0].shape == (4 * cg.k, 4 * cg.k)
+    assert np.isfinite(result.R[0]).all()

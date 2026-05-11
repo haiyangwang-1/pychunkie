@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 201 pytest cases because several MATLAB parity tests are
+collection expands to 203 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 
@@ -66,7 +66,7 @@ The living docs split remaining MATLAB parity work into three buckets.
 
 Should implement:
 
-- Advanced RCIP workflows beyond the current two-edge corner fixture.
+- No active items remain from the current triage.
 
 Implemented from this scope:
 
@@ -88,6 +88,8 @@ Implemented from this scope:
 - `chunkermatapply` FMM acceleration with sparse special-quadrature
   corrections for singular kernels.
 - `chunkerinterior` FMM classification with direct close-boundary correction.
+- Advanced RCIP chunkgraph workflows: selected vertices, ignored vertices, and
+  global block-kernel subselection for local corner compression.
 
 Deferred implementation:
 
@@ -1060,6 +1062,18 @@ nontrivial RCIP solve for a Laplace double-layer corner problem. The method is
 depth 2, followed by `rhohatInterp`. Ground truth is a finite non-identity
 compression matrix, expected saved-array counts, and interpolated density,
 source-info, and weight shapes.
+
+`test_chunkgraph_rcip_runs_selected_vertices_and_ignores_marked_vertices`
+checks the chunkgraph-level RCIP driver. The method runs `chunkgraph_rcip` on a
+square graph, skips one vertex, and applies a Laplace double-layer kernel at
+the remaining corners. Ground truth is the selected vertex list, two incident
+edges per corner, finite compression matrices, and saved recursion metadata.
+
+`test_chunkgraph_rcip_subselects_global_block_kernels` checks local
+subselection from a global edge-by-edge block-kernel matrix. The method creates
+distinct zero kernels for each global block and runs RCIP at one square-graph
+vertex. Ground truth is that only the incident-edge submatrix is used and the
+resulting compression matrix is finite.
 
 ## `tests/test_smoother.py`
 
