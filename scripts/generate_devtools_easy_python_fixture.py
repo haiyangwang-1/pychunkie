@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 from scipy.io import loadmat
 
-from chunkie import Chunker, kernel, lege
+from chunkie import Chunker, chunkerintegral, kernel, lege
 from chunkie.chnk import flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, spcl
 from chunkie.operators import PointInfo
 
@@ -128,6 +128,19 @@ def build_snapshot() -> dict[str, np.ndarray]:
     theta_targ = np.arctan2(near.targs[1], near.targs[0])
     theta_near = np.arctan2(rn[1], rn[0])
     out["chunker_nearest_angle_err"] = np.abs(np.angle(np.exp(1j * (theta_targ - theta_near))))
+
+    cint = fixture.chunkerintegral
+    cint_chunker = chunker_from_fields(cint.chunker)
+    out["chunkerintegral_fvals"] = np.cos(cint_chunker.r.reshape(2, cint_chunker.npt, order="F")[0] - 1.0) + np.sin(
+        cint_chunker.r.reshape(2, cint_chunker.npt, order="F")[1] - 0.5
+    )
+    out["chunkerintegral_value"] = np.asarray(chunkerintegral(cint_chunker, cint.fvals))
+    out["chunkerintegral_callable"] = np.asarray(
+        chunkerintegral(
+            cint_chunker,
+            lambda xx: np.cos(xx[0] - 1.0) + np.sin(xx[1] - 0.5),
+        )
+    )
 
     fs = fixture.flagself
     out["flagself_pairs"] = flagself(fs.srcs, fs.targs)
