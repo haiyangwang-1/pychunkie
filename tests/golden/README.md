@@ -14,8 +14,8 @@ generated parity snapshots are ignored and should stay local; tests that need
 an absent optional snapshot skip cleanly.
 
 Current fixtures cover Legendre helpers, including extended helper parity,
-basic circle chunking, chunker transforms, point-kernel evaluators, and
-dense/native operator paths. Strict
+basic circle chunking, core geometry/domain/chunkgraph helpers, chunker
+transforms, point-kernel evaluators, and dense/native operator paths. Strict
 `xfail` entries document known MATLAB parity gaps while keeping the rest of the
 suite actionable.
 
@@ -32,3 +32,6 @@ and the generated `.npz` is intentionally not tracked.
 
 `quadggq.mat` remains tracked because it covers the singular quadrature tables
 and behavior that are part of the package surface.
+
+`geometry_core.mat` remains tracked because it is a compact fixture for the
+implemented I GEOMETRY surface, excluding `chunkerfit` and smoother workflows.

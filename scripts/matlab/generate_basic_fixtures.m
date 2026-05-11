@@ -8,6 +8,7 @@ script_dir = fileparts(mfilename('fullpath'));
 
 run(fullfile(script_dir, 'generate_lege_basic_fixture.m'));
 run(fullfile(script_dir, 'generate_chunker_circle_fixture.m'));
+run(fullfile(script_dir, 'generate_geometry_core_fixture.m'));
 run(fullfile(script_dir, 'generate_lege_extended_fixture.m'));
 run(fullfile(script_dir, 'generate_chunker_ops_fixture.m'));
 run(fullfile(script_dir, 'generate_kernel_pointinfo_fixture.m'));
