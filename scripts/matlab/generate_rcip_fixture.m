@@ -33,6 +33,8 @@ vert0 = [1; 0];
     chnkrs, iedgechunks, fkern, ndim, vert0, ...
     Pbc, PWbc, nsub, starL, circL, starS, circS, ilist, starL1, circL1, ...
     sbclmat, sbcrmat, lvmat, rvmat, u, opts);
+rhohat = (1:size(R, 1)).' / 10;
+[rhohatinterp, srcinfo, wts] = chnk.rcip.rhohatInterp(rhohat, rcipsav, nsub);
 
 rcip_fixture = [];
 rcip_fixture.edge1 = fixture_pack_chunker(edge1);
@@ -40,6 +42,10 @@ rcip_fixture.edge2 = fixture_pack_chunker(edge2);
 rcip_fixture.iedgechunks0 = [0, 1; edge1.nch - 1, 0];
 rcip_fixture.vert0 = vert0;
 rcip_fixture.R = R;
+rcip_fixture.rhohat = rhohat;
+rcip_fixture.rhohatinterp = rhohatinterp;
+rcip_fixture.srcinfo = srcinfo;
+rcip_fixture.wts = wts;
 rcip_fixture.saved_R_final = rcipsav.R{end};
 rcip_fixture.saved_MAT_last = rcipsav.MAT{end};
 rcip_fixture.saved_local_last = fixture_pack_chunker(rcipsav.chnkrlocals{end});

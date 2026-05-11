@@ -103,3 +103,9 @@ def test_rcompchunk_runs_recursive_compression_for_corner_edges():
     assert len(saved.MAT) == 2
     assert len(saved.chnkrlocals) == 2
     assert np.linalg.norm(rmat - np.eye(rmat.shape[0])) > 1e-3
+
+    rho, srcinfo, wts = rcip.rhohatInterp(np.arange(rmat.shape[0], dtype=float), saved, 2)
+    assert len(rho) == 2
+    assert rho[0].size == 4 * cg.k
+    assert srcinfo[0].r.shape == (2, 4 * cg.k)
+    assert wts[0].shape == (4 * cg.k,)
