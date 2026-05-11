@@ -114,6 +114,65 @@ chn.arclengthder = arclengthder(base, chn.uvals);
 chn.min = min(base);
 chn.max = max(base);
 
+chn.flag_targets = [
+    -1.2, -0.4, 0.2, 0.95, 1.4, 0.0;
+     0.1,  0.9, 0.0, 0.25, 0.0, -1.3
+];
+chn.flag_fac = 0.85;
+flag_opts = [];
+flag_opts.fac = chn.flag_fac;
+chn.flagnear = full(flagnear(base, chn.flag_targets, flag_opts));
+
+chn.rect_x = linspace(-1.4, 1.4, 8);
+chn.rect_y = linspace(-1.2, 1.2, 7);
+[rect_xx, rect_yy] = meshgrid(chn.rect_x, chn.rect_y);
+chn.rect_targets = [rect_xx(:).'; rect_yy(:).'];
+chn.rect_rho = 1.35;
+rect_opts = [];
+rect_opts.rho = chn.rect_rho;
+chn.flagnear_rectangle = full(flagnear_rectangle(base, chn.rect_targets, rect_opts));
+chn.flagnear_rectangle_grid = full(flagnear_rectangle_grid(base, chn.rect_x, chn.rect_y, rect_opts));
+
+chn.nearest_targets = [
+    1.25, -0.6, 0.1, 0.35;
+    0.15,  1.0, -1.1, 0.0
+];
+chn.nearest_r = zeros(base.dim, size(chn.nearest_targets, 2));
+chn.nearest_d = zeros(base.dim, size(chn.nearest_targets, 2));
+chn.nearest_d2 = zeros(base.dim, size(chn.nearest_targets, 2));
+chn.nearest_dist = zeros(1, size(chn.nearest_targets, 2));
+chn.nearest_t = zeros(1, size(chn.nearest_targets, 2));
+chn.nearest_ich = zeros(1, size(chn.nearest_targets, 2));
+for iref = 1:size(chn.nearest_targets, 2)
+    [chn.nearest_r(:,iref), chn.nearest_d(:,iref), chn.nearest_d2(:,iref), ...
+        chn.nearest_dist(iref), chn.nearest_t(iref), chn.nearest_ich(iref)] = ...
+        nearest(base, chn.nearest_targets(:,iref));
+end
+
+dirty = base;
+dirty.n = zeros(size(base.n));
+dirty.wts = zeros(size(base.wts));
+dirty.n = normals(dirty);
+dirty.wts = weights(dirty);
+chn.recomputed = fixture_pack_chunker(dirty);
+
+chn.translation_vector = [0.35; -0.45];
+chn.translated_left = fixture_pack_chunker(chn.translation_vector + base);
+chn.translated_right = fixture_pack_chunker(base + chn.translation_vector);
+
+cfu_params = [];
+cfu_params.ta = -0.25;
+cfu_params.tb = 2*pi - 0.25;
+cfu_params.ifclosed = true;
+cfu_pref = [];
+cfu_pref.k = 12;
+cfu_nch = 5;
+cfu_curve = @(t) starfish(t, 4, 0.15, [0.05; -0.1], 0.2, 0.9);
+chn.chunkerfuncuni_nch = cfu_nch;
+chn.chunkerfuncuni_cparams = cfu_params;
+chn.chunkerfuncuni_pref = cfu_pref;
+chn.chunkerfuncuni = fixture_pack_chunker(chunkerfuncuni(cfu_curve, cfu_nch, cfu_params, cfu_pref));
+
 [chn.sort_inds, chn.sort_adjs, chn.sort_info] = sortinfo(base);
 sorted_base = sort(base);
 chn.sorted = fixture_pack_chunker(sorted_base);

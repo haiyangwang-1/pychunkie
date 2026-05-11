@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 211 pytest cases because several MATLAB parity tests are
+collection expands to 212 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 
@@ -627,6 +627,13 @@ fixture indices before comparison.
 MATLAB-saved noncircular chunker and compares weights, normals, tangents,
 arclength density, curvature, arclength coordinates and derivatives,
 endpoints, extrema, `sortinfo`, `sort`, and `datares`.
+
+`test_chunker_flag_nearest_translate_and_uniform_helpers_match_matlab_fixture`
+checks chunker and `chnk.geometry` near-flag wrappers, rectangle/grid near
+flags, vectorized nearest-point results against MATLAB scalar-reference calls,
+geometry cache recomputation, left/right translation operators, and
+`chunkerfuncuni` uniform geometry including MATLAB-compatible spectral second
+derivatives.
 
 `test_chunker_refinement_and_reconstruction_helpers_match_matlab_fixture`
 checks `split`, `refine`, `upsample`, `arcresample`, `rotate`, `reflect`,

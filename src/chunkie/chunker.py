@@ -1282,6 +1282,13 @@ def chunkerfuncuni(
 ) -> Chunker:
     """Create a uniformly panelized chunker from a parametric curve."""
 
+    def uniform_curve(t: np.ndarray) -> Any:
+        raw = fcurve(t)
+        if isinstance(raw, tuple) and len(raw) > 2:
+            # MATLAB chunkerfuncuni computes local second derivatives spectrally.
+            return raw[:2]
+        return raw
+
     params = {} if cparams is None else dict(cparams)
     nch = int(nch)
     ta = float(params.get("ta", 0.0))
@@ -1292,7 +1299,7 @@ def chunkerfuncuni(
     params["ifrefine"] = False
     params["lvlr"] = "n"
     params["nover"] = 0
-    chnkr, _ = chunkerfunc(fcurve, params, pref)
+    chnkr, _ = chunkerfunc(uniform_curve, params, pref)
     return chnkr
 
 
