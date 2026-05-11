@@ -25,6 +25,7 @@ from chunkie import (
 )
 from chunkie import lege
 from chunkie.chnk import (
+    arcparam,
     chunk_nearparam,
     curvature2d,
     curves,
@@ -101,6 +102,19 @@ def assert_chunkgraph_matches_fields(cgrph, fields, atol: float = 1e-12) -> None
     np.testing.assert_allclose(cgrph.min(), np.asarray(fields.min).reshape(-1), atol=atol)
     np.testing.assert_allclose(cgrph.max(), np.asarray(fields.max).reshape(-1), atol=atol)
     np.testing.assert_array_equal([edge.npt for edge in cgrph.echnks], np.asarray(fields.edge_npt, dtype=int).reshape(-1))
+
+
+def assert_arcparam_matches_fields(pdata: arcparam.ArcParamData, fields, atol: float = 1e-12) -> None:
+    np.testing.assert_allclose(pdata.plen, np.asarray(fields.plen).reshape(-1), atol=atol)
+    np.testing.assert_allclose(pdata.pstrt, np.asarray(fields.pstrt).reshape(-1), atol=atol)
+    np.testing.assert_allclose(pdata.cr, fields.cr, atol=atol)
+    np.testing.assert_allclose(pdata.cd, fields.cd, atol=atol)
+    np.testing.assert_allclose(pdata.cd2, fields.cd2, atol=atol)
+    assert pdata.k == int(fields.k)
+    assert pdata.dim == int(fields.dim)
+    assert pdata.nch == int(fields.nch)
+    np.testing.assert_allclose(pdata.eps, float(fields.eps), atol=atol)
+    np.testing.assert_allclose(pdata.maxcond, float(fields.maxcond), atol=atol)
 
 
 def padded_indices(rows: list[np.ndarray], width: int) -> np.ndarray:
@@ -324,6 +338,32 @@ def test_chnk_geometry_helpers_match_matlab_fixture():
 
     actual_pairs = flagself(fixture.flagself_src, fixture.flagself_targ) + 1
     np.testing.assert_array_equal(actual_pairs, np.asarray(fixture.flagself_pairs, dtype=int))
+
+
+def test_arcparam_helpers_match_matlab_fixture():
+    root = load_geometry_core()
+    fixture = root.arcparam
+    base = chunker_from_fields(root.chunker.base)
+
+    full = arcparam.init(base)
+    assert_arcparam_matches_fields(full, fixture.full, atol=3e-12)
+
+    r, d, d2 = arcparam.eval(fixture.eval_s, full)
+    np.testing.assert_allclose(r, fixture.eval_r, atol=2e-12)
+    np.testing.assert_allclose(d, fixture.eval_d, atol=2e-12)
+    np.testing.assert_allclose(d2, fixture.eval_d2, atol=8e-12)
+
+    rn, dn, d2n = arcparam.eval(fixture.node_s, full)
+    np.testing.assert_allclose(rn, fixture.node_r, atol=2e-12)
+    np.testing.assert_allclose(dn, fixture.node_d, atol=2e-12)
+    np.testing.assert_allclose(d2n, fixture.node_d2, atol=8e-12)
+
+    selected = arcparam.init(base, np.asarray(fixture.selected_ich, dtype=int).reshape(-1) - 1)
+    assert_arcparam_matches_fields(selected, fixture.selected, atol=3e-12)
+    rs, ds, d2s = arcparam.eval(fixture.selected_eval_s, selected)
+    np.testing.assert_allclose(rs, fixture.selected_eval_r, atol=2e-12)
+    np.testing.assert_allclose(ds, fixture.selected_eval_d, atol=2e-12)
+    np.testing.assert_allclose(d2s, fixture.selected_eval_d2, atol=8e-12)
 
 
 def test_chunkgraph_helpers_match_matlab_fixture():

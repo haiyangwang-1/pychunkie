@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 265 pytest cases because several MATLAB parity tests are
+collection expands to 266 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 
@@ -670,6 +670,12 @@ caches are compared to the same state.
 `test_chnk_geometry_helpers_match_matlab_fixture` checks `perp`, `normal2d`,
 `curvature2d`, `chunk_nearparam`, and `flagself` against MATLAB outputs, with
 one-based MATLAB pair indices converted at assertion time.
+
+`test_arcparam_helpers_match_matlab_fixture` checks `chnk.arcparam.init` and
+`chnk.arcparam.eval` against MATLAB fixture data for the full chunker and a
+selected-panel subset, including stored coefficients, panel lengths,
+condition/error diagnostics, original-node evaluation, and sample arclength
+evaluation.
 
 `test_chunkgraph_helpers_match_matlab_fixture` checks square-graph
 construction, merged field access, source info, incidence matrices, extrema,
