@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from scipy.io import loadmat
 
-from chunkie import Chunker, chunkerfit, chunkerfunc, chunkerfuncuni, chunkerintegral, chunkgraph, kernel, lege, tochunkgraph
+from chunkie import Chunker, chunkerfit, chunkerfunc, chunkerfuncuni, chunkerintegral, chunkerinterior, chunkgraph, kernel, lege, tochunkgraph
 from chunkie.chnk import curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, spcl
 from chunkie.operators import PointInfo
 
@@ -308,6 +308,40 @@ def test_tochunkgraph_devtools_outputs_match_matlab():
     np.testing.assert_allclose(manual.echnks[0].r[:, -1, -1], fixture.manual_verts[:, 1], atol=1e-2)
     np.testing.assert_allclose(manual.echnks[0].r[:, 0, 0], fixture.manual_first_start, atol=1e-12)
     np.testing.assert_allclose(manual.echnks[0].r[:, -1, -1], fixture.manual_first_end, atol=1e-12)
+
+
+def test_chunkerinterior_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().chunkerinterior
+    chnkr = chunker_from_fields(fixture.chunker)
+
+    expected = np.asarray(fixture.expected_scal, dtype=bool).reshape(-1)
+    direct = chunkerinterior(chnkr, fixture.targs, {"fmm": False, "flam": False})
+    flam = chunkerinterior(chnkr, fixture.targs, {"fmm": False, "flam": True})
+    fmm = chunkerinterior(chnkr, fixture.targs, {"fmm": True, "flam": False})
+
+    np.testing.assert_array_equal(np.asarray(getattr(fixture, "in"), dtype=bool).reshape(-1), expected)
+    np.testing.assert_array_equal(np.asarray(fixture.in_flam, dtype=bool).reshape(-1), expected)
+    np.testing.assert_array_equal(np.asarray(fixture.in_fmm, dtype=bool).reshape(-1), expected)
+    np.testing.assert_array_equal(direct, expected)
+    np.testing.assert_array_equal(flam, expected)
+    np.testing.assert_array_equal(fmm, expected)
+
+    inner = chunker_from_fields(fixture.inner_chunker)
+    in_chunker = chunkerinterior(chnkr, inner, {"fmm": True, "flam": False})
+    np.testing.assert_array_equal(np.asarray(fixture.in_chunker, dtype=bool).reshape(-1), True)
+    np.testing.assert_array_equal(in_chunker, True)
+
+    axis = chunker_from_fields(fixture.axis_chunker)
+    axis_expected = np.asarray(fixture.axis_expected, dtype=bool).reshape(-1)
+    axis_actual = chunkerinterior(axis, fixture.axis_targs, {"axissym": True})
+    np.testing.assert_array_equal(np.asarray(fixture.axis_in, dtype=bool).reshape(-1), axis_expected)
+    np.testing.assert_array_equal(axis_actual, axis_expected)
+
+    stress = chunker_from_fields(fixture.stress_chunker)
+    stress_actual = chunkerinterior(stress, [fixture.stress_x, fixture.stress_x])
+    stress_expected = np.asarray(fixture.stress_expected, dtype=bool)
+    np.testing.assert_array_equal(np.asarray(fixture.stress_in, dtype=bool).reshape(-1), stress_expected.reshape(-1, order="F"))
+    np.testing.assert_array_equal(stress_actual, stress_expected)
 
 
 def test_flagself_devtools_output_matches_matlab():

@@ -330,6 +330,76 @@ tcg.manual_first_start = cgrph.echnks(1).r(:,1);
 tcg.manual_first_end = cgrph.echnks(1).r(:,end);
 devtools_easy.tochunkgraph = tcg;
 
+% chunkerinteriorTest.m
+cint2 = [];
+rng(8675309);
+cparams = [];
+cparams.eps = 1.0e-9;
+pref = [];
+pref.k = 16;
+cint2.narms = 5;
+cint2.amp = 0.5;
+chnkr = chunkerfunc(@(t) starfish(t, cint2.narms, cint2.amp), cparams, pref);
+cint2.chunker = fixture_pack_chunker(chnkr);
+cint2.nt = 10000;
+cint2.scal = 2*rand(1, cint2.nt);
+cint2.tr = 2*pi*rand(1, cint2.nt);
+cint2.targs = bsxfun(@times, starfish(cint2.tr, cint2.narms, cint2.amp), cint2.scal);
+opts = [];
+opts.flam = false;
+opts.fmm = false;
+cint2.in = chunkerinterior(chnkr, cint2.targs, opts);
+opts = [];
+opts.fmm = false;
+opts.flam = true;
+cint2.in_flam = chunkerinterior(chnkr, cint2.targs, opts);
+opts = [];
+opts.fmm = true;
+opts.flam = false;
+cint2.in_fmm = chunkerinterior(chnkr, cint2.targs, opts);
+cint2.expected_scal = cint2.scal(:) < 1;
+
+cint2.inner_narms = 3;
+cint2.inner_amp = 0.1;
+chnkr2 = chunkerfunc(@(t) 0.3*starfish(t, cint2.inner_narms, cint2.inner_amp), cparams, pref);
+cint2.inner_chunker = fixture_pack_chunker(chnkr2);
+opts = [];
+opts.fmm = true;
+opts.flam = false;
+cint2.in_chunker = chunkerinterior(chnkr, chnkr2, opts);
+
+chnkr_axis = chunkerfunc(@(t) starfish(t), struct('ta', -pi/2, 'tb', pi/2, 'ifclosed', 0));
+cint2.axis_chunker = fixture_pack_chunker(chnkr_axis);
+cint2.axis_nt = 1000;
+cint2.axis_ttarg = -pi/2 + pi*rand(cint2.axis_nt, 1);
+cint2.axis_scal = 2*rand(1, cint2.axis_nt);
+cint2.axis_targs = starfish(cint2.axis_ttarg).*cint2.axis_scal;
+cint2.axis_in = chunkerinterior(chnkr_axis, cint2.axis_targs, struct('axissym', true));
+cint2.axis_expected = cint2.axis_scal(:) <= 1;
+
+cint2.stress_amp = 0.25;
+cint2.stress_scale = 0.3;
+cint2.stress_ctr = [-2; -1.6];
+chnkr_int = chunkerfunc(@(t) starfish(t, 3, cint2.stress_amp, cint2.stress_ctr, pi/4, cint2.stress_scale));
+chnkr_int = sort(reverse(chnkr_int));
+cint2.stress_inner = fixture_pack_chunker(chnkr_int);
+a = max(vecnorm(chnkr_int.r(:,:)))*1.01;
+cint2.stress_a = a;
+chnkr_ext = chunkerfunc(@(t) [a*cos(t(:).'); a*sin(t(:).')]);
+cint2.stress_outer = fixture_pack_chunker(chnkr_ext);
+chnkr_stress = merge([chnkr_ext, chnkr_int]);
+cint2.stress_chunker = fixture_pack_chunker(chnkr_stress);
+L = max(abs(chnkr_stress.r), [], "all");
+cint2.stress_x = linspace(-L, L, 100);
+[xx, yy] = meshgrid(cint2.stress_x, cint2.stress_x);
+tt = atan2(yy - cint2.stress_ctr(2), xx - cint2.stress_ctr(1)) + 2*pi;
+st = starfish(tt(:), 3, cint2.stress_amp, [0;0], pi/4, cint2.stress_scale);
+ss2 = reshape(st(1,:).^2 + st(2,:).^2, size(xx));
+cint2.stress_expected = and((xx.^2 + yy.^2) < a^2, ...
+    (xx - cint2.stress_ctr(1)).^2 + (yy - cint2.stress_ctr(2)).^2 > ss2);
+cint2.stress_in = chunkerinterior(chnkr_stress, {cint2.stress_x, cint2.stress_x});
+devtools_easy.chunkerinterior = cint2;
+
 % flagselfTest.m
 fs = [];
 rng(8675309);

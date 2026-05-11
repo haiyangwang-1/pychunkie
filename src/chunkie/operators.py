@@ -9,6 +9,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import ArrayLike
 
+from . import lege
 from .chunker import Chunker
 
 
@@ -93,7 +94,7 @@ def chunkerintegral(
     """Integrate scalar values over a chunker with the native smooth rule."""
 
     chnkr = _require_chunker(chnkr)
-    _ = {} if opts is None else dict(opts)
+    options = {} if opts is None else dict(opts)
     if callable(f):
         vals = np.asarray(f(chnkr.r.reshape(chnkr.dim, chnkr.npt, order="F")))
     else:
@@ -115,7 +116,7 @@ def chunkerinterior(
     """
 
     chnkr = _require_chunker(chnkr)
-    _ = {} if opts is None else dict(opts)
+    options = {} if opts is None else dict(opts)
     if chnkr.dim != 2:
         raise ValueError("interior only well-defined for 2D chunkers")
 
@@ -139,18 +140,9 @@ def chunkerinterior(
     if pts.shape[0] != 2:
         raise ValueError("target points must be two-dimensional")
 
-    boundary = _chunker_polygon_points(chnkr)
-    x = pts[0]
-    y = pts[1]
     inside = np.zeros(pts.shape[1], dtype=bool)
-    x0 = boundary[:, 0]
-    y0 = boundary[:, 1]
-    x1 = np.roll(x0, -1)
-    y1 = np.roll(y0, -1)
-    for xa, ya, xb, yb in zip(x0, y0, x1, y1):
-        crosses = (ya > y) != (yb > y)
-        xhit = (xb - xa) * (y - ya) / (yb - ya + np.finfo(float).eps) + xa
-        inside ^= crosses & (x < xhit)
+    for boundary in _chunker_component_polygons(chnkr, bool(options.get("axissym", False))):
+        inside ^= _points_in_polygon(pts, boundary)
 
     if grid_shape is not None:
         return inside.reshape(grid_shape)
@@ -267,17 +259,52 @@ def _uses_special_quadrature(kern: Callable[[Any, Any], np.ndarray], opts: dict[
 
 
 def _chunker_polygon_points(chnkr: Chunker) -> np.ndarray:
-    sorted_chnkr, _ = chnkr.sort()
+    return _chunker_component_polygons(chnkr)[0]
+
+
+def _chunker_component_polygons(chnkr: Chunker, axissym: bool = False) -> list[np.ndarray]:
+    sorted_chnkr, info = chnkr.sort()
+    polygons: list[np.ndarray] = []
+    start = 0
+    for nch, closed in zip(np.asarray(info["nchs"], dtype=int), np.asarray(info["ifclosed"], dtype=bool)):
+        polygons.append(_chunker_component_polygon(sorted_chnkr, start, int(nch), bool(closed), axissym))
+        start += int(nch)
+    if not polygons:
+        raise ValueError("chunker has no boundary points")
+    return polygons
+
+
+def _chunker_component_polygon(chnkr: Chunker, start: int, nch: int, closed: bool, axissym: bool) -> np.ndarray:
     pieces: list[np.ndarray] = []
-    for ich in range(sorted_chnkr.nch):
-        rend, _ = sorted_chnkr.chunkends([ich])
-        panel = np.column_stack((rend[:, 0, 0], sorted_chnkr.r[:, :, ich], rend[:, 1, 0]))
+    ts = np.linspace(-1.0, 1.0, max(4 * chnkr.k, 64))
+    interp = lege.matrin(chnkr.k, ts)[0]
+    for ich in range(start, start + nch):
+        panel = (interp @ chnkr.r[:, :, ich].T).T
         if pieces:
             panel = panel[:, 1:]
         pieces.append(panel.T)
-    if not pieces:
-        raise ValueError("chunker has no boundary points")
     points = np.vstack(pieces)
+    if axissym and not closed:
+        axis_end = np.array([[0.0, points[-1, 1]], [0.0, points[0, 1]]])
+        points = np.vstack((points, axis_end))
     if np.linalg.norm(points[0] - points[-1]) > 1e-12:
         points = np.vstack((points, points[0]))
     return points
+
+
+def _points_in_polygon(pts: np.ndarray, boundary: np.ndarray) -> np.ndarray:
+    x = pts[0]
+    y = pts[1]
+    inside = np.zeros(pts.shape[1], dtype=bool)
+    x0 = boundary[:, 0]
+    y0 = boundary[:, 1]
+    x1 = np.roll(x0, -1)
+    y1 = np.roll(y0, -1)
+    for xa, ya, xb, yb in zip(x0, y0, x1, y1):
+        crosses = (ya > y) != (yb > y)
+        hits = np.zeros_like(crosses)
+        if np.any(crosses):
+            xhit = (xb - xa) * (y[crosses] - ya) / (yb - ya) + xa
+            hits[crosses] = x[crosses] < xhit
+        inside ^= hits
+    return inside
