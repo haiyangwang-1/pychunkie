@@ -196,6 +196,80 @@ cfu.circle = fixture_pack_chunker(chnkr);
 cfu.circle_area_error = abs(area(chnkr) - pi*cfu.circle_radius^2);
 devtools_easy.chunkerfuncuni = cfu;
 
+% chunkerclassunitTest.m
+ccls = [];
+ccls.fail_negative_k = false;
+try
+    pref = [];
+    pref.k = -1;
+    chunker(pref);
+catch
+    ccls.fail_negative_k = true;
+end
+ccls.fail_wrong_nodes = false;
+try
+    pref = [];
+    pref.k = 9;
+    [t, w] = lege.exps(8);
+    chunker(pref, t, w);
+catch
+    ccls.fail_wrong_nodes = true;
+end
+ccls.fail_nchmax = false;
+try
+    cparams = [];
+    pref = [];
+    pref.k = 4;
+    pref.nchmax = 100;
+    chunkerfunc(@(t) starfish(t), cparams, pref);
+catch
+    ccls.fail_nchmax = true;
+end
+cparams = [];
+cparams.chsmall = 1.0e-14;
+cparams.ifclosed = 0;
+cparams.tb = 2*pi - 0.01;
+cparams.nover = 1;
+pref = [];
+pref.k = 16;
+pref.nchmax = 10000;
+chnkr = chunkerfunc(@(t) starfish(t), cparams, pref);
+ccls.chunker = fixture_pack_chunker(chnkr);
+ccls.adj_ok = true;
+for j = 1:chnkr.nch
+    i1 = chnkr.adj(1,j);
+    i2 = chnkr.adj(2,j);
+    if i1 > 0
+        ccls.adj_ok = ccls.adj_ok && (chnkr.adj(2,i1) == j);
+    end
+    if i2 > 0
+        ccls.adj_ok = ccls.adj_ok && (chnkr.adj(1,i2) == j);
+    end
+end
+ccls.v = [1;2];
+ccls.com1 = chnkr.r(:,:)*chnkr.wts(:)/sum(chnkr.wts(:));
+chnkr2 = ccls.v + chnkr;
+ccls.plus_left = fixture_pack_chunker(chnkr2);
+ccls.com_plus_left = chnkr2.r(:,:)*chnkr2.wts(:)/sum(chnkr2.wts(:));
+chnkr2 = chnkr + ccls.v;
+ccls.plus_right = fixture_pack_chunker(chnkr2);
+ccls.com_plus_right = chnkr2.r(:,:)*chnkr2.wts(:)/sum(chnkr2.wts(:));
+ccls.A = [1 2; 2 3];
+chnkr2 = ccls.A*chnkr;
+ccls.mat_left = fixture_pack_chunker(chnkr2);
+ccls.s = 2;
+chnkr2 = ccls.s*chnkr;
+ccls.scale_left = fixture_pack_chunker(chnkr2);
+chnkr2 = chnkr*ccls.s;
+ccls.scale_right = fixture_pack_chunker(chnkr2);
+ccls.fail_right_matrix = false;
+try
+    chnkr*ccls.A;
+catch
+    ccls.fail_right_matrix = true;
+end
+devtools_easy.chunkerclassunit = ccls;
+
 % flagselfTest.m
 fs = [];
 rng(8675309);
