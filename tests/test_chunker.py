@@ -43,6 +43,25 @@ def test_addchunk_resizes_storage_and_exposes_live_slices():
     np.testing.assert_allclose(chnkr.rstor[:, :, :2], 1.0)
 
 
+def test_resize_chunkends_min_max_and_cleardata_helpers():
+    chnkr = circle_chunker(12)
+    chnkr.resize(4)
+    assert chnkr.nchstor == 4
+
+    rend, tauend = chnkr.chunkends()
+    np.testing.assert_allclose(rend[:, 0, 0], [1.0, 0.0], atol=5e-6)
+    np.testing.assert_allclose(rend[:, 1, 0], [1.0, 0.0], atol=5e-6)
+    np.testing.assert_allclose(np.sqrt(np.sum(tauend[:, :, 0] ** 2, axis=0)), 1.0, atol=1e-13)
+    np.testing.assert_allclose(chnkr.min(), np.min(chnkr.r.reshape(2, -1, order="F"), axis=1))
+    np.testing.assert_allclose(chnkr.max(), np.max(chnkr.r.reshape(2, -1, order="F"), axis=1))
+
+    chnkr.makedatarows(2)
+    assert chnkr.datadim == 2
+    chnkr.cleardata()
+    assert chnkr.datadim == 0
+    assert chnkr.data.shape == (0, chnkr.k, 0)
+
+
 def test_circle_weights_normals_tangents_area_and_length():
     chnkr = circle_chunker(24)
 
