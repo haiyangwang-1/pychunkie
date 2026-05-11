@@ -507,18 +507,17 @@ class Chunker:
         if self.dim != 2:
             raise ValueError("flagnear_rectangle is implemented for 2D chunkers")
         rho = float(opts.get("rho", 1.8))
-        pad = (rho - 1.0) * self.chunklen() / 2.0
+        rectinfo = _bernstein_rectangle_info(self, rho)
         points = np.asarray(pts, dtype=float).reshape(2, -1)
         flags = np.zeros((points.shape[1], self.nch), dtype=bool)
         for ich in range(self.nch):
-            r = self.r[:, :, ich]
-            lo = np.min(r, axis=1) - pad[ich]
-            hi = np.max(r, axis=1) + pad[ich]
+            d1 = points.T @ rectinfo[:, 0, ich]
+            d2 = points.T @ rectinfo[:, 1, ich]
             flags[:, ich] = (
-                (points[0] >= lo[0])
-                & (points[0] <= hi[0])
-                & (points[1] >= lo[1])
-                & (points[1] <= hi[1])
+                (d1 >= rectinfo[0, 2, ich])
+                & (d1 <= rectinfo[1, 2, ich])
+                & (d2 >= rectinfo[0, 3, ich])
+                & (d2 <= rectinfo[1, 3, ich])
             )
         return flags
 
@@ -529,7 +528,8 @@ class Chunker:
         opts: dict[str, Any] | None = None,
     ) -> np.ndarray:
         xx, yy = np.meshgrid(np.asarray(x, dtype=float).reshape(-1), np.asarray(y, dtype=float).reshape(-1))
-        return self.flagnear_rectangle(np.vstack((xx.ravel(), yy.ravel())), opts)
+        pts = np.vstack((xx.ravel(order="F"), yy.ravel(order="F")))
+        return self.flagnear_rectangle(pts, opts)
 
     def nearest(
         self,
@@ -1359,6 +1359,54 @@ def merge(
                 out.datastor[: item.datadim, :, offset : offset + item.nch] = item.data
             offset += item.nch
     return out
+
+
+def _bernstein_rectangle_info(chnkr: Chunker, rho: float) -> np.ndarray:
+    """Return MATLAB-style rectangle tests for Bernstein ellipse images."""
+
+    ells = _bernstein_ellipse_images(chnkr, rho)
+    _, dc, _ = chnkr.exps()
+    p0 = _legendre_values(np.array([0.0]), chnkr.k - 1).reshape(chnkr.k)
+    d0 = np.einsum("k,dkn->dn", p0, dc)
+    d0_norm = np.sqrt(np.sum(d0**2, axis=0))
+    d1s = d0 / d0_norm[None, :]
+    d2s = np.vstack((d1s[1], -d1s[0]))
+
+    d1c = np.einsum("dmn,dn->mn", ells, d1s)
+    d2c = np.einsum("dmn,dn->mn", ells, d2s)
+
+    rectinfo = np.zeros((2, 4, chnkr.nch))
+    rectinfo[:, 0, :] = d1s
+    rectinfo[:, 1, :] = d2s
+    rectinfo[0, 2, :] = np.min(d1c, axis=0)
+    rectinfo[1, 2, :] = np.max(d1c, axis=0)
+    rectinfo[0, 3, :] = np.min(d2c, axis=0)
+    rectinfo[1, 3, :] = np.max(d2c, axis=0)
+    return rectinfo
+
+
+def _bernstein_ellipse_images(chnkr: Chunker, rho: float) -> np.ndarray:
+    nth = max(2 * chnkr.nch, 20)
+    theta = np.linspace(0.0, 2.0 * np.pi, nth + 1)[:-1]
+    zrho = rho * np.exp(1j * theta)
+    zell = (zrho + 1.0 / zrho) / 2.0
+    zpols = _legendre_values(zell, chnkr.k - 1).T
+    rc, _, _ = chnkr.exps()
+    zcoef = rc[0] + 1j * rc[1]
+    ell = zpols @ zcoef
+    return np.stack((ell.real, ell.imag), axis=0)
+
+
+def _legendre_values(xs: ArrayLike, degree: int) -> np.ndarray:
+    xs_arr = np.asarray(xs)
+    flat = xs_arr.reshape(-1)
+    vals = np.zeros((degree + 1, flat.size), dtype=np.result_type(xs_arr, float))
+    vals[0] = 1.0
+    if degree >= 1:
+        vals[1] = flat
+    for k in range(1, degree):
+        vals[k + 1] = ((2 * k + 1) * flat * vals[k] - k * vals[k - 1]) / (k + 1)
+    return vals.reshape((degree + 1,) + xs_arr.shape)
 
 
 def _remap_adjacency(adjs: np.ndarray, inds: np.ndarray) -> np.ndarray:

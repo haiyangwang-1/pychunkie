@@ -201,6 +201,30 @@ fn.flag_bruteforce = full(flag2);
 fn.mismatch_count = nnz(flag2 ~= flag);
 devtools_easy.flagnear = fn;
 
+% flagrectTest.m
+fr = [];
+fr.ngrid = 100;
+fr.rho = 1.8;
+chnkr = chunkerfunc(@(t) starfish(t));
+chnkr = refine(chnkr);
+fr.chunker = fixture_pack_chunker(chnkr);
+rmin = min(chnkr);
+rmax = max(chnkr);
+dr = rmax - rmin;
+rmin = rmin - dr/2;
+rmax = rmax + dr/2;
+fr.x = linspace(rmin(1), rmax(1), fr.ngrid);
+fr.y = linspace(rmin(2), rmax(2), fr.ngrid);
+[xx, yy] = meshgrid(fr.x, fr.y);
+fr.targets = [xx(:).'; yy(:).'];
+sp = flagnear_rectangle(chnkr, fr.targets);
+sp2 = flagnear_rectangle_grid(chnkr, fr.x, fr.y);
+fr.flag = full(sp);
+fr.flag_grid = full(sp2);
+fr.mismatch_count = nnz(sp - sp2);
+fr.flagged_count = nnz(sp);
+devtools_easy.flagrect = fr;
+
 % helm2d_greenTest.m
 h2g = [];
 rng(8675309);
