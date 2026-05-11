@@ -418,9 +418,16 @@ def _stok2d_fmm(kind: str, mu: float = 1.0, coefs: Any | None = None) -> Callabl
     if typ in {"cpres", "cpressure"}:
         c = np.ones(2) if coefs is None else np.asarray(coefs)
         return _sum_raw_fmm(_stok2d_fmm("dpres", mu), _stok2d_fmm("spres", mu), c[0], c[1])
+    if typ in {"ctrac", "ctraction"}:
+        c = np.ones(2) if coefs is None else np.asarray(coefs)
+        return _sum_raw_fmm(_stok2d_fmm("dtrac", mu), _stok2d_fmm("strac", mu), c[0], c[1])
     if typ in {"cg", "cgrad"}:
         c = np.ones(2) if coefs is None else np.asarray(coefs)
         return _sum_raw_fmm(_stok2d_fmm("dgrad", mu), _stok2d_fmm("sgrad", mu), c[0], c[1])
+    if typ in {"strac", "straction"}:
+        return _stok2d_traction_fmm(_stok2d_fmm("spres", mu), _stok2d_fmm("sgrad", mu), mu)
+    if typ in {"dtrac", "dtraction"}:
+        return _stok2d_traction_fmm(_stok2d_fmm("dpres", mu), _stok2d_fmm("dgrad", mu), mu)
     if typ not in {
         "s",
         "single",
@@ -467,6 +474,33 @@ def _stok2d_fmm(kind: str, mu: float = 1.0, coefs: Any | None = None) -> Callabl
             scale = 1.0 / (2.0 * np.pi * float(mu))
             return scale * np.asarray(out.gradtarg)[0].reshape(-1, order="F")
         return -1.0 / (2.0 * np.pi) * np.asarray(out.gradtarg)[0].reshape(-1, order="F")
+
+    return fmm_eval
+
+
+def _stok2d_traction_fmm(
+    pressure_fmm: Callable[[float, Any, Any, np.ndarray], np.ndarray] | None,
+    grad_fmm: Callable[[float, Any, Any, np.ndarray], np.ndarray] | None,
+    mu: float,
+) -> Callable[[float, Any, Any, np.ndarray], np.ndarray] | None:
+    if pressure_fmm is None or grad_fmm is None:
+        return None
+
+    def fmm_eval(eps: float, srcinfo: Any, targinfo: Any, sigma: np.ndarray) -> np.ndarray:
+        from .operators import pointinfo
+
+        targ = pointinfo(targinfo)
+        if targ.n is None:
+            raise ValueError("target normals are required")
+        pressure = np.asarray(pressure_fmm(eps, srcinfo, targ, sigma)).reshape(-1, order="F")
+        grad = np.asarray(grad_fmm(eps, srcinfo, targ, sigma)).reshape(4, targ.r.shape[1], order="F")
+        nx = targ.n[0]
+        ny = targ.n[1]
+        du11, du12, du21, du22 = grad
+        mut = float(mu)
+        tx = -pressure * nx + mut * (2.0 * du11 * nx + (du12 + du21) * ny)
+        ty = -pressure * ny + mut * ((du21 + du12) * nx + 2.0 * du22 * ny)
+        return np.vstack((tx, ty)).reshape(-1, order="F")
 
     return fmm_eval
 

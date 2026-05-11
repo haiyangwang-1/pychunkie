@@ -153,6 +153,43 @@ def test_fmm2dpy_stokes_layers_match_direct():
         np.testing.assert_allclose(via_fmm, direct, rtol=1e-9, atol=1e-10)
 
 
+def test_stokes_traction_fmm_reconstructs_stress_from_pressure_and_gradient(monkeypatch):
+    kernel_mod = importlib.import_module("chunkie.kernel")
+
+    class FakeFmm2d:
+        def __init__(self):
+            self.calls = []
+
+        def stfmm2d(self, **kwargs):
+            self.calls.append(kwargs)
+
+            class Output:
+                pottarg = np.zeros((1, 2, 2))
+                pretarg = np.array([[2.0, 3.0]])
+                gradtarg = np.array([[[1.0, 5.0], [2.0, 6.0], [3.0, 7.0], [4.0, 8.0]]])
+
+            return Output()
+
+    fake = FakeFmm2d()
+    monkeypatch.setattr(kernel_mod, "_fmm2dpy", fake)
+
+    mu = 1.7
+    kern = kernel_mod.stok2d_kernel("strac", mu)
+    src = PointInfo(r=np.array([[0.0, 1.0], [0.0, 0.0]]))
+    targ = PointInfo(
+        r=np.array([[0.25, -0.4], [0.1, 0.3]]),
+        n=np.array([[1.0, 0.0], [0.0, 1.0]]),
+    )
+    sigma = np.array([0.5, -0.25, 0.75, 1.25])
+
+    vals = kern.fmm(1e-11, src, targ, sigma)
+
+    assert [call["ifppregtarg"] for call in fake.calls] == [2, 3]
+    assert all("stoklet" in call for call in fake.calls)
+    expected = np.array([0.0, 5.0 / (2.0 * np.pi), 13.0 / (2.0 * np.pi), 13.0 / (2.0 * np.pi)])
+    np.testing.assert_allclose(vals, expected)
+
+
 def test_kernel_fmm_fallback_tracks_kernel_algebra():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
     target = np.array([[0.25], [0.1]])

@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 185 pytest cases because several MATLAB parity tests are
+collection expands to 186 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 
@@ -68,8 +68,8 @@ Should implement:
 
 - FMM integration everywhere it applies to implemented kernel/operator
   families, including `chunkermat` FMM acceleration, `chunkerinterior` FMM
-  acceleration, and missing selector wiring for biharmonic, elasticity, Stokes
-  traction, and other unsupported selectors.
+  acceleration, and missing selector wiring for biharmonic, elasticity, and
+  other unsupported selectors.
 - Full adaptive/close quadrature: complete `quadadap` and
   `quadggq/buildmattd`.
 - Advanced RCIP workflows beyond the current two-edge corner fixture.
@@ -84,6 +84,7 @@ Implemented from this scope:
   `hypoct_uni`, `mergeregions`, `nonflatinterface`, `pointinregion`, `redblue`,
   `regioninside`, and `starfish`.
 - Helmholtz double-gradient FMM selector wiring.
+- Stokes traction FMM selector wiring.
 
 Deferred implementation:
 
@@ -647,6 +648,13 @@ velocity, pressure, gradient, and combined kernels. The vector density is
 `(cos(x), sin(y))` interleaved by point. The method compares `fmm2dpy` Stokes
 results with dense direct results for single, double, pressure, gradient, and
 combined selectors. Ground truth is the direct dense path.
+
+`test_stokes_traction_fmm_reconstructs_stress_from_pressure_and_gradient`
+checks the Stokes traction FMM path with a fake `fmm2dpy` module. The method
+evaluates `kernel("stok","strac",mu)` through its FMM callback and verifies
+that pressure and gradient FMM calls are combined as
+`-p n + mu (grad u + grad u^T) n`. Ground truth is the explicit stress
+contraction for two target normals.
 
 `test_kernel_fmm_fallback_tracks_kernel_algebra` checks that composed kernels
 preserve a usable FMM evaluator. The equation is the algebraic combination
