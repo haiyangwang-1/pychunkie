@@ -5,7 +5,7 @@ import pytest
 from scipy.io import loadmat
 
 from chunkie import Chunker, kernel, lege
-from chunkie.chnk import flagself, helm2d, spcl
+from chunkie.chnk import flagnear, flagself, helm2d, spcl
 from chunkie.operators import PointInfo
 
 
@@ -165,6 +165,20 @@ def test_flagself_devtools_output_matches_matlab():
     assert int(fixture.err_count) == 0
     np.testing.assert_array_equal(sorted_pairs(actual), sorted_pairs(expected))
     np.testing.assert_allclose(fixture.srcs[:, actual[0]], fixture.targs[:, actual[1]], atol=1e-10)
+
+
+def test_flagnear_devtools_output_matches_matlab():
+    fixture = load_devtools_easy().flagnear
+    chnkr = chunker_from_fields(fixture.chunker)
+
+    actual = flagnear(chnkr, fixture.targs, {"fac": float(fixture.fac)})
+    expected = np.asarray(fixture.flag, dtype=bool)
+    expected_bruteforce = np.asarray(fixture.flag_bruteforce, dtype=bool)
+
+    assert int(fixture.sortinfo.ier) == 0
+    assert int(fixture.mismatch_count) == 0
+    np.testing.assert_array_equal(expected, expected_bruteforce)
+    np.testing.assert_array_equal(actual, expected)
 
 
 def test_helm2d_green_devtools_output_matches_matlab():

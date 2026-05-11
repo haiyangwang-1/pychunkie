@@ -161,6 +161,46 @@ fs.flagged_count = size(fs.flagslf, 2);
 fs.err_count = sum(vecnorm(fs.srcs(:,fs.flagslf(1,:)) - fs.targs(:,fs.flagslf(2,:))) > 1e-10);
 devtools_easy.flagself = fs;
 
+% flagnearTest.m
+fn = [];
+rng(8675309);
+cparams = [];
+cparams.eps = 1.0e-6;
+pref = [];
+pref.k = 16;
+fn.narms = 10;
+fn.amp = 0.5;
+chnkr = chunkerfunc(@(t) starfish(t, fn.narms, fn.amp), cparams, pref);
+[~, ~, fn.sortinfo] = sortinfo(chnkr);
+fn.chunker = fixture_pack_chunker(chnkr);
+fn.fac = 0.7;
+fn.nt = 1000;
+fn.scal = 2*rand(1, fn.nt);
+fn.tr = 2*pi*rand(1, fn.nt);
+fn.targs = bsxfun(@times, starfish(fn.tr, fn.narms, fn.amp), fn.scal);
+opts = [];
+opts.fac = fn.fac;
+flag = flagnear(chnkr, fn.targs, opts);
+lens = chunklen(chnkr);
+flag2 = sparse([], [], [], fn.nt, chnkr.nch);
+for i = 1:chnkr.nch
+    ris = chnkr.r(:,:,i);
+    leni = lens(i);
+    for j = 1:chnkr.k
+        rj = ris(:,j);
+        for l = 1:fn.nt
+            dist = sqrt(sum((rj - fn.targs(:,l)).^2, 1));
+            if dist < fn.fac*leni
+                flag2(l,i) = true;
+            end
+        end
+    end
+end
+fn.flag = full(flag);
+fn.flag_bruteforce = full(flag2);
+fn.mismatch_count = nnz(flag2 ~= flag);
+devtools_easy.flagnear = fn;
+
 % helm2d_greenTest.m
 h2g = [];
 rng(8675309);
