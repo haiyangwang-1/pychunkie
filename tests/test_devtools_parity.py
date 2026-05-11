@@ -3,8 +3,8 @@ from pathlib import Path
 import numpy as np
 from scipy.io import loadmat
 
-from chunkie import Chunker, chunkerintegral, kernel, lege
-from chunkie.chnk import flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, spcl
+from chunkie import Chunker, chunkerfuncuni, chunkerintegral, kernel, lege
+from chunkie.chnk import curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, spcl
 from chunkie.operators import PointInfo
 
 
@@ -56,6 +56,17 @@ def sorted_pairs(pairs: np.ndarray) -> np.ndarray:
         return arr.reshape(2, 0)
     order = np.lexsort((arr[1], arr[0]))
     return arr[:, order]
+
+
+def assert_chunker_fields_match(chnkr: Chunker, fields, atol: float = 1e-12) -> None:
+    np.testing.assert_allclose(chnkr.r, fields.r, atol=atol)
+    np.testing.assert_allclose(chnkr.d, fields.d, atol=atol)
+    np.testing.assert_allclose(chnkr.d2, fields.d2, atol=atol)
+    np.testing.assert_allclose(chnkr.n, fields.n, atol=atol)
+    np.testing.assert_allclose(chnkr.wts, fields.wts, atol=atol)
+    np.testing.assert_array_equal(chnkr.adj, np.asarray(fields.adj, dtype=int))
+    np.testing.assert_allclose(chnkr.chunklen(), fields.chunklen, atol=atol)
+    np.testing.assert_allclose(chnkr.area(), fields.area, atol=atol)
 
 
 def test_absconvgauss_devtools_outputs_match_matlab():
@@ -179,6 +190,38 @@ def test_chunkerintegral_devtools_output_matches_matlab():
     assert float(fixture.relerr12) < 1e-9
     assert float(fixture.relerr32) < 1e-9
     assert float(fixture.relerr42) < 1e-9
+
+
+def test_chunkerfuncuni_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().chunkerfuncuni
+
+    starfish = chunkerfuncuni(
+        lambda t: curves.starfish(t, int(fixture.narms), float(fixture.amp)),
+        int(fixture.nch),
+    )
+    bymode_reversed = chunkerfuncuni(
+        lambda t: curves.bymode(t, fixture.modes, fixture.mode_ctr),
+        int(fixture.nch),
+    ).reverse()
+
+    def circle(t):
+        radius = float(fixture.circle_radius)
+        ctr = np.asarray(fixture.circle_ctr).reshape(2)
+        return (
+            np.vstack((ctr[0] + radius * np.cos(t), ctr[1] + radius * np.sin(t))),
+            np.vstack((-radius * np.sin(t), radius * np.cos(t))),
+            np.vstack((-radius * np.cos(t), -radius * np.sin(t))),
+        )
+
+    circle_chunker = chunkerfuncuni(circle, int(fixture.nch))
+
+    assert int(fixture.starfish_sort_ier) == 0
+    assert int(fixture.circle_sort_ier) == 0
+    assert float(fixture.circle_area_error) < 1e-12
+    assert_chunker_fields_match(starfish, fixture.starfish, atol=1e-12)
+    assert_chunker_fields_match(bymode_reversed, fixture.bymode_reversed, atol=1e-12)
+    assert_chunker_fields_match(circle_chunker, fixture.circle, atol=1e-12)
+    np.testing.assert_allclose(circle_chunker.area(), np.pi * float(fixture.circle_radius) ** 2, atol=1e-12)
 
 
 def test_flagself_devtools_output_matches_matlab():
