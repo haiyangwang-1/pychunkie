@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 from scipy.io import loadmat
 
-from chunkie import Chunker, chunkerfit, chunkerfunc, chunkerfuncuni, chunkerintegral, chunkerinterior, chunkgraph, kernel, lege, tochunkgraph
+from chunkie import Chunker, chunkerfit, chunkerfunc, chunkerfuncuni, chunkerintegral, chunkerinterior, chunkerpoly, chunkgraph, kernel, lege, tochunkgraph
 from chunkie.chnk import curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, spcl
 from chunkie.operators import PointInfo
 
@@ -206,6 +206,34 @@ def build_snapshot() -> dict[str, np.ndarray]:
         chunker_from_fields(cint2.stress_chunker),
         [cint2.stress_x, cint2.stress_x],
     )
+
+    cpoly = fixture.chunkerpoly
+    cpoly_rounded = chunkerpoly(
+        cpoly.verts,
+        {"widths": 0.1 * np.ones(np.asarray(cpoly.verts).shape[1]), "eps": 1.0e-8},
+        {"k": 16, "dim": 2},
+        cpoly.edgevals,
+    ).sort()[0]
+    cpoly_true = chunkerpoly(
+        cpoly.verts,
+        {"rounded": False, "depth": 8},
+        {"k": 16, "dim": 2},
+        cpoly.edgevals,
+    ).sort()[0]
+    cpoly_open = chunkerpoly(
+        cpoly.open_verts,
+        {
+            "widths": 0.1 * np.ones(np.asarray(cpoly.open_verts).shape[1]),
+            "autowidths": True,
+            "autowidthsfac": 0.1,
+            "ifclosed": False,
+            "eps": 1.0e-3,
+        },
+        {"k": 16, "dim": 2},
+    )
+    out["chunkerpoly_rounded_ier"] = np.asarray(cpoly_rounded.checkadjinfo())
+    out["chunkerpoly_truepoly_ier"] = np.asarray(cpoly_true.checkadjinfo())
+    out["chunkerpoly_open_ier"] = np.asarray(cpoly_open.checkadjinfo())
 
     fs = fixture.flagself
     out["flagself_pairs"] = flagself(fs.srcs, fs.targs)
