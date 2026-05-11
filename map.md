@@ -324,7 +324,7 @@ src/
 | `elast2d.kern` | ✅ 🧪 🎯 | `+chnk/+elast2d/kern.m` | Elasticity variants parity-tested. |
 | private kernel helpers | 🧩 ✅ | Internal Python helpers | Interleaving and validation helpers. |
 
-🚧 External FMM entry points are still absent for now: `+chnk/+lap2d/fmm.m`, `+chnk/+helm2d/fmm.m`, `+chnk/+stok2d/fmm.m`, and biharmonic FMM2D wrappers. Kernel objects currently provide dense-direct fallback `fmm` callables for testing and API compatibility.
+🚧 External FMM entry points are still absent for now: `+chnk/+lap2d/fmm.m`, `+chnk/+helm2d/fmm.m`, `+chnk/+stok2d/fmm.m`, and biharmonic FMM2D wrappers. The Python package now declares the upstream `fmm2dpy` dependency, but kernel objects currently still provide dense-direct fallback `fmm` callables for testing and API compatibility.
 
 ### `chnk/geometry.py`
 
@@ -517,4 +517,4 @@ These are useful future implementation targets from `external/chunkie-matlab/chu
 - Add golden MATLAB fixtures for `chunkerpoly` rounded paths, `chunkerfit`, `sortinfo`, `chunkgraph`, `arcparam`, `geometry`, `spcl`, `smoother`, `rcip`, and `biharm2d` to upgrade many ✅ 🧪 nodes to 🎯.
 - Add focused tests for implemented but currently untested methods such as `min`, `max`, `chunkends`, `resize`, `cleardata`, and `nearbuildmat`.
 - Decide how far `rcip.py`, `smoother.py`, and `quadadap.py` should go in the near term: all are present and mapped, but their full MATLAB workflows still have ⚠️/🚧 areas.
-- Decide whether kernel `fmm` callables should remain dense-direct fallbacks or become wrappers around external FMM2D/FLAM integrations.
+- Wire kernel `fmm` callables to `fmm2dpy` wrappers while keeping dense-direct fallbacks available for unsupported kernels and tests.
