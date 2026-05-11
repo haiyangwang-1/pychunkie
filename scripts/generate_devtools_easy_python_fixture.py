@@ -12,8 +12,8 @@ from pathlib import Path
 import numpy as np
 from scipy.io import loadmat
 
-from chunkie import Chunker, chunkerfit, chunkerfunc, chunkerfuncuni, chunkerintegral, chunkerinterior, chunkerpoly, chunkgraph, kernel, lege, tochunkgraph
-from chunkie.chnk import curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, smoother, spcl
+from chunkie import Chunker, chunkerfit, chunkerfunc, chunkerfuncuni, chunkerintegral, chunkerinterior, chunkermat, chunkerpoly, chunkgraph, kernel, lege, tochunkgraph
+from chunkie.chnk import arcparam, curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, quadadap, smoother, spcl
 from chunkie.operators import PointInfo
 
 
@@ -89,6 +89,21 @@ def build_snapshot() -> dict[str, np.ndarray]:
     out["arclength_single"] = chunker_from_fields(arc.chunker_single).arclengthfun()
     out["arclength_merged"] = chunker_from_fields(arc.chunker_merged).arclengthfun()
 
+    cap = fixture.chunkerarcparam
+    cap_chunker = chunker_from_fields(cap.chunker)
+    cap_data = arcparam.init(cap_chunker)
+    cap_r, cap_d, cap_d2 = arcparam.eval(np.asarray(cap.s_nodes).reshape(-1, order="F"), cap_data)
+    cap_sample_r, cap_sample_d, cap_sample_d2 = arcparam.eval(cap.sample_s, cap_data)
+    cap_resampled, cap_eps = cap_chunker.arcresample({"mv_bdries": 0})
+    out["chunkerarcparam_r_nodes"] = cap_r
+    out["chunkerarcparam_d_nodes"] = cap_d
+    out["chunkerarcparam_d2_nodes"] = cap_d2
+    out["chunkerarcparam_sample_r"] = cap_sample_r
+    out["chunkerarcparam_sample_d"] = cap_sample_d
+    out["chunkerarcparam_sample_d2"] = cap_sample_d2
+    out["chunkerarcparam_resampled_r"] = cap_resampled.r
+    out["chunkerarcparam_resampled_eps"] = np.asarray(cap_eps)
+
     dimat = fixture.chunker_diffintmat
     ellipse = chunker_from_fields(dimat.ellipse)
     ellipse_d = ellipse.diffmat()
@@ -162,6 +177,37 @@ def build_snapshot() -> dict[str, np.ndarray]:
     out["chunkerfuncuni_bymode_reversed_r"] = cfu_bymode.r
     out["chunkerfuncuni_circle_area"] = np.asarray(cfu_circle.area())
 
+    cfunc = fixture.chunkerfunc
+    cfunc_starfish, _ = chunkerfunc(
+        lambda t: curves.starfish(t, int(cfunc.narms), float(cfunc.amp)),
+        {"eps": 1.0e-4},
+        {"k": 16},
+    )
+    cfunc_starfish_nout, _ = chunkerfunc(
+        lambda t: curves.starfish(t, int(cfunc.narms), float(cfunc.amp)),
+        {"eps": 1.0e-4, "nout": 3},
+        {"k": 16},
+    )
+    cfunc_bymode, _ = chunkerfunc(
+        lambda t: curves.bymode(t, cfunc.modes, cfunc.mode_ctr),
+        {"eps": 1.0e-4, "nout": 3},
+    )
+    cfunc_circle, _ = chunkerfunc(
+        lambda t: np.vstack(
+            (
+                cfunc.circle_ctr[0] + float(cfunc.circle_radius) * np.cos(t),
+                cfunc.circle_ctr[1] + float(cfunc.circle_radius) * np.sin(t),
+            )
+        ),
+        {"eps": 1.0e-4, "nout": 3},
+    )
+    out["chunkerfunc_starfish_r"] = cfunc_starfish.r
+    out["chunkerfunc_starfish_nout_r"] = cfunc_starfish_nout.r
+    out["chunkerfunc_bymode_r"] = cfunc_bymode.r
+    out["chunkerfunc_bymode_reversed_r"] = cfunc_bymode.reverse().r
+    out["chunkerfunc_circle_r"] = cfunc_circle.r
+    out["chunkerfunc_circle_refined_r"] = cfunc_circle.refine({"nover": 1}).r
+
     ccls = fixture.chunkerclassunit
     ccls_chunker = chunker_from_fields(ccls.chunker)
     out["chunkerclass_plus_left_r"] = (ccls.v + ccls_chunker).r
@@ -190,6 +236,17 @@ def build_snapshot() -> dict[str, np.ndarray]:
     out["tochunkgraph_edgesendverts"] = tcg_graph.edgesendverts
     out["tochunkgraph_manual_verts"] = tcg_manual.verts
     out["tochunkgraph_manual_edgesendverts"] = tcg_manual.edgesendverts
+
+    slc = fixture.slicegraph
+    slc_graph = chunkgraph(slc.verts, np.asarray(slc.edge_2_verts, dtype=int) - 1)
+    slc_inner_edges = np.asarray(slc.ichs_inner, dtype=int).reshape(-1) - 1
+    slc_lap_d = -2 * kernel("lap", "d")
+    slc_full = chunkermat(slc_graph, slc_lap_d)
+    slc_inner = slc_graph.slicegraph(slc_inner_edges)
+    out["slicegraph_mixed_r"] = slc_graph.slicegraph(np.asarray(slc.ichs_mixed, dtype=int).reshape(-1) - 1).r
+    out["slicegraph_inner_sysmat"] = chunkermat(slc_inner, slc_lap_d)
+    out["slicegraph_full_inner_sysmat"] = slc_full[np.ix_(np.asarray(slc.idslce, dtype=int).reshape(-1) - 1, np.asarray(slc.idslce, dtype=int).reshape(-1) - 1)]
+    out["slicegraph_edgeids_inner"] = slc_graph.edgeids(slc_inner_edges)
 
     cint2 = fixture.chunkerinterior
     cint2_chunker = chunker_from_fields(cint2.chunker)
@@ -290,6 +347,12 @@ def build_snapshot() -> dict[str, np.ndarray]:
     out["stokes_dtrac_Kg"] = kg
     out["stokes_dtrac_Kp"] = kp
     out["stokes_dtrac_reconstructed"] = reconstructed
+
+    cqa = fixture.chunkermat_quadadap
+    cqa_chunker = chunker_from_fields(cqa.chunker)
+    cqa_kern = kernel("helm", "d", cqa.zk)
+    out["chunkermat_quadadap_ggq"] = chunkermat(cqa_chunker, cqa_kern)
+    out["chunkermat_quadadap_adap"] = quadadap.buildmat(cqa_chunker, cqa_kern, cqa_kern.opdims, {"sing": "log", "robust": False})
     return out
 
 

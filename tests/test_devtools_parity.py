@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 from scipy.io import loadmat
 
-from chunkie import Chunker, chunkerfit, chunkerfunc, chunkerfuncuni, chunkerintegral, chunkerinterior, chunkerpoly, chunkgraph, kernel, lege, tochunkgraph
-from chunkie.chnk import curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, smoother, spcl
+from chunkie import Chunker, chunkerfit, chunkerfunc, chunkerfuncuni, chunkerintegral, chunkerinterior, chunkermat, chunkerpoly, chunkgraph, kernel, lege, tochunkgraph
+from chunkie.chnk import arcparam, curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, quadadap, smoother, spcl
 from chunkie.operators import PointInfo
 
 
@@ -121,6 +121,33 @@ def test_arclengthfun_merged_components_devtools_output_matches_matlab():
     np.testing.assert_allclose(chnkr.arclengthfun(), fixture.s_merged, atol=1e-13)
 
 
+def test_chunkerarcparam_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().chunkerarcparam
+    chnkr = chunker_from_fields(fixture.chunker)
+    pdata = arcparam.init(chnkr)
+
+    r_nodes, d_nodes, d2_nodes = arcparam.eval(np.asarray(fixture.s_nodes).reshape(-1, order="F"), pdata)
+    np.testing.assert_allclose(r_nodes, fixture.r_nodes, rtol=1e-10, atol=1e-11)
+    np.testing.assert_allclose(d_nodes, fixture.d_nodes, rtol=1e-10, atol=1e-11)
+    np.testing.assert_allclose(d2_nodes, fixture.d2_nodes, rtol=1e-8, atol=1e-9)
+    assert float(fixture.node_residual) < 1e-10
+
+    sample_r, sample_d, sample_d2 = arcparam.eval(fixture.sample_s, pdata)
+    np.testing.assert_allclose(sample_r, fixture.sample_r, rtol=1e-10, atol=1e-11)
+    np.testing.assert_allclose(sample_d, fixture.sample_d, rtol=1e-9, atol=1e-10)
+    np.testing.assert_allclose(sample_d2, fixture.sample_d2, rtol=1e-7, atol=1e-8)
+    np.testing.assert_allclose(fixture.der_r_residual, 0.0, atol=1e-8)
+    np.testing.assert_allclose(fixture.der_d_residual, 0.0, atol=1e-8)
+    np.testing.assert_allclose(fixture.orthogonality, 0.0, atol=1e-8)
+
+    resampled, eps = chnkr.arcresample({"mv_bdries": 0})
+    assert_chunker_fields_match(resampled, fixture.resampled, atol=1e-10)
+    np.testing.assert_allclose(eps, fixture.resampled_eps, rtol=1e-8, atol=1e-12)
+    assert float(fixture.resampled_area_err) < 1e-8
+    assert float(fixture.resampled_len_err) < 1e-8
+    np.testing.assert_allclose(fixture.resampled_speed_ratio, 1.0, atol=1e-6)
+
+
 def test_chunker_diffintmat_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().chunker_diffintmat
     ellipse = chunker_from_fields(fixture.ellipse)
@@ -228,6 +255,55 @@ def test_chunkerfuncuni_devtools_outputs_match_matlab():
     np.testing.assert_allclose(circle_chunker.area(), np.pi * float(fixture.circle_radius) ** 2, atol=1e-12)
 
 
+def test_chunkerfunc_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().chunkerfunc
+    cparams = {"eps": 1.0e-4}
+    pref = {"k": 16}
+
+    starfish, _ = chunkerfunc(
+        lambda t: curves.starfish(t, int(fixture.narms), float(fixture.amp)),
+        cparams,
+        pref,
+    )
+    starfish_nout, _ = chunkerfunc(
+        lambda t: curves.starfish(t, int(fixture.narms), float(fixture.amp)),
+        {**cparams, "nout": 3},
+        pref,
+    )
+    bymode, _ = chunkerfunc(
+        lambda t: curves.bymode(t, fixture.modes, fixture.mode_ctr),
+        {**cparams, "nout": 3},
+    )
+    bymode_reversed = bymode.reverse()
+
+    def circle(t):
+        radius = float(fixture.circle_radius)
+        ctr = np.asarray(fixture.circle_ctr).reshape(2)
+        return np.vstack((ctr[0] + radius * np.cos(t), ctr[1] + radius * np.sin(t)))
+
+    circle_chunker, _ = chunkerfunc(circle, {**cparams, "nout": 3})
+    circle_refined = circle_chunker.refine({"nover": 1})
+
+    assert int(fixture.starfish_ier) == 0
+    assert int(fixture.starfish_nout_ier) == 0
+    assert int(fixture.bymode_ier) == 0
+    assert int(fixture.bymode_reversed_ier) == 0
+    assert int(fixture.circle_ier) == 0
+    assert bool(fixture.closed_warning_seen)
+    assert bool(fixture.near_closed_warning_seen)
+    assert not bool(fixture.open_warning_seen)
+    assert_chunker_fields_match(starfish, fixture.starfish, atol=1e-11)
+    assert_chunker_fields_match(starfish_nout, fixture.starfish_nout, atol=1e-11)
+    assert_chunker_fields_match(bymode, fixture.bymode, atol=1e-11)
+    assert_chunker_fields_match(bymode_reversed, fixture.bymode_reversed, atol=1e-11)
+    assert_chunker_fields_match(circle_chunker, fixture.circle, atol=1e-12)
+    assert_chunker_fields_match(circle_refined, fixture.circle_refined, atol=1e-12)
+    assert float(fixture.circle_area_error) < 1e-12
+    assert float(fixture.circle_refined_area_error) < 1e-12
+    np.testing.assert_allclose(circle_chunker.area(), np.pi * float(fixture.circle_radius) ** 2, atol=1e-12)
+    np.testing.assert_allclose(circle_refined.area(), np.pi * float(fixture.circle_radius) ** 2, atol=1e-12)
+
+
 def test_chunkerclassunit_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().chunkerclassunit
 
@@ -313,6 +389,29 @@ def test_tochunkgraph_devtools_outputs_match_matlab():
     np.testing.assert_allclose(manual.echnks[0].r[:, -1, -1], fixture.manual_first_end, atol=1e-12)
 
 
+def test_slicegraph_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().slicegraph
+    graph = chunkgraph(fixture.verts, np.asarray(fixture.edge_2_verts, dtype=int) - 1)
+    mixed_edges = np.asarray(fixture.ichs_mixed, dtype=int).reshape(-1) - 1
+    inner_edges = np.asarray(fixture.ichs_inner, dtype=int).reshape(-1) - 1
+
+    mixed = graph.slicegraph(mixed_edges)
+    inner = graph.slicegraph(inner_edges)
+    lap_d = -2 * kernel("lap", "d")
+    full = chunkermat(graph, lap_d)
+    inner_mat = chunkermat(inner, lap_d)
+    idslce = np.asarray(fixture.idslce, dtype=int).reshape(-1) - 1
+
+    assert graph.npt == int(fixture.npt)
+    assert len(graph.echnks) == int(fixture.nedges)
+    np.testing.assert_allclose(mixed.r, fixture.mixed_r, atol=1e-13)
+    np.testing.assert_allclose(mixed.r, fixture.mixed_merge_r, atol=1e-13)
+    np.testing.assert_allclose(fixture.inner_sysmat, fixture.inner_sysmat_from_full, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(full[np.ix_(idslce, idslce)], inner_mat, rtol=1e-12, atol=1e-13, equal_nan=True)
+    np.testing.assert_array_equal(graph.edgeids([2, 3, 1, 0]), np.asarray(fixture.edgeids_outer_permuted, dtype=int).reshape(-1) - 1)
+    np.testing.assert_array_equal(graph.edgeids(inner_edges), np.asarray(fixture.edgeids_inner, dtype=int).reshape(-1) - 1)
+
+
 def test_chunkerinterior_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().chunkerinterior
     chnkr = chunker_from_fields(fixture.chunker)
@@ -393,7 +492,8 @@ def test_smoother_devtools_output_matches_matlab_thresholds():
 
     np.testing.assert_allclose(fixture.verts, np.asarray([[-0.5, -0.5, 1.0], [np.sqrt(3) / 2, -np.sqrt(3) / 2, 0.0]]), atol=1e-15)
     assert int(fixture.nv) == 3
-    assert int(fixture.chunker.npt) == int(fixture.chunker.k) * int(fixture.chunker.nch)
+    fixture_npt = int(getattr(fixture.chunker, "npt", int(fixture.chunker.k) * int(fixture.chunker.nch)))
+    assert fixture_npt == int(fixture.chunker.k) * int(fixture.chunker.nch)
     assert float(fixture.err) < 1e-6
     assert float(err) < 1e-6
     assert np.asarray(fixture.err_by_pt).shape == (int(fixture.chunker.npt),)
@@ -501,3 +601,17 @@ def test_stokes_dtrac_devtools_output_matches_matlab():
     np.testing.assert_allclose(reconstructed, fixture.reconstructed, rtol=1e-13, atol=1e-13)
     np.testing.assert_allclose(reconstructed, kt, rtol=1e-13, atol=1e-13)
     assert float(fixture.residual_norm) < 1e-13
+
+
+def test_chunkermat_quadadap_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().chunkermat_quadadap
+    chnkr = chunker_from_fields(fixture.chunker)
+    kern = kernel("helm", "d", fixture.zk)
+
+    ggq = chunkermat(chnkr, kern)
+    adap = quadadap.buildmat(chnkr, kern, kern.opdims, {"sing": "log", "robust": False})
+
+    np.testing.assert_allclose(ggq, fixture.mat_ggq, rtol=1e-9, atol=2e-9)
+    np.testing.assert_allclose(adap, fixture.mat_adap, rtol=1e-9, atol=2e-9)
+    assert float(fixture.relerr) < 1e-9
+    assert np.linalg.norm(ggq - adap, "fro") / np.linalg.norm(ggq, "fro") < 1e-9
