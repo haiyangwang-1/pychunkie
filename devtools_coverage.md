@@ -28,17 +28,17 @@ The parity rule for this repo is:
 - MATLAB fixture data: `tests/golden/devtools_easy.mat`
 - Python snapshot generator: `scripts/generate_devtools_easy_python_fixture.py`
 - Python comparisons: `tests/test_devtools_parity.py`
-- Covered now: `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m` single-component output, `chunker_diffintmatTest.m`, `flagselfTest.m`, `helm2d_greenTest.m`, and `kernelopTest.m`
+- Covered now: `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m` single-component output, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `flagselfTest.m`, `helm2d_greenTest.m`, and `kernelopTest.m`
 - Known exposed gap: merged-component `arclengthfunTest.m` output is marked strict `xfail` because Python currently accumulates arclength through all chunks instead of resetting per connected component.
 
 ## Status At A Glance
 
 | Status | Count | Tests |
 | --- | ---: | --- |
-| ✅ 🧪 🎯 fully covered by devtools parity | 6 | `absconvgaussTest.m`, `legeexpsunitTest.m`, `chunker_diffintmatTest.m`, `flagselfTest.m`, `helm2d_greenTest.m`, `kernelopTest.m` |
+| ✅ 🧪 🎯 fully covered by devtools parity | 7 | `absconvgaussTest.m`, `legeexpsunitTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `flagselfTest.m`, `helm2d_greenTest.m`, `kernelopTest.m` |
 | ✅ 🧪 🎯 ⚠️ partially covered by devtools parity | 1 | `arclengthfunTest.m` |
 | 🧩 🧭 helper/reference | 1 | `gradient_check.m` |
-| 🚧 not yet converted to devtools parity | 66 | All remaining ranked entries below. |
+| 🚧 not yet converted to devtools parity | 65 | All remaining ranked entries below. |
 
 ## Ranked Test Inventory
 
@@ -50,7 +50,7 @@ The parity rule for this repo is:
 | 4 | `smootherTest.m` | ✅ 🧪 🚧 ⚠️ | Easy | Builds a smoothed chunker from a triangular polygon with `chnk.smoother.smooth` and asserts the returned smoothing error is below `1e-6`. | Generate triangle vertices, MATLAB `r/n/wts/err`, and compare to Python smoother once the Python smoother is more than the current lightweight rounded-polygon path. |
 | 5 | `arclengthfunTest.m` | ✅ 🧪 🎯 ⚠️ | Easy | Computes arclength coordinates on a circle and on two merged circles, comparing each component to analytic polar angle, with the second circle scaled by `1.1`. | Single-component output is covered. Merged-component output is an intentional `xfail` until Python resets arclength per connected component. |
 | 6 | `chunker_diffintmatTest.m` | ✅ 🧪 🎯 | Easy | Builds ellipse/circle chunkers, checks `diffmat` produces unit arclength tangents, and checks `intmat` inverts differentiation up to a constant. | Covered in `devtools_easy.mat`: compare MATLAB `D`, `C`, tangent derivatives, integrated coordinates, and Python `Chunker.diffmat`/`intmat`. |
-| 7 | `chunker_nearestTest.m` | ✅ 🧪 🚧 | Easy | For 1000 random radial targets around a circle, checks `nearest` returns the closest circle angle to within `1e-12`. | Save targets, closest points, distances, panel ids, and local parameters; compare Python `Chunker.nearest`. |
+| 7 | `chunker_nearestTest.m` | ✅ 🧪 🎯 | Easy | For 1000 random radial targets around a circle, checks `nearest` returns the closest circle angle to within `1e-12`. | Covered in `devtools_easy.mat`: compare saved targets, closest points, derivatives, second derivatives, distances, panel ids, local parameters, and angle error against Python `Chunker.nearest`. |
 | 8 | `flagselfTest.m` | ✅ 🧪 🎯 | Easy | Flags overlapping source and target point sets and checks the reported source permutation matches duplicated target coordinates. | Covered in `devtools_easy.mat`: compare deterministic source/target arrays and expected overlap index pairs against Python `geometry.flagself`. |
 | 9 | `flagrectTest.m` | ✅ 🧪 🚧 | Easy | Tests rectangle-based near-flagging by comparing rectangle flags to brute-force or ellipse-derived flags on a starfish chunker. | Save starfish chunker, target grid, rectangle flags, and compare Python `flagnear_rectangle`/grid behavior. |
 | 10 | `flagnearTest.m` | ✅ 🧪 🚧 | Easy | Tests near-point flagging against a brute-force distance check for targets scaled radially around a starfish curve. | Save targets and MATLAB near flags; compare Python `geometry.flagnear`. |
@@ -122,7 +122,6 @@ The parity rule for this repo is:
 ## Suggested Next Ports
 
 1. `KernDerInterleaveTest.m`: mostly point-kernel algebra and extends the new `kernelopTest.m` fixture naturally.
-2. `chunker_nearestTest.m`: deterministic enough to fixture now that Python `nearest` already has unit coverage.
-3. `flagnearTest.m` and `flagrectTest.m`: geometry flags already have Python tests and should be compact fixture additions.
-4. `stokes_dtracTest.m`: focused Stokes kernel identity, but decide how to treat the MATLAB file's diagnostic-only assertion style.
-5. Fix the `arclengthfunTest.m` merged-component `xfail`, then remove the partial-coverage warning.
+2. `flagnearTest.m` and `flagrectTest.m`: geometry flags already have Python tests and should be compact fixture additions.
+3. `stokes_dtracTest.m`: focused Stokes kernel identity, but decide how to treat the MATLAB file's diagnostic-only assertion style.
+4. Fix the `arclengthfunTest.m` merged-component `xfail`, then remove the partial-coverage warning.
