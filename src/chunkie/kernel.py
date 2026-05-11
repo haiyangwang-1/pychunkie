@@ -235,7 +235,7 @@ def stok2d_kernel(kind: str, mu: float = 1.0, coefs: Any | None = None) -> Kerne
         name="stokes",
         type=typ,
         eval=lambda s, t: stok2d.kern(mu, s, t, typ, coefs),
-        fmm=_direct_fmm(lambda s, t: stok2d.kern(mu, s, t, typ, coefs)),
+        fmm=_stok2d_fmm(typ, mu, coefs) or _direct_fmm(lambda s, t: stok2d.kern(mu, s, t, typ, coefs)),
         opdims=opdims,
         sing="log" if typ in {"s", "single", "svel", "svelocity", "c", "combined", "cvel", "cvelocity"} else "smooth",
         params={"mu": mu} if coefs is None else {"mu": mu, "coefs": coefs},
@@ -403,6 +403,69 @@ def _helm2d_fmm(kind: str, zk: complex, coefs: Any | None = None) -> Callable[[f
             return np.asarray(out.pottarg).reshape(-1, order="F")
         grad = np.asarray(out.gradtarg)
         return grad.reshape(-1, order="F")
+
+    return fmm_eval
+
+
+def _stok2d_fmm(kind: str, mu: float = 1.0, coefs: Any | None = None) -> Callable[[float, Any, Any, np.ndarray], np.ndarray] | None:
+    if _fmm2dpy is None:
+        return None
+    typ = kind.lower()
+    if typ in {"c", "combined", "cvel", "cvelocity"}:
+        c = np.ones(2) if coefs is None else np.asarray(coefs)
+        return _sum_raw_fmm(_stok2d_fmm("d", mu), _stok2d_fmm("s", mu), c[0], c[1])
+    if typ in {"cpres", "cpressure"}:
+        c = np.ones(2) if coefs is None else np.asarray(coefs)
+        return _sum_raw_fmm(_stok2d_fmm("dpres", mu), _stok2d_fmm("spres", mu), c[0], c[1])
+    if typ in {"cg", "cgrad"}:
+        c = np.ones(2) if coefs is None else np.asarray(coefs)
+        return _sum_raw_fmm(_stok2d_fmm("dgrad", mu), _stok2d_fmm("sgrad", mu), c[0], c[1])
+    if typ not in {
+        "s",
+        "single",
+        "svel",
+        "svelocity",
+        "d",
+        "double",
+        "dvel",
+        "dvelocity",
+        "spres",
+        "spressure",
+        "dpres",
+        "dpressure",
+        "sgrad",
+        "sg",
+        "dgrad",
+        "dg",
+    }:
+        return None
+
+    def fmm_eval(eps: float, srcinfo: Any, targinfo: Any, sigma: np.ndarray) -> np.ndarray:
+        from .operators import pointinfo
+
+        src = pointinfo(srcinfo)
+        targ = pointinfo(targinfo)
+        sig = np.asarray(sigma).reshape(2, -1, order="F")
+        is_double = typ in {"d", "double", "dvel", "dvelocity", "dpres", "dpressure", "dgrad", "dg"}
+        if is_double and src.n is None:
+            raise ValueError("source normals are required")
+        ifppregtarg = 3 if typ in {"sgrad", "sg", "dgrad", "dg"} else 2 if typ in {"spres", "spressure", "dpres", "dpressure"} else 1
+        kwargs = {"strslet": sig, "strsvec": src.n} if is_double else {"stoklet": sig}
+        out = _fmm2dpy.stfmm2d(eps=eps, sources=src.r, targets=targ.r, ifppregtarg=ifppregtarg, **kwargs)
+
+        if typ in {"s", "single", "svel", "svelocity"}:
+            scale = 1.0 / (2.0 * np.pi * float(mu))
+            return scale * np.asarray(out.pottarg)[0].reshape(-1, order="F")
+        if typ in {"d", "double", "dvel", "dvelocity"}:
+            return -1.0 / (2.0 * np.pi) * np.asarray(out.pottarg)[0].reshape(-1, order="F")
+        if typ in {"spres", "spressure"}:
+            return 1.0 / (2.0 * np.pi) * np.asarray(out.pretarg)[0].reshape(-1, order="F")
+        if typ in {"dpres", "dpressure"}:
+            return -float(mu) / (2.0 * np.pi) * np.asarray(out.pretarg)[0].reshape(-1, order="F")
+        if typ in {"sgrad", "sg"}:
+            scale = 1.0 / (2.0 * np.pi * float(mu))
+            return scale * np.asarray(out.gradtarg)[0].reshape(-1, order="F")
+        return -1.0 / (2.0 * np.pi) * np.asarray(out.gradtarg)[0].reshape(-1, order="F")
 
     return fmm_eval
 

@@ -86,6 +86,30 @@ def test_fmm2dpy_laplace_gradient_and_helmholtz_layers_match_direct():
         np.testing.assert_allclose(via_fmm, direct, rtol=1e-9, atol=1e-10)
 
 
+def test_fmm2dpy_stokes_layers_match_direct():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 5}, {"k": 8})
+    target = np.array([[0.25, -0.4, 1.5], [0.1, 0.3, -0.2]])
+    pts = chnkr.r.reshape(2, -1, order="F")
+    dens = np.vstack((np.cos(pts[0]), np.sin(pts[1]))).reshape(-1, order="F")
+
+    for kern in (
+        kernel("stok", "s", 1.7),
+        kernel("stok", "d", 1.7),
+        kernel("stok", "spres", 1.7),
+        kernel("stok", "dpres", 1.7),
+        kernel("stok", "sgrad", 1.7),
+        kernel("stok", "dgrad", 1.7),
+        kernel("stok", "c", 1.7, [0.4, -0.2]),
+        kernel("stok", "cpres", 1.7, [0.4, -0.2]),
+        kernel("stok", "cgrad", 1.7, [0.4, -0.2]),
+    ):
+        direct = chunkerkerneval(chnkr, kern, dens, target)
+        via_fmm = chunkerkerneval(chnkr, kern, dens, target, {"usefmm": True, "eps": 1e-12})
+
+        assert kern.fmm is not None
+        np.testing.assert_allclose(via_fmm, direct, rtol=1e-9, atol=1e-10)
+
+
 def test_kernel_fmm_fallback_tracks_kernel_algebra():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
     target = np.array([[0.25], [0.1]])
