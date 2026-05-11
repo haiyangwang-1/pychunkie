@@ -152,16 +152,18 @@ src/
             └── barywts, adapgauss, bernstein_ellipse, polsum, tayl
 ```
 
-## Python To MATLAB Map
-
-### Package Exports
+## Package Exports
 
 - ✅ [src/chunkie/__init__.py](src/chunkie/__init__.py) exports the public Python API. MATLAB has no direct single-file equivalent; it is a Python package facade over MATLAB class folders and package folders.
 - ✅ 🧪 [src/chunkie/domain.py](src/chunkie/domain.py) implements top-level MATLAB geometry/domain helpers exported from the Python package facade.
 - ✅ [src/chunkie/chnk/__init__.py](src/chunkie/chnk/__init__.py) mirrors MATLAB `+chnk` package exports, including the newer `biharm2d`, `quadadap`, `rcip`, and `smoother` modules.
 - ✅ [src/chunkie/lege/__init__.py](src/chunkie/lege/__init__.py) mirrors MATLAB `+lege` package exports.
 
-### `chunker.py`
+
+## Python To MATLAB Map
+
+### I GEOMETRY
+#### `chunker.py`
 
 - ✅ 🧪 🎯 [src/chunkie/chunker.py](src/chunkie/chunker.py) is the main Python home for MATLAB `@chunker`, top-level chunker constructors, and related factory functions.
 
@@ -227,7 +229,7 @@ src/
 | `_rounded_chunkerpoly`, `_polygon_widths`, `_fill_line_chunk`, `_fill_quadratic_chunk` | 🧩 ✅ 🧪 | `chunkerpoly.m`, `+chnk/+smoother/*` concepts | Internal rounded polygon construction helpers. |
 | `_curve_outputs`, `_remap_adjacency` | 🧩 ✅ | Internal Python helpers | No direct MATLAB file. |
 
-### `chunkgraph.py`
+#### `chunkgraph.py`
 
 - ✅ 🧪 [src/chunkie/chunkgraph.py](src/chunkie/chunkgraph.py) maps the Python chunk graph object to MATLAB `@chunkgraph` plus top-level graph helpers.
 
@@ -256,7 +258,7 @@ src/
 | `chunkgraphinregion` | ✅ 🧪 | `chunkgraphinregion.m` | Point-in-region baseline. |
 | private graph helpers | 🧩 ✅ | Internal Python helpers | Include edge normalization, subchunking, simple cycles, polygon tests. |
 
-### `domain.py`
+#### `domain.py`
 
 - ✅ 🧪 [src/chunkie/domain.py](src/chunkie/domain.py) maps top-level MATLAB geometry/domain helpers.
 
@@ -273,7 +275,42 @@ src/
 | `mergeregions` | ✅ 🧪 | `mergeregions.m` | Merges nested/disjoint chunkgraph region lists. |
 | private helpers | 🧩 ✅ | Internal Python helpers | Edge decoding, polygon tests, hyperoctree neighbor construction. |
 
-### `kernel.py`
+
+#### `chnk/arcparam.py`
+
+| Python node | Flags | MATLAB reference | Notes |
+| --- | --- | --- | --- |
+| `ArcParamData` | ✅ 🧪 | `+chnk/+arcparam/init.m` output struct | Python dataclass. |
+| `init` | ✅ 🧪 | `+chnk/+arcparam/init.m` | Tested on chunk nodes. |
+| `eval` | ✅ 🧪 | `+chnk/+arcparam/eval.m` | Tested for derivative consistency on a circle. |
+
+#### `chnk/curves.py`
+
+| Python node | Flags | MATLAB reference | Notes |
+| --- | --- | --- | --- |
+| `linefunc` | ✅ 🧪 | `+chnk/+curves/linefunc.m` | Tested. |
+| `fpara` | ✅ | `+chnk/+curves/fpara.m` | Implemented; no focused test yet. |
+| `fsine` | ✅ 🧪 | `+chnk/+curves/fsine.m` | Tested. |
+| `bymode` | ✅ | `+chnk/+curves/bymode.m` | Implemented; no focused test yet. |
+| `_pack` | 🧩 ✅ | Internal Python helper | No direct MATLAB file. |
+
+#### `chnk/geometry.py`
+
+| Python node | Flags | MATLAB reference | Notes |
+| --- | --- | --- | --- |
+| `perp` | ✅ 🧪 | `+chnk/perp.m` | Tested. |
+| `normal2d` | ✅ 🧪 | `+chnk/normal2d.m` | Tested. |
+| `curvature2d` | ✅ 🧪 | `+chnk/curvature2d.m` | Tested. |
+| `flagnear` | ✅ 🧪 | `@chunker/flagnear.m` / `@chunkgraph/flagnear.m` behavior | Delegates to chunker implementation; chunker and chunkgraph paths tested. |
+| `flagnear_rectangle` | ✅ 🧪 | `@chunker/flagnear_rectangle.m` | Delegates to chunker implementation; per-chunk padding and chunkgraph delegation tested. |
+| `flagnear_rectangle_grid` | ✅ 🧪 | `@chunker/flagnear_rectangle_grid.m` | Delegates to chunker implementation. |
+| `flagself` | ✅ 🧪 | `+chnk/flagself.m` | Tested. |
+| `chunk_nearparam` | ✅ 🧪 | `+chnk/chunk_nearparam.m` | Tested on a line segment. |
+| `_ptinfo_field` | 🧩 ✅ | Internal Python helper | No direct MATLAB file. |
+
+
+### II KERNEL AND OPERATORS
+#### `kernel.py`
 
 - ✅ 🧪 [src/chunkie/kernel.py](src/chunkie/kernel.py) maps MATLAB `@kernel` composition and kernel factory behavior.
 
@@ -302,7 +339,7 @@ quasiperiodic, and flexural kernel families are explicit non-goals for this
 port: `axissymhelm2d`, `axissymhelm2ddiff`, `helm2dquas`, most of `flex2d`, and
 their matching `@kernel` factories.
 
-### `operators.py`
+#### `operators.py`
 
 - ✅ 🧪 🎯 [src/chunkie/operators.py](src/chunkie/operators.py) maps dense/direct operator assembly and evaluation helpers.
 
@@ -318,25 +355,9 @@ their matching `@kernel` factories.
 | `chunkerkernevalmat` | ✅ 🧪 🎯 | `chunkerkernevalmat.m` | MATLAB parity fixture checks eval matrix. |
 | private helpers | 🧩 ✅ | Internal Python helpers | Chunker coercion, weighted density flattening, kernel evaluation, special-quadrature dispatch. |
 
-### `chnk/arcparam.py`
 
-| Python node | Flags | MATLAB reference | Notes |
-| --- | --- | --- | --- |
-| `ArcParamData` | ✅ 🧪 | `+chnk/+arcparam/init.m` output struct | Python dataclass. |
-| `init` | ✅ 🧪 | `+chnk/+arcparam/init.m` | Tested on chunk nodes. |
-| `eval` | ✅ 🧪 | `+chnk/+arcparam/eval.m` | Tested for derivative consistency on a circle. |
 
-### `chnk/curves.py`
-
-| Python node | Flags | MATLAB reference | Notes |
-| --- | --- | --- | --- |
-| `linefunc` | ✅ 🧪 | `+chnk/+curves/linefunc.m` | Tested. |
-| `fpara` | ✅ | `+chnk/+curves/fpara.m` | Implemented; no focused test yet. |
-| `fsine` | ✅ 🧪 | `+chnk/+curves/fsine.m` | Tested. |
-| `bymode` | ✅ | `+chnk/+curves/bymode.m` | Implemented; no focused test yet. |
-| `_pack` | 🧩 ✅ | Internal Python helper | No direct MATLAB file. |
-
-### `chnk/biharm2d.py`, `lap2d.py`, `helm2d.py`, `helm1d.py`, `stok2d.py`, `elast2d.py`
+#### `chnk/biharm2d.py`, `lap2d.py`, `helm2d.py`, `helm1d.py`, `stok2d.py`, `elast2d.py`
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
@@ -355,34 +376,21 @@ their matching `@kernel` factories.
 
 ✅ External FMM acceleration is wired through `fmm2dpy` for the implemented 2D selector surface: Laplace single/double/normal/tangential/Hilbert/prime/gradient/combined paths; Helmholtz single/double/normal/tangential/prime/gradient/combined-prime paths; biharmonic single/double/normal derivative/gradient/Hessian/Laplacian paths via Laplace moment decompositions; Stokes velocity/pressure/gradient/traction/combined paths; and elasticity single/gradient/traction/double/alternate-double workflows via Laplace/Stokes decompositions. Dense-direct fallbacks remain available for custom kernels, optional dependency absence, and compatibility tests.
 
-### `chnk/geometry.py`
 
-| Python node | Flags | MATLAB reference | Notes |
-| --- | --- | --- | --- |
-| `perp` | ✅ 🧪 | `+chnk/perp.m` | Tested. |
-| `normal2d` | ✅ 🧪 | `+chnk/normal2d.m` | Tested. |
-| `curvature2d` | ✅ 🧪 | `+chnk/curvature2d.m` | Tested. |
-| `flagnear` | ✅ 🧪 | `@chunker/flagnear.m` / `@chunkgraph/flagnear.m` behavior | Delegates to chunker implementation; chunker and chunkgraph paths tested. |
-| `flagnear_rectangle` | ✅ 🧪 | `@chunker/flagnear_rectangle.m` | Delegates to chunker implementation; per-chunk padding and chunkgraph delegation tested. |
-| `flagnear_rectangle_grid` | ✅ 🧪 | `@chunker/flagnear_rectangle_grid.m` | Delegates to chunker implementation. |
-| `flagself` | ✅ 🧪 | `+chnk/flagself.m` | Tested. |
-| `chunk_nearparam` | ✅ 🧪 | `+chnk/chunk_nearparam.m` | Tested on a line segment. |
-| `_ptinfo_field` | 🧩 ✅ | Internal Python helper | No direct MATLAB file. |
-
-### `chnk/quadnative.py`
-
+### III QUADRATURES
+#### `chnk/quadnative.py`
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
 | `buildmat` | ✅ 🧪 🎯 | `+chnk/+quadnative/buildmat.m` | Dense native operator path parity-tested. |
 | `_pointinfo_for_chunks` | 🧩 ✅ | Internal Python helper | No direct MATLAB file. |
 
-### `chnk/quadadap.py`
+#### `chnk/quadadap.py`
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
 | `buildmat` | ✅ 🧪 | `+chnk/+quadadap/buildmat.m` | Uses GGQ self blocks, adaptive Gauss neighbor blocks, and optional robust close non-neighbor replacement for log kernels; other singularity types delegate to `quadggq`. |
 
-### `chnk/quadggq.py`
+#### `chnk/quadggq.py`
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
@@ -403,7 +411,7 @@ their matching `@kernel` factories.
 
 Log/PV/HS support tables are consumed when the MATLAB reference checkout is available. `quadadap` covers MATLAB-style log self, neighbor, and robust close replacement. `quadba` is an explicit non-goal for this port.
 
-### `chnk/rcip.py`
+#### `chnk/rcip.py`
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
@@ -419,25 +427,9 @@ Log/PV/HS support tables are consumed when the MATLAB reference checkout is avai
 | `corner_refine` | ⚠️ 🧪 | `+chnk/+rcip/chunkerfunclocal.m` and corner workflows | Convenience helper, not a direct MATLAB API match; tested on chunkgraph corner refinement. |
 | `chunkgraph_rcip` / `chunkgraphrcip` / `rcipchunkgraph` | ✅ 🧪 | `chunkgrphrcip*` workflow concepts | Runs RCIP compression over selected chunkgraph vertices, supports ignored vertices, and subselects global edge-by-edge block kernels for local corner solves. |
 
-### `chnk/smoother.py`
 
-| Python node | Flags | MATLAB reference | Notes |
-| --- | --- | --- | --- |
-| `UniformMesh` | ✅ 🧪 | `+chnk/+smoother/get_umesh.m` output structs | Dataclass for polygon edge mesh metadata. |
-| `SmoothMesh` | ✅ 🧪 | `+chnk/+smoother/get_mesh.m` output structs | Dataclass for sampled smoother mesh metadata. |
-| `get_umesh` | ✅ 🧪 | `+chnk/+smoother/get_umesh.m` | Uniform polygon edge mesh tested. |
-| `get_mesh` | ✅ 🧪 | `+chnk/+smoother/get_mesh.m` | Legendre-panel mesh expansion tested. |
-| `smooth` | ⚠️ 🧪 | `+chnk/+smoother/smooth.m`, `smooth_curve*.m` | Lightweight rounded-`chunkerpoly` workflow with optional zero error outputs; full MATLAB smoothing/Newton workflow is a non-goal. |
-| `smooth_curve`, `smooth_curve2`, `smooth_curve3` | ⚠️ 🧪 | `+chnk/+smoother/smooth_curve*.m` | Aliases to the lightweight `smooth` baseline; full MATLAB smoothing/Newton behavior is a non-goal. |
-| `_panel_nodes` | 🧩 ✅ 🧪 | Internal Python helper | Builds panel-local Legendre nodes and weights. |
-
-### `chnk/spcl.py`
-
-| Python node | Flags | MATLAB reference | Notes |
-| --- | --- | --- | --- |
-| `absconvgauss` | ✅ 🧪 | `+chnk/+spcl/absconvgauss.m` | Derivatives tested against finite differences. |
-
-### `lege/core.py`
+### IV LEGENDRE
+#### `lege/core.py`
 
 - ✅ 🧪 🎯 [src/chunkie/lege/core.py](src/chunkie/lege/core.py) maps MATLAB `+lege`.
 
@@ -459,6 +451,26 @@ Log/PV/HS support tables are consumed when the MATLAB reference checkout is avai
 | `bernstein_ellipse` | ✅ 🧪 | `+lege/bernstein_ellipse.m` | Conformal-map ellipse nodes tested. |
 | `polsum` | ✅ 🧪 | `+lege/polsum.m` | Recurrence value, derivative, and normalization total tested. |
 | `tayl` | ✅ 🧪 | `+lege/tayl.m` | Taylor stepping tested against direct Legendre evaluation. |
+
+### V SMOOTH
+#### `chnk/smoother.py`
+
+| Python node | Flags | MATLAB reference | Notes |
+| --- | --- | --- | --- |
+| `UniformMesh` | ✅ 🧪 | `+chnk/+smoother/get_umesh.m` output structs | Dataclass for polygon edge mesh metadata. |
+| `SmoothMesh` | ✅ 🧪 | `+chnk/+smoother/get_mesh.m` output structs | Dataclass for sampled smoother mesh metadata. |
+| `get_umesh` | ✅ 🧪 | `+chnk/+smoother/get_umesh.m` | Uniform polygon edge mesh tested. |
+| `get_mesh` | ✅ 🧪 | `+chnk/+smoother/get_mesh.m` | Legendre-panel mesh expansion tested. |
+| `smooth` | ⚠️ 🧪 | `+chnk/+smoother/smooth.m`, `smooth_curve*.m` | Lightweight rounded-`chunkerpoly` workflow with optional zero error outputs; full MATLAB smoothing/Newton workflow is a non-goal. |
+| `smooth_curve`, `smooth_curve2`, `smooth_curve3` | ⚠️ 🧪 | `+chnk/+smoother/smooth_curve*.m` | Aliases to the lightweight `smooth` baseline; full MATLAB smoothing/Newton behavior is a non-goal. |
+| `_panel_nodes` | 🧩 ✅ 🧪 | Internal Python helper | Builds panel-local Legendre nodes and weights. |
+
+#### `chnk/spcl.py`
+
+| Python node | Flags | MATLAB reference | Notes |
+| --- | --- | --- | --- |
+| `absconvgauss` | ✅ 🧪 | `+chnk/+spcl/absconvgauss.m` | Derivatives tested against finite differences. |
+
 
 ## Support Tree
 
