@@ -902,6 +902,47 @@ ckgmat.utarg_identity_forceadap = ckgmat.Sun - ckgmat.Du_forceadap;
 ckgmat.relerr_forceadap = norm(ckgmat.utarg - ckgmat.utarg_identity_forceadap, 'fro')/norm(ckgmat.utarg, 'fro');
 devtools_easy.chunkerkernevalmat_greenlap = ckgmat;
 
+% chunkerkerneval_greenhelmTest.m
+ckgh = [];
+rng(8675309);
+cparams = [];
+cparams.eps = 1.0e-11;
+pref = [];
+pref.k = 16;
+ckgh.narms = 5;
+ckgh.amp = 0.5;
+chnkr = chunkerfunc(@(t) starfish(t, ckgh.narms, ckgh.amp), cparams, pref);
+ckgh.chunker = fixture_pack_chunker(chnkr);
+ckgh.ns = 10;
+ts = 2*pi*rand(ckgh.ns, 1);
+ckgh.sources = 3.0*starfish(ts, ckgh.narms, ckgh.amp);
+ckgh.strengths = randn(ckgh.ns, 1);
+ckgh.nt = 100;
+ts = 2*pi*rand(ckgh.nt, 1);
+ckgh.targets = starfish(ts, ckgh.narms, ckgh.amp);
+ckgh.targets = ckgh.targets.*repmat(rand(1, ckgh.nt), 2, 1);
+ckgh.zk = rand() + 1i*rand();
+kernd = kernel('h', 'd', ckgh.zk);
+kerns = kernel('h', 's', ckgh.zk);
+kernsprime = kernel('h', 'sprime', ckgh.zk);
+srcinfo = [];
+srcinfo.r = ckgh.sources;
+targinfo = [];
+targinfo.r = chnkr.r(:,:);
+targinfo.d = chnkr.d(:,:);
+targinfo.n = chnkr.n(:,:);
+ckgh.densu = kerns.eval(srcinfo, targinfo)*ckgh.strengths;
+ckgh.densun = kernsprime.eval(srcinfo, targinfo)*ckgh.strengths;
+targinfo = [];
+targinfo.r = ckgh.targets;
+ckgh.utarg = kerns.eval(srcinfo, targinfo)*ckgh.strengths;
+opts = [];
+ckgh.Du = chunkerkerneval(chnkr, kernd, ckgh.densu, ckgh.targets, opts);
+ckgh.Sun = chunkerkerneval(chnkr, kerns, ckgh.densun, ckgh.targets, opts);
+ckgh.utarg_identity = ckgh.Sun - ckgh.Du;
+ckgh.relerr = norm(ckgh.utarg - ckgh.utarg_identity, 'fro')/norm(ckgh.utarg, 'fro');
+devtools_easy.chunkerkerneval_greenhelm = ckgh;
+
 % chunkermat_quadadapTest.m
 cqa = [];
 rng(8675309);

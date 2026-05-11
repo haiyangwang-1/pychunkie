@@ -76,6 +76,21 @@ def laplace_green_identity_quantities(fixture):
     return chnkr, lap_s, lap_d, densu, densun, utarg
 
 
+def helmholtz_green_identity_quantities(fixture):
+    chnkr = chunker_from_fields(fixture.chunker)
+    src = PointInfo(r=point_array(fixture.sources))
+    targ = PointInfo(r=point_array(fixture.targets))
+    strengths = np.asarray(fixture.strengths).reshape(-1, order="F")
+    helm_s = kernel("helm", "s", fixture.zk)
+    helm_sp = kernel("helm", "sprime", fixture.zk)
+    helm_d = kernel("helm", "d", fixture.zk)
+    boundary = pointinfo(chnkr)
+    densu = helm_s(src, boundary) @ strengths
+    densun = helm_sp(src, boundary) @ strengths
+    utarg = helm_s(src, targ) @ strengths
+    return chnkr, helm_s, helm_d, densu, densun, utarg
+
+
 def sorted_pairs(pairs: np.ndarray) -> np.ndarray:
     arr = np.asarray(pairs, dtype=int)
     if arr.size == 0:
@@ -701,6 +716,25 @@ def test_chunkerkernevalmat_greenlap_devtools_outputs_match_matlab():
     assert np.linalg.norm(utarg - identity) / np.linalg.norm(utarg) < 1e-11
     assert float(fixture.relerr) < 1e-11
     assert float(fixture.relerr_forceadap) < 1e-11
+
+
+def test_chunkerkerneval_greenhelm_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().chunkerkerneval_greenhelm
+    chnkr, helm_s, helm_d, densu, densun, utarg = helmholtz_green_identity_quantities(fixture)
+
+    opts = {"forceadap": True}
+    Du = chunkerkerneval(chnkr, helm_d, densu, fixture.targets, opts).reshape(-1, order="F")
+    Sun = chunkerkerneval(chnkr, helm_s, densun, fixture.targets, opts).reshape(-1, order="F")
+    identity = Sun - Du
+
+    np.testing.assert_allclose(densu, fixture.densu, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(densun, fixture.densun, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(utarg, fixture.utarg, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(Du, fixture.Du, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(Sun, fixture.Sun, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(identity, fixture.utarg_identity, rtol=1e-10, atol=1e-12)
+    assert np.linalg.norm(utarg - identity) / np.linalg.norm(utarg) < 1e-11
+    assert float(fixture.relerr) < 1e-11
 
 
 def test_chunkermat_quadadap_devtools_outputs_match_matlab():

@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 283 pytest cases because several MATLAB parity tests are
+collection expands to 284 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -100,10 +100,11 @@ Implemented from this scope:
 - Section II kernel/operator parity: MATLAB `@kernel` factory metadata and
   direct evaluations, kernel algebra/interleave, Green helpers, biharmonic
   `bhgreen`-derived selectors, and smooth dense operator helper routes.
-- Laplace Green-identity target-evaluation parity for the devtools
+- Laplace and Helmholtz Green-identity target-evaluation parity for the devtools
   `kernelclass`, `chunkerkerneval_greenlap`, and
-  `chunkerkernevalmat_greenlap` paths, including Python `forceadap`
-  close-target replacement in `chunkerkerneval` and `chunkerkernevalmat`.
+  `chunkerkerneval_greenhelm`, and `chunkerkernevalmat_greenlap` paths,
+  including Python `forceadap` close-target replacement in `chunkerkerneval`
+  and `chunkerkernevalmat`.
 
 Deferred implementation:
 
@@ -576,6 +577,13 @@ evaluation matrices with `chunkerkernevalmat(..., forceadap=True)`, applies
 them to saved boundary densities, and verifies the reconstructed target field.
 Ground truth is MATLAB's single-layer matrix, adaptive double-layer matrix,
 applied layer potentials, and relative identity residual.
+
+`test_chunkerkerneval_greenhelm_devtools_outputs_match_matlab` checks the
+Helmholtz Green-identity workflow from `chunkerkerneval_greenhelmTest.m`. The
+method uses the saved complex wave number, source strengths, boundary
+densities, and targets, then evaluates single and double Helmholtz layers with
+`chunkerkerneval(..., forceadap=True)`. Ground truth is MATLAB's layer
+potentials and relative identity residual.
 
 ## `tests/test_easy_parity_stress.py`
 

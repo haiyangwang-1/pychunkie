@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 283 tests: `283 passed`. Full MATLAB parity runs generate ignored `tests/golden/*.mat` files on demand and require a populated `external/chunkie-matlab` checkout.
+Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 284 tests: `284 passed`. Full MATLAB parity runs generate ignored `tests/golden/*.mat` files on demand and require a populated `external/chunkie-matlab` checkout.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -569,7 +569,7 @@ Support file roles:
 - 🧭 `scripts/generate_quadggq_package_data.py`: converts upstream MATLAB `+chnk/+quadggq` table files into the package `.npz` data assets.
 - 🧭 `scripts/matlab/*.m`: MATLAB fixture-generation scripts; these are the source of the `.mat` golden data used for 🎯 flags.
 - 🧪 `tests/_fixture_generation.py`: ensures missing MATLAB parity fixture files are generated on demand before tests load them; generation failure is a test failure.
-- 🧪 `tests/golden/*.mat`: ignored MATLAB-generated parity fixture files created on demand by tests. `devtools_easy.mat` covers the low/mid devtools track through adaptive `chunkerfunc`, `chunkerarcparam`, partial `slicegraph`, `chunkermat_quadadap`, and Laplace Green-identity target-evaluation parity. `geometry_core.mat` covers compact I GEOMETRY parity excluding `chunkerfit` and smoother workflows. `quadggq.mat` covers Section III native, GGQ, and adaptive quadrature behavior; `rcip.mat` covers Section III RCIP helpers, Schur updates, chunkgraph driver metadata, and recursive compression.
+- 🧪 `tests/golden/*.mat`: ignored MATLAB-generated parity fixture files created on demand by tests. `devtools_easy.mat` covers the low/mid devtools track through adaptive `chunkerfunc`, `chunkerarcparam`, partial `slicegraph`, `chunkermat_quadadap`, and Laplace/Helmholtz Green-identity target-evaluation parity. `geometry_core.mat` covers compact I GEOMETRY parity excluding `chunkerfit` and smoother workflows. `quadggq.mat` covers Section III native, GGQ, and adaptive quadrature behavior; `rcip.mat` covers Section III RCIP helpers, Schur updates, chunkgraph driver metadata, and recursive compression.
 - 🧪 `tests/test_matlab_parity.py`: main exact-behavior comparison suite against golden data.
 - 🧪 `tests/test_geometry_parity.py`: focused I GEOMETRY comparison suite against `geometry_core.mat`.
 - 🧪 `tests/test_matlab_fixtures.py`: basic fixture comparison suite.
@@ -602,7 +602,7 @@ Do not implement:
 
 ## Recommended Next Flags To Upgrade
 
-- Promote more optional devtools parity into generated fixtures where runtime cost allows; current generated coverage includes `chunkerfunc`, `chunkerarcparam`, `slicegraph`, `chunkermat_quadadap`, and Laplace Green-identity target-evaluation paths.
+- Promote more optional devtools parity into generated fixtures where runtime cost allows; current generated coverage includes `chunkerfunc`, `chunkerarcparam`, `slicegraph`, `chunkermat_quadadap`, and Laplace/Helmholtz Green-identity target-evaluation paths.
 - Add focused tests for remaining implemented but currently lightly tested methods that are outside the compact I GEOMETRY and devtools fixtures.
 - Add stricter MATLAB fixtures for full devtools solve/evaluation workflows around adaptive close quadrature; `smoother.py` remains a lightweight rounded-polygon path and full MATLAB smoothing/Newton behavior is a non-goal.
 - Add stricter MATLAB fixtures for FMM-heavy solve/evaluation workflows and implemented selector families, especially direct/FMM layer-potential Green identity paths.
