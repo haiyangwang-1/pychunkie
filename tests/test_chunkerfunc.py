@@ -53,6 +53,34 @@ def test_chunkerfunc_can_spectrally_differentiate_position_only_curve():
     np.testing.assert_allclose(chnkr.area(), np.pi, atol=1e-12)
 
 
+def test_chunkerfunc_adaptively_refines_unresolved_curve():
+    freq = 24.0 * np.pi
+
+    def wavy(t):
+        t = np.asarray(t)
+        r = np.vstack((t, 0.05 * np.sin(freq * t)))
+        d = np.vstack((np.ones_like(t), 0.05 * freq * np.cos(freq * t)))
+        d2 = np.vstack((np.zeros_like(t), -0.05 * freq**2 * np.sin(freq * t)))
+        return r, d, d2
+
+    coarse, _ = chunkerfunc(
+        wavy,
+        {"ta": 0.0, "tb": 1.0, "ifclosed": False, "nchmin": 1, "ifrefine": False, "lvlr": "n"},
+        {"k": 8, "nchmax": 256},
+    )
+    refined, ab = chunkerfunc(
+        wavy,
+        {"ta": 0.0, "tb": 1.0, "ifclosed": False, "nchmin": 1, "eps": 1e-6, "lvlr": "n"},
+        {"k": 8, "nchmax": 256},
+    )
+
+    assert coarse.nch == 1
+    assert refined.nch > coarse.nch
+    np.testing.assert_allclose(ab[0, 0], 0.0)
+    np.testing.assert_allclose(ab[1, -1], 1.0)
+    np.testing.assert_allclose(np.sum(refined.chunklen()), np.sum(refined.wts), atol=1e-14)
+
+
 def test_basic_curve_helpers_match_expected_derivatives():
     t = np.array([0.0, 0.25, 0.5])
     r, d, d2 = curves.fsine(t, 2.0, 3.0, 0.1)

@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 191 pytest cases because several MATLAB parity tests are
+collection expands to 193 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 
@@ -73,7 +73,6 @@ Should implement:
 - Full adaptive/close quadrature: complete `quadadap` and
   `quadggq/buildmattd`.
 - Advanced RCIP workflows beyond the current two-edge corner fixture.
-- Adaptive refinement in `chunker.refine` and `chunkerfunc`.
 - `chunkerinterior` close-boundary correction.
 
 Implemented from this scope:
@@ -86,6 +85,7 @@ Implemented from this scope:
 - Biharmonic Laplacian FMM selector wiring.
 - Remaining `+lege` helpers: `adapgauss`, `bernstein_ellipse`, `polsum`, and
   `tayl`.
+- Adaptive refinement in `chunker.refine` and `chunkerfunc`.
 
 Deferred implementation:
 
@@ -245,6 +245,11 @@ two panels with closed adjacency, while area and total length are preserved.
 The method is `Chunker.refine`. Ground truth is expected adjacency, unchanged
 area, and unchanged summed chunk lengths.
 
+`test_refine_enforces_arc_length_level_restriction` checks adaptive refinement
+of an existing uneven chunker. The method builds an open line with two short
+panels followed by a long panel, calls `Chunker.refine` with `lvlr="a"`, and
+verifies every adjacent chunk-length ratio is within the requested factor.
+
 `test_chunkerpoints_builds_from_nodes_and_optional_derivatives` checks
 reconstruction of a chunker from node positions alone and from explicit
 derivative fields. The equation source is the circle helper, where spectral
@@ -312,6 +317,12 @@ the constructor can infer derivatives when a curve callback returns only
 positions. The equation is the unit-circle area `pi`. The method is spectral
 differentiation of position data inside `chunkerfunc`. Ground truth is the
 correct area after derivative inference.
+
+`test_chunkerfunc_adaptively_refines_unresolved_curve` checks adaptive
+parameter-interval refinement. The method constructs a high-frequency open
+curve once with `ifrefine=False` and once with adaptive refinement enabled.
+Ground truth is that the unresolved one-panel curve is split into multiple
+panels while preserving interval coverage from `0` to `1`.
 
 `test_basic_curve_helpers_match_expected_derivatives` checks the canned
 `curves.fsine` helper. The equations are `x(t)=t`, `x'(t)=1`, `x''(t)=0`, and

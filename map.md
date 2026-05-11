@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 191 tests: `190 passed, 1 failed` (`tests/test_devtools_parity.py::test_smoother_devtools_output_matches_matlab_thresholds`, current fixture lacks `fixture.chunker.npt`). Targeted domain/adjacent run `uv run pytest tests/test_domain.py tests/test_chunkgraph.py tests/test_chunkerfunc.py`: `16 passed`; targeted kernel run `uv run pytest tests/test_kernel.py`: `11 passed`; targeted Legendre run `uv run pytest tests/test_lege.py`: `12 passed`.
+Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 193 tests: `192 passed, 1 failed` (`tests/test_devtools_parity.py::test_smoother_devtools_output_matches_matlab_thresholds`, current fixture lacks `fixture.chunker.npt`). Targeted geometry/domain run `uv run pytest tests/test_domain.py tests/test_chunkgraph.py tests/test_chunkerfunc.py`: `17 passed`; targeted chunker refinement run `uv run pytest tests/test_chunker.py tests/test_chunkerfunc.py`: `23 passed`; targeted kernel run `uv run pytest tests/test_kernel.py`: `11 passed`; targeted Legendre run `uv run pytest tests/test_lege.py`: `12 passed`.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -206,7 +206,7 @@ src/
 | `recompute_geometry` | ✅ 🧪 | MATLAB geometry recomputation inside constructors/transforms | Python tested after transforms/refinement. |
 | `upsample` | ✅ 🧪 | `@chunker/upsample.m` | Python tested with density transfer. |
 | `split` | ✅ 🧪 | `@chunker/split.m` | Tested indirectly through `refine`; add focused parity later. |
-| `refine` | ⚠️ 🧪 | `@chunker/refine.m` | Current baseline splits chunks; adaptive refinement should be implemented. |
+| `refine` | ✅ 🧪 | `@chunker/refine.m` | Splits selected chunks, enforces max chunk length, arc-length level restriction, and oversampling. |
 | `arcresample` | ✅ 🧪 | `@chunker/arcresample.m`, `+chnk/+arcparam/*` | Python tested for near-constant panel speed. |
 | `translate` | ✅ 🧪 | `@chunker/plus.m` | Python operator helper. |
 | `transform` | ✅ 🧪 🎯 | `@chunker/mtimes.m` | MATLAB parity fixture checks matrix transform. |
@@ -218,7 +218,7 @@ src/
 | `__mul__`, `__rmul__`, `__rmatmul__` | ✅ 🧪 🎯 | `@chunker/mtimes.m` | Scalar and matrix transform behavior. |
 | `chunker` | ✅ 🧪 🎯 | `@chunker/chunker.m` | Python constructor wrapper. |
 | `chunkerpref` | ✅ 🧪 | `@chunkerpref/chunkerpref.m` | Python preference wrapper. |
-| `chunkerfunc` | ⚠️ 🧪 🎯 | `chunkerfunc.m` | Circle fixture parity; adaptive refinement should be implemented. |
+| `chunkerfunc` | ✅ 🧪 🎯 | `chunkerfunc.m` | Circle fixture parity plus adaptive curve/speed resolution, level restriction, max-length splitting, and oversampling. |
 | `chunkerfuncuni` | ✅ 🧪 | `chunkerfuncuni.m` | Uniform panel count tested. |
 | `chunkerfit` | ⚠️ 🧪 | `chunkerfit.m` | Spline/open-line/circle paths tested; remaining MATLAB fitting modes are deferred. |
 | `chunkerpoly` | ✅ 🧪 | `chunkerpoly.m`, `+chnk/+smoother/*` workflows | Straight-edge and rounded-corner polygon paths are implemented and tested. |
@@ -546,7 +546,6 @@ Should implement:
 - 🚧 FMM integration everywhere it applies to implemented kernel/operator families, including `chunkermat` FMM acceleration and missing selector wiring for remaining biharmonic selectors, elasticity, and other currently unsupported selectors.
 - 🚧 Full adaptive/close quadrature: complete `+chnk/+quadadap/*` and `+chnk/+quadggq/buildmattd.m`.
 - 🚧 Advanced RCIP workflows beyond the current two-edge corner fixture, including broader multi-kernel block coverage and production examples.
-- 🚧 Adaptive refinement for `Chunker.refine` and `chunkerfunc`.
 - 🚧 `chunkerinterior` close-boundary correction and FMM interior acceleration.
 
 Deferred implementation:
