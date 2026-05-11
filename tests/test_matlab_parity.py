@@ -5,8 +5,8 @@ import pytest
 from scipy import sparse
 from scipy.io import loadmat
 
-from chunkie import Chunker, chunkerkerneval, chunkerkernevalmat, chunkermat, lege
-from chunkie.chnk import elast2d, helm1d, helm2d, lap2d, quadnative, stok2d
+from chunkie import Chunker, chunkerkerneval, chunkerkernevalmat, chunkermat, kernel, lege
+from chunkie.chnk import elast2d, helm1d, helm2d, lap2d, quadggq, quadnative, stok2d
 
 
 GOLDEN = Path(__file__).parent / "golden"
@@ -216,3 +216,39 @@ def test_dense_native_operator_paths_match_matlab_fixture():
     stok_d_mat = quadnative.buildmat(chnkr, stok_d, (2, 2))
     np.testing.assert_allclose(stok_d_mat, fixture.stok_d_mat, rtol=1e-12, atol=1e-13)
     np.testing.assert_allclose(stok_d_mat @ density_stokes, fixture.stok_d_apply, rtol=1e-12, atol=1e-13)
+
+
+def test_quadggq_special_quadrature_matches_matlab_fixture():
+    fixture = load_fixture("quadggq.mat")["quadggq"]
+    chnkr = chunker_from_fields(fixture.chunker)
+
+    log_aux = quadggq.setup(chnkr.k, "log")
+    np.testing.assert_allclose(log_aux.xs1, fixture.log_xs1, atol=0.0)
+    np.testing.assert_allclose(log_aux.wts1, fixture.log_wts1, atol=0.0)
+    for actual, expected in zip(log_aux.xs0, fixture.log_xs0):
+        np.testing.assert_allclose(actual, expected, atol=0.0)
+    for actual, expected in zip(log_aux.wts0, fixture.log_wts0):
+        np.testing.assert_allclose(actual, expected, atol=0.0)
+
+    pv_aux = quadggq.setup(chnkr.k, "pv")
+    hs_aux = quadggq.setup(chnkr.k, "hs")
+    for actual, expected in zip(pv_aux.xs0, fixture.pv_xs0):
+        np.testing.assert_allclose(actual, expected, atol=0.0)
+    for actual, expected in zip(pv_aux.wts0, fixture.pv_wts0):
+        np.testing.assert_allclose(actual, expected, atol=0.0)
+    for actual, expected in zip(hs_aux.xs0, fixture.hs_xs0):
+        np.testing.assert_allclose(actual, expected, atol=0.0)
+    for actual, expected in zip(hs_aux.wts0, fixture.hs_wts0):
+        np.testing.assert_allclose(actual, expected, atol=0.0)
+
+    lap_s = kernel("lap", "s")
+    lap_sgrad = kernel("lap", "sgrad")
+    lap_dgrad = kernel("lap", "dgrad")
+    np.testing.assert_allclose(quadggq.buildmat(chnkr, lap_s, lap_s.opdims, "log"), fixture.log_mat, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(quadggq.buildmat(chnkr, lap_sgrad, lap_sgrad.opdims, "pv"), fixture.pv_mat, rtol=1e-10, atol=1e-11)
+    np.testing.assert_allclose(quadggq.buildmat(chnkr, lap_dgrad, lap_dgrad.opdims, "hs"), fixture.hs_mat, rtol=2e-7, atol=5e-8)
+
+    skipped = quadggq.buildmat(chnkr, lap_s, lap_s.opdims, "log", ilist=[0, 1])
+    np.testing.assert_array_equal(np.isinf(skipped), np.isinf(fixture.log_mat_skip))
+    finite = np.isfinite(fixture.log_mat_skip)
+    np.testing.assert_allclose(skipped[finite], fixture.log_mat_skip[finite], rtol=1e-12, atol=1e-13)
