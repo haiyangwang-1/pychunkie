@@ -84,6 +84,25 @@ def test_extended_legendre_helpers_match_matlab_fixture():
     np.testing.assert_allclose(lege.intpol(coeff, "original"), fixture["intpol_original_ext"], atol=1e-13)
     np.testing.assert_allclose(lege.derpol(coeff), fixture["derpol_ext"], atol=1e-13)
     np.testing.assert_allclose(lege.barywts(k, x), fixture["barywts_ext"], atol=1e-13)
+    np.testing.assert_allclose(
+        lege.bernstein_ellipse(int(fixture["bernstein_ntheta_ext"]), float(fixture["bernstein_rho_ext"])),
+        fixture["bernstein_ellipse_ext"],
+        atol=1e-14,
+    )
+    polsum_pol, polsum_der, polsum_tot = lege.polsum(xs, int(fixture["polsum_n_ext"]))
+    np.testing.assert_allclose(polsum_pol, fixture["polsum_pol_ext"], atol=1e-13)
+    np.testing.assert_allclose(polsum_der, fixture["polsum_der_ext"], atol=1e-12)
+    np.testing.assert_allclose(polsum_tot, fixture["polsum_tot_ext"], atol=1e-13)
+    tayl_pol, tayl_der = lege.tayl(
+        fixture["tayl_pol0_ext"],
+        fixture["tayl_der0_ext"],
+        fixture["tayl_x_ext"],
+        fixture["tayl_h_ext"],
+        int(fixture["tayl_n_ext"]),
+        int(fixture["tayl_k_ext"]),
+    )
+    np.testing.assert_allclose(tayl_pol, fixture["tayl_pol_ext"], atol=1e-13)
+    np.testing.assert_allclose(tayl_der, fixture["tayl_der_ext"], atol=1e-12)
 
 
 def test_chunker_geometry_and_transforms_match_matlab_fixture():

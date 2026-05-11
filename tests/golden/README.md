@@ -13,8 +13,9 @@ they are small and stable enough for regular `uv run pytest` runs. Large
 generated parity snapshots are ignored and should stay local; tests that need
 an absent optional snapshot skip cleanly.
 
-Current fixtures cover Legendre helpers, basic circle chunking, chunker
-transforms, point-kernel evaluators, and dense/native operator paths. Strict
+Current fixtures cover Legendre helpers, including extended helper parity,
+basic circle chunking, chunker transforms, point-kernel evaluators, and
+dense/native operator paths. Strict
 `xfail` entries document known MATLAB parity gaps while keeping the rest of the
 suite actionable.
 
