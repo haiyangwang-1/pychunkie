@@ -7,6 +7,7 @@ from scipy.io import loadmat
 from chunkie import (
     Chunker,
     checkcurveparam,
+    chunkerfuncuni,
     chunkerpoints,
     chunkgraph,
     ellipse,
@@ -20,7 +21,17 @@ from chunkie import (
     starfish,
 )
 from chunkie import lege
-from chunkie.chnk import chunk_nearparam, curvature2d, curves, flagself, normal2d, perp
+from chunkie.chnk import (
+    chunk_nearparam,
+    curvature2d,
+    curves,
+    flagnear,
+    flagnear_rectangle,
+    flagnear_rectangle_grid,
+    flagself,
+    normal2d,
+    perp,
+)
 
 
 GOLDEN = Path(__file__).parent / "golden"
@@ -189,6 +200,51 @@ def test_chunker_core_geometry_helpers_match_matlab_fixture():
     data_base = attach_data(base, fixture.data)
     actual_datares = data_base.datares({"idata": [0, 1], "ncoeff": 3, "tol": 1.0e-8})
     np.testing.assert_array_equal(actual_datares, np.asarray(fixture.datares, dtype=bool))
+
+
+def test_chunker_flag_nearest_translate_and_uniform_helpers_match_matlab_fixture():
+    fixture = load_geometry_core().chunker
+    base = chunker_from_fields(fixture.base)
+
+    flag_opts = {"fac": float(fixture.flag_fac)}
+    expected_flagnear = np.asarray(fixture.flagnear, dtype=bool)
+    np.testing.assert_array_equal(base.flagnear(fixture.flag_targets, flag_opts), expected_flagnear)
+    np.testing.assert_array_equal(flagnear(base, fixture.flag_targets, flag_opts), expected_flagnear)
+
+    rect_opts = {"rho": float(fixture.rect_rho)}
+    expected_rect = np.asarray(fixture.flagnear_rectangle, dtype=bool)
+    expected_grid = np.asarray(fixture.flagnear_rectangle_grid, dtype=bool)
+    np.testing.assert_array_equal(base.flagnear_rectangle(fixture.rect_targets, rect_opts), expected_rect)
+    np.testing.assert_array_equal(base.flagnear_rectangle_grid(fixture.rect_x, fixture.rect_y, rect_opts), expected_grid)
+    np.testing.assert_array_equal(flagnear_rectangle(base, fixture.rect_targets, rect_opts), expected_rect)
+    np.testing.assert_array_equal(flagnear_rectangle_grid(base, fixture.rect_x, fixture.rect_y, rect_opts), expected_grid)
+
+    rn, dn, d2n, dist, tn, ichn = base.nearest(fixture.nearest_targets)
+    np.testing.assert_allclose(rn, fixture.nearest_r, atol=2e-12)
+    np.testing.assert_allclose(dn, fixture.nearest_d, atol=2e-12)
+    np.testing.assert_allclose(d2n, fixture.nearest_d2, atol=2e-11)
+    np.testing.assert_allclose(dist, fixture.nearest_dist, atol=2e-12)
+    np.testing.assert_allclose(tn, fixture.nearest_t, atol=2e-12)
+    np.testing.assert_array_equal(ichn + 1, np.asarray(fixture.nearest_ich, dtype=int))
+
+    dirty = base.copy()
+    dirty.n = np.zeros_like(dirty.n)
+    dirty.wts = np.zeros_like(dirty.wts)
+    assert_chunker_matches_fields(dirty.recompute_geometry(), fixture.recomputed, atol=2e-12)
+    assert_chunker_matches_fields(fixture.translation_vector + base, fixture.translated_left, atol=2e-12)
+    assert_chunker_matches_fields(base + fixture.translation_vector, fixture.translated_right, atol=2e-12)
+
+    uniform = chunkerfuncuni(
+        lambda t: starfish(t, 4, 0.15, [0.05, -0.1], 0.2, 0.9),
+        int(fixture.chunkerfuncuni_nch),
+        {
+            "ta": float(fixture.chunkerfuncuni_cparams.ta),
+            "tb": float(fixture.chunkerfuncuni_cparams.tb),
+            "ifclosed": bool(fixture.chunkerfuncuni_cparams.ifclosed),
+        },
+        {"k": int(fixture.chunkerfuncuni_pref.k)},
+    )
+    assert_chunker_matches_fields(uniform, fixture.chunkerfuncuni, atol=2e-12)
 
 
 def test_chunker_refinement_and_reconstruction_helpers_match_matlab_fixture():

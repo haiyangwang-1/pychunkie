@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 211 tests: `210 passed, 1 failed` (`tests/test_devtools_parity.py::test_smoother_devtools_output_matches_matlab_thresholds`, current optional fixture lacks `fixture.chunker.npt`). Targeted geometry parity/domain run `uv run pytest tests/test_geometry_parity.py tests/test_domain.py tests/test_geometry.py tests/test_chunkgraph.py tests/test_chunker.py tests/test_chunkerfunc.py`: `49 passed`; targeted operator run `uv run pytest tests/test_operators.py`: `10 passed`; targeted quadrature run `uv run pytest tests/test_quadggq.py`: `12 passed`; targeted kernel run `uv run pytest tests/test_kernel.py`: `15 passed`; targeted RCIP run `uv run pytest tests/test_rcip.py`: `7 passed`; targeted Legendre run `uv run pytest tests/test_lege.py`: `12 passed`.
+Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 212 tests: `211 passed, 1 failed` (`tests/test_devtools_parity.py::test_smoother_devtools_output_matches_matlab_thresholds`, current optional fixture lacks `fixture.chunker.npt`). Targeted geometry parity/domain run `uv run pytest tests/test_geometry_parity.py tests/test_domain.py tests/test_geometry.py tests/test_chunkgraph.py tests/test_chunker.py tests/test_chunkerfunc.py`: `50 passed`; targeted operator run `uv run pytest tests/test_operators.py`: `10 passed`; targeted quadrature run `uv run pytest tests/test_quadggq.py`: `12 passed`; targeted kernel run `uv run pytest tests/test_kernel.py`: `15 passed`; targeted RCIP run `uv run pytest tests/test_rcip.py`: `7 passed`; targeted Legendre run `uv run pytest tests/test_lege.py`: `12 passed`.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -180,17 +180,17 @@ src/
 | `cleardata` | ✅ 🧪 | `@chunker/makedatarows.m` / data field behavior | Tested for data-row reset behavior. |
 | `checkadjinfo` | ✅ 🧪 | `@chunker/checkadjinfo.m` | Python tested through adjacency checks. |
 | `sort` | ✅ 🧪 | `@chunker/sort.m` | Python tested on open segments. |
-| `flagnear` | ✅ 🧪 | `@chunker/flagnear.m`, `+chnk/flagnear*` helpers | Python tested against brute-force distances. |
-| `flagnear_rectangle` | ✅ 🧪 | `@chunker/flagnear_rectangle.m` | 2D only. |
-| `flagnear_rectangle_grid` | ✅ 🧪 | `@chunker/flagnear_rectangle_grid.m` | Python tested on meshgrid order. |
-| `nearest` | ✅ 🧪 | `@chunker/nearest.m` | Python tested for point/chunk selection. |
-| `recompute_geometry` | ✅ 🧪 | MATLAB geometry recomputation inside constructors/transforms | Python tested after transforms/refinement. |
-| `translate` | ✅ 🧪 | `@chunker/plus.m` | Python operator helper. |
-| `__add__`, `__radd__` | ✅ 🧪 | `@chunker/plus.m` | Translation operator. |
 | `chunkerpref` | ✅ 🧪 | `@chunkerpref/chunkerpref.m` | Python preference wrapper. |
-| `chunkerfuncuni` | ✅ 🧪 | `chunkerfuncuni.m` | Uniform panel count tested. |
 | `chunkerpoly` | ✅ 🧪 | `chunkerpoly.m`, `+chnk/+smoother/*` workflows | Straight-edge and rounded-corner polygon paths are implemented and tested. |
 | `_rounded_chunkerpoly`, `_polygon_widths`, `_fill_line_chunk`, `_fill_quadratic_chunk` | 🧩 ✅ 🧪 | `chunkerpoly.m`, `+chnk/+smoother/*` concepts | Internal rounded polygon construction helpers. |
+| `flagnear` | ✅ 🧪 🎯 | `@chunker/flagnear.m`, `+chnk/flagnear*` helpers | Python tested against brute-force distances and MATLAB fixture flags. |
+| `flagnear_rectangle` | ✅ 🧪 🎯 | `@chunker/flagnear_rectangle.m` | 2D rectangle flags covered by direct MATLAB fixture values. |
+| `flagnear_rectangle_grid` | ✅ 🧪 🎯 | `@chunker/flagnear_rectangle_grid.m` | Python meshgrid ordering and MATLAB fixture values covered. |
+| `nearest` | ✅ 🧪 🎯 | `@chunker/nearest.m` | Python vectorized nearest results match MATLAB scalar-reference fixture columns. |
+| `recompute_geometry` | ✅ 🧪 🎯 | MATLAB geometry recomputation inside constructors/transforms | Python tested after transforms/refinement and MATLAB fixture recomputation. |
+| `translate` | ✅ 🧪 🎯 | `@chunker/plus.m` | Python operator helper covered against MATLAB translated chunkers. |
+| `__add__`, `__radd__` | ✅ 🧪 🎯 | `@chunker/plus.m` | Left/right translation operators covered by MATLAB fixture values. |
+| `chunkerfuncuni` | ✅ 🧪 🎯 | `chunkerfuncuni.m` | Uniform panel count tested; fixture covers MATLAB-compatible uniform geometry and spectral second derivatives. |
 | `weights` | ✅ 🧪 🎯 | `@chunker/weights.m`, `@chunker/whts.m` | Returns quadrature weights; `geometry_core.mat` covers a noncircular chunker. |
 | `normals` | ✅ 🧪 🎯 | `@chunker/normals.m` | 2D only; raises for non-2D; strict geometry fixture covers stored and recomputed normals. |
 | `tangents` | ✅ 🧪 🎯 | `@chunker/tangents.m`, `@chunker/taus.m` | Tangent vectors from derivatives. |
@@ -300,14 +300,14 @@ src/
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
 | `_ptinfo_field` | 🧩 ✅ | Internal Python helper | No direct MATLAB file. |
-| `flagnear` | ✅ 🧪 | `@chunker/flagnear.m` / `@chunkgraph/flagnear.m` behavior | Delegates to chunker implementation; chunker and chunkgraph paths tested. |
-| `flagnear_rectangle` | ✅ 🧪 | `@chunker/flagnear_rectangle.m` | Delegates to chunker implementation; per-chunk padding and chunkgraph delegation tested. |
-| `flagnear_rectangle_grid` | ✅ 🧪 | `@chunker/flagnear_rectangle_grid.m` | Delegates to chunker implementation. |
 | `perp` | ✅ 🧪 🎯 | `+chnk/perp.m` | Tested and MATLAB fixture parity-tested. |
 | `normal2d` | ✅ 🧪 🎯 | `+chnk/normal2d.m` | Tested and MATLAB fixture parity-tested. |
 | `curvature2d` | ✅ 🧪 🎯 | `+chnk/curvature2d.m` | Tested and MATLAB fixture parity-tested. |
 | `flagself` | ✅ 🧪 🎯 | `+chnk/flagself.m` | Tested and MATLAB fixture parity-tested with one-based MATLAB pair conversion. |
 | `chunk_nearparam` | ✅ 🧪 🎯 | `+chnk/chunk_nearparam.m` | Tested on a line segment and MATLAB fixture parity-tested on a curved panel. |
+| `flagnear` | ✅ 🧪 🎯 | `@chunker/flagnear.m` / `@chunkgraph/flagnear.m` behavior | Delegates to chunker implementation; chunker wrapper path now has MATLAB fixture parity. |
+| `flagnear_rectangle` | ✅ 🧪 🎯 | `@chunker/flagnear_rectangle.m` | Delegates to chunker implementation; MATLAB fixture covers direct rectangle flags. |
+| `flagnear_rectangle_grid` | ✅ 🧪 🎯 | `@chunker/flagnear_rectangle_grid.m` | Delegates to chunker implementation; MATLAB fixture covers grid flattening order. |
 
 
 ### II KERNEL AND OPERATORS
