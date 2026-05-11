@@ -5,7 +5,7 @@ import pytest
 from scipy.io import loadmat
 
 from chunkie import Chunker, chunkerfit, chunkerfunc, chunkerfuncuni, chunkerintegral, chunkerinterior, chunkerpoly, chunkgraph, kernel, lege, tochunkgraph
-from chunkie.chnk import curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, spcl
+from chunkie.chnk import curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, smoother, spcl
 from chunkie.operators import PointInfo
 
 
@@ -382,6 +382,22 @@ def test_chunkerpoly_devtools_outputs_match_matlab():
     assert open_chnkr.checkadjinfo() == int(fixture.open_ier)
     assert float(fixture.truepoly_area_err) < 1e-12
     assert float(fixture.truepoly_length_err) < 1e-12
+
+
+def test_smoother_devtools_output_matches_matlab_thresholds():
+    fixture = load_devtools_easy().smoother
+    chnkr, err, err_by_pt = smoother.smooth(
+        fixture.verts,
+        {"lam": float(fixture.opts.lam), "return_error": True},
+    )
+
+    np.testing.assert_allclose(fixture.verts, np.asarray([[-0.5, -0.5, 1.0], [np.sqrt(3) / 2, -np.sqrt(3) / 2, 0.0]]), atol=1e-15)
+    assert int(fixture.nv) == 3
+    assert int(fixture.chunker.npt) == int(fixture.chunker.k) * int(fixture.chunker.nch)
+    assert float(fixture.err) < 1e-6
+    assert float(err) < 1e-6
+    assert np.asarray(fixture.err_by_pt).shape == (int(fixture.chunker.npt),)
+    assert np.asarray(err_by_pt).shape == (chnkr.npt,)
 
 
 def test_flagself_devtools_output_matches_matlab():

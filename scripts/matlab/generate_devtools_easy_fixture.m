@@ -441,6 +441,17 @@ cpoly.open_ier = checkadjinfo(chnkr3);
 cpoly.open_nch = chnkr3.nch;
 devtools_easy.chunkerpoly = cpoly;
 
+% smootherTest.m
+smth = [];
+smth.nv = 3;
+z = exp(1i*2*pi*(1:smth.nv)/smth.nv);
+smth.verts = [real(z); imag(z)];
+smth.opts = [];
+smth.opts.lam = 10;
+[chnkr, smth.err, smth.err_by_pt] = chnk.smoother.smooth(smth.verts, smth.opts);
+smth.chunker = fixture_pack_chunker(chnkr);
+devtools_easy.smoother = smth;
+
 % flagselfTest.m
 fs = [];
 rng(8675309);
