@@ -318,19 +318,19 @@ def test_chunkerinterior_devtools_outputs_match_matlab():
     chnkr = chunker_from_fields(fixture.chunker)
 
     expected = np.asarray(fixture.expected_scal, dtype=bool).reshape(-1)
-    direct = chunkerinterior(chnkr, fixture.targs, {"fmm": False, "flam": False})
-    flam = chunkerinterior(chnkr, fixture.targs, {"fmm": False, "flam": True})
-    fmm = chunkerinterior(chnkr, fixture.targs, {"fmm": True, "flam": False})
+    direct = chunkerinterior(chnkr, fixture.targs, {"acceleration": "dense"})
+    fmm = chunkerinterior(chnkr, fixture.targs, {"acceleration": "fmm"})
 
     np.testing.assert_array_equal(np.asarray(getattr(fixture, "in"), dtype=bool).reshape(-1), expected)
     np.testing.assert_array_equal(np.asarray(fixture.in_flam, dtype=bool).reshape(-1), expected)
     np.testing.assert_array_equal(np.asarray(fixture.in_fmm, dtype=bool).reshape(-1), expected)
     np.testing.assert_array_equal(direct, expected)
-    np.testing.assert_array_equal(flam, expected)
     np.testing.assert_array_equal(fmm, expected)
+    with pytest.raises(NotImplementedError):
+        chunkerinterior(chnkr, fixture.targs, {"acceleration": "flam"})
 
     inner = chunker_from_fields(fixture.inner_chunker)
-    in_chunker = chunkerinterior(chnkr, inner, {"fmm": True, "flam": False})
+    in_chunker = chunkerinterior(chnkr, inner, {"acceleration": "fmm"})
     np.testing.assert_array_equal(np.asarray(fixture.in_chunker, dtype=bool).reshape(-1), True)
     np.testing.assert_array_equal(in_chunker, True)
 

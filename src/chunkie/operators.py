@@ -115,7 +115,11 @@ def chunkermat(
 
     chnkr = _require_chunker(chnkr)
     options = {} if opts is None else dict(opts)
-    if _requests_fmm(options) and getattr(kern, "fmm", None) is not None:
+    acceleration = _acceleration(options)
+    if acceleration == "flam":
+        _raise_flam_not_implemented()
+    if acceleration == "fmm":
+        _require_fmm(kern)
         return ChunkerFMMMatrix(chnkr, kern, options)
     if _uses_special_quadrature(kern, options):
         from .chnk import quadggq
@@ -144,7 +148,11 @@ def chunkermatapply(
     chnkr = _require_chunker(chnkr)
     options = {} if opts is None else dict(opts)
     dens_vec = np.asarray(dens).reshape(-1, order="F")
-    if _requests_fmm(options) and getattr(kern, "fmm", None) is not None:
+    acceleration = _acceleration(options)
+    if acceleration == "flam":
+        _raise_flam_not_implemented()
+    if acceleration == "fmm":
+        _require_fmm(kern)
         return _chunkermatapply_fmm(chnkr, kern, dens_vec, options)
     return chunkermat(chnkr, kern, opts) @ dens_vec
 
@@ -174,10 +182,10 @@ def chunkerinterior(
 ) -> np.ndarray:
     """Classify target points as inside a closed 2D chunker.
 
-    The default path is a dependency-light direct polygon test. With
-    ``usefmm=True``, the Laplace double-layer identity is used for accelerated
-    classification, and near-boundary targets are corrected by the direct path.
-    FLAM acceleration is deferred.
+    The default ``acceleration="dense"`` path is a dependency-light direct
+    polygon test. With ``acceleration="fmm"``, the Laplace double-layer
+    identity is used for accelerated classification, and near-boundary targets
+    are corrected by the direct path. FLAM acceleration is deferred.
     """
 
     chnkr = _require_chunker(chnkr)
@@ -205,8 +213,10 @@ def chunkerinterior(
     if pts.shape[0] != 2:
         raise ValueError("target points must be two-dimensional")
 
-    use_fmm = _requests_fmm(options)
-    if use_fmm:
+    acceleration = _acceleration(options)
+    if acceleration == "flam":
+        _raise_flam_not_implemented()
+    if acceleration == "fmm":
         from .kernel import kernel
 
         lap_d = kernel("lap", "d")
@@ -216,7 +226,7 @@ def chunkerinterior(
             lap_d,
             dens,
             PointInfo(r=pts),
-            {"usefmm": True, "eps": float(options.get("eps", options.get("tol", 1e-12)))},
+            {"acceleration": "fmm", "eps": float(options.get("eps", options.get("tol", 1e-12)))},
         ).reshape(-1, order="F")
         inside = vals < -0.5
         if bool(options.get("closecorr", options.get("corrections", True))):
@@ -252,7 +262,12 @@ def chunkerkerneval(
     options = {} if opts is None else dict(opts)
     same_source_target = targobj is chnkr
     chnkr = _require_chunker(chnkr)
-    use_fmm = _requests_fmm(options) and getattr(kern, "fmm", None) is not None
+    acceleration = _acceleration(options)
+    if acceleration == "flam":
+        _raise_flam_not_implemented()
+    use_fmm = acceleration == "fmm"
+    if use_fmm:
+        _require_fmm(kern)
     if same_source_target and _uses_special_quadrature(kern, options) and not use_fmm:
         vals = chunkermat(chnkr, kern, opts) @ np.asarray(dens).reshape(-1, order="F")
         opdims = getattr(kern, "opdims", (1, 1))[0]
@@ -283,10 +298,15 @@ def chunkerkernevalmat(
 
     same_source_target = targobj is chnkr
     chnkr = _require_chunker(chnkr)
+    options = {} if opts is None else dict(opts)
+    acceleration = _acceleration(options)
+    if acceleration == "flam":
+        _raise_flam_not_implemented()
+    if acceleration == "fmm":
+        raise NotImplementedError("chunkerkernevalmat does not support FMM acceleration; use chunkerkerneval instead")
     if same_source_target and _uses_special_quadrature(kern, opts):
         return chunkermat(chnkr, kern, opts)
 
-    _ = {} if opts is None else dict(opts)
     srcinfo = pointinfo(chnkr)
     targinfo = pointinfo(targobj)
     mat = _eval_kernel(kern, srcinfo, targinfo)
@@ -350,13 +370,23 @@ def _uses_special_quadrature(kern: Callable[[Any, Any], np.ndarray], opts: dict[
     return getattr(kern, "sing", "") in {"log", "pv", "hs"}
 
 
-def _requests_fmm(options: dict[str, Any]) -> bool:
-    return bool(
-        options.get("usefmm", False)
-        or options.get("fmm", False)
-        or options.get("forcefmm", False)
-        or options.get("accel", False)
-    )
+def _acceleration(options: dict[str, Any]) -> str:
+    value = options.get("acceleration", "dense")
+    if value is None:
+        return "dense"
+    acceleration = str(value).lower()
+    if acceleration not in {"dense", "fmm", "flam"}:
+        raise ValueError("acceleration must be one of 'dense', 'fmm', or 'flam'")
+    return acceleration
+
+
+def _require_fmm(kern: Callable[[Any, Any], np.ndarray]) -> None:
+    if getattr(kern, "fmm", None) is None:
+        raise NotImplementedError("FMM acceleration requested, but the kernel has no FMM evaluator")
+
+
+def _raise_flam_not_implemented() -> None:
+    raise NotImplementedError("FLAM acceleration is not implemented yet")
 
 
 def _chunkermatapply_fmm(
@@ -368,7 +398,7 @@ def _chunkermatapply_fmm(
 ) -> np.ndarray:
     dens_vec = np.asarray(dens).reshape(-1, order="F")
     fmm_options = dict(options)
-    fmm_options["usefmm"] = True
+    fmm_options["acceleration"] = "fmm"
     vals = chunkerkerneval(chnkr, kern, dens_vec, chnkr, fmm_options).reshape(-1, order="F")
     if _uses_special_quadrature(kern, options):
         corr = _special_correction_matrix(chnkr, kern, options) if correction is None else correction
