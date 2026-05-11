@@ -83,7 +83,26 @@ def chunkermatapply(
 ) -> np.ndarray:
     """Apply the dense native matrix for ``kern`` on ``chnkr``."""
 
-    return chunkermat(chnkr, kern, opts) @ np.asarray(dens).reshape(-1, order="F")
+    chnkr = _require_chunker(chnkr)
+    options = {} if opts is None else dict(opts)
+    dens_vec = np.asarray(dens).reshape(-1, order="F")
+    if bool(options.get("usefmm", options.get("fmm", False))) and getattr(kern, "fmm", None) is not None:
+        vals = chunkerkerneval(chnkr, kern, dens_vec, chnkr, options).reshape(-1, order="F")
+        if _uses_special_quadrature(kern, options):
+            from .chnk import quadggq
+
+            qtype = str(options.get("sing", getattr(kern, "sing", "log") or "log")).lower()
+            corr = quadggq.buildmattd(
+                chnkr,
+                kern,
+                getattr(kern, "opdims", None),
+                type=qtype,
+                ilist=options.get("ilist", None),
+                corrections=True,
+            )
+            vals = vals + corr @ dens_vec
+        return vals
+    return chunkermat(chnkr, kern, opts) @ dens_vec
 
 
 def chunkerintegral(
@@ -161,14 +180,15 @@ def chunkerkerneval(
     options = {} if opts is None else dict(opts)
     same_source_target = targobj is chnkr
     chnkr = _require_chunker(chnkr)
-    if same_source_target and _uses_special_quadrature(kern, options):
+    use_fmm = bool(options.get("usefmm", options.get("fmm", False))) and getattr(kern, "fmm", None) is not None
+    if same_source_target and _uses_special_quadrature(kern, options) and not use_fmm:
         vals = chunkermat(chnkr, kern, opts) @ np.asarray(dens).reshape(-1, order="F")
         opdims = getattr(kern, "opdims", (1, 1))[0]
         return vals.reshape(opdims, chnkr.npt, order="F")
 
     srcinfo = pointinfo(chnkr)
     targinfo = pointinfo(targobj)
-    if bool(options.get("usefmm", options.get("fmm", False))) and getattr(kern, "fmm", None) is not None:
+    if use_fmm:
         weighted = _weighted_density(chnkr, dens)
         vals = kern.fmm(float(options.get("eps", options.get("tol", 1e-12))), srcinfo, targinfo, weighted)
         if isinstance(vals, tuple):

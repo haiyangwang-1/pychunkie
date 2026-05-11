@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 195 pytest cases because several MATLAB parity tests are
+collection expands to 196 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 
@@ -67,9 +67,9 @@ The living docs split remaining MATLAB parity work into three buckets.
 Should implement:
 
 - FMM integration everywhere it applies to implemented kernel/operator
-  families, including `chunkermat` FMM acceleration, `chunkerinterior` FMM
-  acceleration, and missing selector wiring for remaining biharmonic selectors,
-  elasticity, and other unsupported selectors.
+  families, including `chunkerinterior` FMM acceleration and missing selector
+  wiring for remaining biharmonic selectors, elasticity, and other unsupported
+  selectors.
 - Advanced RCIP workflows beyond the current two-edge corner fixture.
 - `chunkerinterior` close-boundary correction.
 
@@ -87,6 +87,8 @@ Implemented from this scope:
 - `quadggq/buildmattd` sparse special-block assembly.
 - Full adaptive/close quadrature for `quadadap`: GGQ self blocks, adaptive
   neighbor blocks, and robust close non-neighbor replacement for log kernels.
+- `chunkermatapply` FMM acceleration with sparse special-quadrature
+  corrections for singular kernels.
 
 Deferred implementation:
 
@@ -879,6 +881,13 @@ same boundary nodes for a smooth kernel. The equation is the weighted discrete
 sum with `K = 1 + dx^2 + 0.5 dy^2`. The method compares `chunkermatapply` with
 `chunkerkerneval(..., targ=chnkr)` for smooth non-singular data. Ground truth
 is equality between the two direct routes.
+
+`test_chunkermatapply_usefmm_matches_special_matrix_application` checks FMM
+matrix application for a singular boundary operator. The method applies a
+Laplace single-layer kernel through `chunkermatapply(..., usefmm=True)`, then
+compares against the dense special-quadrature matrix product. Ground truth is
+agreement after sparse self/neighbor GGQ corrections are added to the FMM
+result.
 
 `test_pointinfo_uses_matlab_chunk_contiguous_ordering` checks point ordering
 when flattening chunker fields. The invariant is MATLAB/Fortran chunk-contiguous

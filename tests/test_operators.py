@@ -41,6 +41,17 @@ def test_chunkermat_matches_chunkerkerneval_on_boundary_for_smooth_kernel():
     np.testing.assert_allclose(mat_vals, eval_vals)
 
 
+def test_chunkermatapply_usefmm_matches_special_matrix_application():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 6}, {"k": 8})
+    lap_s = kernel("lap", "s")
+    dens = np.cos(chnkr.r[0].reshape(-1, order="F"))
+
+    direct = chunkermat(chnkr, lap_s) @ dens
+    via_fmm = chunkermatapply(chnkr, lap_s, dens, {"usefmm": True, "eps": 1e-12})
+
+    np.testing.assert_allclose(via_fmm, direct, rtol=1e-9, atol=1e-10)
+
+
 def test_pointinfo_uses_matlab_chunk_contiguous_ordering():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 3}, {"k": 5})
     info = pointinfo(chnkr)
