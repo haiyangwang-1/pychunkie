@@ -90,7 +90,7 @@ def getlogquad(k: int, npolyfac: int = 2) -> tuple[np.ndarray, np.ndarray, list[
 def logavail() -> np.ndarray:
     """Return panel orders supported by MATLAB log GGQ tables."""
 
-    return np.array([*range(1, 17), 20, 24, 28, 32, 36], dtype=int)
+    return np.array([16, 20, 24, 30, 40, 60], dtype=int)
 
 
 def hqsuppavail() -> np.ndarray:

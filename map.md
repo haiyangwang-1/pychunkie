@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 212 tests: `211 passed, 1 failed` (`tests/test_devtools_parity.py::test_smoother_devtools_output_matches_matlab_thresholds`, current optional fixture lacks `fixture.chunker.npt`). Targeted geometry parity/domain run `uv run pytest tests/test_geometry_parity.py tests/test_domain.py tests/test_geometry.py tests/test_chunkgraph.py tests/test_chunker.py tests/test_chunkerfunc.py`: `50 passed`; targeted operator run `uv run pytest tests/test_operators.py`: `10 passed`; targeted quadrature run `uv run pytest tests/test_quadggq.py`: `12 passed`; targeted kernel run `uv run pytest tests/test_kernel.py`: `15 passed`; targeted RCIP run `uv run pytest tests/test_rcip.py`: `7 passed`; targeted Legendre run `uv run pytest tests/test_lege.py`: `12 passed`.
+Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 264 tests: `261 passed, 2 failed, 1 xfailed` (`tests/test_devtools_parity.py::test_slicegraph_devtools_outputs_match_matlab`, current dense graph diagonal handling produces NaNs where the optional devtools fixture has finite MATLAB values; `tests/test_devtools_parity.py::test_chunkermat_quadadap_devtools_outputs_match_matlab`, current Helmholtz adaptive matrix differs from the optional devtools fixture by up to `1.8e-9`). Targeted Section II parity run `uv run pytest tests/test_matlab_parity.py -q`: `97 passed, 1 xfailed`; targeted Section II kernel/operator run `uv run pytest tests/test_kernel.py tests/test_kernels.py tests/test_stok2d.py tests/test_elast2d.py tests/test_biharm2d.py tests/test_operators.py -q`: `40 passed`; targeted geometry parity/domain run `uv run pytest tests/test_geometry_parity.py tests/test_domain.py tests/test_geometry.py tests/test_chunkgraph.py tests/test_chunker.py tests/test_chunkerfunc.py`: `50 passed`; targeted quadrature run `uv run pytest tests/test_quadggq.py tests/test_matlab_parity.py::test_section_iii_quadratures_match_matlab_fixture`: `13 passed`; targeted RCIP run `uv run pytest tests/test_rcip.py`: `7 passed`; targeted Legendre run `uv run pytest tests/test_lege.py`: `12 passed`.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -122,7 +122,7 @@ src/
     │   │   ├── class AuxQuad
     │   │   ├── setup, getlogquad, logavail, hqsuppavail
     │   │   ├── gethqsuppquad, getremovablequad, getpvquad, gethsquad
-    │   │   ├── buildmat, diagbuildmat, nearbuildmat
+    │   │   ├── buildmat, buildmattd, diagbuildmat, nearbuildmat
     │   │   └── private helpers
     │   ├── quadadap.py
     │   │   └── buildmat
@@ -313,25 +313,25 @@ src/
 ### II KERNEL AND OPERATORS
 #### `kernel.py`
 
-- ✅ 🧪 [src/chunkie/kernel.py](src/chunkie/kernel.py) maps MATLAB `@kernel` composition and kernel factory behavior.
+- ✅ 🧪 🎯 [src/chunkie/kernel.py](src/chunkie/kernel.py) maps MATLAB `@kernel` composition and kernel factory behavior.
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
 | `_infer_opdims`, `_worst_sing`, `_worst_many` | 🧩 ✅ | Internal Python helpers | No direct MATLAB file. |
-| `Kernel` | ✅ 🧪 | `@kernel/kernel.m` | Callable wrapper with op dimensions, singularity metadata, and `fmm2dpy`/dense-direct FMM hooks. |
-| `Kernel.__call__` | ✅ 🧪 | `@kernel/kernel.m` | Direct evaluation tested through operator/kernel tests. |
-| `Kernel.__add__`, `__sub__`, `__neg__` | ✅ 🧪 | `@kernel/plus.m`, `minus.m`, `uminus.m` | Arithmetic behavior and FMM algebra tested. |
-| `Kernel.__mul__`, `__rmul__`, `__truediv__` | ✅ 🧪 | `@kernel/times.m`, `mtimes.m`, `rdivide.m`, `mrdivide.m` | Scalar composition and FMM scaling tested. |
-| `Kernel.conj`, `conjugate` | ✅ 🧪 | `@kernel/conj.m` | Conjugation and FMM conjugation tested. |
-| `Kernel.zeros`, `Kernel.nans`, module `zeros`, `nans` | ✅ 🧪 | `@kernel/zeros.m`, `@kernel/nans.m` | Tested. |
-| `kernel` | ✅ 🧪 | `@kernel/kernel.m` | Dispatches strings, callables, existing kernels, and block arrays for `interleave`. |
-| `lap2d_kernel` | ✅ 🧪 | `@kernel/lap2d.m`, `+chnk/+lap2d/kern.m`, `+chnk/+lap2d/fmm.m` concepts | String dispatch plus `fmm2dpy` single, double, target-normal/tangential derivatives, Hilbert, double-prime, combined-prime, and gradient paths tested against dense direct evaluation. |
-| `helm2d_kernel` | ✅ 🧪 | `@kernel/helm2d.m`, `+chnk/+helm2d/kern.m`, `+chnk/+helm2d/fmm.m` concepts | String dispatch plus `fmm2dpy` single, double, target-normal/tangential derivatives, double-prime, combined-prime, single-gradient, and double-gradient paths tested against dense direct evaluation or FMM wiring tests. |
-| `helm1d_kernel` | ✅ 🧪 | `@kernel/helm1d.m`, `+chnk/+helm1d/kern.m` | Tested through string dispatch. |
-| `biharm2d_kernel` | ✅ 🧪 | `fmm2d/src/biharmonic/*`, `+chnk/+flex2d/bhgreen.m` concepts | Biharmonic Green-kernel factory and selectors tested; single, double, target-normal derivative, gradient, Hessian, and Laplacian selectors have FMM wiring through Laplace moment decompositions. |
-| `stok2d_kernel` | ✅ 🧪 | `@kernel/stok2d.m`, `+chnk/+stok2d/kern.m`, `+chnk/+stok2d/fmm.m` concepts | String dispatch plus `fmm2dpy` velocity, pressure, gradient, traction, and combined Stokes paths tested against dense direct evaluation or FMM wiring tests. |
-| `elast2d_kernel` | ✅ 🧪 | `@kernel/elast2d.m`, `+chnk/+elast2d/kern.m` | Elasticity single, gradient, traction, double, alternate double, alternate gradient, and alternate traction selectors have FMM wiring through Laplace/Stokes decompositions and are tested against dense direct evaluation. |
-| `interleave` | ✅ 🧪 | MATLAB block kernel composition patterns | Builds mixed block systems from kernel arrays; direct and FMM paths tested. |
+| `Kernel` | ✅ 🧪 🎯 | `@kernel/kernel.m` | Callable wrapper with op dimensions and singularity metadata; direct object metadata and values are fixture-tested. |
+| `Kernel.__call__` | ✅ 🧪 🎯 | `@kernel/kernel.m` | Direct evaluation tested through operator/kernel tests and MATLAB `@kernel` fixtures. |
+| `Kernel.__add__`, `__sub__`, `__neg__` | ✅ 🧪 🎯 | `@kernel/plus.m`, `minus.m`, `uminus.m` | Arithmetic behavior compared against MATLAB object algebra; FMM algebra remains Python direct/FMM-tested. |
+| `Kernel.__mul__`, `__rmul__`, `__truediv__` | ✅ 🧪 🎯 | `@kernel/times.m`, `mtimes.m`, `rdivide.m`, `mrdivide.m` | Scalar composition compared against MATLAB object algebra; FMM scaling remains Python direct/FMM-tested. |
+| `Kernel.conj`, `conjugate` | ✅ 🧪 🎯 | `@kernel/conj.m` | Direct conjugation compared against MATLAB object algebra; FMM conjugation remains Python direct/FMM-tested. |
+| `Kernel.zeros`, `Kernel.nans`, module `zeros`, `nans` | ✅ 🧪 🎯 | `@kernel/zeros.m`, `@kernel/nans.m` | MATLAB fixture checks metadata and direct zero/NaN block values. |
+| `kernel` | ✅ 🧪 🎯 | `@kernel/kernel.m` | Dispatches strings, callables, existing kernels, and block arrays for `interleave`; MATLAB fixture covers factory/direct values. |
+| `lap2d_kernel` | ✅ 🧪 🎯 | `@kernel/lap2d.m`, `+chnk/+lap2d/kern.m`, `+chnk/+lap2d/fmm.m` concepts | String dispatch plus `fmm2dpy` single, double, target-normal/tangential derivatives, Hilbert, double-prime, combined-prime, and gradient paths tested against dense direct evaluation; MATLAB fixture checks `@kernel` metadata/eval. |
+| `helm2d_kernel` | ✅ 🧪 🎯 | `@kernel/helm2d.m`, `+chnk/+helm2d/kern.m`, `+chnk/+helm2d/fmm.m` concepts | String dispatch plus `fmm2dpy` single, double, target-normal/tangential derivatives, double-prime, combined-prime, single-gradient, and double-gradient paths tested against dense direct evaluation or FMM wiring tests; MATLAB fixture checks `@kernel` metadata/eval. |
+| `helm1d_kernel` | ✅ 🧪 🎯 | `@kernel/helm1d.m`, `+chnk/+helm1d/kern.m` | MATLAB fixture checks `@kernel` metadata/eval for the supported single-layer factory. |
+| `biharm2d_kernel` | ✅ 🧪 🎯 | `fmm2d/src/biharmonic/*`, `+chnk/+flex2d/bhgreen.m` concepts | Biharmonic Green-kernel factory and selectors are compared against MATLAB `bhgreen`-derived fixture data; FMM wiring remains Python direct/FMM-tested. |
+| `stok2d_kernel` | ✅ 🧪 🎯 | `@kernel/stok2d.m`, `+chnk/+stok2d/kern.m`, `+chnk/+stok2d/fmm.m` concepts | String dispatch plus `fmm2dpy` velocity, pressure, gradient, traction, and combined Stokes paths tested against dense direct evaluation or FMM wiring tests; MATLAB fixture checks `@kernel` metadata/eval. |
+| `elast2d_kernel` | ✅ 🧪 🎯 | `@kernel/elast2d.m`, `+chnk/+elast2d/kern.m` | Elasticity single, gradient, traction, double, alternate double, alternate gradient, and alternate traction selectors have FMM wiring through Laplace/Stokes decompositions and MATLAB fixture eval parity; Python keeps correct `sgrad` opdims where MATLAB `@kernel` metadata omits the gradient row count. |
+| `interleave` | ✅ 🧪 🎯 | MATLAB block kernel composition patterns | Builds mixed block systems from kernel arrays; direct interleaved metadata/eval is MATLAB-fixture tested and FMM paths remain Python direct/FMM-tested. |
 | `_lap2d_fmm`, `_helm2d_fmm`, `_biharm2d_fmm`, `_stok2d_fmm`, `_elast2d_fmm`, `_direct_fmm`, `_sum_fmm`, `_interleave_fmm`, `_interleave_indices`, `_target_count` | 🧩 ✅ 🧪 | FMM-backed MATLAB kernel conventions | Implemented Laplace/Helmholtz/Biharmonic/Stokes/Elasticity selectors call `fmm2dpy` or algebraic combinations of `fmm2dpy` outputs; dense-direct fallback callables remain available for custom or unsupported kernels. |
 
 Scope note: FMM integration for the currently implemented 2D kernel families is
@@ -348,12 +348,12 @@ their matching `@kernel` factories.
 | --- | --- | --- | --- |
 | `chunkermat` | ⚠️ 🧪 🎯 | `chunkermat.m` | Default `acceleration="dense"` native/special matrix path parity-tested; `acceleration="fmm"` returns `ChunkerFMMMatrix` for matrix-free FMM products with special-quadrature corrections; `acceleration="flam"` is recognized but deferred. |
 | private helpers | 🧩 ✅ | Internal Python helpers | Chunker coercion, weighted density flattening, kernel evaluation, special-quadrature dispatch. |
-| `PointInfo` | ✅ 🧪 | MATLAB `srcinfo`/`targinfo` structs | Python dataclass for point info. |
+| `PointInfo` | ✅ 🧪 🎯 | MATLAB `srcinfo`/`targinfo` structs | Python dataclass for point info; chunker-flattened fields are fixture-tested. |
 | `ChunkerFMMMatrix` | ✅ 🧪 | `chunkermatapply.m`, `+chnk/chunkerkerneval_smooth.m` FMM concepts | Matrix-free `scipy.sparse.linalg.LinearOperator` returned by `chunkermat(..., {"acceleration": "fmm"})`; caches sparse special-quadrature corrections and supports vector/multiple-RHS products. |
-| `pointinfo` | ✅ 🧪 | MATLAB point-info structs | Converts chunkers/dicts/arrays. |
-| `chunkermatapply` | ✅ 🧪 | `chunkermatapply.m` | Matrix application helper with FMM acceleration plus sparse special-quadrature corrections for singular kernels. |
-| `chunkerintegral` | ✅ 🧪 | `chunkerintegral.m` | Values and callables tested. |
-| `chunkerinterior` | ✅ 🧪 | `chunkerinterior.m` | Direct polygon/ray classifier plus optional Laplace double-layer FMM classification with direct close-boundary correction; FLAM interior acceleration is deferred. |
+| `pointinfo` | ✅ 🧪 🎯 | MATLAB point-info structs | Converts chunkers/dicts/arrays; chunker flattening is fixture-tested. |
+| `chunkermatapply` | ✅ 🧪 🎯 | `chunkermatapply.m` | Smooth dense application is MATLAB-fixture tested; FMM acceleration plus sparse special-quadrature corrections remain Python direct/FMM-tested. |
+| `chunkerintegral` | ✅ 🧪 🎯 | `chunkerintegral.m` | Smooth value and callable integration routes are MATLAB-fixture tested. |
+| `chunkerinterior` | ✅ 🧪 🎯 | `chunkerinterior.m` | Direct point/grid classification is MATLAB-fixture tested; optional Laplace double-layer FMM classification with direct close-boundary correction remains Python-tested; FLAM interior acceleration is deferred. |
 | `chunkerkerneval` | ✅ 🧪 🎯 | `chunkerkerneval.m` | MATLAB parity fixture checks dense target evaluation. |
 | `chunkerkernevalmat` | ✅ 🧪 🎯 | `chunkerkernevalmat.m` | MATLAB parity fixture checks eval matrix. |
 
@@ -364,17 +364,17 @@ their matching `@kernel` factories.
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
 | private kernel helpers | 🧩 ✅ | Internal Python helpers | Interleaving and validation helpers. |
-| `biharm2d.green` | ✅ 🧪 | `fmm2d/src/biharmonic/bhkernels2d.f`, `+chnk/+flex2d/bhgreen.m` concepts | Biharmonic Green value, gradient, Hessian, and Laplacian; gradient checked by finite differences. |
-| `biharm2d.kern` | ✅ 🧪 | Biharmonic/flex kernel concepts in MATLAB reference | Selectors for single, double, normal derivative, gradient, Hessian, and Laplacian are tested. |
-| `lap2d.green` | ✅ 🧪 | `+chnk/+lap2d/green.m` | Direct formula tested. |
-| `helm2d.green` | ✅ 🧪 | `+chnk/+helm2d/green.m` | Gradient finite-difference tested. |
-| `helm1d.green` | ✅ 🧪 | `+chnk/+helm1d/green.m` | Gradient finite-difference tested. |
-| `helm1d.sweep` | ✅ 🧪 | `+chnk/+helm1d/sweep.m` | Direct causal sums tested. |
+| `biharm2d.green` | ✅ 🧪 🎯 | `fmm2d/src/biharmonic/bhkernels2d.f`, `+chnk/+flex2d/bhgreen.m` concepts | Biharmonic Green value, gradient, Hessian, and Laplacian are compared against MATLAB `bhgreen`; gradient also checked by finite differences. |
+| `biharm2d.kern` | ✅ 🧪 🎯 | Biharmonic/flex kernel concepts in MATLAB reference | Selectors for single, double, normal derivative, gradient, Hessian, and Laplacian are compared against MATLAB `bhgreen`-derived fixture data. |
+| `lap2d.green` | ✅ 🧪 🎯 | `+chnk/+lap2d/green.m` | Direct formula and derivatives are MATLAB-fixture tested. |
+| `helm2d.green` | ✅ 🧪 🎯 | `+chnk/+helm2d/green.m` | Value, gradient, and Hessian are MATLAB-fixture tested. |
+| `helm1d.green` | ✅ 🧪 🎯 | `+chnk/+helm1d/green.m` | Value, gradient, and Hessian are MATLAB-fixture tested. |
+| `helm1d.sweep` | ✅ 🧪 🎯 | `+chnk/+helm1d/sweep.m` | Direct causal sums are MATLAB-fixture tested. |
 | `lap2d.kern` | ✅ 🧪 🎯 | `+chnk/+lap2d/kern.m` | Point kernels, including gradient row ordering, are parity-tested. |
 | `helm2d.kern` | ✅ 🧪 🎯 | `+chnk/+helm2d/kern.m` | Point kernels, including gradient row ordering, are parity-tested. |
 | `helm1d.kern` | ✅ 🧪 🎯 | `+chnk/+helm1d/kern.m` | Many scalar/combined/transmission variants parity-tested. |
-| `stok2d.kern` | ✅ 🧪 🎯 | `+chnk/+stok2d/kern.m` | Stokes variants parity-tested. |
-| `elast2d.kern` | ✅ 🧪 🎯 | `+chnk/+elast2d/kern.m` | Elasticity variants parity-tested. |
+| `stok2d.kern` | ⚠️ 🧪 🎯 | `+chnk/+stok2d/kern.m` | Stokes variants parity-tested, including pressure/traction combined paths; direct lower-level `cgrad` is xfailed because MATLAB combines `sgrad` twice while Python keeps the intended `dgrad`/`sgrad` combination. |
+| `elast2d.kern` | ✅ 🧪 🎯 | `+chnk/+elast2d/kern.m` | Elasticity variants parity-tested, including `sgrad`, `dalttrac`, and `daltgrad`. |
 
 ✅ External FMM acceleration is wired through `fmm2dpy` for the implemented 2D selector surface: Laplace single/double/normal/tangential/Hilbert/prime/gradient/combined paths; Helmholtz single/double/normal/tangential/prime/gradient/combined-prime paths; biharmonic single/double/normal derivative/gradient/Hessian/Laplacian paths via Laplace moment decompositions; Stokes velocity/pressure/gradient/traction/combined paths; and elasticity single/gradient/traction/double/alternate-double workflows via Laplace/Stokes decompositions. Dense-direct fallbacks remain available for custom kernels, optional dependency absence, and compatibility tests.
 
@@ -390,26 +390,26 @@ their matching `@kernel` factories.
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
-| `buildmat` | ✅ 🧪 | `+chnk/+quadadap/buildmat.m` | Uses GGQ self blocks, adaptive Gauss neighbor blocks, and optional robust close non-neighbor replacement for log kernels; other singularity types delegate to `quadggq`. |
+| `buildmat` | ✅ 🧪 🎯 | `+chnk/+quadadap/buildmat.m` | MATLAB fixture checks log self blocks, adaptive Gauss neighbor blocks, and robust close non-neighbor replacement; other singularity types delegate to `quadggq`. |
 
 #### `chnk/quadggq.py`
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
 | other private helpers | 🧩 ✅ | Internal Python helpers | Interpolation/block slicing/dtype helpers. |
-| `AuxQuad` | ✅ 🧪 | MATLAB aux quadrature structs/tables | Python dataclass-like table holder. |
-| `logavail` | ✅ 🧪 | `+chnk/+quadggq/logavail.m` | Tested against MATLAB-supported table orders. |
-| `hqsuppavail` | ✅ 🧪 | `+chnk/+quadggq/gethqsuppquad.m`, `hqsupp_*`, `hsupp_*` tables | MATLAB table orders for PV/HS support rules. |
-| `gethqsuppquad` | ✅ 🧪 | `+chnk/+quadggq/gethqsuppquad.m`, generated support table files | Reads MATLAB support table files when present, with removable-rule fallback. |
-| `getpvquad`, `gethsquad` | ✅ 🧪 | `hsupp_*`, `hqsupp_*` support tables | Convenience wrappers for PV and hypersingular support rules. |
-| `getremovablequad` | ✅ 🧪 | `+chnk/+quadggq/getremovablequad.m` | Tested through setup/build paths. |
-| `buildmattd` | ✅ 🧪 | `+chnk/+quadggq/buildmattd.m` | Sparse special-block matrix for self/neighbor interactions with `ilist` skipping tested. |
 | `_matlab_quadggq_dir`, `_parse_matlab_cell_table`, `_parse_cells`, `_parse_matlab_vector_assignment` | 🧩 ✅ 🧪 | MATLAB generated quadrature table files | Internal readers for reference `.m` table files. |
-| `setup` | ✅ 🧪 🎯 | `+chnk/+quadggq/setup.m` | Supports `log`, `removable`, `pv`, and `hs`; log/PV/HS aux tables are MATLAB-fixture tested. |
+| `AuxQuad` | ✅ 🧪 🎯 | MATLAB aux quadrature structs/tables | Python holder fields are checked through MATLAB `setup` fixture outputs. |
+| `logavail` | ✅ 🧪 🎯 | `+chnk/+quadggq/logavail.m` | Matches MATLAB near-rule availability orders. |
+| `hqsuppavail` | ✅ 🧪 🎯 | `+chnk/+quadggq/gethqsuppquad.m`, `hqsupp_*`, `hsupp_*` tables | Fixture records MATLAB table orders for PV/HS support rules. |
+| `gethqsuppquad` | ✅ 🧪 🎯 | `+chnk/+quadggq/gethqsuppquad.m`, generated support table files | Reads MATLAB support table files when present, with removable-rule fallback. |
+| `getpvquad`, `gethsquad` | ✅ 🧪 🎯 | `hsupp_*`, `hqsupp_*` support tables | Convenience wrappers for PV and hypersingular support rules, fixture-tested through saved support tables. |
+| `getremovablequad` | ✅ 🧪 🎯 | `+chnk/+quadggq/getremovablequad.m` | MATLAB fixture checks removable split rules. |
+| `buildmattd` | ✅ 🧪 🎯 | `+chnk/+quadggq/buildmattd.m` | Sparse special-block matrix, correction matrix, and `ilist` skipping are MATLAB-fixture tested. |
+| `setup` | ✅ 🧪 🎯 | `+chnk/+quadggq/setup.m` | Supports `log`, `removable`, `pv`, and `hs`; aux tables are MATLAB-fixture tested. |
 | `getlogquad` | ✅ 🧪 🎯 | `+chnk/+quadggq/getlogquad.m`, `ggqnear*`, `ggqself_*` | Reads MATLAB log near/self tables when available, with generated fallback. |
 | `buildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/buildmat.m` | Log/PV/HS matrix assembly and `ilist` skipping are MATLAB-fixture tested. |
-| `diagbuildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/diagbuildmat.m` | Tested through MATLAB-parity `buildmat` special-quadrature paths. |
-| `nearbuildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/nearbuildmat.m` | Oversampled neighbor block, MATLAB-style correction subtraction, and full matrix near blocks are tested. |
+| `diagbuildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/diagbuildmat.m` | Self-block and correction-block outputs are MATLAB-fixture tested. |
+| `nearbuildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/nearbuildmat.m` | Oversampled neighbor block and MATLAB-style correction subtraction are fixture-tested. |
 
 Log/PV/HS support tables are consumed when the MATLAB reference checkout is available. `quadadap` covers MATLAB-style log self, neighbor, and robust close replacement. `quadba` is an explicit non-goal for this port.
 
@@ -551,7 +551,7 @@ Support file roles:
 - 🧭 `docs/matlab-reference-setup.md`: local MATLAB checkout / fixture setup notes.
 - 🧭 `docs/special-quadrature.md`: special quadrature implementation notes.
 - 🧭 `scripts/matlab/*.m`: MATLAB fixture-generation scripts; these are the source of the `.mat` golden data used for 🎯 flags.
-- 🧪 `tests/golden/*.mat`: small MATLAB-generated parity fixtures. Large generated parity snapshots such as `devtools_easy.mat`, `devtools_easy_python.npz`, and `chunker_ops.mat` are ignored and optional; tests skip cleanly when an optional fixture is absent. `geometry_core.mat` covers compact I GEOMETRY parity excluding `chunkerfit` and smoother workflows. `quadggq.mat` remains tracked because it covers singular quadrature behavior.
+- 🧪 `tests/golden/*.mat`: small MATLAB-generated parity fixtures. Large generated parity snapshots such as `devtools_easy.mat`, `devtools_easy_python.npz`, and `chunker_ops.mat` are ignored and optional; tests skip cleanly when an optional fixture is absent. `geometry_core.mat` covers compact I GEOMETRY parity excluding `chunkerfit` and smoother workflows. `quadggq.mat` remains tracked because it covers Section III native, GGQ, and adaptive quadrature behavior.
 - 🧪 `tests/test_matlab_parity.py`: main exact-behavior comparison suite against golden data.
 - 🧪 `tests/test_geometry_parity.py`: focused I GEOMETRY comparison suite against `geometry_core.mat`.
 - 🧪 `tests/test_matlab_fixtures.py`: basic fixture comparison suite.
@@ -584,5 +584,5 @@ Do not implement:
 
 - Add golden MATLAB fixtures for `chunkerpoly` rounded paths, `chunkerfit`, `arcparam`, `spcl`, `smoother`, `rcip`, and `biharm2d` to upgrade many ✅ 🧪 nodes to 🎯.
 - Add focused tests for remaining implemented but currently lightly tested methods that are outside the compact I GEOMETRY fixture.
-- Add stricter MATLAB fixtures for `quadadap.py`; `smoother.py` remains a lightweight rounded-polygon path and full MATLAB smoothing/Newton behavior is a non-goal.
+- Add stricter MATLAB fixtures for full devtools solve/evaluation workflows around adaptive close quadrature; `smoother.py` remains a lightweight rounded-polygon path and full MATLAB smoothing/Newton behavior is a non-goal.
 - Add stricter MATLAB fixtures for the newly wired FMM selector families, especially biharmonic and elasticity selectors, while keeping dense-direct fallbacks available for compatibility and tests.

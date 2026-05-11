@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 212 pytest cases because several MATLAB parity tests are
+collection expands to 264 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 
@@ -85,15 +85,18 @@ Implemented from this scope:
 - Remaining `+lege` helpers: `adapgauss`, `bernstein_ellipse`, `polsum`, and
   `tayl`.
 - Adaptive refinement in `chunker.refine` and `chunkerfunc`.
-- `quadggq/buildmattd` sparse special-block assembly.
-- Full adaptive/close quadrature for `quadadap`: GGQ self blocks, adaptive
-  neighbor blocks, and robust close non-neighbor replacement for log kernels.
+- Section III quadrature parity: `quadggq/buildmattd` sparse special-block
+  assembly and `quadadap` log-kernel self, neighbor, and robust close
+  replacement are now covered by compact MATLAB fixtures.
 - `chunkermat(..., acceleration="fmm")` matrix-free FMM operators and
   `chunkermatapply` FMM acceleration with sparse special-quadrature
   corrections for singular kernels.
 - `chunkerinterior` FMM classification with direct close-boundary correction.
 - Advanced RCIP chunkgraph workflows: selected vertices, ignored vertices, and
   global block-kernel subselection for local corner compression.
+- Section II kernel/operator parity: MATLAB `@kernel` factory metadata and
+  direct evaluations, kernel algebra/interleave, Green helpers, biharmonic
+  `bhgreen`-derived selectors, and smooth dense operator helper routes.
 
 Deferred implementation:
 
@@ -918,30 +921,58 @@ selector-specific coefficients. Ground truth is the MATLAB point-kernel
 fixture.
 
 `test_stokes_point_kernels_match_matlab_fixture` is parametrized over `s`,
-`spres`, `strac`, `d`, `dpres`, `dtrac`, `sgrad`, `dgrad`, and `c`. The
-equations are 2D Stokes velocity, pressure, traction, gradient, and combined
-layer blocks at viscosity `mu`. The method is direct `stok2d.kern`. Ground
-truth is the MATLAB point-kernel fixture.
+`spres`, `strac`, `d`, `dpres`, `dtrac`, `sgrad`, `dgrad`, `c`, `cpres`,
+`ctrac`, and `cgrad`. The equations are 2D Stokes velocity, pressure,
+traction, gradient, and combined layer blocks at viscosity `mu`. The method is
+direct `stok2d.kern`. Ground truth is the MATLAB point-kernel fixture; direct
+lower-level `cgrad` is xfailed because MATLAB combines `sgrad` twice while
+Python keeps the intended `dgrad`/`sgrad` combination.
 
 `test_elasticity_point_kernels_match_matlab_fixture` is parametrized over
-`s`, `strac`, `d`, and `dalt`. The equations are 2D linear elasticity
-single-layer, traction, double-layer, and alternate double-layer blocks for
+`s`, `sgrad`, `strac`, `d`, `dalt`, `dalttrac`, and `daltgrad`. The equations
+are 2D linear elasticity single-layer, gradient, traction, double-layer,
+alternate double-layer, alternate traction, and alternate gradient blocks for
 saved Lame parameters. The method is direct `elast2d.kern`. Ground truth is
 the MATLAB point-kernel fixture.
 
-`test_dense_native_operator_paths_match_matlab_fixture` checks dense operator
-assembly and evaluation for Laplace and Stokes. The matrix equation is
-`M_ij = K(x_i,y_j) w_j`; application is `M sigma`. The method uses
-`chunkermat`, `chunkerkernevalmat`, `chunkerkerneval`, and
-`quadnative.buildmat`. Ground truth is `tests/golden/operator_parity.mat`,
-including matrices and applied values.
+`test_kernel_objects_match_matlab_fixture` is parametrized over MATLAB
+`@kernel` factories for Laplace, Helmholtz 2D, Helmholtz 1D, Stokes,
+elasticity, zero/NaN kernels, and a custom callable. The method compares
+Python factory metadata and direct evaluations against saved MATLAB
+`@kernel` object outputs. The elasticity `sgrad` value is compared while
+Python keeps the correct gradient operator dimensions that MATLAB metadata
+omits.
 
-`test_quadggq_special_quadrature_matches_matlab_fixture` checks GGQ special
-quadrature parity. The method compares log, PV, and HS auxiliary quadrature
-tables and special matrices for Laplace single layer, single-layer gradient,
-and double-layer gradient. It also checks the `ilist` path that intentionally
-skips selected special blocks. Ground truth is `tests/golden/quadggq.mat`,
-including exact table entries, matrix entries, and the skipped-block pattern.
+`test_kernel_algebra_and_interleave_match_matlab_fixture` checks scalar
+kernel algebra, addition/subtraction/negation/division, conjugation, and a
+2-by-2 interleaved Laplace block kernel. Ground truth is saved MATLAB
+`@kernel` algebra and interleave output from `kernel_pointinfo.mat`.
+
+`test_green_helpers_match_matlab_fixture` checks `lap2d.green`,
+`helm2d.green`, `helm1d.green`, and `helm1d.sweep` against MATLAB values,
+gradients, Hessians, and sweep sums stored in `kernel_pointinfo.mat`.
+
+`test_biharmonic_helpers_match_matlab_bhgreen_fixture` checks
+`biharm2d.green`, `biharm2d.kern`, and the `kernel("biharm", ...)` factory
+against MATLAB `chnk.flex2d.bhgreen`-derived value, gradient, Hessian,
+Laplacian, double-layer, target-normal, gradient, and Hessian selector data.
+
+`test_dense_native_operator_paths_match_matlab_fixture` checks dense operator
+assembly and evaluation for Laplace and Stokes, point-info flattening, smooth
+matrix application, zero-kernel matrices, smooth scalar integration, callable
+integration, and direct point/grid interior classification. The matrix
+equation is `M_ij = K(x_i,y_j) w_j`; application is `M sigma`. The method uses
+`pointinfo`, `chunkermat`, `chunkermatapply`, `chunkerintegral`,
+`chunkerinterior`, `chunkerkernevalmat`, `chunkerkerneval`, and
+`quadnative.buildmat`. Ground truth is `tests/golden/operator_parity.mat`,
+including matrices, applied values, integrals, and classifications.
+
+`test_section_iii_quadratures_match_matlab_fixture` checks Section III
+quadrature parity. The method compares native quadrature, log/removable/PV/HS
+auxiliary tables, `quadggq` self/near/sparse special blocks with correction and
+`ilist` variants, and `quadadap` log matrices with robust close replacement.
+Ground truth is `tests/golden/quadggq.mat`, including exact table entries,
+matrix entries, direct block outputs, and adaptive close-interaction matrices.
 
 `test_rcip_recursive_compression_matches_matlab_fixture` checks RCIP parity for
 two corner-adjacent edges. The equations are the shifted Legendre basis
@@ -1018,9 +1049,10 @@ is exact direct/FMM classification agreement after close-boundary correction.
 
 `test_matlab_log_quadrature_tables_load_for_each_legendre_node` checks log GGQ
 table loading/generation for Legendre order 8. The method is `quadggq.setup`,
-`getlogquad`, and `logavail`. Ground truth is known table entries, one self
-rule per Legendre node, interpolation matrix shapes, no quadrature node exactly
-at the singular target node, and self-rule weights summing to `2`.
+`getlogquad`, and MATLAB-style `logavail` near-rule availability. Ground truth
+is known table entries, one self rule per Legendre node, interpolation matrix
+shapes, no quadrature node exactly at the singular target node, and self-rule
+weights summing to `2`.
 
 `test_quadggq_buildmat_removes_laplace_single_layer_diagonal_infinities` checks
 that log special quadrature replaces singular diagonal entries for the Laplace
