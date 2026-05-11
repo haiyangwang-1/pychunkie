@@ -15,6 +15,18 @@ addition, fixture refresh, or refactor is incomplete until the relevant living
 docs either reflect it or the commit/PR text explicitly says why no living-doc
 change was needed.
 
+## Commit Granularity
+
+Make small, logically complete commits as code changes are made. Prefer a series
+of focused commits over one large end-of-task commit, especially when a task
+touches multiple modules, tests, fixtures, or living docs.
+
+Each commit should include the relevant code, tests, fixtures, and living-doc
+updates for that specific change. Do not bundle unrelated refactors, formatting,
+or follow-up work into the same commit. If the worktree contains unrelated
+uncommitted user changes, leave them unstaged and commit only the files that
+belong to the current change.
+
 ## Living Doc Rules
 
 - Update `map.md` when public APIs, source-tree structure, implemented MATLAB
