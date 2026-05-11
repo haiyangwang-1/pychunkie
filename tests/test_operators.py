@@ -2,6 +2,7 @@ import numpy as np
 
 import chunkie.operators as operators_mod
 from chunkie import (
+    ChunkerFMMMatrix,
     PointInfo,
     chunkerfunc,
     chunkerinterior,
@@ -51,6 +52,26 @@ def test_chunkermatapply_usefmm_matches_special_matrix_application():
     via_fmm = chunkermatapply(chnkr, lap_s, dens, {"usefmm": True, "eps": 1e-12})
 
     np.testing.assert_allclose(via_fmm, direct, rtol=1e-9, atol=1e-10)
+
+
+def test_chunkermat_usefmm_returns_matrix_free_operator_matching_dense_application():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 6}, {"k": 8})
+    lap_s = kernel("lap", "s")
+    x = chnkr.r[0].reshape(-1, order="F")
+    y = chnkr.r[1].reshape(-1, order="F")
+    dens = np.cos(x)
+    rhs = np.column_stack((dens, np.sin(y)))
+
+    dense = chunkermat(chnkr, lap_s)
+    via_fmm = chunkermat(chnkr, lap_s, {"usefmm": True, "eps": 1e-12})
+    via_forcefmm = chunkermat(chnkr, lap_s, {"forcefmm": True, "eps": 1e-12})
+
+    assert isinstance(via_fmm, ChunkerFMMMatrix)
+    assert isinstance(via_forcefmm, ChunkerFMMMatrix)
+    assert via_fmm.shape == dense.shape
+    np.testing.assert_allclose(via_fmm @ dens, dense @ dens, rtol=1e-9, atol=1e-10)
+    np.testing.assert_allclose(via_forcefmm @ dens, dense @ dens, rtol=1e-9, atol=1e-10)
+    np.testing.assert_allclose(via_fmm @ rhs, dense @ rhs, rtol=1e-9, atol=1e-10)
 
 
 def test_pointinfo_uses_matlab_chunk_contiguous_ordering():

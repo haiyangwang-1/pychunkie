@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 203 pytest cases because several MATLAB parity tests are
+collection expands to 204 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 
@@ -87,7 +87,8 @@ Implemented from this scope:
 - `quadggq/buildmattd` sparse special-block assembly.
 - Full adaptive/close quadrature for `quadadap`: GGQ self blocks, adaptive
   neighbor blocks, and robust close non-neighbor replacement for log kernels.
-- `chunkermatapply` FMM acceleration with sparse special-quadrature
+- `chunkermat(..., usefmm=True)` matrix-free FMM operators and
+  `chunkermatapply` FMM acceleration with sparse special-quadrature
   corrections for singular kernels.
 - `chunkerinterior` FMM classification with direct close-boundary correction.
 - Advanced RCIP chunkgraph workflows: selected vertices, ignored vertices, and
@@ -833,8 +834,9 @@ compares stored fields. Ground truth is `tests/golden/chunker_circle.mat`.
 Legendre helper surface against MATLAB. The equations include polynomial values
 and derivatives, interpolation matrices, integration matrices, expansion
 evaluation, coefficient antiderivatives, coefficient derivatives, and
-barycentric weights. The method recomputes every object in Python. Ground truth
-is `tests/golden/lege_extended.mat`.
+barycentric weights. It also checks `bernstein_ellipse`, `polsum`, and scalar
+MATLAB `tayl` calls against saved fixture outputs. The method recomputes every
+object in Python. Ground truth is `tests/golden/lege_extended.mat`.
 
 `test_chunker_geometry_and_transforms_match_matlab_fixture` checks MATLAB
 parity for chunker geometry, move/transform operations, and dense helper
@@ -915,6 +917,14 @@ Laplace single-layer kernel through `chunkermatapply(..., usefmm=True)`, then
 compares against the dense special-quadrature matrix product. Ground truth is
 agreement after sparse self/neighbor GGQ corrections are added to the FMM
 result.
+
+`test_chunkermat_usefmm_returns_matrix_free_operator_matching_dense_application`
+checks the explicit FMM return path on `chunkermat`. The method requests
+`chunkermat(..., {"usefmm": True})` for a Laplace single-layer kernel, verifies
+that the result is a `ChunkerFMMMatrix`, and compares both vector and
+multiple-right-hand-side products against the dense special-quadrature matrix.
+Ground truth is agreement with the dense product after cached sparse GGQ
+corrections are applied.
 
 `test_pointinfo_uses_matlab_chunk_contiguous_ordering` checks point ordering
 when flattening chunker fields. The invariant is MATLAB/Fortran chunk-contiguous

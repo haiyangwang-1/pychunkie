@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 203 tests: `202 passed, 1 failed` (`tests/test_devtools_parity.py::test_smoother_devtools_output_matches_matlab_thresholds`, current fixture lacks `fixture.chunker.npt`). Targeted operator run `uv run pytest tests/test_operators.py`: `9 passed`; targeted quadrature run `uv run pytest tests/test_quadggq.py`: `12 passed`; targeted geometry/domain run `uv run pytest tests/test_domain.py tests/test_chunkgraph.py tests/test_chunkerfunc.py`: `17 passed`; targeted chunker refinement run `uv run pytest tests/test_chunker.py tests/test_chunkerfunc.py`: `23 passed`; targeted kernel run `uv run pytest tests/test_kernel.py`: `15 passed`; targeted RCIP run `uv run pytest tests/test_rcip.py`: `7 passed`; targeted Legendre run `uv run pytest tests/test_lege.py`: `12 passed`.
+Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 204 tests: `203 passed, 1 failed` (`tests/test_devtools_parity.py::test_smoother_devtools_output_matches_matlab_thresholds`, current optional fixture lacks `fixture.chunker.npt`). Targeted operator run `uv run pytest tests/test_operators.py`: `10 passed`; targeted quadrature run `uv run pytest tests/test_quadggq.py`: `12 passed`; targeted geometry/domain run `uv run pytest tests/test_domain.py tests/test_chunkgraph.py tests/test_chunkerfunc.py`: `17 passed`; targeted chunker refinement run `uv run pytest tests/test_chunker.py tests/test_chunkerfunc.py`: `23 passed`; targeted kernel run `uv run pytest tests/test_kernel.py`: `15 passed`; targeted RCIP run `uv run pytest tests/test_rcip.py`: `7 passed`; targeted Legendre run `uv run pytest tests/test_lege.py`: `12 passed`.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -83,6 +83,7 @@ src/
     │   └── private helpers
     ├── operators.py
     │   ├── class PointInfo
+    │   ├── class ChunkerFMMMatrix
     │   ├── pointinfo
     │   ├── chunkermat, chunkermatapply
     │   ├── chunkerintegral, chunkerinterior
@@ -346,8 +347,9 @@ their matching `@kernel` factories.
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
 | `PointInfo` | ✅ 🧪 | MATLAB `srcinfo`/`targinfo` structs | Python dataclass for point info. |
+| `ChunkerFMMMatrix` | ✅ 🧪 | `chunkermatapply.m`, `+chnk/chunkerkerneval_smooth.m` FMM concepts | Matrix-free `scipy.sparse.linalg.LinearOperator` returned by `chunkermat(..., {"usefmm": True})`; caches sparse special-quadrature corrections and supports vector/multiple-RHS products. |
 | `pointinfo` | ✅ 🧪 | MATLAB point-info structs | Converts chunkers/dicts/arrays. |
-| `chunkermat` | ⚠️ 🧪 🎯 | `chunkermat.m` | Dense native/special matrix path parity-tested; dense return remains non-FMM by design; FLAM acceleration is deferred. |
+| `chunkermat` | ⚠️ 🧪 🎯 | `chunkermat.m` | Default dense native/special matrix path parity-tested; explicit `usefmm`/`fmm`/`forcefmm`/`accel` returns `ChunkerFMMMatrix` for matrix-free FMM products with special-quadrature corrections; FLAM acceleration is deferred. |
 | `chunkermatapply` | ✅ 🧪 | `chunkermatapply.m` | Matrix application helper with FMM acceleration plus sparse special-quadrature corrections for singular kernels. |
 | `chunkerintegral` | ✅ 🧪 | `chunkerintegral.m` | Values and callables tested. |
 | `chunkerinterior` | ✅ 🧪 | `chunkerinterior.m` | Direct polygon/ray classifier plus optional Laplace double-layer FMM classification with direct close-boundary correction; FLAM interior acceleration is deferred. |
@@ -448,9 +450,9 @@ Log/PV/HS support tables are consumed when the MATLAB reference checkout is avai
 | `matrin` | ✅ 🧪 🎯 | `+lege/matrin.m` | MATLAB parity fixture checks interpolation matrix. |
 | `barywts` | ✅ 🧪 🎯 | `+lege/barywts.m` | MATLAB parity fixture checks weights. |
 | `adapgauss` | ✅ 🧪 | `+lege/adapgauss.m` | Adaptive Gauss-Legendre scalar/vector integration tested. |
-| `bernstein_ellipse` | ✅ 🧪 | `+lege/bernstein_ellipse.m` | Conformal-map ellipse nodes tested. |
-| `polsum` | ✅ 🧪 | `+lege/polsum.m` | Recurrence value, derivative, and normalization total tested. |
-| `tayl` | ✅ 🧪 | `+lege/tayl.m` | Taylor stepping tested against direct Legendre evaluation. |
+| `bernstein_ellipse` | ✅ 🧪 🎯 | `+lege/bernstein_ellipse.m` | Conformal-map ellipse nodes tested and MATLAB parity fixture checked. |
+| `polsum` | ✅ 🧪 🎯 | `+lege/polsum.m` | Recurrence value, derivative, and normalization total tested; MATLAB parity fixture checked. |
+| `tayl` | ✅ 🧪 🎯 | `+lege/tayl.m` | Taylor stepping tested against direct Legendre evaluation and scalar-call MATLAB parity fixture outputs. |
 
 ### V SMOOTH
 #### `chnk/smoother.py`

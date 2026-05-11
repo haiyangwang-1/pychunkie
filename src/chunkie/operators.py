@@ -1,4 +1,4 @@
-"""Dense direct operator assembly and evaluation."""
+"""Operator assembly, matrix-free application, and evaluation."""
 
 from __future__ import annotations
 
@@ -8,6 +8,8 @@ from typing import Any
 
 import numpy as np
 from numpy.typing import ArrayLike
+from scipy.sparse import spmatrix
+from scipy.sparse.linalg import LinearOperator
 
 from . import lege
 from .chunker import Chunker
@@ -20,6 +22,60 @@ class PointInfo:
     d2: np.ndarray | None = None
     n: np.ndarray | None = None
     data: np.ndarray | None = None
+
+
+class ChunkerFMMMatrix(LinearOperator):
+    """Matrix-free ``chunkermat`` operator using kernel FMM application."""
+
+    def __init__(
+        self,
+        chnkr: Chunker,
+        kern: Callable[[Any, Any], np.ndarray],
+        opts: dict[str, Any] | None = None,
+    ):
+        self.chnkr = _require_chunker(chnkr)
+        self.kern = kern
+        self.opts = {} if opts is None else dict(opts)
+        self.opdims = _kernel_opdims(self.chnkr, kern)
+        self._correction_mat: spmatrix | None = None
+        dtype = _operator_dtype(self.chnkr, kern)
+        shape = (self.chnkr.npt * int(self.opdims[0]), self.chnkr.npt * int(self.opdims[1]))
+        super().__init__(dtype=dtype, shape=shape)
+
+    def _matvec(self, x: np.ndarray) -> np.ndarray:
+        if x.size != self.shape[1]:
+            raise ValueError("density has incompatible size")
+        return _chunkermatapply_fmm(self.chnkr, self.kern, x, self.opts, self._correction())
+
+    def _matmat(self, x: np.ndarray) -> np.ndarray:
+        if x.shape[0] != self.shape[1]:
+            raise ValueError("density matrix has incompatible row count")
+        if x.shape[1] == 0:
+            return np.empty((self.shape[0], 0), dtype=np.result_type(self.dtype, x.dtype))
+        return np.column_stack([self._matvec(x[:, col]) for col in range(x.shape[1])])
+
+    def toarray(self) -> np.ndarray:
+        """Materialize the operator by applying it to basis vectors."""
+
+        return self._matmat(np.eye(self.shape[1], dtype=self.dtype))
+
+    def todense(self) -> np.ndarray:
+        return self.toarray()
+
+    def __array__(self, dtype: np.dtype | None = None, copy: bool | None = None) -> np.ndarray:
+        arr = self.toarray()
+        if dtype is not None:
+            return np.array(arr, dtype=dtype, copy=True if copy is None else copy)
+        if copy:
+            return arr.copy()
+        return arr
+
+    def _correction(self) -> spmatrix | None:
+        if not _uses_special_quadrature(self.kern, self.opts):
+            return None
+        if self._correction_mat is None:
+            self._correction_mat = _special_correction_matrix(self.chnkr, self.kern, self.opts)
+        return self._correction_mat
 
 
 def pointinfo(obj: Chunker | dict[str, Any] | ArrayLike | PointInfo) -> PointInfo:
@@ -54,11 +110,13 @@ def chunkermat(
     chnkr: Chunker,
     kern: Callable[[Any, Any], np.ndarray],
     opts: dict[str, Any] | None = None,
-) -> np.ndarray:
-    """Build a dense native quadrature matrix for a chunker."""
+) -> np.ndarray | ChunkerFMMMatrix:
+    """Build a native quadrature matrix, or an FMM-backed operator when requested."""
 
     chnkr = _require_chunker(chnkr)
     options = {} if opts is None else dict(opts)
+    if _requests_fmm(options) and getattr(kern, "fmm", None) is not None:
+        return ChunkerFMMMatrix(chnkr, kern, options)
     if _uses_special_quadrature(kern, options):
         from .chnk import quadggq
 
@@ -81,27 +139,13 @@ def chunkermatapply(
     dens: ArrayLike,
     opts: dict[str, Any] | None = None,
 ) -> np.ndarray:
-    """Apply the dense native matrix for ``kern`` on ``chnkr``."""
+    """Apply the native matrix for ``kern`` on ``chnkr``."""
 
     chnkr = _require_chunker(chnkr)
     options = {} if opts is None else dict(opts)
     dens_vec = np.asarray(dens).reshape(-1, order="F")
-    if bool(options.get("usefmm", options.get("fmm", False))) and getattr(kern, "fmm", None) is not None:
-        vals = chunkerkerneval(chnkr, kern, dens_vec, chnkr, options).reshape(-1, order="F")
-        if _uses_special_quadrature(kern, options):
-            from .chnk import quadggq
-
-            qtype = str(options.get("sing", getattr(kern, "sing", "log") or "log")).lower()
-            corr = quadggq.buildmattd(
-                chnkr,
-                kern,
-                getattr(kern, "opdims", None),
-                type=qtype,
-                ilist=options.get("ilist", None),
-                corrections=True,
-            )
-            vals = vals + corr @ dens_vec
-        return vals
+    if _requests_fmm(options) and getattr(kern, "fmm", None) is not None:
+        return _chunkermatapply_fmm(chnkr, kern, dens_vec, options)
     return chunkermat(chnkr, kern, opts) @ dens_vec
 
 
@@ -161,7 +205,7 @@ def chunkerinterior(
     if pts.shape[0] != 2:
         raise ValueError("target points must be two-dimensional")
 
-    use_fmm = bool(options.get("usefmm", options.get("fmm", False)))
+    use_fmm = _requests_fmm(options)
     if use_fmm:
         from .kernel import kernel
 
@@ -208,7 +252,7 @@ def chunkerkerneval(
     options = {} if opts is None else dict(opts)
     same_source_target = targobj is chnkr
     chnkr = _require_chunker(chnkr)
-    use_fmm = bool(options.get("usefmm", options.get("fmm", False))) and getattr(kern, "fmm", None) is not None
+    use_fmm = _requests_fmm(options) and getattr(kern, "fmm", None) is not None
     if same_source_target and _uses_special_quadrature(kern, options) and not use_fmm:
         vals = chunkermat(chnkr, kern, opts) @ np.asarray(dens).reshape(-1, order="F")
         opdims = getattr(kern, "opdims", (1, 1))[0]
@@ -304,6 +348,81 @@ def _uses_special_quadrature(kern: Callable[[Any, Any], np.ndarray], opts: dict[
     if bool(options.get("forceadap", False)):
         return True
     return getattr(kern, "sing", "") in {"log", "pv", "hs"}
+
+
+def _requests_fmm(options: dict[str, Any]) -> bool:
+    return bool(
+        options.get("usefmm", False)
+        or options.get("fmm", False)
+        or options.get("forcefmm", False)
+        or options.get("accel", False)
+    )
+
+
+def _chunkermatapply_fmm(
+    chnkr: Chunker,
+    kern: Callable[[Any, Any], np.ndarray],
+    dens: ArrayLike,
+    options: dict[str, Any],
+    correction: spmatrix | None = None,
+) -> np.ndarray:
+    dens_vec = np.asarray(dens).reshape(-1, order="F")
+    fmm_options = dict(options)
+    fmm_options["usefmm"] = True
+    vals = chunkerkerneval(chnkr, kern, dens_vec, chnkr, fmm_options).reshape(-1, order="F")
+    if _uses_special_quadrature(kern, options):
+        corr = _special_correction_matrix(chnkr, kern, options) if correction is None else correction
+        vals = vals + corr @ dens_vec
+    return vals
+
+
+def _special_correction_matrix(
+    chnkr: Chunker,
+    kern: Callable[[Any, Any], np.ndarray],
+    options: dict[str, Any],
+) -> spmatrix:
+    from .chnk import quadggq
+
+    qtype = str(options.get("sing", getattr(kern, "sing", "log") or "log")).lower()
+    return quadggq.buildmattd(
+        chnkr,
+        kern,
+        getattr(kern, "opdims", None),
+        type=qtype,
+        ilist=options.get("ilist", None),
+        corrections=True,
+    )
+
+
+def _kernel_opdims(chnkr: Chunker, kern: Callable[[Any, Any], np.ndarray]) -> tuple[int, int]:
+    opdims = getattr(kern, "opdims", None)
+    if opdims is not None and tuple(opdims) != (0, 0):
+        return int(opdims[0]), int(opdims[1])
+    src = _pointinfo_node(chnkr, 0)
+    targ = _pointinfo_node(chnkr, 1 if chnkr.npt > 1 else 0)
+    mat = _eval_kernel(kern, src, targ)
+    return int(mat.shape[0]), int(mat.shape[1])
+
+
+def _operator_dtype(chnkr: Chunker, kern: Callable[[Any, Any], np.ndarray]) -> np.dtype:
+    try:
+        src = _pointinfo_node(chnkr, 0)
+        targ = _pointinfo_node(chnkr, 1 if chnkr.npt > 1 else 0)
+        return np.asarray(_eval_kernel(kern, src, targ)).dtype
+    except Exception:
+        return np.dtype(float)
+
+
+def _pointinfo_node(chnkr: Chunker, inode: int) -> PointInfo:
+    src = pointinfo(chnkr)
+    idx = int(inode)
+    return PointInfo(
+        r=src.r[:, idx : idx + 1],
+        d=src.d[:, idx : idx + 1] if src.d is not None else None,
+        d2=src.d2[:, idx : idx + 1] if src.d2 is not None else None,
+        n=src.n[:, idx : idx + 1] if src.n is not None else None,
+        data=src.data[:, idx : idx + 1] if src.data is not None else None,
+    )
 
 
 def _chunker_polygon_points(chnkr: Chunker) -> np.ndarray:
