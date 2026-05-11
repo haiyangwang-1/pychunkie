@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 from numpy.typing import ArrayLike
+from scipy.spatial import cKDTree
 
 from chunkie.chunker import Chunker
 from chunkie import lege
@@ -47,11 +48,17 @@ def flagnear_rectangle_grid(chnkr: Chunker, x: ArrayLike, y: ArrayLike, opts: di
 def flagself(srcs: ArrayLike, targs: ArrayLike, tol: float = 1e-14) -> np.ndarray:
     src = np.asarray(srcs, dtype=float).reshape(np.asarray(srcs).shape[0], -1)
     targ = np.asarray(targs, dtype=float).reshape(np.asarray(targs).shape[0], -1)
+    if src.shape[0] != targ.shape[0]:
+        raise ValueError("sources and targets must have the same leading dimension")
+
+    tree = cKDTree(targ.T)
     pairs: list[tuple[int, int]] = []
-    for i in range(src.shape[1]):
-        dists = np.sqrt(np.sum((targ - src[:, i : i + 1]) ** 2, axis=0))
-        close = np.flatnonzero(dists < tol)
-        pairs.extend((i, int(j)) for j in close)
+    for i, close in enumerate(tree.query_ball_point(src.T, tol, return_sorted=True)):
+        if not close:
+            continue
+        close_arr = np.asarray(close, dtype=int)
+        dists = np.sqrt(np.sum((targ[:, close_arr] - src[:, i : i + 1]) ** 2, axis=0))
+        pairs.extend((i, int(j)) for j in close_arr[dists < tol])
     if not pairs:
         return np.zeros((2, 0), dtype=int)
     return np.array(pairs, dtype=int).T

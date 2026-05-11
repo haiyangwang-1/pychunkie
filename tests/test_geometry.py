@@ -78,6 +78,20 @@ def test_flagself_reports_close_source_target_pairs():
     np.testing.assert_array_equal(pairs, np.array([[0, 2], [1, 0]]))
 
 
+def test_flagself_handles_grid_sized_inputs_and_strict_tolerance():
+    x = np.linspace(0.0, 1.0, 80)
+    y = np.linspace(0.0, 2.0, 80)
+    xx, yy = np.meshgrid(x, y)
+    src = np.vstack((xx.ravel(), yy.ravel()))
+    targ = np.column_stack((src, src[:, :1] + np.array([[1.0e-14], [0.0]])))
+
+    pairs = flagself(src, targ, 1.0e-14)
+
+    assert pairs.shape == (2, src.shape[1])
+    np.testing.assert_array_equal(pairs[0], np.arange(src.shape[1]))
+    np.testing.assert_array_equal(pairs[1], np.arange(src.shape[1]))
+
+
 def test_basic_2d_geometry_helpers():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 2}, {"k": 8})
     d = chnkr.d.reshape(2, -1)
