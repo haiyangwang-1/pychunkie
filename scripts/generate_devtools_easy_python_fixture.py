@@ -13,7 +13,7 @@ import numpy as np
 from scipy.io import loadmat
 
 from chunkie import Chunker, kernel, lege
-from chunkie.chnk import spcl
+from chunkie.chnk import flagself, spcl
 from chunkie.operators import PointInfo
 
 
@@ -108,6 +108,9 @@ def build_snapshot() -> dict[str, np.ndarray]:
     circle_y = circle.r[1].reshape(-1, order="F")
     out["chunker_diffintmat_circle_D"] = circle_d
     out["chunker_diffintmat_circle_test_quant"] = circle_d @ circle_x + circle_y
+
+    fs = fixture.flagself
+    out["flagself_pairs"] = flagself(fs.srcs, fs.targs)
 
     kop = fixture.kernelop
     src = pointinfo_from_mat(kop.src)

@@ -110,6 +110,25 @@ dimat.circle_D = D;
 dimat.circle_test_quant = D * chnkr.r(1,:).' + chnkr.r(2,:).';
 devtools_easy.chunker_diffintmat = dimat;
 
+% flagselfTest.m
+fs = [];
+rng(8675309);
+fs.nsrc_requested = 40000;
+xtarg = linspace(0, 1, floor(sqrt(fs.nsrc_requested)));
+ytarg = linspace(0, 2, floor(sqrt(fs.nsrc_requested)));
+[xxsrc, yysrc] = meshgrid(xtarg, ytarg);
+fs.srcs = zeros(2, length(xxsrc(:)));
+fs.srcs(1,:) = xxsrc(:);
+fs.srcs(2,:) = yysrc(:);
+fs.nsrc = size(fs.srcs, 2);
+fs.targs_unpermuted = [fs.srcs, [1;2].*rand(2,100)];
+fs.P = randperm(size(fs.targs_unpermuted, 2));
+fs.targs = fs.targs_unpermuted(:, fs.P) + 1e-15*(2*rand(size(fs.targs_unpermuted))-1);
+fs.flagslf = chnk.flagself(fs.srcs, fs.targs);
+fs.flagged_count = size(fs.flagslf, 2);
+fs.err_count = sum(vecnorm(fs.srcs(:,fs.flagslf(1,:)) - fs.targs(:,fs.flagslf(2,:))) > 1e-10);
+devtools_easy.flagself = fs;
+
 % kernelopTest.m
 kop = [];
 rng(8675309);

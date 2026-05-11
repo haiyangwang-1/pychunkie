@@ -5,7 +5,7 @@ import pytest
 from scipy.io import loadmat
 
 from chunkie import Chunker, kernel, lege
-from chunkie.chnk import spcl
+from chunkie.chnk import flagself, spcl
 from chunkie.operators import PointInfo
 
 
@@ -42,6 +42,14 @@ def pointinfo_from_mat(obj) -> PointInfo:
         d2=np.asarray(obj.d2) if hasattr(obj, "d2") else None,
         n=np.asarray(obj.n) if hasattr(obj, "n") else None,
     )
+
+
+def sorted_pairs(pairs: np.ndarray) -> np.ndarray:
+    arr = np.asarray(pairs, dtype=int)
+    if arr.size == 0:
+        return arr.reshape(2, 0)
+    order = np.lexsort((arr[1], arr[0]))
+    return arr[:, order]
 
 
 def test_absconvgauss_devtools_outputs_match_matlab():
@@ -124,6 +132,18 @@ def test_chunker_diffintmat_devtools_outputs_match_matlab():
     np.testing.assert_allclose(circle_dmat, fixture.circle_D, atol=1e-13)
     np.testing.assert_allclose(circle_test_quant, fixture.circle_test_quant, atol=1e-12)
     assert np.linalg.norm(circle_test_quant) < 1e-10
+
+
+def test_flagself_devtools_output_matches_matlab():
+    fixture = load_devtools_easy().flagself
+    actual = flagself(fixture.srcs, fixture.targs)
+    expected = np.asarray(fixture.flagslf, dtype=int) - 1
+
+    assert actual.shape[1] == int(fixture.nsrc)
+    assert actual.shape[1] == int(fixture.flagged_count)
+    assert int(fixture.err_count) == 0
+    np.testing.assert_array_equal(sorted_pairs(actual), sorted_pairs(expected))
+    np.testing.assert_allclose(fixture.srcs[:, actual[0]], fixture.targs[:, actual[1]], atol=1e-10)
 
 
 def test_kernelop_devtools_outputs_match_matlab():
