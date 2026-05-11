@@ -15,9 +15,10 @@ an absent optional snapshot skip cleanly.
 
 Current fixtures cover Legendre helpers, including extended helper parity,
 basic circle chunking, core geometry/domain/chunkgraph helpers, chunker
-transforms, point-kernel evaluators, and dense/native operator paths. Strict
-`xfail` entries document known MATLAB parity gaps while keeping the rest of the
-suite actionable.
+transforms, point-kernel evaluators, MATLAB `@kernel` object algebra/factories,
+Green helpers, biharmonic `bhgreen`-derived selectors, and dense/native
+operator paths. Strict `xfail` entries document known MATLAB parity gaps while
+keeping the rest of the suite actionable.
 
 `devtools_easy.mat` is an optional generated snapshot produced by
 `scripts/matlab/generate_devtools_easy_fixture.m`. It starts the
@@ -31,7 +32,9 @@ same saved MATLAB inputs. The pytest suite still recomputes Python outputs live,
 and the generated `.npz` is intentionally not tracked.
 
 `quadggq.mat` remains tracked because it covers the singular quadrature tables
-and behavior that are part of the package surface.
+and behavior that are part of the package surface, including native
+quadrature, GGQ self/near/sparse special blocks, and adaptive close
+quadrature.
 
 `geometry_core.mat` remains tracked because it is a compact fixture for the
 implemented I GEOMETRY surface, excluding `chunkerfit` and smoother workflows.

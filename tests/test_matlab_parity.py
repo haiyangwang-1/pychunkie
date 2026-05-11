@@ -6,7 +6,7 @@ from scipy import sparse
 from scipy.io import loadmat
 
 from chunkie import Chunker, chunkerkerneval, chunkerkernevalmat, chunkermat, kernel, lege
-from chunkie.chnk import elast2d, helm1d, helm2d, lap2d, quadggq, quadnative, rcip, stok2d
+from chunkie.chnk import elast2d, helm1d, helm2d, lap2d, quadadap, quadggq, quadnative, rcip, stok2d
 
 
 GOLDEN = Path(__file__).parent / "golden"
@@ -30,6 +30,17 @@ def pointinfo_dict(obj) -> dict[str, np.ndarray]:
 def dense_array(obj) -> np.ndarray:
     return obj.toarray() if sparse.issparse(obj) else np.asarray(obj)
 
+
+def assert_cell_arrays_allclose(actual, expected, *, rtol: float = 1e-13, atol: float = 1e-13, label: str) -> None:
+    assert len(actual) == len(expected), f"{label}: cell count"
+    for idx, (actual_cell, expected_cell) in enumerate(zip(actual, expected)):
+        np.testing.assert_allclose(
+            np.asarray(actual_cell),
+            np.asarray(expected_cell),
+            rtol=rtol,
+            atol=atol,
+            err_msg=f"{label}: cell {idx}",
+        )
 
 def chunker_from_fields(fields) -> Chunker:
     k = int(fields.k)
@@ -240,41 +251,120 @@ def test_dense_native_operator_paths_match_matlab_fixture():
     np.testing.assert_allclose(stok_d_mat @ density_stokes, fixture.stok_d_apply, rtol=1e-12, atol=1e-13)
 
 
-def test_quadggq_special_quadrature_matches_matlab_fixture():
+def test_section_iii_quadratures_match_matlab_fixture():
     fixture = load_fixture("quadggq.mat")["quadggq"]
     chnkr = chunker_from_fields(fixture.chunker)
+
+    np.testing.assert_array_equal(quadggq.logavail(), np.asarray(fixture.log_orders, dtype=int).reshape(-1))
+    np.testing.assert_array_equal(quadggq.hqsuppavail(), np.asarray(fixture.hqsupp_orders, dtype=int).reshape(-1))
+
+    log_xs1, log_wts1, log_xs0, log_wts0 = quadggq.getlogquad(chnkr.k, 2)
+    np.testing.assert_allclose(log_xs1, fixture.log_xs1, atol=0.0)
+    np.testing.assert_allclose(log_wts1, fixture.log_wts1, atol=0.0)
+    assert_cell_arrays_allclose(log_xs0, fixture.log_xs0, atol=0.0, label="getlogquad xs0")
+    assert_cell_arrays_allclose(log_wts0, fixture.log_wts0, atol=0.0, label="getlogquad wts0")
 
     log_aux = quadggq.setup(chnkr.k, "log")
     np.testing.assert_allclose(log_aux.xs1, fixture.log_xs1, atol=0.0)
     np.testing.assert_allclose(log_aux.wts1, fixture.log_wts1, atol=0.0)
-    for actual, expected in zip(log_aux.xs0, fixture.log_xs0):
-        np.testing.assert_allclose(actual, expected, atol=0.0)
-    for actual, expected in zip(log_aux.wts0, fixture.log_wts0):
-        np.testing.assert_allclose(actual, expected, atol=0.0)
+    assert_cell_arrays_allclose(log_aux.xs0, fixture.log_xs0, atol=0.0, label="log setup xs0")
+    assert_cell_arrays_allclose(log_aux.wts0, fixture.log_wts0, atol=0.0, label="log setup wts0")
+
+    removable_xs0, removable_wts0 = quadggq.getremovablequad(chnkr.k, 1)
+    removable_aux = quadggq.setup(chnkr.k, "removable")
+    assert_cell_arrays_allclose(removable_xs0, fixture.removable_xs0, label="getremovablequad xs0")
+    assert_cell_arrays_allclose(removable_wts0, fixture.removable_wts0, label="getremovablequad wts0")
+    assert_cell_arrays_allclose(removable_aux.xs0, fixture.setup_removable_xs0, label="removable setup xs0")
+    assert_cell_arrays_allclose(removable_aux.wts0, fixture.setup_removable_wts0, label="removable setup wts0")
 
     pv_aux = quadggq.setup(chnkr.k, "pv")
     hs_aux = quadggq.setup(chnkr.k, "hs")
-    for actual, expected in zip(pv_aux.xs0, fixture.pv_xs0):
-        np.testing.assert_allclose(actual, expected, atol=0.0)
-    for actual, expected in zip(pv_aux.wts0, fixture.pv_wts0):
-        np.testing.assert_allclose(actual, expected, atol=0.0)
-    for actual, expected in zip(hs_aux.xs0, fixture.hs_xs0):
-        np.testing.assert_allclose(actual, expected, atol=0.0)
-    for actual, expected in zip(hs_aux.wts0, fixture.hs_wts0):
-        np.testing.assert_allclose(actual, expected, atol=0.0)
+    pv_xs0, pv_wts0 = quadggq.getpvquad(chnkr.k)
+    hs_xs0, hs_wts0 = quadggq.gethsquad(chnkr.k)
+    assert_cell_arrays_allclose(pv_aux.xs0, fixture.pv_xs0, atol=0.0, label="pv setup xs0")
+    assert_cell_arrays_allclose(pv_aux.wts0, fixture.pv_wts0, atol=0.0, label="pv setup wts0")
+    assert_cell_arrays_allclose(pv_xs0, fixture.pv_xs0, atol=0.0, label="getpvquad xs0")
+    assert_cell_arrays_allclose(pv_wts0, fixture.pv_wts0, atol=0.0, label="getpvquad wts0")
+    assert_cell_arrays_allclose(hs_aux.xs0, fixture.hs_xs0, atol=0.0, label="hs setup xs0")
+    assert_cell_arrays_allclose(hs_aux.wts0, fixture.hs_wts0, atol=0.0, label="hs setup wts0")
+    assert_cell_arrays_allclose(hs_xs0, fixture.hs_xs0, atol=0.0, label="gethsquad xs0")
+    assert_cell_arrays_allclose(hs_wts0, fixture.hs_wts0, atol=0.0, label="gethsquad wts0")
 
     lap_s = kernel("lap", "s")
+    lap_d = kernel("lap", "d")
     lap_sgrad = kernel("lap", "sgrad")
     lap_dgrad = kernel("lap", "dgrad")
+    np.testing.assert_allclose(quadnative.buildmat(chnkr, lap_d, lap_d.opdims), fixture.native_lap_d_mat, rtol=1e-12, atol=1e-13)
     np.testing.assert_allclose(quadggq.buildmat(chnkr, lap_s, lap_s.opdims, "log"), fixture.log_mat, rtol=1e-12, atol=1e-13)
     np.testing.assert_allclose(quadggq.buildmat(chnkr, lap_sgrad, lap_sgrad.opdims, "pv"), fixture.pv_mat, rtol=1e-10, atol=1e-11)
     np.testing.assert_allclose(quadggq.buildmat(chnkr, lap_dgrad, lap_dgrad.opdims, "hs"), fixture.hs_mat, rtol=2e-7, atol=5e-8)
+
+    np.testing.assert_allclose(quadggq.buildmattd(chnkr, lap_s, lap_s.opdims, "log").toarray(), fixture.log_td_mat, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(
+        quadggq.buildmattd(chnkr, lap_s, lap_s.opdims, "log", ilist=[0, 1]).toarray(),
+        fixture.log_td_mat_skip,
+        rtol=1e-12,
+        atol=1e-13,
+    )
+    np.testing.assert_allclose(
+        quadggq.buildmattd(chnkr, lap_s, lap_s.opdims, "log", corrections=True).toarray(),
+        fixture.log_td_mat_corrections,
+        rtol=1e-12,
+        atol=1e-13,
+    )
+
+    diag_chunk = int(fixture.log_diag_chunk) - 1
+    near_source_chunk = int(fixture.log_near_source_chunk) - 1
+    near_target_chunk = int(fixture.log_near_target_chunk) - 1
+    np.testing.assert_allclose(
+        quadggq.diagbuildmat(chnkr, diag_chunk, lap_s, lap_s.opdims, log_aux),
+        fixture.log_diag_mat,
+        rtol=1e-12,
+        atol=1e-13,
+    )
+    np.testing.assert_allclose(
+        quadggq.diagbuildmat(chnkr, diag_chunk, lap_s, lap_s.opdims, log_aux, corrections=True),
+        fixture.log_diag_mat_corrections,
+        rtol=1e-12,
+        atol=1e-13,
+    )
+    np.testing.assert_allclose(
+        quadggq.nearbuildmat(chnkr, near_target_chunk, near_source_chunk, lap_s, lap_s.opdims, log_aux),
+        fixture.log_near_mat,
+        rtol=1e-12,
+        atol=1e-13,
+    )
+    np.testing.assert_allclose(
+        quadggq.nearbuildmat(chnkr, near_target_chunk, near_source_chunk, lap_s, lap_s.opdims, log_aux, corrections=True),
+        fixture.log_near_mat_corrections,
+        rtol=1e-12,
+        atol=1e-13,
+    )
 
     skipped = quadggq.buildmat(chnkr, lap_s, lap_s.opdims, "log", ilist=[0, 1])
     np.testing.assert_array_equal(np.isinf(skipped), np.isinf(fixture.log_mat_skip))
     finite = np.isfinite(fixture.log_mat_skip)
     np.testing.assert_allclose(skipped[finite], fixture.log_mat_skip[finite], rtol=1e-12, atol=1e-13)
 
+    np.testing.assert_allclose(
+        quadadap.buildmat(chnkr, lap_s, lap_s.opdims, {"sing": "log"}),
+        fixture.adap_log_mat,
+        rtol=5e-10,
+        atol=1e-11,
+    )
+    close_chnkr = chunker_from_fields(fixture.adap_close_chunker)
+    np.testing.assert_allclose(
+        quadadap.buildmat(close_chnkr, lap_s, lap_s.opdims, {"sing": "log"}),
+        fixture.adap_close_mat,
+        rtol=5e-10,
+        atol=1e-11,
+    )
+    np.testing.assert_allclose(
+        quadadap.buildmat(close_chnkr, lap_s, lap_s.opdims, {"sing": "log", "robust": True}),
+        fixture.adap_close_robust_mat,
+        rtol=5e-10,
+        atol=1e-11,
+    )
 
 def test_rcip_recursive_compression_matches_matlab_fixture():
     fixture = load_fixture("rcip.mat")["rcip_fixture"]
