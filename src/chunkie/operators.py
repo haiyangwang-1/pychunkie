@@ -275,6 +275,10 @@ def chunkerkerneval(
 
     srcinfo = pointinfo(chnkr)
     targinfo = pointinfo(targobj)
+    if bool(options.get("forceadap", False)):
+        mat = _target_adaptive_matrix(chnkr, kern, targinfo, options)
+        vals = mat @ np.asarray(dens).reshape(-1, order="F")
+        return vals.reshape(-1, targinfo.r.shape[1], order="F")
     if use_fmm:
         weighted = _weighted_density(chnkr, dens)
         vals = kern.fmm(float(options.get("eps", options.get("tol", 1e-12))), srcinfo, targinfo, weighted)
@@ -309,6 +313,8 @@ def chunkerkernevalmat(
 
     srcinfo = pointinfo(chnkr)
     targinfo = pointinfo(targobj)
+    if bool(options.get("forceadap", False)):
+        return _target_adaptive_matrix(chnkr, kern, targinfo, options)
     mat = _eval_kernel(kern, srcinfo, targinfo)
     wts = chnkr.wts.reshape(-1, order="F")
     if mat.shape[1] == chnkr.npt:
@@ -422,6 +428,54 @@ def _special_correction_matrix(
         ilist=options.get("ilist", None),
         corrections=True,
     )
+
+
+def _target_adaptive_matrix(
+    chnkr: Chunker,
+    kern: Callable[[Any, Any], np.ndarray],
+    targinfo: PointInfo,
+    options: dict[str, Any],
+) -> np.ndarray:
+    """Build a target-evaluation matrix with adaptive close-panel replacements."""
+
+    from .chnk import quadadap
+
+    opdims = _kernel_opdims(chnkr, kern)
+    op0 = int(opdims[0])
+    op1 = int(opdims[1])
+    srcinfo = pointinfo(chnkr)
+    mat = _eval_kernel(kern, srcinfo, targinfo)
+    wts = chnkr.wts.reshape(-1, order="F")
+    if mat.shape[1] == chnkr.npt:
+        mat = mat * wts[None, :]
+    elif mat.shape[1] % chnkr.npt == 0:
+        mat = mat * np.repeat(wts, mat.shape[1] // chnkr.npt)[None, :]
+    else:
+        raise ValueError("kernel column dimension is incompatible with chunker points")
+
+    flags = chnkr.flagnear(targinfo.r, {"fac": float(options.get("fac", 1.0))})
+    if not np.any(flags):
+        return mat
+
+    for src_chunk in range(chnkr.nch):
+        target_ids = np.flatnonzero(flags[:, src_chunk])
+        if target_ids.size == 0:
+            continue
+        subinfo = PointInfo(
+            r=targinfo.r[:, target_ids],
+            d=None if targinfo.d is None else targinfo.d[:, target_ids],
+            d2=None if targinfo.d2 is None else targinfo.d2[:, target_ids],
+            n=None if targinfo.n is None else targinfo.n[:, target_ids],
+            data=None if targinfo.data is None else targinfo.data[:, target_ids],
+        )
+        submat = quadadap.adapgausswts(chnkr, src_chunk, subinfo, kern, (op0, op1), opts=options)[0]
+        col_start = src_chunk * chnkr.k * op1
+        cols = slice(col_start, col_start + chnkr.k * op1)
+        for local_idx, target_idx in enumerate(target_ids):
+            rows = slice(op0 * target_idx, op0 * (target_idx + 1))
+            local_rows = slice(op0 * local_idx, op0 * (local_idx + 1))
+            mat[rows, cols] = submat[local_rows, :]
+    return mat
 
 
 def _kernel_opdims(chnkr: Chunker, kern: Callable[[Any, Any], np.ndarray]) -> tuple[int, int]:

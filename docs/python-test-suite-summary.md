@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 280 pytest cases because several MATLAB parity tests are
+collection expands to 283 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -100,6 +100,10 @@ Implemented from this scope:
 - Section II kernel/operator parity: MATLAB `@kernel` factory metadata and
   direct evaluations, kernel algebra/interleave, Green helpers, biharmonic
   `bhgreen`-derived selectors, and smooth dense operator helper routes.
+- Laplace Green-identity target-evaluation parity for the devtools
+  `kernelclass`, `chunkerkerneval_greenlap`, and
+  `chunkerkernevalmat_greenlap` paths, including Python `forceadap`
+  close-target replacement in `chunkerkerneval` and `chunkerkernevalmat`.
 
 Deferred implementation:
 
@@ -550,6 +554,28 @@ stress identity `t = -p n + mu (grad u + grad u^T) n`, reconstructed from
 blocks through the generic `kernel` wrapper and contracts with saved
 strengths. Ground truth is MATLAB's `Kt`, `Kg`, `Kp`, reconstructed traction,
 and residual norm below `1e-13`.
+
+`test_kernelclass_devtools_green_identity_matches_matlab` checks the Laplace
+Green-identity portion of MATLAB `kernelclassTest.m` plus NaN-kernel
+propagation. The method reconstructs the saved starfish chunker, recomputes
+boundary `u` and normal-derivative densities from exterior point sources, then
+uses `chunkerkerneval(..., forceadap=True)` for close-corrected target layer
+evaluation. Ground truth is MATLAB's boundary data, target truth, layer
+potentials, Green-identity residual, and NaN-kernel diagnostics.
+
+`test_chunkerkerneval_greenlap_devtools_outputs_match_matlab` checks the
+Laplace Green-identity target-evaluation workflow from
+`chunkerkerneval_greenlapTest.m`. The method compares saved point-source
+fields, boundary densities, and close-corrected single/double-layer target
+evaluations through `forceadap`. Ground truth is MATLAB's direct outputs and
+diagnostic FMM equality; FLAM remains deferred.
+
+`test_chunkerkernevalmat_greenlap_devtools_outputs_match_matlab` checks the
+matrix form of the same Laplace Green identity. The method builds target
+evaluation matrices with `chunkerkernevalmat(..., forceadap=True)`, applies
+them to saved boundary densities, and verifies the reconstructed target field.
+Ground truth is MATLAB's single-layer matrix, adaptive double-layer matrix,
+applied layer potentials, and relative identity residual.
 
 ## `tests/test_easy_parity_stress.py`
 
