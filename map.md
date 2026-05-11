@@ -12,7 +12,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-10 with Python 3.11.9: `154 passed`.
+Verification snapshot: `uv run pytest` on 2026-05-10 with Python 3.11.9: `166 passed, 1 xfailed`.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -265,10 +265,10 @@ src/
 | `helm2d_kernel` | ✅ 🧪 | `@kernel/helm2d.m`, `+chnk/+helm2d/kern.m`, `+chnk/+helm2d/fmm.m` concepts | String dispatch plus `fmm2dpy` single, double, and single-gradient paths tested against dense direct evaluation. |
 | `helm1d_kernel` | ✅ 🧪 | `@kernel/helm1d.m`, `+chnk/+helm1d/kern.m` | Tested through string dispatch. |
 | `biharm2d_kernel` | ✅ 🧪 | `fmm2d/src/biharmonic/*`, `+chnk/+flex2d/bhgreen.m` concepts | Biharmonic Green-kernel factory and selectors tested. |
-| `stok2d_kernel` | ✅ 🧪 | `@kernel/stok2d.m`, `+chnk/+stok2d/kern.m` | Tested through string dispatch. |
+| `stok2d_kernel` | ✅ 🧪 | `@kernel/stok2d.m`, `+chnk/+stok2d/kern.m`, `+chnk/+stok2d/fmm.m` concepts | String dispatch plus `fmm2dpy` velocity, pressure, gradient, and combined Stokes paths tested against dense direct evaluation. |
 | `elast2d_kernel` | ✅ 🧪 | `@kernel/elast2d.m`, `+chnk/+elast2d/kern.m` | Tested through string dispatch. |
 | `interleave` | ✅ 🧪 | MATLAB block kernel composition patterns | Builds mixed block systems from kernel arrays; direct and FMM paths tested. |
-| `_lap2d_fmm`, `_helm2d_fmm`, `_direct_fmm`, `_sum_fmm`, `_interleave_fmm`, `_interleave_indices`, `_target_count` | 🧩 ✅ 🧪 | FMM-backed MATLAB kernel conventions | Laplace/Helmholtz supported selectors call `fmm2dpy`; unsupported kernels retain dense-direct fallback callables. |
+| `_lap2d_fmm`, `_helm2d_fmm`, `_stok2d_fmm`, `_direct_fmm`, `_sum_fmm`, `_interleave_fmm`, `_interleave_indices`, `_target_count` | 🧩 ✅ 🧪 | FMM-backed MATLAB kernel conventions | Laplace/Helmholtz/Stokes supported selectors call `fmm2dpy`; unsupported kernels retain dense-direct fallback callables. |
 | `_infer_opdims`, `_worst_sing`, `_worst_many` | 🧩 ✅ | Internal Python helpers | No direct MATLAB file. |
 
 🚧 MATLAB kernel factories not yet represented in Python: `axissymhelm2d`, `axissymhelm2ddiff`, `helm2ddiff`, `helm2dquas`.
@@ -324,7 +324,7 @@ src/
 | `elast2d.kern` | ✅ 🧪 🎯 | `+chnk/+elast2d/kern.m` | Elasticity variants parity-tested. |
 | private kernel helpers | 🧩 ✅ | Internal Python helpers | Interleaving and validation helpers. |
 
-⚠️ External FMM acceleration is partially wired through `fmm2dpy`: Laplace single, double, single-gradient, and double-gradient selectors and Helmholtz single, double, and single-gradient selectors use the compiled wrappers when `usefmm` is requested. Stokes, biharmonic, elasticity, Helmholtz double-gradient, and other unsupported selectors still use dense-direct fallback `fmm` callables for API compatibility.
+⚠️ External FMM acceleration is partially wired through `fmm2dpy`: Laplace single, double, single-gradient, and double-gradient selectors; Helmholtz single, double, and single-gradient selectors; and Stokes velocity/pressure/gradient/combined selectors use the compiled wrappers when `usefmm` is requested. Biharmonic, elasticity, Helmholtz double-gradient, Stokes traction, and other unsupported selectors still use dense-direct fallback `fmm` callables for API compatibility.
 
 ### `chnk/geometry.py`
 
@@ -358,31 +358,32 @@ src/
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
 | `AuxQuad` | ✅ 🧪 | MATLAB aux quadrature structs/tables | Python dataclass-like table holder. |
-| `setup` | ✅ 🧪 | `+chnk/+quadggq/setup.m` | Supports `log`, `removable`, `pv`, and `hs` singularity types. |
-| `getlogquad` | ✅ 🧪 | `+chnk/+quadggq/getlogquad.m`, `logwhts.mat` | Generated self rules tested. |
-| `logavail` | ✅ 🧪 | `+chnk/+quadggq/logavail.m` | Tested. |
+| `setup` | ✅ 🧪 🎯 | `+chnk/+quadggq/setup.m` | Supports `log`, `removable`, `pv`, and `hs`; log/PV/HS aux tables are MATLAB-fixture tested. |
+| `getlogquad` | ✅ 🧪 🎯 | `+chnk/+quadggq/getlogquad.m`, `ggqnear*`, `ggqself_*` | Reads MATLAB log near/self tables when available, with generated fallback. |
+| `logavail` | ✅ 🧪 | `+chnk/+quadggq/logavail.m` | Tested against MATLAB-supported table orders. |
 | `hqsuppavail` | ✅ 🧪 | `+chnk/+quadggq/gethqsuppquad.m`, `hqsupp_*`, `hsupp_*` tables | MATLAB table orders for PV/HS support rules. |
 | `gethqsuppquad` | ✅ 🧪 | `+chnk/+quadggq/gethqsuppquad.m`, generated support table files | Reads MATLAB support table files when present, with removable-rule fallback. |
 | `getpvquad`, `gethsquad` | ✅ 🧪 | `hsupp_*`, `hqsupp_*` support tables | Convenience wrappers for PV and hypersingular support rules. |
 | `getremovablequad` | ✅ 🧪 | `+chnk/+quadggq/getremovablequad.m` | Tested through setup/build paths. |
-| `buildmat` | ⚠️ 🧪 🎯 | `+chnk/+quadggq/buildmat.m` | Removes log/PV/HS singular diagonal issues; dense parity covered through `chunkermat`, while full MATLAB near-rule coverage remains partial. |
-| `diagbuildmat` | ✅ 🧪 | `+chnk/+quadggq/diagbuildmat.m` | Tested through `buildmat` special-quadrature paths. |
-| `nearbuildmat` | ⚠️ 🧪 | `+chnk/+quadggq/nearbuildmat.m` | Oversampled neighbor block and MATLAB-style correction subtraction path tested; generated near-rule parity remains partial. |
-| `_matlab_quadggq_dir`, `_parse_matlab_cell_table`, `_parse_cells` | 🧩 ✅ 🧪 | MATLAB generated quadrature table files | Internal readers for reference `.m` table files. |
+| `buildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/buildmat.m` | Log/PV/HS matrix assembly and `ilist` skipping are MATLAB-fixture tested. |
+| `diagbuildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/diagbuildmat.m` | Tested through MATLAB-parity `buildmat` special-quadrature paths. |
+| `nearbuildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/nearbuildmat.m` | Oversampled neighbor block, MATLAB-style correction subtraction, and full matrix near blocks are tested. |
+| `_matlab_quadggq_dir`, `_parse_matlab_cell_table`, `_parse_cells`, `_parse_matlab_vector_assignment` | 🧩 ✅ 🧪 | MATLAB generated quadrature table files | Internal readers for reference `.m` table files. |
 | other private helpers | 🧩 ✅ | Internal Python helpers | Interpolation/block slicing/dtype helpers. |
 
-🚧 MATLAB files not yet fully ported here include `buildmattd.m`, `setuplogquad.m`, and the broad generated `ggqnear*`/`ggqself_*` family beyond the compact Python baseline. PV/HS support tables are now consumed when the MATLAB reference checkout is available.
+🚧 MATLAB files not yet fully ported here include `buildmattd.m`, `setuplogquad.m`, and full adaptive close-interaction workflows outside the GGQ table path. Log/PV/HS support tables are now consumed when the MATLAB reference checkout is available.
 
 ### `chnk/rcip.py`
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
-| `RCIPSaved` | ⚠️ 🧪 | `+chnk/+rcip/*` saved structs | Metadata holder; tested through identity compression baseline. |
+| `RCIPSaved` | ✅ 🧪 🎯 | `+chnk/+rcip/*` saved structs | Metadata holder populated by recursive compression and checked through MATLAB RCIP fixture fields. |
 | `IPinit` / `ipinit` | ✅ 🧪 | `+chnk/+rcip/IPinit.m` | Interpolation and weighted preservation tested. |
 | `Pbcinit` / `pbcinit` | ✅ 🧪 | `+chnk/+rcip/Pbcinit.m` | Tested through `setup` block-shape checks. |
 | `setup` | ✅ 🧪 | `+chnk/+rcip/setup.m` | Zero-based Python index translation and block shapes tested. |
 | `SchurBana` / `schurbana` | ✅ 🧪 | `+chnk/+rcip/SchurBana.m` | Block formula shape path tested. |
-| `Rcompchunk` / `rcompchunk` | ⚠️ 🧪 | `+chnk/+rcip/Rcompchunk.m` | Returns identity compression and metadata; full recursive local compression solver is 🚧. |
+| `shiftedlegbasismats`, `chunkerfunclocal` | ✅ 🧪 🎯 | `+chnk/+rcip/shiftedlegbasismats.m`, `chunkerfunclocal.m` | Ported helpers are exercised through recursive RCIP and MATLAB fixtures. |
+| `Rcompchunk` / `rcompchunk` | ✅ 🧪 🎯 | `+chnk/+rcip/Rcompchunk.m` | Recursive local compression solver implemented and tested against MATLAB fixture for a two-edge corner. |
 | `rhohatInterp` / `rhohatinterp` | ⚠️ 🧪 | `+chnk/+rcip/rhohatInterp.m` | Baseline saved-level interpolation tested. |
 | `corner_refine` | ⚠️ 🧪 | `+chnk/+rcip/chunkerfunclocal.m` and corner workflows | Convenience helper, not a direct MATLAB API match; tested on chunkgraph corner refinement. |
 
@@ -446,7 +447,9 @@ scripts/
     ├── generate_kernel_pointinfo_fixture.m
     ├── generate_lege_basic_fixture.m
     ├── generate_lege_extended_fixture.m
-    └── generate_operator_parity_fixture.m
+    ├── generate_operator_parity_fixture.m
+    ├── generate_quadggq_fixture.m
+    └── generate_rcip_fixture.m
 
 tests/
 ├── golden/
@@ -456,7 +459,9 @@ tests/
 │   ├── kernel_pointinfo.mat
 │   ├── lege_basic.mat
 │   ├── lege_extended.mat
-│   └── operator_parity.mat
+│   ├── operator_parity.mat
+│   ├── quadggq.mat
+│   └── rcip.mat
 ├── test_arcparam.py
 ├── test_biharm2d.py
 ├── test_chunker.py
@@ -507,8 +512,8 @@ These are useful future implementation targets from `external/chunkie-matlab/chu
 - 🚧 Trapper family: `@trapper/*`, `@trapperpref/*`, `trapperfunc.m`, `trapperkerneval.m`, `trappermat.m`.
 - 🚧 FLAM/FMM accelerated paths: `chunkerflam.m`, `@kernel/*` FMM-backed workflows, `+chnk/+flam/*`, bundled FLAM and FMM2D integrations.
 - 🚧 Axisymmetric / quasiperiodic / full flex kernels: `+chnk/+axissymhelm2d/*`, `+chnk/+helm2dquas/*`, most of `+chnk/+flex2d/*`, plus matching `@kernel` factories. A biharmonic Green-kernel baseline now exists.
-- 🚧 Adaptive and close quadrature packages beyond the current baseline: full `+chnk/+quadadap/*`, `+chnk/+quadba/*`, and portions of `+chnk/+quadggq/*`.
-- 🚧 Full RCIP recursive compression solver: `+chnk/+rcip/Rcompchunk.m` and related local recursion workflows.
+- 🚧 Adaptive and close quadrature packages beyond the current baseline: full `+chnk/+quadadap/*`, `+chnk/+quadba/*`, and time-domain `+chnk/+quadggq/buildmattd.m`.
+- 🚧 Remaining advanced RCIP workflows: broader multi-kernel block coverage and full `rhohatInterp` backward-recursion reconstruction.
 - 🚧 Full smoother and intchunk packages: MATLAB's full `+chnk/+smoother/*` nonlinear/local smoothing workflow and `+chnk/+intchunk/*`. A lightweight smoother/rounded-polygon workflow now exists.
 - 🚧 Plotting/visualization methods: `plot`, `plot3`, `scatter`, `quiver`, `plot_regions` on MATLAB classes.
 
@@ -516,5 +521,5 @@ These are useful future implementation targets from `external/chunkie-matlab/chu
 
 - Add golden MATLAB fixtures for `chunkerpoly` rounded paths, `chunkerfit`, `sortinfo`, `chunkgraph`, `arcparam`, `geometry`, `spcl`, `smoother`, `rcip`, and `biharm2d` to upgrade many ✅ 🧪 nodes to 🎯.
 - Add focused tests for remaining implemented but currently lightly tested methods, especially `ChunkGraph.min`/`max`, `ChunkGraph.merged`, `curves.fpara`, and `curves.bymode`.
-- Decide how far `rcip.py`, `smoother.py`, and `quadadap.py` should go in the near term: all are present and mapped, but their full MATLAB workflows still have ⚠️/🚧 areas.
-- Extend `fmm2dpy` wiring to Stokes, biharmonic, Helmholtz double-gradient, and any safe elasticity/direct fallback selectors while keeping dense-direct fallbacks available for unsupported kernels and tests.
+- Decide how far `rhohatInterp`, `smoother.py`, and `quadadap.py` should go in the near term: all are present and mapped, but their full MATLAB workflows still have ⚠️/🚧 areas.
+- Extend `fmm2dpy` wiring to biharmonic, Helmholtz double-gradient, Stokes traction, and any safe elasticity/direct fallback selectors while keeping dense-direct fallbacks available for unsupported kernels and tests.
