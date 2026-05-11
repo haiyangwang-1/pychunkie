@@ -36,11 +36,95 @@ vert0 = [1; 0];
 rhohat = (1:size(R, 1)).' / 10;
 [rhohatinterp, srcinfo, wts] = chnk.rcip.rhohatInterp(rhohat, rcipsav, nsub);
 
+[T_ip, W_ip] = lege.exps(5);
+[IP_ip, IPW_ip] = chnk.rcip.IPinit(T_ip, W_ip);
+Pbc_ip = chnk.rcip.Pbcinit(IP_ip, 3, 2);
+
+setup_fixture = [];
+setup_fixture.ngl = 4;
+setup_fixture.ndim = 2;
+setup_fixture.nedge = 3;
+setup_fixture.isstart = [true, false, true];
+[setup_fixture.Pbc, setup_fixture.PWbc, setup_fixture.starL, ...
+    setup_fixture.circL, setup_fixture.starS, setup_fixture.circS, ...
+    setup_fixture.ilist, setup_fixture.starL1, setup_fixture.circL1] = ...
+    chnk.rcip.setup(setup_fixture.ngl, setup_fixture.ndim, ...
+    setup_fixture.nedge, setup_fixture.isstart);
+
+schur_fixture = [];
+schur_fixture.ngl = 3;
+schur_fixture.ndim = 1;
+schur_fixture.nedge = 2;
+schur_fixture.isstart = [true, false];
+[schur_fixture.Pbc, schur_fixture.PWbc, schur_fixture.starL, ...
+    schur_fixture.circL, schur_fixture.starS, schur_fixture.circS] = ...
+    chnk.rcip.setup(schur_fixture.ngl, schur_fixture.ndim, ...
+    schur_fixture.nedge, schur_fixture.isstart);
+rng(1234, 'twister');
+nsys = 3 * schur_fixture.ngl * schur_fixture.nedge * schur_fixture.ndim;
+nstar = numel(schur_fixture.starL);
+ncirc = numel(schur_fixture.circL);
+schur_fixture.K = randn(nsys) / 20;
+schur_fixture.K(schur_fixture.circL, schur_fixture.circL) = ...
+    schur_fixture.K(schur_fixture.circL, schur_fixture.circL) + 5 * eye(ncirc);
+schur_fixture.A_input = eye(nstar) + randn(nstar) / 100;
+schur_fixture.A_output = chnk.rcip.SchurBana( ...
+    schur_fixture.Pbc, schur_fixture.PWbc, schur_fixture.K, ...
+    schur_fixture.A_input, schur_fixture.starL, schur_fixture.circL, ...
+    schur_fixture.starS, schur_fixture.circS);
+
+corner_fixture = [];
+corner_fixture.verts = [0, 1, 1; 0, 0, 1];
+corner_fixture.edgesendverts0 = [0, 1; 1, 2];
+corner_fixture.edgesendverts1 = corner_fixture.edgesendverts0 + 1;
+corner_fixture.k = 4;
+corner_fixture.nchmin = 4;
+corner_fixture.vertex0 = 1;
+corner_fixture.depth = 2;
+pref_corner = [];
+pref_corner.k = corner_fixture.k;
+cparams_corner = [];
+cparams_corner.nchmin = corner_fixture.nchmin;
+cg_corner = chunkgraph(corner_fixture.verts, corner_fixture.edgesendverts1, ...
+    [], cparams_corner, pref_corner);
+corner_fixture.original_nch = [cg_corner.echnks.nch];
+corner_fixture.vstruc_edges0 = cg_corner.vstruc{corner_fixture.vertex0 + 1}{1} - 1;
+corner_fixture.vstruc_signs = cg_corner.vstruc{corner_fixture.vertex0 + 1}{2};
+corner_fixture.expected_nch = corner_fixture.original_nch;
+corner_fixture.expected_nch(corner_fixture.vstruc_edges0 + 1) = ...
+    corner_fixture.expected_nch(corner_fixture.vstruc_edges0 + 1) + corner_fixture.depth;
+
+chunkgraph_fixture = [];
+chunkgraph_fixture.verts = [0, 1, 1; 0, 0, 1];
+chunkgraph_fixture.edgesendverts0 = [0, 1; 1, 2];
+chunkgraph_fixture.vertices0 = 1;
+chunkgraph_fixture.edge_indices0 = [0, 1];
+chunkgraph_fixture.ndim = ndim;
+chunkgraph_fixture.nsub = nsub;
+chunkgraph_fixture.rcip_savedepth = opts.rcip_savedepth;
+chunkgraph_fixture.R = R;
+chunkgraph_fixture.saved_R_final = rcipsav.R{end};
+chunkgraph_fixture.saved_MAT_last = rcipsav.MAT{end};
+
 rcip_fixture = [];
 rcip_fixture.edge1 = fixture_pack_chunker(edge1);
 rcip_fixture.edge2 = fixture_pack_chunker(edge2);
 rcip_fixture.iedgechunks0 = [0, 1; edge1.nch - 1, 0];
 rcip_fixture.vert0 = vert0;
+rcip_fixture.IPinit = [];
+rcip_fixture.IPinit.T = T_ip;
+rcip_fixture.IPinit.W = W_ip;
+rcip_fixture.IPinit.IP = IP_ip;
+rcip_fixture.IPinit.IPW = IPW_ip;
+rcip_fixture.Pbcinit = [];
+rcip_fixture.Pbcinit.IP = IP_ip;
+rcip_fixture.Pbcinit.nedge = 3;
+rcip_fixture.Pbcinit.ndim = 2;
+rcip_fixture.Pbcinit.Pbc = Pbc_ip;
+rcip_fixture.setup = setup_fixture;
+rcip_fixture.SchurBana = schur_fixture;
+rcip_fixture.corner_refine = corner_fixture;
+rcip_fixture.chunkgraph_rcip = chunkgraph_fixture;
 rcip_fixture.R = R;
 rcip_fixture.rhohat = rhohat;
 rcip_fixture.rhohatinterp = rhohatinterp;

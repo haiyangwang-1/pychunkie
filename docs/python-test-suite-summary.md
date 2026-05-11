@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 266 pytest cases because several MATLAB parity tests are
+collection expands to 272 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 
@@ -1202,6 +1202,29 @@ subselection from a global edge-by-edge block-kernel matrix. The method creates
 distinct zero kernels for each global block and runs RCIP at one square-graph
 vertex. Ground truth is that only the incident-edge submatrix is used and the
 resulting compression matrix is finite.
+
+## `tests/test_rcip_parity.py`
+
+`test_rcip_setup_helpers_match_matlab_fixture` checks strict MATLAB parity for
+the RCIP setup helpers. The method compares `IPinit`, `Pbcinit`, and `setup`
+against `tests/golden/rcip.mat`, including zero-based translations of MATLAB's
+index arrays and alias coverage for `ipinit` and `pbcinit`.
+
+`test_rcip_schurbana_matches_matlab_fixture` checks the RCIP Schur-Banachiewicz
+block update. Ground truth is a deterministic MATLAB-saved block system and
+the resulting updated compression matrix; both `SchurBana` and `schurbana` are
+compared.
+
+`test_corner_refine_matches_matlab_corner_topology_fixture` checks the Python
+corner refinement convenience helper against MATLAB chunkgraph topology saved
+in the fixture. The method verifies the incident edge/sign ordering and the
+expected endpoint chunk-count increments after two refinement passes.
+
+`test_chunkgraph_rcip_driver_matches_matlab_fixture` is parametrized over
+`chunkgraph_rcip`, `chunkgraphrcip`, and `rcipchunkgraph`. The method rebuilds
+a two-edge corner graph from MATLAB-saved edge chunkers, runs selected-vertex
+RCIP compression, and compares the returned `RCIPChunkGraphResult` fields,
+compression matrix, and saved recursion blocks to the MATLAB fixture.
 
 ## `tests/test_smoother.py`
 
