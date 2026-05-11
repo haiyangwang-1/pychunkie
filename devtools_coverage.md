@@ -16,7 +16,7 @@ Initial devtools parity has started with:
 - MATLAB fixture data: `tests/golden/devtools_easy.mat`
 - Python snapshot generator: `scripts/generate_devtools_easy_python_fixture.py`
 - Python comparisons: `tests/test_devtools_parity.py`
-- Covered now: `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m` single-component output, and `kernelopTest.m`
+- Covered now: `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m` single-component output, `chunker_diffintmatTest.m`, and `kernelopTest.m`
 - Known exposed gap: merged-component `arclengthfunTest.m` output is marked strict `xfail` because Python currently accumulates arclength through all chunks instead of resetting per connected component.
 
 ## Ranked Test Inventory

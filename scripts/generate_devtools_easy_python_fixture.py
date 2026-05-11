@@ -82,6 +82,33 @@ def build_snapshot() -> dict[str, np.ndarray]:
     out["arclength_single"] = chunker_from_fields(arc.chunker_single).arclengthfun()
     out["arclength_merged"] = chunker_from_fields(arc.chunker_merged).arclengthfun()
 
+    dimat = fixture.chunker_diffintmat
+    ellipse = chunker_from_fields(dimat.ellipse)
+    ellipse_d = ellipse.diffmat()
+    ellipse_c = ellipse.intmat()
+    ellipse_x = ellipse.r[0].reshape(-1, order="F")
+    ellipse_y = ellipse.r[1].reshape(-1, order="F")
+    ellipse_dx = ellipse_d @ ellipse_x
+    ellipse_dy = ellipse_d @ ellipse_y
+    ellipse_x_int = ellipse_c @ ellipse_dx
+    ellipse_y_int = ellipse_c @ ellipse_dy
+    out["chunker_diffintmat_ellipse_D"] = ellipse_d
+    out["chunker_diffintmat_ellipse_C"] = ellipse_c
+    out["chunker_diffintmat_ellipse_dx"] = ellipse_dx
+    out["chunker_diffintmat_ellipse_dy"] = ellipse_dy
+    out["chunker_diffintmat_ellipse_x_int"] = ellipse_x_int
+    out["chunker_diffintmat_ellipse_y_int"] = ellipse_y_int
+    out["chunker_diffintmat_ellipse_tangent_residual"] = ellipse_dx**2 + ellipse_dy**2 - 1.0
+    out["chunker_diffintmat_ellipse_x_residual"] = ellipse_x_int - ellipse_x_int[0] - ellipse_x + ellipse_x[0]
+    out["chunker_diffintmat_ellipse_y_residual"] = ellipse_y_int - ellipse_y_int[0] - ellipse_y + ellipse_y[0]
+
+    circle = chunker_from_fields(dimat.circle)
+    circle_d = circle.diffmat()
+    circle_x = circle.r[0].reshape(-1, order="F")
+    circle_y = circle.r[1].reshape(-1, order="F")
+    out["chunker_diffintmat_circle_D"] = circle_d
+    out["chunker_diffintmat_circle_test_quant"] = circle_d @ circle_x + circle_y
+
     kop = fixture.kernelop
     src = pointinfo_from_mat(kop.src)
     targ = pointinfo_from_mat(kop.targ)
