@@ -1,5 +1,6 @@
 import numpy as np
 
+import chunkie.operators as operators_mod
 from chunkie import (
     PointInfo,
     chunkerfunc,
@@ -112,3 +113,22 @@ def test_chunkerinterior_classifies_points_and_grids():
 
     grid = chunkerinterior(square, (np.array([-0.5, 0.5, 1.5]), np.array([0.5])))
     np.testing.assert_array_equal(grid, [[False, True, False]])
+
+
+def test_chunkerinterior_usefmm_matches_direct_with_close_correction(monkeypatch):
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 8}, {"k": 8})
+    pts = np.array([[0.0, 1.25, 0.999999, 1.000001], [0.0, 0.0, 0.0, 0.0]])
+    calls = []
+    original = operators_mod.chunkerkerneval
+
+    def wrapped(*args, **kwargs):
+        calls.append(args[4] if len(args) > 4 else kwargs.get("opts"))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(operators_mod, "chunkerkerneval", wrapped)
+
+    direct = operators_mod.chunkerinterior(chnkr, pts)
+    via_fmm = operators_mod.chunkerinterior(chnkr, pts, {"usefmm": True, "near_fac": 0.25})
+
+    assert calls and calls[0]["usefmm"] is True
+    np.testing.assert_array_equal(via_fmm, direct)

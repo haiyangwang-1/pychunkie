@@ -130,8 +130,10 @@ def chunkerinterior(
 ) -> np.ndarray:
     """Classify target points as inside a closed 2D chunker.
 
-    This is a dependency-light direct fallback based on the node polygon.
-    FMM/FLAM acceleration and close-boundary correction are deferred.
+    The default path is a dependency-light direct polygon test. With
+    ``usefmm=True``, the Laplace double-layer identity is used for accelerated
+    classification, and near-boundary targets are corrected by the direct path.
+    FLAM acceleration is deferred.
     """
 
     chnkr = _require_chunker(chnkr)
@@ -159,12 +161,38 @@ def chunkerinterior(
     if pts.shape[0] != 2:
         raise ValueError("target points must be two-dimensional")
 
-    inside = np.zeros(pts.shape[1], dtype=bool)
-    for boundary in _chunker_component_polygons(chnkr, bool(options.get("axissym", False))):
-        inside ^= _points_in_polygon(pts, boundary)
+    use_fmm = bool(options.get("usefmm", options.get("fmm", False)))
+    if use_fmm:
+        from .kernel import kernel
+
+        lap_d = kernel("lap", "d")
+        dens = np.ones(chnkr.npt)
+        vals = chunkerkerneval(
+            chnkr,
+            lap_d,
+            dens,
+            PointInfo(r=pts),
+            {"usefmm": True, "eps": float(options.get("eps", options.get("tol", 1e-12)))},
+        ).reshape(-1, order="F")
+        inside = vals < -0.5
+        if bool(options.get("closecorr", options.get("corrections", True))):
+            near_fac = float(options.get("near_fac", options.get("fac", 1.0)))
+            near = np.any(chnkr.flagnear(pts, {"fac": near_fac}), axis=1)
+            if np.any(near):
+                corrected = _chunkerinterior_direct(chnkr, pts[:, near], bool(options.get("axissym", False)))
+                inside[near] = corrected
+    else:
+        inside = _chunkerinterior_direct(chnkr, pts, bool(options.get("axissym", False)))
 
     if grid_shape is not None:
         return inside.reshape(grid_shape)
+    return inside
+
+
+def _chunkerinterior_direct(chnkr: Chunker, pts: np.ndarray, axissym: bool = False) -> np.ndarray:
+    inside = np.zeros(pts.shape[1], dtype=bool)
+    for boundary in _chunker_component_polygons(chnkr, axissym):
+        inside ^= _points_in_polygon(pts, boundary)
     return inside
 
 
