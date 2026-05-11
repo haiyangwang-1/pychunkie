@@ -10,6 +10,11 @@ test coverage understandable across agent handoffs:
 Before committing any code or test change, review whether each document needs an
 update. Update the relevant files in the same commit as the code change.
 
+Treat these files as part of the changed behavior. A feature, parity port, test
+addition, fixture refresh, or refactor is incomplete until the relevant living
+docs either reflect it or the commit/PR text explicitly says why no living-doc
+change was needed.
+
 ## Living Doc Rules
 
 - Update `map.md` when public APIs, source-tree structure, implemented MATLAB
@@ -34,6 +39,20 @@ Before making a commit:
    mention why in the commit message or PR summary.
 5. Keep living-doc edits factual: record what changed, what is covered, what is
    still deferred, and the exact test snapshot when it changes.
+
+## Pre-Commit Gate
+
+Use this quick gate before every agent-authored commit:
+
+- If `src/` changed, check `map.md`.
+- If `tests/` changed, check `docs/python-test-suite-summary.md`.
+- If MATLAB parity scripts, golden data, or `tests/test_devtools_parity.py`
+  changed, check `devtools_coverage.md`.
+- If pytest collection counts, pass/fail/xfail totals, or broad coverage claims
+  changed, update the affected snapshot text.
+- If no living-doc update is needed, include a short note such as
+  `Living docs: no update needed; change is internal-only` in the commit body or
+  PR summary.
 
 ## Usual Mapping
 
