@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 from scipy.io import loadmat
 
-from chunkie import Chunker, chunkerfunc, chunkerfuncuni, chunkerintegral, kernel, lege
+from chunkie import Chunker, chunkerfit, chunkerfunc, chunkerfuncuni, chunkerintegral, kernel, lege
 from chunkie.chnk import curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, spcl
 from chunkie.operators import PointInfo
 
@@ -169,6 +169,14 @@ def build_snapshot() -> dict[str, np.ndarray]:
     out["chunkerclass_mat_left_r"] = (ccls.A @ ccls_chunker).r
     out["chunkerclass_scale_left_area"] = np.asarray((float(ccls.s) * ccls_chunker).area())
     out["chunkerclass_scale_right_area"] = np.asarray((ccls_chunker * float(ccls.s)).area())
+
+    cfit = fixture.chunkerfit
+    cfit_r = curves.bymode(cfit.tt, cfit.modes)[0]
+    cfit_closed = chunkerfit(cfit_r, {"ifclosed": True, "cparams": {"eps": 1.0e-6}, "pref": {"k": 16}})
+    cfit_open = chunkerfit(cfit_r[:, :10], {"ifclosed": False, "cparams": {"eps": 1.0e-6}, "pref": {"k": 16}})
+    out["chunkerfit_r"] = cfit_r
+    out["chunkerfit_closed_ier"] = np.asarray(cfit_closed.checkadjinfo())
+    out["chunkerfit_open_ier"] = np.asarray(cfit_open.checkadjinfo())
 
     fs = fixture.flagself
     out["flagself_pairs"] = flagself(fs.srcs, fs.targs)

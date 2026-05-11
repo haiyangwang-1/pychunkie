@@ -270,6 +270,28 @@ catch
 end
 devtools_easy.chunkerclassunit = ccls;
 
+% chunkerfitTest.m
+cfit = [];
+rng(0);
+cfit.n = 20;
+cfit.tt = sort(2*pi*rand(cfit.n,1));
+cfit.modes = [2; 0.5; 0.2; 0.7];
+cfit.r = chnk.curves.bymode(cfit.tt, cfit.modes);
+opts = [];
+opts.ifclosed = true;
+opts.cparams = [];
+opts.cparams.eps = 1.0e-6;
+opts.pref = [];
+opts.pref.k = 16;
+chnkr = chunkerfit(cfit.r, opts);
+cfit.closed_ier = checkadjinfo(chnkr);
+cfit.closed = fixture_pack_chunker(chnkr);
+opts.ifclosed = false;
+chnkr = chunkerfit(cfit.r(:,1:10), opts);
+cfit.open_ier = checkadjinfo(chnkr);
+cfit.open = fixture_pack_chunker(chnkr);
+devtools_easy.chunkerfit = cfit;
+
 % flagselfTest.m
 fs = [];
 rng(8675309);

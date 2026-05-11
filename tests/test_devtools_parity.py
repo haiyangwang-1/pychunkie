@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from scipy.io import loadmat
 
-from chunkie import Chunker, chunkerfunc, chunkerfuncuni, chunkerintegral, kernel, lege
+from chunkie import Chunker, chunkerfit, chunkerfunc, chunkerfuncuni, chunkerintegral, kernel, lege
 from chunkie.chnk import curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, spcl
 from chunkie.operators import PointInfo
 
@@ -268,6 +268,20 @@ def test_chunkerclassunit_devtools_outputs_match_matlab():
     np.testing.assert_allclose(scale_right.area(), float(fixture.s) ** 2 * chnkr.area(), atol=1e-13)
     with pytest.raises(TypeError):
         _ = chnkr * fixture.A
+
+
+def test_chunkerfit_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().chunkerfit
+    r, _, _ = curves.bymode(fixture.tt, fixture.modes)
+
+    closed = chunkerfit(r, {"ifclosed": True, "cparams": {"eps": 1.0e-6}, "pref": {"k": 16}})
+    open_chnkr = chunkerfit(r[:, :10], {"ifclosed": False, "cparams": {"eps": 1.0e-6}, "pref": {"k": 16}})
+
+    np.testing.assert_allclose(r, fixture.r, atol=1e-13)
+    assert int(fixture.closed_ier) == 0
+    assert int(fixture.open_ier) == 0
+    assert closed.checkadjinfo() == int(fixture.closed_ier)
+    assert open_chnkr.checkadjinfo() == int(fixture.open_ier)
 
 
 def test_flagself_devtools_output_matches_matlab():
