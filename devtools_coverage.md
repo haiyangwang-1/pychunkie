@@ -29,11 +29,11 @@ The parity rule for this repo is:
 ## Current Snapshot
 
 - MATLAB fixture generator: `scripts/matlab/generate_devtools_easy_fixture.m`
-- MATLAB fixture data: optional local `tests/golden/devtools_easy.mat`
+- MATLAB fixture data: generated local `tests/golden/devtools_easy.mat`
 - Python snapshot generator: `scripts/generate_devtools_easy_python_fixture.py`
 - Python comparisons: `tests/test_devtools_parity.py`
 - Python verification: `uv run pytest tests/test_devtools_parity.py` on
-  2026-05-11 with the regenerated optional fixture: `24 passed`
+  2026-05-11 with the regenerated local fixture: `24 passed`
 - Covered now: `absconvgaussTest.m`, `legeexpsunitTest.m`,
   `arclengthfunTest.m`, `chunker_diffintmatTest.m`,
   `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`,

@@ -44,7 +44,10 @@ GOLDEN = Path(__file__).parent / "golden"
 def load_geometry_core():
     path = GOLDEN / "geometry_core.mat"
     if not path.exists():
-        pytest.skip("optional MATLAB geometry parity fixture is not present: geometry_core.mat")
+        pytest.fail(
+            "missing MATLAB parity fixture data file: tests/golden/geometry_core.mat. "
+            "Regenerate it locally before running these parity tests."
+        )
     return loadmat(path, squeeze_me=True, struct_as_record=False)["geometry_core"]
 
 

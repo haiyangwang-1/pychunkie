@@ -15,7 +15,10 @@ GOLDEN = Path(__file__).parent / "golden"
 def load_devtools_easy():
     path = GOLDEN / "devtools_easy.mat"
     if not path.exists():
-        pytest.skip("optional devtools parity fixture is not present: devtools_easy.mat")
+        pytest.fail(
+            "missing MATLAB parity fixture data file: tests/golden/devtools_easy.mat. "
+            "Regenerate it locally before running these parity tests."
+        )
     return loadmat(path, squeeze_me=True, struct_as_record=False)["devtools_easy"]
 
 
