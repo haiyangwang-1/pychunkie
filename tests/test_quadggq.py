@@ -1,3 +1,5 @@
+from importlib import resources
+
 import numpy as np
 from scipy import sparse
 
@@ -12,6 +14,20 @@ def circle(t):
         np.vstack((-np.sin(t), np.cos(t))),
         np.vstack((-np.cos(t), -np.sin(t))),
     )
+
+
+def test_quadggq_tables_are_loaded_from_packaged_numpy_data():
+    table = resources.files("chunkie").joinpath("data", "quadggq", "ggqnear16.npz")
+    metadata = resources.files("chunkie").joinpath("data", "quadggq", "metadata.npz")
+
+    assert table.is_file()
+    assert metadata.is_file()
+    with resources.as_file(table) as path:
+        with np.load(path) as data:
+            np.testing.assert_allclose(data["x"][0], -0.9999983834562877, atol=1e-15)
+            np.testing.assert_allclose(data["w"][0], 4.264322824107065e-06, atol=1e-18)
+    assert quadggq._load_npz_table("ggqnear16") is not None
+    assert not hasattr(quadggq, "_matlab_quadggq_dir")
 
 
 def test_matlab_log_quadrature_tables_load_for_each_legendre_node():
