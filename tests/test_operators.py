@@ -43,18 +43,18 @@ def test_chunkermat_matches_chunkerkerneval_on_boundary_for_smooth_kernel():
     np.testing.assert_allclose(mat_vals, eval_vals)
 
 
-def test_chunkermatapply_usefmm_matches_special_matrix_application():
+def test_chunkermatapply_fmm_matches_special_matrix_application():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 6}, {"k": 8})
     lap_s = kernel("lap", "s")
     dens = np.cos(chnkr.r[0].reshape(-1, order="F"))
 
     direct = chunkermat(chnkr, lap_s) @ dens
-    via_fmm = chunkermatapply(chnkr, lap_s, dens, {"usefmm": True, "eps": 1e-12})
+    via_fmm = chunkermatapply(chnkr, lap_s, dens, {"acceleration": "fmm", "eps": 1e-12})
 
     np.testing.assert_allclose(via_fmm, direct, rtol=1e-9, atol=1e-10)
 
 
-def test_chunkermat_usefmm_returns_matrix_free_operator_matching_dense_application():
+def test_chunkermat_fmm_returns_matrix_free_operator_matching_dense_application():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 6}, {"k": 8})
     lap_s = kernel("lap", "s")
     x = chnkr.r[0].reshape(-1, order="F")
@@ -63,14 +63,11 @@ def test_chunkermat_usefmm_returns_matrix_free_operator_matching_dense_applicati
     rhs = np.column_stack((dens, np.sin(y)))
 
     dense = chunkermat(chnkr, lap_s)
-    via_fmm = chunkermat(chnkr, lap_s, {"usefmm": True, "eps": 1e-12})
-    via_forcefmm = chunkermat(chnkr, lap_s, {"forcefmm": True, "eps": 1e-12})
+    via_fmm = chunkermat(chnkr, lap_s, {"acceleration": "fmm", "eps": 1e-12})
 
     assert isinstance(via_fmm, ChunkerFMMMatrix)
-    assert isinstance(via_forcefmm, ChunkerFMMMatrix)
     assert via_fmm.shape == dense.shape
     np.testing.assert_allclose(via_fmm @ dens, dense @ dens, rtol=1e-9, atol=1e-10)
-    np.testing.assert_allclose(via_forcefmm @ dens, dense @ dens, rtol=1e-9, atol=1e-10)
     np.testing.assert_allclose(via_fmm @ rhs, dense @ rhs, rtol=1e-9, atol=1e-10)
 
 
@@ -136,7 +133,7 @@ def test_chunkerinterior_classifies_points_and_grids():
     np.testing.assert_array_equal(grid, [[False, True, False]])
 
 
-def test_chunkerinterior_usefmm_matches_direct_with_close_correction(monkeypatch):
+def test_chunkerinterior_fmm_matches_direct_with_close_correction(monkeypatch):
     chnkr, _ = chunkerfunc(circle, {"nchmin": 8}, {"k": 8})
     pts = np.array([[0.0, 1.25, 0.999999, 1.000001], [0.0, 0.0, 0.0, 0.0]])
     calls = []
@@ -149,7 +146,7 @@ def test_chunkerinterior_usefmm_matches_direct_with_close_correction(monkeypatch
     monkeypatch.setattr(operators_mod, "chunkerkerneval", wrapped)
 
     direct = operators_mod.chunkerinterior(chnkr, pts)
-    via_fmm = operators_mod.chunkerinterior(chnkr, pts, {"usefmm": True, "near_fac": 0.25})
+    via_fmm = operators_mod.chunkerinterior(chnkr, pts, {"acceleration": "fmm", "near_fac": 0.25})
 
-    assert calls and calls[0]["usefmm"] is True
+    assert calls and calls[0]["acceleration"] == "fmm"
     np.testing.assert_array_equal(via_fmm, direct)

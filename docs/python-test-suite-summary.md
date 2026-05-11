@@ -43,12 +43,12 @@ for Lame parameters `lam` and `mu`.
 
 Special quadrature is provided by `chnk.quadggq`. Logarithmic kernels use log
 GGQ rules; principal-value kernels use PV support tables; hypersingular kernels
-use HS support tables. FMM tests request `{"usefmm": True}` and compare the
-accelerated path against the dense direct path. RCIP tests exercise recursive
-compressed inverse preconditioning for corner edges. There is no active Python
-test that exercises FLAM compression; `chunkerinterior` has both a direct
-node-polygon fallback and an FMM classifier with direct close-boundary
-correction. FLAM interior acceleration is deferred.
+use HS support tables. Accelerated tests request
+`{"acceleration": "fmm"}` and compare against the dense direct path. RCIP
+tests exercise recursive compressed inverse preconditioning for corner edges.
+There is no active Python test that exercises FLAM compression;
+`chunkerinterior` has both a direct node-polygon fallback and an FMM classifier
+with direct close-boundary correction. FLAM interior acceleration is deferred.
 
 Ground truth comes from four places:
 
@@ -87,7 +87,7 @@ Implemented from this scope:
 - `quadggq/buildmattd` sparse special-block assembly.
 - Full adaptive/close quadrature for `quadadap`: GGQ self blocks, adaptive
   neighbor blocks, and robust close non-neighbor replacement for log kernels.
-- `chunkermat(..., usefmm=True)` matrix-free FMM operators and
+- `chunkermat(..., acceleration="fmm")` matrix-free FMM operators and
   `chunkermatapply` FMM acceleration with sparse special-quadrature
   corrections for singular kernels.
 - `chunkerinterior` FMM classification with direct close-boundary correction.
@@ -646,8 +646,8 @@ kernel. Ground truth is the corresponding algebraic output, including
 
 `test_kernel_fmm_fallback_matches_direct_layer_evaluation` checks the FMM path
 for a Laplace single-layer kernel. The method evaluates the same circle density
-with dense direct summation and with `{"usefmm": True}`. Ground truth is exact
-agreement with the dense direct reference and non-null FMM metadata.
+with dense direct summation and with `{"acceleration": "fmm"}`. Ground truth is
+exact agreement with the dense direct reference and non-null FMM metadata.
 
 `test_fmm2dpy_laplace_gradient_and_helmholtz_layers_match_direct` checks
 `fmm2dpy` acceleration for Laplace gradients/double-layer variants and
@@ -911,17 +911,17 @@ sum with `K = 1 + dx^2 + 0.5 dy^2`. The method compares `chunkermatapply` with
 `chunkerkerneval(..., targ=chnkr)` for smooth non-singular data. Ground truth
 is equality between the two direct routes.
 
-`test_chunkermatapply_usefmm_matches_special_matrix_application` checks FMM
+`test_chunkermatapply_fmm_matches_special_matrix_application` checks FMM
 matrix application for a singular boundary operator. The method applies a
-Laplace single-layer kernel through `chunkermatapply(..., usefmm=True)`, then
-compares against the dense special-quadrature matrix product. Ground truth is
-agreement after sparse self/neighbor GGQ corrections are added to the FMM
-result.
+Laplace single-layer kernel through
+`chunkermatapply(..., {"acceleration": "fmm"})`, then compares against the
+dense special-quadrature matrix product. Ground truth is agreement after sparse
+self/neighbor GGQ corrections are added to the FMM result.
 
-`test_chunkermat_usefmm_returns_matrix_free_operator_matching_dense_application`
+`test_chunkermat_fmm_returns_matrix_free_operator_matching_dense_application`
 checks the explicit FMM return path on `chunkermat`. The method requests
-`chunkermat(..., {"usefmm": True})` for a Laplace single-layer kernel, verifies
-that the result is a `ChunkerFMMMatrix`, and compares both vector and
+`chunkermat(..., {"acceleration": "fmm"})` for a Laplace single-layer kernel,
+verifies that the result is a `ChunkerFMMMatrix`, and compares both vector and
 multiple-right-hand-side products against the dense special-quadrature matrix.
 Ground truth is agreement with the dense product after cached sparse GGQ
 corrections are applied.
@@ -959,7 +959,7 @@ fallback in `chunkerinterior`, applied to both a point list and an `(x,y)`
 grid specification. Ground truth is the obvious square membership of the
 sample targets.
 
-`test_chunkerinterior_usefmm_matches_direct_with_close_correction` checks the
+`test_chunkerinterior_fmm_matches_direct_with_close_correction` checks the
 accelerated interior classifier. The method monkeypatches `chunkerkerneval` to
 verify the FMM path is used, evaluates points inside, outside, and very close
 to a circle boundary, and compares against the direct classifier. Ground truth

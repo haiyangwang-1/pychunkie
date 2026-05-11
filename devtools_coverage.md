@@ -68,7 +68,7 @@ Implemented from this scope:
 - `quadggq/buildmattd` sparse special-block assembly.
 - Full adaptive/close quadrature for `quadadap`: GGQ self blocks, adaptive
   neighbor blocks, and robust close non-neighbor replacement for log kernels.
-- `chunkermat(..., usefmm=True)` matrix-free FMM operators and
+- `chunkermat(..., acceleration="fmm")` matrix-free FMM operators and
   `chunkermatapply` FMM acceleration with sparse special-quadrature
   corrections for singular kernels.
 - `chunkerinterior` FMM classification with direct close-boundary correction.
