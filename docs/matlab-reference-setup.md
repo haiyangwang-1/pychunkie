@@ -5,7 +5,8 @@ Local status:
 - MATLAB R2026a is callable via `matlab -batch`.
 - `external/chunkie-matlab/startup.m` runs far enough for dense MATLAB
   fixture generation.
-- FMM2D MATLAB MEX is not built yet on this Windows machine.
+- FMM2D MATLAB MEX builds and loads on this Windows machine when MATLAB is
+  configured to use MSYS2 MinGW for C MEX compilation.
 
 Current FMM2D status:
 
@@ -13,18 +14,41 @@ Current FMM2D status:
 - `mingw-w64-x86_64-gcc`, `mingw-w64-x86_64-gcc-fortran`, and `make`
   were installed through MSYS2 `pacman`.
 - The FMM2D Fortran static library builds with MSYS2 GFortran.
-- The final MATLAB MEX link still fails because MATLAB MEX is configured for
-  Microsoft Visual C++ 2022 and does not accept the MinGW `libgfortran.a`
-  import library through `-lgfortran`.
+- `fmm2d.mexw64` builds when MATLAB's C MEX compiler is explicitly set to
+  `mingw64.xml` and `MW_MINGW64_LOC=C:\msys64\mingw64` is visible to
+  `mex.bat`.
+- `scripts/matlab/fixture_context.m` prepends `C:\msys64\mingw64\bin` to
+  MATLAB's `PATH` so the MEX can load MinGW runtime DLLs during fixture
+  generation.
 
-The remaining FMM2D blocker is MATLAB-side MinGW MEX configuration. The
-upstream FMM2D Windows instructions expect MinGW/GNU tooling:
+To rebuild the Windows MATLAB MEX from the repository root:
 
-1. Install/configure MATLAB's MinGW-w64 MEX support.
-2. Copy `make.inc.windows.mingw` to `make.inc` inside
-   `external/chunkie-matlab/chunkie/fmm2d`.
-3. Update `MINGW_LPATH`, `FC`, `CC`, `CXX`, and `MEX` in `make.inc` if needed.
-4. Run `make matlab` from `external/chunkie-matlab/chunkie/fmm2d`.
-5. Re-run `external/chunkie-matlab/startup.m` and upstream MATLAB tests.
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\matlab\build_fmm2d_mex_windows.ps1
+```
 
-The Python port currently does not depend on FMM2D or FLAM.
+The manual equivalent is:
+
+```powershell
+$env:MW_MINGW64_LOC = "C:\msys64\mingw64"
+matlab -batch "setenv('MW_MINGW64_LOC','C:\msys64\mingw64'); mex -setup:'C:\Program Files\MATLAB\R2026a\bin\win64\mexopts\mingw64.xml' C"
+C:\msys64\usr\bin\bash.exe -lc "cd /c/Users/haiya/git/pychunkie/external/chunkie-matlab/chunkie/fmm2d && export MW_MINGW64_LOC=/mingw64 && export PATH=/mingw64/bin:/usr/bin:`$PATH && make -B matlab OMP=OFF"
+```
+
+Notes:
+
+- Use `make -B matlab`; upstream's `matlab` target name collides with the
+  existing `matlab/` directory, so plain `make matlab` can incorrectly report
+  "up to date" before a MEX exists.
+- Run through MSYS2 `bash`; the upstream Makefile uses Unix commands such as
+  `mv`.
+- Configure MATLAB MEX for MinGW explicitly. If MATLAB uses MSVC, it either
+  rejects C99 `_Complex` in `matlab/fmm2d.c` or searches for MSVC-style
+  `gfortran.lib` instead of MinGW libraries.
+- The build emits many upstream Fortran rank/type warnings. The successful
+  signal is `MEX completed successfully` and the existence of
+  `external/chunkie-matlab/chunkie/fmm2d/matlab/fmm2d.mexw64`.
+
+The Python port now declares the upstream `fmm2dpy` Python package dependency.
+That is separate from MATLAB MEX support: the MEX build above is only needed for
+running MATLAB-side FMM2D reference code, not for importing `chunkie` in Python.

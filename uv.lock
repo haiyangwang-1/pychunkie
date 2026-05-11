@@ -12,6 +12,14 @@ wheels = [
 ]
 
 [[package]]
+name = "fmm2dpy"
+version = "1.1.0"
+source = { git = "https://github.com/flatironinstitute/fmm2d.git?rev=550dae5b77b1e006c8ffae37fc832f8c2b536871#550dae5b77b1e006c8ffae37fc832f8c2b536871" }
+dependencies = [
+    { name = "numpy" },
+]
+
+[[package]]
 name = "iniconfig"
 version = "2.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -122,6 +130,7 @@ name = "pychunkie"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "fmm2dpy" },
     { name = "numpy" },
     { name = "scipy" },
 ]
@@ -133,6 +142,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "fmm2dpy", git = "https://github.com/flatironinstitute/fmm2d.git?rev=550dae5b77b1e006c8ffae37fc832f8c2b536871" },
     { name = "numpy", specifier = ">=2.4.4" },
     { name = "scipy", specifier = ">=1.17.1" },
 ]

@@ -5,6 +5,7 @@ description = "A Python port of the MATLAB chunkIE package."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "fmm2dpy @ git+https://github.com/flatironinstitute/fmm2d.git@550dae5b77b1e006c8ffae37fc832f8c2b536871",
     "numpy>=2.4.4",
     "scipy>=1.17.1",
 ]
