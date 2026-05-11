@@ -32,6 +32,12 @@ belong to the current change.
 - Update `map.md` when public APIs, source-tree structure, implemented MATLAB
   parity, feature status, known limitations, or the verification snapshot
   changes.
+- Keep every `map.md` status table ordered by maturity from least mature to most
+  mature: limited/deferred/non-goal rows first, implemented-only rows next,
+  implemented plus Python-tested rows next, and fully implemented plus
+  Python-tested plus MATLAB-parity-tested rows last. Treat private/internal
+  helper status as metadata rather than its own maturity tier, and preserve
+  relative order within the same tier when practical.
 - Update `devtools_coverage.md` when MATLAB devtools parity coverage changes,
   including golden fixtures, MATLAB fixture generators, Python fixture
   generators, parity tests, ranked port status, or suggested next ports.
