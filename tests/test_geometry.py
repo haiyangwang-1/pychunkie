@@ -1,6 +1,6 @@
 import numpy as np
 
-from chunkie import chunkerfunc, chunkerpoly
+from chunkie import chunkerfunc, chunkerpoly, tochunkgraph
 from chunkie.chnk import (
     chunk_nearparam,
     curvature2d,
@@ -49,6 +49,24 @@ def test_flagnear_rectangle_grid_matches_direct_meshgrid_order():
     grid = flagnear_rectangle_grid(chnkr, x, y, {"rho": 1.5})
 
     np.testing.assert_array_equal(grid, direct)
+
+
+def test_flagnear_rectangle_uses_per_chunk_padding_and_chunkgraph_delegates():
+    chnkr = chunkerpoly(
+        np.array([[0.0, 2.0, 2.0], [0.0, 0.0, 1.0]]),
+        {"ifclosed": False},
+        {"k": 8},
+    )
+    pts = np.array([[1.0, 1.0, 2.25, 2.25], [0.1, 1.6, 0.5, 1.6]])
+
+    tight = flagnear_rectangle(chnkr, pts, {"rho": 1.0})
+    padded = flagnear_rectangle(chnkr, pts, {"rho": 1.8})
+    graph = tochunkgraph(chnkr)
+
+    assert tight.shape == (pts.shape[1], chnkr.nch)
+    assert np.count_nonzero(padded) >= np.count_nonzero(tight)
+    np.testing.assert_array_equal(graph.flagnear(pts, {"fac": 0.5}), chnkr.flagnear(pts, {"fac": 0.5}))
+    np.testing.assert_array_equal(graph.flagnear_rectangle(pts, {"rho": 1.8}), padded)
 
 
 def test_flagself_reports_close_source_target_pairs():
