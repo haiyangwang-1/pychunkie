@@ -46,7 +46,7 @@ class Kernel:
             fmm=_sum_fmm(self, other, 1.0),
             opdims=self.opdims,
             sing=_worst_sing(self.sing, other.sing),
-            iszero=self.iszero and other.iszero,
+            iszero=bool(self.iszero and other.iszero),
         )
 
     def __sub__(self, other: "Kernel") -> "Kernel":
@@ -62,7 +62,7 @@ class Kernel:
             fmm=_sum_fmm(self, other, -1.0),
             opdims=self.opdims,
             sing=_worst_sing(self.sing, other.sing),
-            iszero=self.iszero and other.iszero,
+            iszero=bool(self.iszero and other.iszero),
         )
 
     def __neg__(self) -> "Kernel":
@@ -82,7 +82,7 @@ class Kernel:
             sing=self.sing,
             params=self.params.copy(),
             isnan=self.isnan,
-            iszero=self.iszero or scalar == 0,
+            iszero=bool(self.iszero or scalar == 0),
         )
 
     def __rmul__(self, scalar: float | complex) -> "Kernel":
@@ -156,6 +156,15 @@ def kernel(kern: str | Callable[[Any, Any], np.ndarray] | Kernel, *args: Any) ->
 
 def lap2d_kernel(kind: str, coefs: Any | None = None) -> Kernel:
     typ = kind.lower()
+    if typ in {"c", "combined"}:
+        c = np.ones(2) if coefs is None else np.asarray(coefs)
+        return lap2d_kernel("d") * c[0] + lap2d_kernel("s") * c[1]
+    if typ in {"cp", "cprime"}:
+        c = np.ones(2) if coefs is None else np.asarray(coefs)
+        return lap2d_kernel("dp") * c[0] + lap2d_kernel("sp") * c[1]
+    if typ in {"cg", "cgrad"}:
+        c = np.ones(2) if coefs is None else np.asarray(coefs)
+        return lap2d_kernel("dg") * c[0] + lap2d_kernel("sg") * c[1]
     opdims = (2, 1) if typ in {"sg", "sgrad", "dg", "dgrad"} else (1, 1)
     sing = {
         "s": "log",
@@ -170,10 +179,9 @@ def lap2d_kernel(kind: str, coefs: Any | None = None) -> Kernel:
         "sgrad": "pv",
         "dg": "hs",
         "dgrad": "hs",
+        "dp": "hs",
+        "dprime": "hs",
     }.get(typ, "log")
-    if typ in {"c", "combined"}:
-        c = np.ones(2) if coefs is None else np.asarray(coefs)
-        return lap2d_kernel("d") * c[0] + lap2d_kernel("s") * c[1]
     return Kernel(
         name="laplace",
         type=typ,
@@ -231,13 +239,45 @@ def biharm2d_kernel(kind: str) -> Kernel:
 def stok2d_kernel(kind: str, mu: float = 1.0, coefs: Any | None = None) -> Kernel:
     typ = kind.lower()
     opdims = (1, 2) if typ in {"spres", "spressure", "dpres", "dpressure", "cpres", "cpressure"} else (4, 2) if typ in {"sg", "sgrad", "dg", "dgrad", "cg", "cgrad"} else (2, 2)
+    sing = {
+        "s": "log",
+        "single": "log",
+        "svel": "log",
+        "svelocity": "log",
+        "spres": "pv",
+        "spressure": "pv",
+        "strac": "smooth",
+        "straction": "smooth",
+        "sgrad": "pv",
+        "sg": "pv",
+        "d": "smooth",
+        "double": "smooth",
+        "dvel": "smooth",
+        "dvelocity": "smooth",
+        "dpres": "hs",
+        "dpressure": "hs",
+        "dtrac": "hs",
+        "dtraction": "hs",
+        "dgrad": "hs",
+        "dg": "hs",
+        "c": "log",
+        "combined": "log",
+        "cvel": "log",
+        "cvelocity": "log",
+        "cpres": "hs",
+        "cpressure": "hs",
+        "ctrac": "hs",
+        "ctraction": "hs",
+        "cgrad": "hs",
+        "cg": "hs",
+    }.get(typ, "smooth")
     return Kernel(
         name="stokes",
         type=typ,
         eval=lambda s, t: stok2d.kern(mu, s, t, typ, coefs),
         fmm=_stok2d_fmm(typ, mu, coefs) or _direct_fmm(lambda s, t: stok2d.kern(mu, s, t, typ, coefs)),
         opdims=opdims,
-        sing="log" if typ in {"s", "single", "svel", "svelocity", "c", "combined", "cvel", "cvelocity"} else "smooth",
+        sing=sing,
         params={"mu": mu} if coefs is None else {"mu": mu, "coefs": coefs},
     )
 
@@ -245,23 +285,46 @@ def stok2d_kernel(kind: str, mu: float = 1.0, coefs: Any | None = None) -> Kerne
 def elast2d_kernel(kind: str, lam: float, mu: float) -> Kernel:
     typ = kind.lower()
     opdims = (4, 2) if typ in {"sgrad", "sg", "daltgrad", "daltg"} else (2, 2)
+    sing = {
+        "s": "log",
+        "single": "log",
+        "sgrad": "pv",
+        "sg": "pv",
+        "strac": "pv",
+        "straction": "pv",
+        "d": "pv",
+        "double": "pv",
+        "dalt": "smooth",
+        "dalttrac": "hs",
+        "dalttraction": "hs",
+        "daltgrad": "hs",
+        "daltg": "hs",
+    }.get(typ, "smooth")
     return Kernel(
         name="elasticity",
         type=typ,
         eval=lambda s, t: elast2d.kern(lam, mu, s, t, typ),
         fmm=_elast2d_fmm(typ, lam, mu) or _direct_fmm(lambda s, t: elast2d.kern(lam, mu, s, t, typ)),
         opdims=opdims,
-        sing="log" if typ in {"s", "single"} else "pv" if typ in {"d", "double", "strac"} else "smooth",
+        sing=sing,
         params={"lam": lam, "mu": mu},
     )
 
 
 def zeros(m: int = 1, n: int | None = None) -> Kernel:
     n = m if n is None else n
+
+    def eval_(srcinfo: Any, targinfo: Any) -> np.ndarray:
+        from .operators import pointinfo
+
+        src = pointinfo(srcinfo)
+        targ = pointinfo(targinfo)
+        return np.zeros((m * targ.r.shape[1], n * src.r.shape[1]))
+
     return Kernel(
         name="zeros",
         type="zeros",
-        eval=lambda s, t: np.zeros((m * t.r.shape[1], n * s.r.shape[1])),
+        eval=eval_,
         fmm=lambda eps, s, t, sigma: np.zeros(m * _target_count(t)),
         opdims=(m, n),
         sing="smooth",
@@ -271,10 +334,18 @@ def zeros(m: int = 1, n: int | None = None) -> Kernel:
 
 def nans(m: int = 1, n: int | None = None) -> Kernel:
     n = m if n is None else n
+
+    def eval_(srcinfo: Any, targinfo: Any) -> np.ndarray:
+        from .operators import pointinfo
+
+        src = pointinfo(srcinfo)
+        targ = pointinfo(targinfo)
+        return np.full((m * targ.r.shape[1], n * src.r.shape[1]), np.nan)
+
     return Kernel(
         name="nans",
         type="nans",
-        eval=lambda s, t: np.full((m * t.r.shape[1], n * s.r.shape[1]), np.nan),
+        eval=eval_,
         fmm=lambda eps, s, t, sigma: np.full(m * _target_count(t), np.nan),
         opdims=(m, n),
         sing="smooth",
