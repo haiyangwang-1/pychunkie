@@ -42,6 +42,33 @@ def fsine(t: ArrayLike, a: float, b: float, c: float) -> tuple[np.ndarray, np.nd
     return _pack(t_arr, rx, ry, dx, dy, d2x, d2y)
 
 
+def starfish(
+    t: ArrayLike,
+    narms: int = 5,
+    amp: float = 0.3,
+    ctr: ArrayLike | None = None,
+    phi: float = 0.0,
+    scale: float = 1.0,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    t_arr = np.asarray(t, dtype=float)
+    flat = t_arr.reshape(-1)
+    center = np.zeros(2) if ctr is None else np.asarray(ctr, dtype=float).reshape(2)
+
+    ct = np.cos(flat)
+    st = np.sin(flat)
+    cnt = np.cos(narms * (flat + phi))
+    snt = np.sin(narms * (flat + phi))
+    radius = 1.0 + amp * cnt
+
+    xs = center[0] + radius * ct * scale
+    ys = center[1] + radius * st * scale
+    dxs = (-(radius) * st - narms * amp * snt * ct) * scale
+    dys = (radius * ct - narms * amp * snt * st) * scale
+    d2xs = (-dys - narms * amp * (narms * cnt * ct - snt * st)) * scale
+    d2ys = (dxs - narms * amp * (narms * cnt * st + snt * ct)) * scale
+    return _pack(t_arr, xs, ys, dxs, dys, d2xs, d2ys)
+
+
 def bymode(
     t: ArrayLike,
     modes: ArrayLike,

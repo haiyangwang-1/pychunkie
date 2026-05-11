@@ -12,8 +12,8 @@ from pathlib import Path
 import numpy as np
 from scipy.io import loadmat
 
-from chunkie import Chunker, chunkerintegral, kernel, lege
-from chunkie.chnk import flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, spcl
+from chunkie import Chunker, chunkerfuncuni, chunkerintegral, kernel, lege
+from chunkie.chnk import curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, spcl
 from chunkie.operators import PointInfo
 
 
@@ -141,6 +141,26 @@ def build_snapshot() -> dict[str, np.ndarray]:
             lambda xx: np.cos(xx[0] - 1.0) + np.sin(xx[1] - 0.5),
         )
     )
+
+    cfu = fixture.chunkerfuncuni
+    cfu_starfish = chunkerfuncuni(lambda t: curves.starfish(t, int(cfu.narms), float(cfu.amp)), int(cfu.nch))
+    cfu_bymode = chunkerfuncuni(lambda t: curves.bymode(t, cfu.modes, cfu.mode_ctr), int(cfu.nch)).reverse()
+    cfu_circle = chunkerfuncuni(
+        lambda t: (
+            np.vstack(
+                (
+                    cfu.circle_ctr[0] + float(cfu.circle_radius) * np.cos(t),
+                    cfu.circle_ctr[1] + float(cfu.circle_radius) * np.sin(t),
+                )
+            ),
+            np.vstack((-float(cfu.circle_radius) * np.sin(t), float(cfu.circle_radius) * np.cos(t))),
+            np.vstack((-float(cfu.circle_radius) * np.cos(t), -float(cfu.circle_radius) * np.sin(t))),
+        ),
+        int(cfu.nch),
+    )
+    out["chunkerfuncuni_starfish_r"] = cfu_starfish.r
+    out["chunkerfuncuni_bymode_reversed_r"] = cfu_bymode.r
+    out["chunkerfuncuni_circle_area"] = np.asarray(cfu_circle.area())
 
     fs = fixture.flagself
     out["flagself_pairs"] = flagself(fs.srcs, fs.targs)

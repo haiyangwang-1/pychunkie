@@ -168,6 +168,34 @@ cint.relerr32 = abs(cint.fscal_int3 - cint.fscal_int2)/abs(cint.fscal_int2);
 cint.relerr42 = abs(cint.fscal_int4 - cint.fscal_int2)/abs(cint.fscal_int2);
 devtools_easy.chunkerintegral = cint;
 
+% chunkerfuncuniTest.m
+cfu = [];
+rng(8675309);
+cfu.nch = 10;
+cfu.narms = 3;
+cfu.amp = 0.5;
+chnkr = chunkerfuncuni(@(t) starfish(t, cfu.narms, cfu.amp), cfu.nch);
+cfu.starfish = fixture_pack_chunker(chnkr);
+[~, ~, info] = sortinfo(chnkr);
+cfu.starfish_sort_ier = info.ier;
+
+cfu.modes = randn(11,1);
+cfu.modes(1) = 1.1*sum(abs(cfu.modes(2:end)));
+cfu.mode_ctr = [1.0; -0.5];
+chnkr = chunkerfuncuni(@(t) chnk.curves.bymode(t, cfu.modes, cfu.mode_ctr), cfu.nch);
+chnkr = reverse(chnkr);
+cfu.bymode_reversed = fixture_pack_chunker(chnkr);
+
+cfu.circle_radius = 5*rand();
+cfu.circle_ctr = [1.0; -0.5];
+circfun = @(t) cfu.circle_ctr + cfu.circle_radius*[cos(t(:).'); sin(t(:).')];
+chnkr = chunkerfuncuni(circfun, cfu.nch);
+[~, ~, info] = sortinfo(chnkr);
+cfu.circle_sort_ier = info.ier;
+cfu.circle = fixture_pack_chunker(chnkr);
+cfu.circle_area_error = abs(area(chnkr) - pi*cfu.circle_radius^2);
+devtools_easy.chunkerfuncuni = cfu;
+
 % flagselfTest.m
 fs = [];
 rng(8675309);
