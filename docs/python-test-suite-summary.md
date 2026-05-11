@@ -59,8 +59,9 @@ Ground truth comes from four places:
   dispatch, and operator wrapper tests.
 - MATLAB-generated golden fixtures in `tests/golden`, used for strict parity
   with the MATLAB `chunkIE` implementation. Large generated parity snapshots
-  are optional and ignored; tests that need an absent optional snapshot skip
-  cleanly. The singular-quadrature fixture remains tracked.
+  can remain ignored to avoid committing large data files, but tests that need
+  a missing fixture now fail directly with the missing data file as the reason.
+  The singular-quadrature fixture remains tracked.
 
 ## Implementation Scope Tracked By Tests
 
@@ -931,7 +932,8 @@ matrices. The equations are affine geometry transforms, determinant area
 scaling, spectral differentiation, cumulative integration, scalar/vector ones
 matrices, and centroids. The method reconstructs a MATLAB-saved chunker,
 applies Python transforms, and compares helper matrices. Ground truth is
-the optional generated `tests/golden/chunker_ops.mat` fixture when present.
+the generated local `tests/golden/chunker_ops.mat` fixture; the test fails
+directly if that missing data file has not been regenerated.
 
 `test_laplace_point_kernels_match_matlab_fixture` is parametrized over
 `s`, `d`, `sp`, `stau`, `hilb`, `sgrad`, `dgrad`, `dp`, `c`, `cp`, and

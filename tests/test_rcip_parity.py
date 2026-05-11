@@ -14,7 +14,10 @@ GOLDEN = Path(__file__).parent / "golden"
 def load_fixture(name: str):
     path = GOLDEN / name
     if not path.exists():
-        pytest.skip(f"optional MATLAB parity fixture is not present: {name}")
+        pytest.fail(
+            f"missing MATLAB parity fixture data file: tests/golden/{name}. "
+            "Regenerate it locally before running these parity tests."
+        )
     return loadmat(path, squeeze_me=True, struct_as_record=False)
 
 
