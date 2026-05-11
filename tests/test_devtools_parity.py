@@ -37,11 +37,18 @@ def chunker_from_fields(fields) -> Chunker:
 
 def pointinfo_from_mat(obj) -> PointInfo:
     return PointInfo(
-        r=np.asarray(obj.r),
-        d=np.asarray(obj.d) if hasattr(obj, "d") else None,
-        d2=np.asarray(obj.d2) if hasattr(obj, "d2") else None,
-        n=np.asarray(obj.n) if hasattr(obj, "n") else None,
+        r=point_array(obj.r),
+        d=point_array(obj.d) if hasattr(obj, "d") else None,
+        d2=point_array(obj.d2) if hasattr(obj, "d2") else None,
+        n=point_array(obj.n) if hasattr(obj, "n") else None,
     )
+
+
+def point_array(value) -> np.ndarray:
+    arr = np.asarray(value)
+    if arr.ndim == 1:
+        arr = arr.reshape(-1, 1)
+    return arr
 
 
 def sorted_pairs(pairs: np.ndarray) -> np.ndarray:
@@ -231,3 +238,28 @@ def test_kernelop_devtools_outputs_match_matlab():
 
     for name, actual in checks.items():
         np.testing.assert_allclose(actual, getattr(fixture, name), atol=1e-13, err_msg=name)
+
+
+def test_stokes_dtrac_devtools_output_matches_matlab():
+    fixture = load_devtools_easy().stokes_dtrac
+    src = pointinfo_from_mat(fixture.srcinfo)
+    targ = pointinfo_from_mat(fixture.targinfo)
+    strengths = np.asarray(fixture.strengths).reshape(-1)
+    mu = float(fixture.mu)
+
+    kt = kernel("stok", "dtrac", mu)(src, targ) @ strengths
+    kg = kernel("stok", "dgrad", mu)(src, targ) @ strengths
+    kp = kernel("stok", "dpres", mu)(src, targ) @ strengths
+
+    du = kg.reshape(2, 2, 1, order="F")
+    eu = du + np.transpose(du, (1, 0, 2))
+    reconstructed = np.zeros(2)
+    reconstructed[0::2] = -kp * targ.n[0] + (eu[0, 0] * targ.n[0] + eu[0, 1] * targ.n[1]) * mu
+    reconstructed[1::2] = -kp * targ.n[1] + (eu[0, 1] * targ.n[0] + eu[1, 1] * targ.n[1]) * mu
+
+    np.testing.assert_allclose(kt, fixture.Kt, rtol=1e-13, atol=1e-13)
+    np.testing.assert_allclose(kg, fixture.Kg, rtol=1e-13, atol=1e-13)
+    np.testing.assert_allclose(kp, fixture.Kp, rtol=1e-13, atol=1e-13)
+    np.testing.assert_allclose(reconstructed, fixture.reconstructed, rtol=1e-13, atol=1e-13)
+    np.testing.assert_allclose(reconstructed, kt, rtol=1e-13, atol=1e-13)
+    assert float(fixture.residual_norm) < 1e-13

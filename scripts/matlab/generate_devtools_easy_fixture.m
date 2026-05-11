@@ -277,6 +277,39 @@ kop.ckern2 = ckern2.eval(kop.src, kop.targ);
 kop.conj_dkern = conj_dkern.eval(kop.src, kop.targ);
 devtools_easy.kernelop = kop;
 
+% stokes_dtracTest.m
+sdtr = [];
+rng(8675309);
+sdtr.srcinfo = [];
+sdtr.srcinfo.r = rand(2,1);
+sdtr.srcinfo.n = rand(2,1);
+sdtr.targinfo = [];
+sdtr.targinfo.r = rand(2,1);
+sdtr.targinfo.n = rand(2,1);
+sdtr.strengths = rand(2,1);
+sdtr.mu = 1.1;
+kernt = kernel('stok', 'dtrac', sdtr.mu);
+kerng = kernel('stok', 'dgrad', sdtr.mu);
+kernp = kernel('stok', 'dpres', sdtr.mu);
+sdtr.Kt = kernt.eval(sdtr.srcinfo, sdtr.targinfo)*sdtr.strengths;
+sdtr.Kg = kerng.eval(sdtr.srcinfo, sdtr.targinfo)*sdtr.strengths;
+sdtr.Kp = kernp.eval(sdtr.srcinfo, sdtr.targinfo)*sdtr.strengths;
+du = reshape(sdtr.Kg, [2,2,1]);
+dut = permute(du, [2,1,3]);
+eu = du + dut;
+euxx = squeeze(eu(1,1,:));
+euxy = squeeze(eu(1,2,:));
+euyy = squeeze(eu(2,2,:));
+f = zeros(2,1);
+p = sdtr.Kp.';
+ntx = sdtr.targinfo.n(1,:).';
+nty = sdtr.targinfo.n(2,:).';
+f(1:2:end) = -p.*ntx + (euxx.*ntx + euxy.*nty)*sdtr.mu;
+f(2:2:end) = -p.*nty + (euxy.*ntx + euyy.*nty)*sdtr.mu;
+sdtr.reconstructed = f;
+sdtr.residual_norm = norm(f - sdtr.Kt);
+devtools_easy.stokes_dtrac = sdtr;
+
 save(fullfile(outdir, 'devtools_easy.mat'), 'devtools_easy', '-v7');
 
 
