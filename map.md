@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 265 tests: `262 passed, 2 failed, 1 xfailed` (`tests/test_operators.py::test_chunkermatapply_fmm_matches_special_matrix_application` and `tests/test_operators.py::test_chunkermat_fmm_returns_matrix_free_operator_matching_dense_application`, current clean-tree FMM single-layer path returns `inf`). Targeted geometry parity/domain run `uv run pytest tests/test_geometry_parity.py tests/test_domain.py tests/test_geometry.py tests/test_chunkgraph.py tests/test_chunker.py tests/test_chunkerfunc.py`: `51 passed`; targeted devtools/adjacent parity run `uv run pytest tests/test_devtools_parity.py tests/test_arcparam.py tests/test_chunkerfunc.py tests/test_chunkgraph.py tests/test_matlab_parity.py tests/test_quadggq.py`: `148 passed, 1 xfailed`; targeted devtools-only run `uv run pytest tests/test_devtools_parity.py`: `24 passed`.
+Verification snapshot: clean-worktree `uv run pytest` on 2026-05-11 with Python 3.11.9 collected 266 tests: `232 passed, 25 skipped, 8 failed, 1 xfailed` (failures are the existing Section III/`quadggq` table paths plus `tests/test_operators.py::test_chunkermatapply_fmm_matches_special_matrix_application` and `tests/test_operators.py::test_chunkermat_fmm_returns_matrix_free_operator_matching_dense_application`). Targeted geometry parity/domain run `uv run pytest tests/test_geometry_parity.py tests/test_domain.py tests/test_geometry.py tests/test_chunkgraph.py tests/test_chunker.py tests/test_chunkerfunc.py tests/test_arcparam.py`: `55 passed`; targeted devtools/adjacent parity run `uv run pytest tests/test_devtools_parity.py tests/test_arcparam.py tests/test_chunkerfunc.py tests/test_chunkgraph.py tests/test_matlab_parity.py tests/test_quadggq.py`: `148 passed, 1 xfailed`; targeted devtools-only run `uv run pytest tests/test_devtools_parity.py`: `24 passed`.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -281,9 +281,9 @@ src/
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
-| `ArcParamData` | ✅ 🧪 | `+chnk/+arcparam/init.m` output struct | Python dataclass. |
-| `init` | ✅ 🧪 | `+chnk/+arcparam/init.m` | Tested on chunk nodes. |
-| `eval` | ✅ 🧪 | `+chnk/+arcparam/eval.m` | Tested for derivative consistency on a circle. |
+| `ArcParamData` | ✅ 🧪 🎯 | `+chnk/+arcparam/init.m` output struct | Python dataclass; MATLAB fixture checks lengths, coefficients, diagnostics, and selected-panel metadata. |
+| `init` | ✅ 🧪 🎯 | `+chnk/+arcparam/init.m` | Full and selected-panel initialization parity-tested. |
+| `eval` | ✅ 🧪 🎯 | `+chnk/+arcparam/eval.m` | Original-node and sample arclength evaluation parity-tested. |
 
 #### `chnk/curves.py`
 

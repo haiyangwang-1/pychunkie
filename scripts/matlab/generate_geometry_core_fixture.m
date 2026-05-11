@@ -273,6 +273,19 @@ geo.flagself_targ = [2, 0, 3, 5; 2, 0, 3, 5];
 geo.flagself_pairs = chnk.flagself(geo.flagself_src, geo.flagself_targ);
 geometry_core.geometry = geo;
 
+% +chnk arc-length parameterization helpers.
+ap = [];
+ap.full = chnk.arcparam.init(base);
+ap.eval_s = linspace(0.05, sum(ap.full.plen) - 0.05, 9).';
+[ap.eval_r, ap.eval_d, ap.eval_d2] = chnk.arcparam.eval(ap.eval_s, ap.full);
+ap.node_s = reshape(chn.arclengthfun, [], 1);
+[ap.node_r, ap.node_d, ap.node_d2] = chnk.arcparam.eval(ap.node_s, ap.full);
+ap.selected_ich = [2, 4];
+ap.selected = chnk.arcparam.init(base, ap.selected_ich);
+ap.selected_eval_s = linspace(0.03, sum(ap.selected.plen) - 0.03, 6).';
+[ap.selected_eval_r, ap.selected_eval_d, ap.selected_eval_d2] = chnk.arcparam.eval(ap.selected_eval_s, ap.selected);
+geometry_core.arcparam = ap;
+
 % Chunkgraph helpers.
 cgfx = [];
 cgfx.verts = [0, 1, 1, 0; 0, 0, 1, 1];

@@ -60,7 +60,7 @@ def init(chnkr: Chunker, ich: ArrayLike | None = None) -> ArcParamData:
         maxcond = max(maxcond, float(np.linalg.cond(vals)))
 
     last = cr[-2:, :, :] if chnkr.k >= 2 else cr[-1:, :, :]
-    eps = float(np.max(np.abs(last))) if last.size else 0.0
+    eps = float(np.max(last)) if last.size else 0.0
     return ArcParamData(plen, pstrt, cr, cd, cd2, chnkr.k, chnkr.dim, nchs, eps, maxcond)
 
 
