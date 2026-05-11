@@ -13,7 +13,7 @@ import numpy as np
 from scipy.io import loadmat
 
 from chunkie import Chunker, chunkerfit, chunkerfunc, chunkerfuncuni, chunkerintegral, chunkerinterior, chunkerpoly, chunkgraph, kernel, lege, tochunkgraph
-from chunkie.chnk import curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, spcl
+from chunkie.chnk import curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, smoother, spcl
 from chunkie.operators import PointInfo
 
 
@@ -234,6 +234,11 @@ def build_snapshot() -> dict[str, np.ndarray]:
     out["chunkerpoly_rounded_ier"] = np.asarray(cpoly_rounded.checkadjinfo())
     out["chunkerpoly_truepoly_ier"] = np.asarray(cpoly_true.checkadjinfo())
     out["chunkerpoly_open_ier"] = np.asarray(cpoly_open.checkadjinfo())
+
+    smth = fixture.smoother
+    _, smth_err, smth_err_by_pt = smoother.smooth(smth.verts, {"lam": float(smth.opts.lam), "return_error": True})
+    out["smoother_err"] = np.asarray(smth_err)
+    out["smoother_err_by_pt"] = smth_err_by_pt
 
     fs = fixture.flagself
     out["flagself_pairs"] = flagself(fs.srcs, fs.targs)
