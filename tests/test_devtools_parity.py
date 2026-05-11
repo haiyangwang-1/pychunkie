@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 from scipy.io import loadmat
 
-from chunkie import Chunker, kernel, lege
+from chunkie import Chunker, chunkerintegral, kernel, lege
 from chunkie.chnk import flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, spcl
 from chunkie.operators import PointInfo
 
@@ -158,6 +158,27 @@ def test_chunker_nearest_devtools_output_matches_matlab():
     np.testing.assert_array_less(fixture.err, 1e-12)
     np.testing.assert_allclose(angle_err, fixture.err, rtol=0, atol=4e-12)
     np.testing.assert_array_less(angle_err, 5e-12)
+
+
+def test_chunkerintegral_devtools_output_matches_matlab():
+    fixture = load_devtools_easy().chunkerintegral
+    chnkr = chunker_from_fields(fixture.chunker)
+
+    def fscal(xx):
+        return np.cos(xx[0] - 1.0) + np.sin(xx[1] - 0.5)
+
+    fvals = fscal(chnkr.r.reshape(chnkr.dim, chnkr.npt, order="F"))
+    actual_from_values = chunkerintegral(chnkr, fixture.fvals, {"usesmooth": False})
+    actual_from_callable = chunkerintegral(chnkr, fscal, {"usesmooth": False})
+
+    np.testing.assert_allclose(fvals, fixture.fvals, atol=1e-13)
+    np.testing.assert_allclose(actual_from_values, fixture.fscal_int1, rtol=1e-9, atol=1e-12)
+    np.testing.assert_allclose(actual_from_callable, fixture.fscal_int2, rtol=1e-9, atol=1e-12)
+    np.testing.assert_allclose(actual_from_values, fixture.fscal_int3, rtol=1e-9, atol=1e-12)
+    np.testing.assert_allclose(actual_from_callable, fixture.fscal_int4, rtol=1e-9, atol=1e-12)
+    assert float(fixture.relerr12) < 1e-9
+    assert float(fixture.relerr32) < 1e-9
+    assert float(fixture.relerr42) < 1e-9
 
 
 def test_flagself_devtools_output_matches_matlab():

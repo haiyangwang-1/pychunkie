@@ -142,6 +142,32 @@ for j = 1:near.nt
 end
 devtools_easy.chunker_nearest = near;
 
+% chunkerintegralTest.m
+cint = [];
+rng(8675309);
+cparams = [];
+cparams.eps = 1.0e-4;
+cint.narms = 5;
+cint.amp = 0.5;
+chnkr = chunkerfunc(@(t) starfish(t, cint.narms, cint.amp), cparams);
+cint.chunker = fixture_pack_chunker(chnkr);
+fscal = @(xx) cos(xx(1,:) - 1.0) + sin(xx(2,:) - 0.5);
+cint.fvals = fscal(reshape(chnkr.r, 2, chnkr.k*chnkr.nch));
+opts = [];
+opts.quadgkparams = {'RelTol', 1e-15};
+opts.usesmooth = false;
+cint.fscal_int1 = chunkerintegral(chnkr, cint.fvals, opts);
+opts.usesmooth = true;
+cint.fscal_int3 = chunkerintegral(chnkr, cint.fvals, opts);
+opts.usesmooth = false;
+cint.fscal_int2 = chunkerintegral(chnkr, fscal, opts);
+opts.usesmooth = true;
+cint.fscal_int4 = chunkerintegral(chnkr, fscal, opts);
+cint.relerr12 = abs(cint.fscal_int1 - cint.fscal_int2)/abs(cint.fscal_int2);
+cint.relerr32 = abs(cint.fscal_int3 - cint.fscal_int2)/abs(cint.fscal_int2);
+cint.relerr42 = abs(cint.fscal_int4 - cint.fscal_int2)/abs(cint.fscal_int2);
+devtools_easy.chunkerintegral = cint;
+
 % flagselfTest.m
 fs = [];
 rng(8675309);
