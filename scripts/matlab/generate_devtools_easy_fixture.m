@@ -83,6 +83,33 @@ chnkrtotal = merge(chnkrs);
 arc.chunker_merged = fixture_pack_chunker(chnkrtotal);
 devtools_easy.arclengthfun = arc;
 
+% chunker_diffintmatTest.m
+dimat = [];
+chnkr = chunkerfunc(@(t) [cos(t)'; 5*sin(t)']);
+D = full(diffmat(chnkr));
+C = full(intmat(chnkr));
+dx = D * chnkr.r(1,:).';
+dy = D * chnkr.r(2,:).';
+x = C * dx;
+y = C * dy;
+dimat.ellipse = fixture_pack_chunker(chnkr);
+dimat.ellipse_D = D;
+dimat.ellipse_C = C;
+dimat.ellipse_dx = dx;
+dimat.ellipse_dy = dy;
+dimat.ellipse_x_int = x;
+dimat.ellipse_y_int = y;
+dimat.ellipse_tangent_residual = dx.^2 + dy.^2 - 1;
+dimat.ellipse_x_residual = x - x(1) - chnkr.r(1,:).' + chnkr.r(1,1);
+dimat.ellipse_y_residual = y - y(1) - chnkr.r(2,:).' + chnkr.r(2,1);
+
+chnkr = chunkerfunc(@(t) [cos(t)'; sin(t)']);
+D = full(diffmat(chnkr));
+dimat.circle = fixture_pack_chunker(chnkr);
+dimat.circle_D = D;
+dimat.circle_test_quant = D * chnkr.r(1,:).' + chnkr.r(2,:).';
+devtools_easy.chunker_diffintmat = dimat;
+
 % kernelopTest.m
 kop = [];
 rng(8675309);

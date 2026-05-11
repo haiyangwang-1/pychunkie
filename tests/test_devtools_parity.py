@@ -93,6 +93,39 @@ def test_arclengthfun_merged_components_devtools_output_matches_matlab():
     np.testing.assert_allclose(chnkr.arclengthfun(), fixture.s_merged, atol=1e-13)
 
 
+def test_chunker_diffintmat_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().chunker_diffintmat
+    ellipse = chunker_from_fields(fixture.ellipse)
+    dmat = ellipse.diffmat()
+    imat = ellipse.intmat()
+    x = ellipse.r[0].reshape(-1, order="F")
+    y = ellipse.r[1].reshape(-1, order="F")
+    dx = dmat @ x
+    dy = dmat @ y
+    x_int = imat @ dx
+    y_int = imat @ dy
+
+    np.testing.assert_allclose(dmat, fixture.ellipse_D, atol=1e-13)
+    np.testing.assert_allclose(imat, fixture.ellipse_C, atol=1e-13)
+    np.testing.assert_allclose(dx, fixture.ellipse_dx, atol=1e-12)
+    np.testing.assert_allclose(dy, fixture.ellipse_dy, atol=1e-12)
+    np.testing.assert_allclose(x_int, fixture.ellipse_x_int, atol=1e-12)
+    np.testing.assert_allclose(y_int, fixture.ellipse_y_int, atol=1e-12)
+    np.testing.assert_allclose(dx**2 + dy**2 - 1.0, fixture.ellipse_tangent_residual, atol=1e-12)
+    np.testing.assert_allclose(x_int - x_int[0] - x + x[0], fixture.ellipse_x_residual, atol=1e-12)
+    np.testing.assert_allclose(y_int - y_int[0] - y + y[0], fixture.ellipse_y_residual, atol=1e-12)
+    assert np.linalg.norm(dx**2 + dy**2 - 1.0) < 1e-10
+    assert np.linalg.norm(x_int - x_int[0] - x + x[0]) < 1e-10
+    assert np.linalg.norm(y_int - y_int[0] - y + y[0]) < 1e-10
+
+    circle = chunker_from_fields(fixture.circle)
+    circle_dmat = circle.diffmat()
+    circle_test_quant = circle_dmat @ circle.r[0].reshape(-1, order="F") + circle.r[1].reshape(-1, order="F")
+    np.testing.assert_allclose(circle_dmat, fixture.circle_D, atol=1e-13)
+    np.testing.assert_allclose(circle_test_quant, fixture.circle_test_quant, atol=1e-12)
+    assert np.linalg.norm(circle_test_quant) < 1e-10
+
+
 def test_kernelop_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().kernelop
     src = pointinfo_from_mat(fixture.src)
