@@ -292,6 +292,44 @@ cfit.open_ier = checkadjinfo(chnkr);
 cfit.open = fixture_pack_chunker(chnkr);
 devtools_easy.chunkerfit = cfit;
 
+% tochunkgraphTest.m
+tcg = [];
+rng(8675309);
+cparams = [];
+cparams.eps = 1.0e-9;
+pref = [];
+pref.k = 16;
+tcg.narms = 0;
+tcg.amp = 0.0;
+chnkr = chunkerfunc(@(t) starfish(t, tcg.narms, tcg.amp), cparams, pref);
+tcg.circle = fixture_pack_chunker(chnkr);
+cparams.ifclosed = 0;
+chnkr2 = chunkerfunc(@(t) local_cos_func(t, pi, 1), cparams, pref);
+chnkr2 = move(chnkr2, [0;3]);
+tcg.arc = fixture_pack_chunker(chnkr2);
+chnkrs(3) = chunker();
+chnkrs(1) = chnkr;
+tcg.rfac = 1.1;
+chnkrs(2) = move(chnkr, [0;0], [3;0], 0, tcg.rfac);
+chnkrs(3) = chnkr2;
+chnkrtotal = merge(chnkrs);
+tcg.total = fixture_pack_chunker(chnkrtotal);
+cgrph = tochunkgraph(chnkrtotal);
+tcg.graph_verts = cgrph.verts;
+tcg.graph_edgesendverts = cgrph.edgesendverts;
+tcg.graph_nverts = size(cgrph.verts, 2);
+tcg.graph_nedges = length(cgrph.echnks);
+tcg.graph_npt = cgrph.npt;
+tcg.graph_first_edge = fixture_pack_chunker(cgrph.echnks(1));
+tcg.manual_verts = [[0;0], [1;1], [3;0]];
+tcg.manual_edge2verts = [[1;2], [3;3]];
+cgrph = chunkgraph(tcg.manual_verts, tcg.manual_edge2verts, {chnkr2, chnkr});
+tcg.manual_graph_verts = cgrph.verts;
+tcg.manual_graph_edgesendverts = cgrph.edgesendverts;
+tcg.manual_first_start = cgrph.echnks(1).r(:,1);
+tcg.manual_first_end = cgrph.echnks(1).r(:,end);
+devtools_easy.tochunkgraph = tcg;
+
 % flagselfTest.m
 fs = [];
 rng(8675309);
@@ -481,4 +519,11 @@ function [f, g] = local_helm2d_green_grady(zk, src, trg)
 [~, g1, h1] = chnk.helm2d.green(zk, src, trg);
 f = g1(2);
 g = h1(2:3);
+end
+
+function [r, d, d2] = local_cos_func(t, per, amp)
+omega = 2*pi/per;
+r = [t(:), amp*cos(omega*t(:))].';
+d = [ones(length(t),1), -omega*amp*sin(omega*t(:))].';
+d2 = [zeros(length(t),1), -omega^2*amp*cos(omega*t(:))].';
 end
