@@ -473,7 +473,8 @@ analytic first derivative and blue/white/red endpoint colors.
 `test_hypoct_uni_builds_zero_based_uniform_tree` checks the top-level
 hyperoctree helper on four quadrant points. The method builds `hypoct_uni`
 with an explicit square extent. Ground truth is zero-based tree indexing,
-two-level structure, one point per child, and sibling neighbor connectivity.
+two-level structure, exact child centers, one point per child, and exact
+sibling neighbor connectivity.
 
 `test_chunkgraph_region_helpers_count_inside_and_merge_nested_regions` checks
 top-level region helpers for a nested square graph. The method uses

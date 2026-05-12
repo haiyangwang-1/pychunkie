@@ -77,11 +77,16 @@ def test_hypoct_uni_builds_zero_based_uniform_tree():
     assert tree.nlvl == 2
     np.testing.assert_array_equal(tree.lvp, [0, 1, 5])
     assert tree.lrt == 1.0
+    np.testing.assert_allclose(
+        np.column_stack([node.ctr for node in tree.nodes]),
+        [[0.5, 0.25, 0.75, 0.25, 0.75], [0.5, 0.25, 0.25, 0.75, 0.75]],
+        atol=0.0,
+    )
     assert tree.nodes[0].xi.size == 0
     assert tree.nodes[0].chld == [1, 2, 3, 4]
     assert [node.prnt for node in tree.nodes[1:]] == [0, 0, 0, 0]
-    assert sorted(int(node.xi[0]) for node in tree.nodes[1:]) == [0, 1, 2, 3]
-    assert all(len(node.nbor) == 3 for node in tree.nodes[1:])
+    np.testing.assert_array_equal([int(node.xi[0]) for node in tree.nodes[1:]], [0, 1, 2, 3])
+    assert [node.nbor for node in tree.nodes[1:]] == [[2, 3, 4], [1, 3, 4], [1, 2, 4], [1, 2, 3]]
 
 
 def test_chunkgraph_region_helpers_count_inside_and_merge_nested_regions():
