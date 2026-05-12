@@ -537,7 +537,7 @@ def _weighted_density(chnkr: Chunker, dens: ArrayLike) -> np.ndarray:
 
 def _density_matmul_arg(ncols: int, dens: ArrayLike) -> np.ndarray:
     arr = np.asarray(dens)
-    if arr.ndim == 2 and arr.shape[0] == ncols and arr.size != ncols:
+    if arr.ndim == 2 and arr.shape[0] == ncols:
         return arr
     vec = arr.reshape(-1, order="F")
     if vec.size != ncols:

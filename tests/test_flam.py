@@ -258,6 +258,23 @@ def test_chunkermatapply_flam_accepts_multiple_rhs():
     np.testing.assert_allclose(via_flam, dense @ rhs, rtol=1e-10, atol=1e-11)
 
 
+def test_chunkermatapply_flam_preserves_single_column_rhs():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 6})
+    lap_s = kernel("lap", "s")
+    rhs = np.cos(chnkr.r[0].reshape(-1, order="F"))[:, None]
+    dense = chunkermat(chnkr, lap_s)
+
+    via_flam = chunkermatapply(
+        chnkr,
+        lap_s,
+        rhs,
+        {"acceleration": "flam", "occ": 8, "rank_or_tol": 1e-10, "useproxy": False},
+    )
+
+    assert via_flam.shape == rhs.shape
+    np.testing.assert_allclose(via_flam, dense @ rhs, rtol=1e-10, atol=1e-11)
+
+
 def test_chunkerkerneval_flam_preserves_target_data_without_proxy():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 6})
     targets = PointInfo(

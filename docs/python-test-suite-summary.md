@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 302 pytest cases because several MATLAB parity tests are
+collection expands to 303 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -109,9 +109,9 @@ Implemented from this scope:
 - PyFLAM-backed acceleration: `chunkerflam`, `chnk.flam` callback/proxy
   helpers, `ChunkerFLAMMatrix`, `chunkermat`/`chunkermatapply`
   `acceleration="flam"`, FLAM target evaluation/materialization, FLAM
-  interior classification, adaptive near-target correction, multiple-RHS and
-  adjoint application/solve helpers, l2 scaling, and source/target point-data
-  callbacks.
+  interior classification, adaptive near-target correction, shape-preserving
+  single-column and multiple-RHS application, adjoint application/solve
+  helpers, l2 scaling, and source/target point-data callbacks.
 
 Deferred implementation:
 
@@ -734,6 +734,12 @@ the proxy path disabled automatically for data-bearing chunkers.
 `chunkermatapply(..., {"acceleration": "flam"})` application on multiple
 right-hand sides. The method applies the PyFLAM-backed path to two density
 columns and compares the result to dense special-quadrature matrix products.
+
+`test_chunkermatapply_flam_preserves_single_column_rhs` checks that direct
+`chunkermatapply(..., {"acceleration": "flam"})` preserves an explicit
+single-column density shape. The method applies the PyFLAM-backed path to an
+`(n, 1)` density and compares against the dense matrix product with the same
+shape.
 
 `test_chunkerkerneval_flam_preserves_target_data_without_proxy` checks FLAM
 target-evaluation callbacks when target `PointInfo` carries a `data` field.
