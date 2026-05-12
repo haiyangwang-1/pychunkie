@@ -699,9 +699,10 @@ Laplace single-layer system, compares against the dense special matrix product,
 and verifies `rskel` does not expose the `rskelf` solve helper.
 
 `test_chunkermat_flam_adds_dval_without_replacing_smooth_diagonal` checks
-diagonal shifts for smooth kernels. The method compares scalar and vector-opdim
-smooth FLAM applications with `dval` against dense matrices with an additive
-diagonal, ensuring the shift does not overwrite the native smooth diagonal.
+diagonal shifts for smooth kernels. The method compares scalar, complex-shift,
+and vector-opdim smooth FLAM applications with `dval` against dense matrices
+with an additive diagonal, ensuring the shift does not overwrite the native
+smooth diagonal.
 
 `test_chunkerkerneval_flam_matches_eval_matrix_and_dense` checks off-boundary
 target FLAM evaluation. The method compares `chunkerkerneval` and

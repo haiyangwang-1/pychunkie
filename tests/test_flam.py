@@ -155,6 +155,10 @@ def test_chunkermat_flam_adds_dval_without_replacing_smooth_diagonal():
 
     np.testing.assert_allclose(flam_scalar @ rhs_scalar, dense_scalar @ rhs_scalar, rtol=1e-10, atol=1e-11)
 
+    dense_complex = chunkermat(chnkr, smooth_kernel) + (0.5 + 0.2j) * np.eye(chnkr.npt)
+    flam_complex = chunkermat(chnkr, smooth_kernel, {"acceleration": "flam", "dval": 0.5 + 0.2j, "occ": 16, "rank_or_tol": 1e-10, "useproxy": False})
+    np.testing.assert_allclose(flam_complex @ rhs_scalar, dense_complex @ rhs_scalar, rtol=1e-10, atol=1e-11)
+
     dense_vector = chunkermat(chnkr, vector_smooth_kernel) + 0.25 * np.eye(2 * chnkr.npt)
     rhs_vector = np.sin(np.arange(2 * chnkr.npt))
     flam_vector = chunkermat(chnkr, vector_smooth_kernel, {"acceleration": "flam", "dval": 0.25, "occ": 16, "rank_or_tol": 1e-10, "useproxy": False})

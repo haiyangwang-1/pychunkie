@@ -603,7 +603,7 @@ def _add_diagonal_shift(out: np.ndarray, rows: np.ndarray, cols: np.ndarray, dva
         if positions is None:
             continue
         if not touched:
-            shifted = np.array(out, copy=True)
+            shifted = np.array(out, dtype=np.result_type(out.dtype, dval.dtype), copy=True)
             touched = True
         shifted[row_pos, positions] += dval[int(row)]
     return shifted
