@@ -6,6 +6,7 @@ from chunkie import (
     chunkgraph,
     chunkgraphinregion,
     chunkerpoly,
+    find_edge_regions,
     tochunkgraph,
 )
 from chunkie.operators import PointInfo
@@ -76,7 +77,8 @@ def test_chunkgraph_constructs_edges_and_vertex_incidence():
         ([1, 2], [1, -1]),
         ([3, 2], [-1, 1]),
     ]
-    assert cg.regions == [[], [[0, 1, 2, 3]]]
+    assert cg.regions == [[[0, 1, 2, 3]], [[-1, -4, -3, -2]]]
+    np.testing.assert_array_equal(find_edge_regions(cg), [[1, 1, 1, 1], [2, 2, 2, 2]])
 
 
 def test_chunkgraph_accepts_incidence_matrix_edges():
@@ -105,7 +107,7 @@ def test_chunkgraph_accepts_incidence_matrix_edges():
         ([1, 2], [1, -1]),
         ([3, 2], [-1, 1]),
     ]
-    assert cg.regions == [[], [[0, 1, 2, 3]]]
+    assert cg.regions == [[[0, 1, 2, 3]], [[-1, -4, -3, -2]]]
 
 
 def test_chunkgraph_slice_and_edgeids_match_selected_edges():

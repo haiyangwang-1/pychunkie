@@ -327,13 +327,13 @@ def _boxes_adjacent(ctr1: np.ndarray, side1: float, ctr2: np.ndarray, side2: flo
 
 
 def _interior_regions(regions: list[list[list[int]]]) -> list[list[list[int]]]:
-    if regions and not regions[0]:
+    if regions and (not regions[0] or len(regions) > 1):
         return regions[1:]
     return regions
 
 
 def _indexed_interior_regions(regions: list[list[list[int]]]) -> list[tuple[int, list[list[int]]]]:
-    start = 1 if regions and not regions[0] else 0
+    start = 1 if regions and (not regions[0] or len(regions) > 1) else 0
     return [(idx, regions[idx]) for idx in range(start, len(regions))]
 
 

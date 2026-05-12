@@ -414,9 +414,8 @@ def test_chunkgraph_region_flag_operator_and_conversion_helpers_match_matlab_fix
 
     regions = cg.findregions()
     assert len(regions) == int(fixture.region_count)
-    assert regions[0] == []
-    np.testing.assert_array_equal(np.asarray(regions[1][0], dtype=int) + 1, np.asarray(fixture.region_first_loop, dtype=int))
-    np.testing.assert_array_equal(np.asarray(fixture.region_second_loop, dtype=int), [-1, -4, -3, -2])
+    np.testing.assert_array_equal(np.asarray(regions[0][0], dtype=int) + 1, np.asarray(fixture.region_first_loop, dtype=int))
+    np.testing.assert_array_equal(np.asarray(regions[1][0], dtype=int), np.asarray(fixture.region_second_loop, dtype=int))
 
     refined = cg.refine({"nover": int(fixture.refine_opts.nover), "lvlr": str(fixture.refine_opts.lvlr)})
     assert_chunkgraph_matches_fields(refined, fixture.refined, atol=2e-12)

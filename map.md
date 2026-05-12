@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-12 with Python 3.11.9 collected 329 tests: `329 passed`. Full MATLAB parity runs generate ignored `tests/golden/*.mat` files on demand and require a populated `external/chunkie-matlab` checkout.
+Verification snapshot: `uv run pytest` on 2026-05-12 with Python 3.11.9 collected 330 tests: `330 passed`. Full MATLAB parity runs generate ignored `tests/golden/*.mat` files on demand and require a populated `external/chunkie-matlab` checkout.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -56,7 +56,7 @@ src/
     │   ├── class ChunkGraph
     │   │   ├── __init__
     │   │   ├── properties: npt, k, dim, datadim, r, d, d2, n, wts, data, adj
-    │   │   ├── sourceinfo, merged, build_v2emat, procverts, findregions
+    │   │   ├── sourceinfo, merged, build_v2emat, procverts, findregions, find_edge_regions
     │   │   ├── slicegraph, edgeids, refine, copy
     │   │   ├── translate, transform, rotate, reflect
     │   │   ├── min, max, onesmat, normonesmat
@@ -248,7 +248,8 @@ src/
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
-| `findregions` | ✅ 🧪 🎯 ⚠️ | `@chunkgraph/findregions.m` | MATLAB-style oriented face walking is fixture-tested for bounded cycles, adjacent regions, nested regions, bridge/loop/multiply connected counts, and region-id behavior; Python still keeps the outside region as an empty sentinel instead of MATLAB's signed unbounded loop. |
+| `findregions` | ✅ 🧪 🎯 | `@chunkgraph/findregions.m` | MATLAB-style oriented face walking, signed unbounded regions, nested/disjoint component merging, adjacent regions, bridge/loop/multiply connected counts, and region-id behavior are fixture-tested. Python exposes positive edges as zero-based ids and reversed edges as `-(edge + 1)`. |
+| `find_edge_regions` | ✅ 🧪 🎯 | `@chunkgraph/find_edge_regions.m` | Returns the one-based MATLAB-style region id on the positive/negative-normal side of each edge; strict `chunkgrphregionTest.m` fixture parity covers edge-to-region maps. |
 | private graph helpers | 🧩 ✅ | Internal Python helpers | Include edge normalization, subchunking, oriented face walks, polygon tests, and nesting-aware bounded-face ordering. |
 | `copy` | ✅ 🧪 🎯 | MATLAB value-copy behavior | Fixture checks graph and edge-chunker storage mutation isolation against MATLAB value-object behavior. |
 | `procverts` | ✅ 🧪 🎯 | `@chunkgraph/procverts.m` | MATLAB fixture covers counterclockwise tangent ordering and incident-edge signs. |
@@ -588,7 +589,7 @@ Support file roles:
 - 🧭 `scripts/generate_quadggq_package_data.py`: converts upstream MATLAB `+chnk/+quadggq` table files into the package `.npz` data assets.
 - 🧭 `scripts/matlab/*.m`: MATLAB fixture-generation scripts; these are the source of the `.mat` golden data used for 🎯 flags.
 - 🧪 `tests/_fixture_generation.py`: ensures missing MATLAB parity fixture files are generated on demand before tests load them; generation failure is a test failure.
-- 🧪 `tests/golden/*.mat`: ignored MATLAB-generated parity fixture files created on demand by tests. `devtools_easy.mat` covers the low/mid devtools track through adaptive `chunkerfunc`, `chunkerarcparam`, chunkgraph constructor/basic region/last-length refinement parity, partial `slicegraph`, direct `adapgausswts`, `chunkermat_l2scale`, `chunkermat_quadadap`, Laplace/Helmholtz Green-identity and Gauss-identity target-evaluation parity, and converted `datafieldTest.m` Hilbert/cotangent plus target-data directional-derivative slices. `geometry_core.mat` covers compact I GEOMETRY parity excluding `chunkerfit` and smoother workflows. `quadggq.mat` covers Section III native, GGQ, and adaptive quadrature behavior; `rcip.mat` covers Section III RCIP helpers, Schur updates, chunkgraph driver metadata, and recursive compression.
+- 🧪 `tests/golden/*.mat`: ignored MATLAB-generated parity fixture files created on demand by tests. `devtools_easy.mat` covers the low/mid devtools track through adaptive `chunkerfunc`, `chunkerarcparam`, chunkgraph constructor/basic region/full signed-region/last-length refinement parity, partial `slicegraph`, direct `adapgausswts`, `chunkermat_l2scale`, `chunkermat_quadadap`, Laplace/Helmholtz Green-identity and Gauss-identity target-evaluation parity, and converted `datafieldTest.m` Hilbert/cotangent plus target-data directional-derivative slices. `geometry_core.mat` covers compact I GEOMETRY parity excluding `chunkerfit` and smoother workflows. `quadggq.mat` covers Section III native, GGQ, and adaptive quadrature behavior; `rcip.mat` covers Section III RCIP helpers, Schur updates, chunkgraph driver metadata, and recursive compression.
 - 🧪 `tests/test_matlab_parity.py`: main exact-behavior comparison suite against golden data.
 - 🧪 `tests/test_geometry_parity.py`: focused I GEOMETRY comparison suite against `geometry_core.mat`.
 - 🧪 `tests/test_matlab_fixtures.py`: basic fixture comparison suite.
@@ -620,7 +621,7 @@ Do not implement:
 
 ## Recommended Next Flags To Upgrade
 
-- Promote more optional devtools parity into generated fixtures where runtime cost allows; current generated coverage includes `chunkerfunc`, `chunkerarcparam`, chunkgraph constructor/basic region/last-length refinement parity, `slicegraph`, direct `adapgausswts`, `chunkermat_l2scale`, `chunkermat_quadadap`, and Laplace/Helmholtz Green-identity plus Gauss-identity target-evaluation paths.
+- Promote more optional devtools parity into generated fixtures where runtime cost allows; current generated coverage includes `chunkerfunc`, `chunkerarcparam`, chunkgraph constructor/basic region/full signed-region/last-length refinement parity, `slicegraph`, direct `adapgausswts`, `chunkermat_l2scale`, `chunkermat_quadadap`, and Laplace/Helmholtz Green-identity plus Gauss-identity target-evaluation paths.
 - Add focused tests for remaining implemented but currently lightly tested methods that are outside the compact I GEOMETRY and devtools fixtures.
 - Add stricter MATLAB fixtures for full devtools solve/evaluation workflows around adaptive close quadrature; `smoother.py` remains a lightweight rounded-polygon path and full MATLAB smoothing/Newton behavior is a non-goal.
 - Add stricter MATLAB fixtures for FMM-heavy solve/evaluation workflows and implemented selector families, especially direct/FMM layer-potential Green identity paths.

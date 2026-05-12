@@ -18,6 +18,7 @@ from chunkie import (
     chunkerpoly,
     chunkgraph,
     chunkgraphinregion,
+    find_edge_regions,
     kernel,
     lege,
     tochunkgraph,
@@ -198,6 +199,38 @@ def chunkgraph_lastlength_graph(fixture):
     cparams = [{"eps": 1e-8} for _ in edge_specs]
     cparams[-1].update({"ta": 0.0, "tb": 2 * np.pi})
     return chunkgraph(fixture.verts, np.asarray(fixture.edge2verts_with_closed, dtype=float), edge_specs, cparams)
+
+
+def chunkgraph_region_graph(fixture):
+    edge_specs = [None] * int(np.asarray(fixture.edgesendverts).shape[1])
+    edge_specs[-1] = (
+        lambda t,
+        narm=int(fixture.narms),
+        amp=float(fixture.amp),
+        ctr=np.asarray(fixture.center, dtype=float).reshape(2),
+        scale=float(fixture.scale): curves.starfish(t, narm, amp, ctr, 0.0, scale)
+    )
+    cparams = [{} for _ in edge_specs]
+    cparams[-1].update({"ta": float(fixture.closed_ta), "tb": float(fixture.closed_tb)})
+    edges = np.asarray(fixture.edgesendverts, dtype=float).copy()
+    finite = np.isfinite(edges)
+    edges[finite] -= 1
+    return chunkgraph(fixture.verts, edges, edge_specs, cparams)
+
+
+def packed_matlab_regions_to_python(fixture) -> list[list[list[int]]]:
+    counts = np.asarray(fixture.region_loop_counts, dtype=int).reshape(-1)
+    lens = np.asarray(fixture.region_loop_lens, dtype=int)
+    loops = np.asarray(fixture.region_loops, dtype=int)
+    regions: list[list[list[int]]] = []
+    for ireg, loop_count in enumerate(counts):
+        region: list[list[int]] = []
+        for iloop in range(int(loop_count)):
+            length = int(lens[iloop, ireg])
+            matlab_loop = loops[:length, iloop, ireg].reshape(-1)
+            region.append([int(edge) - 1 if int(edge) > 0 else int(edge) for edge in matlab_loop])
+        regions.append(region)
+    return regions
 
 
 def graph_vertex_endpoint_arcs(cg, nverts: int, width: int) -> tuple[np.ndarray, np.ndarray]:
@@ -647,6 +680,18 @@ def test_chunkgraph_basic_devtools_outputs_match_matlab():
     np.testing.assert_array_equal([edge.nch for edge in adj.echnks], np.asarray(fixture.refine_nchs_before, dtype=int).reshape(-1))
     np.testing.assert_array_equal([edge.nch for edge in refined.echnks], np.asarray(fixture.refine_nchs_after, dtype=int).reshape(-1))
     np.testing.assert_array_equal(np.asarray(fixture.refine_nchs_after, dtype=int).reshape(-1), 2 * np.asarray(fixture.refine_nchs_before, dtype=int).reshape(-1))
+
+
+def test_chunkgrphregion_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().chunkgrphregion
+    graph = chunkgraph_region_graph(fixture)
+    expected_regions = packed_matlab_regions_to_python(fixture)
+
+    assert len(graph.regions) == int(fixture.region_count)
+    assert graph.regions == expected_regions
+    np.testing.assert_array_equal(find_edge_regions(graph), np.asarray(fixture.edge_regions, dtype=int))
+    assert int(np.min(fixture.edge_regions)) == 1
+    assert int(np.max(fixture.edge_regions)) == len(expected_regions)
 
 
 def test_chunkgraph_lastlength_devtools_outputs_match_matlab():

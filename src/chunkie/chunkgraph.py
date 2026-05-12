@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import deque
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -178,11 +179,8 @@ class ChunkGraph:
         return out
 
     def findregions(self) -> list[list[list[int]]]:
-        signed_cycles = _bounded_face_cycles(self)
-        self._signed_regions = [[]] + [[list(cycle)] for cycle in signed_cycles]
-        regions: list[list[list[int]]] = [[]]
-        for cyc in signed_cycles:
-            regions.append([_unsigned_cycle(cyc)])
+        regions = _matlab_style_regions(self)
+        self._signed_regions = _regions_to_matlab_indices(regions)
         return regions
 
     def slicegraph(self, edges: ArrayLike) -> "ChunkGraph":
@@ -314,6 +312,25 @@ def chunkgraph(*args: Any, **kwargs: Any) -> ChunkGraph:
     return ChunkGraph(*args, **kwargs)
 
 
+def find_edge_regions(cg: ChunkGraph) -> np.ndarray:
+    """Return the region on each side of every graph edge.
+
+    The output matches MATLAB's ``find_edge_regions`` shape and one-based
+    region ids. Python region loops use zero-based positive edge ids and
+    ``-(edge + 1)`` for reversed edges.
+    """
+
+    edge_regs = np.zeros((2, cg.edgesendverts.shape[1]), dtype=int)
+    for ireg, region in enumerate(cg.regions, start=1):
+        for loop in region:
+            for item in loop:
+                if item >= 0:
+                    edge_regs[0, int(item)] = ireg
+                else:
+                    edge_regs[1, -int(item) - 1] = ireg
+    return edge_regs
+
+
 def tochunkgraph(chnkr: Chunker) -> ChunkGraph:
     sorted_chnkr, info = chnkr.sort()
     verts: list[np.ndarray] = []
@@ -348,11 +365,25 @@ def chunkgraphinregion(cg: ChunkGraph, ptsobj: ArrayLike | tuple[ArrayLike, Arra
         arr = np.asarray(ptsobj, dtype=float)
         pts = arr.reshape(arr.shape[0], -1)
 
-    ids = np.ones(pts.shape[1], dtype=int)
-    polygons = _region_polygons(cg)
-    for idx, poly in enumerate(polygons, start=2):
-        inside = _points_in_poly(pts, poly)
-        ids[inside] = idx
+    regions = cg.regions
+    if regions and not regions[0]:
+        ids = np.ones(pts.shape[1], dtype=int)
+        polygons = _region_polygons(cg)
+        for idx, poly in enumerate(polygons, start=2):
+            inside = _points_in_poly(pts, poly)
+            ids[inside] = idx
+    else:
+        ids = np.full(pts.shape[1], np.nan)
+        for idx, region in enumerate(regions, start=1):
+            inside = np.zeros(pts.shape[1], dtype=bool)
+            for loop in region:
+                if loop:
+                    inside |= _points_in_poly(pts, _region_loop_points(cg, loop))
+            if idx == 1:
+                ids[~inside] = idx
+            else:
+                ids[inside] = idx
+        ids = ids.astype(int)
     return ids.reshape(grid_shape) if grid_shape is not None else ids
 
 
@@ -672,6 +703,218 @@ def _edge_components(edges: np.ndarray, nverts: int) -> list[int]:
         union(int(start), int(end))
     roots = {root: idx for idx, root in enumerate(sorted({find(i) for i in range(nverts)}))}
     return [roots[find(int(start))] for start in edges[0]]
+
+
+def _matlab_style_regions(cg: ChunkGraph) -> list[list[list[int]]]:
+    cycles = _oriented_face_cycles(cg)
+    if not cycles:
+        return []
+
+    edge_components = _edge_components(cg.edgesendverts, cg.verts.shape[1])
+    component_regions: list[list[list[list[int]]]] = []
+    for comp in sorted({edge_components[abs(cycle[0]) - 1] for cycle in cycles}):
+        comp_cycles = [cycle for cycle in cycles if edge_components[abs(cycle[0]) - 1] == comp]
+        if not comp_cycles:
+            continue
+        regions = [[_to_python_signed_cycle(cycle)] for cycle in comp_cycles]
+        iunbounded = _find_unbounded_cycle_index(cg, comp_cycles)
+        regions[0], regions[iunbounded] = regions[iunbounded], regions[0]
+        component_regions.append(regions)
+
+    if not component_regions:
+        return []
+
+    containment = np.zeros((len(component_regions), len(component_regions)), dtype=bool)
+    for ireg, region in enumerate(component_regions):
+        containing: list[int] = []
+        for jreg, candidate in enumerate(component_regions):
+            if ireg != jreg and _regioninside(cg, candidate, region):
+                containing.append(jreg)
+        for jreg in containing:
+            containment[ireg, jreg] = True
+            containment[jreg, ireg] = True
+
+    labels = _component_labels_from_adjacency(containment)
+    order = np.argsort(labels, kind="stable")
+    labels = labels[order]
+    component_regions = [component_regions[int(idx)] for idx in order]
+
+    for ireg in range(labels.size):
+        label = labels[ireg]
+        for jreg in range(labels.size - 1):
+            if label == labels[jreg] and _regioninside(cg, component_regions[jreg], component_regions[jreg + 1]):
+                component_regions[jreg], component_regions[jreg + 1] = component_regions[jreg + 1], component_regions[jreg]
+
+    grouped: list[list[list[int]]] = []
+    for label in sorted(set(int(item) for item in labels)):
+        indices = [idx for idx, item in enumerate(labels) if int(item) == label]
+        merged = component_regions[indices[0]]
+        for idx in indices[1:]:
+            merged = _mergeregions(cg, merged, component_regions[idx])
+        grouped.append(merged)
+
+    regions = grouped[0]
+    for region in grouped[1:]:
+        regions = _mergeregions(cg, regions, region)
+    return regions
+
+
+def _find_unbounded_cycle_index(cg: ChunkGraph, cycles: list[list[int]]) -> int:
+    iunbounded = 0
+    for idx, cycle in enumerate(cycles):
+        if _cycle_turning_angle(cg, cycle) > np.pi:
+            iunbounded = idx
+    return iunbounded
+
+
+def _cycle_turning_angle(cg: ChunkGraph, cycle: list[int]) -> float:
+    theta = 0.0
+    tangents: list[np.ndarray] = []
+    for signed_edge in cycle:
+        edge = abs(signed_edge) - 1
+        echnk = cg.echnks[edge]
+        start_angles = np.arctan2(echnk.d[1, 0, :], echnk.d[0, 0, :])
+        end_angles = np.arctan2(echnk.d[1, -1, :], echnk.d[0, -1, :])
+        diffs = end_angles - start_angles
+        diffs = np.where(diffs > np.pi, diffs - 2.0 * np.pi, diffs)
+        diffs = np.where(diffs < -np.pi, diffs + 2.0 * np.pi, diffs)
+        theta += float(np.sign(signed_edge) * np.sum(diffs))
+
+        tangent_start = echnk.d[:, 0, 0]
+        tangent_end = echnk.d[:, -1, -1]
+        if signed_edge > 0:
+            tangents.append(np.concatenate((tangent_start, tangent_end)))
+        else:
+            tangents.append(np.concatenate((-tangent_end, -tangent_start)))
+
+    angle_sum = 0.0
+    for current, next_item in zip(tangents, tangents[1:] + tangents[:1]):
+        tail = current[2:4]
+        head = next_item[0:2]
+        angle_diff = np.arctan2(head[1], head[0]) - np.arctan2(tail[1], tail[0])
+        if angle_diff < -np.pi:
+            angle_diff += 2.0 * np.pi
+        if angle_diff >= np.pi:
+            angle_diff -= 2.0 * np.pi
+        angle_sum += float(angle_diff)
+    return angle_sum + theta
+
+
+def _to_python_signed_cycle(cycle: list[int]) -> list[int]:
+    return [edge - 1 if edge > 0 else edge for edge in cycle]
+
+
+def _regions_to_matlab_indices(regions: list[list[list[int]]]) -> list[list[list[int]]]:
+    return [[[_python_region_edge_to_matlab(edge) for edge in loop] for loop in region] for region in regions]
+
+
+def _python_region_edge_to_matlab(edge: int) -> int:
+    return edge + 1 if edge >= 0 else edge
+
+
+def _component_labels_from_adjacency(adjacency: np.ndarray) -> np.ndarray:
+    nitems = adjacency.shape[0]
+    labels = np.zeros(nitems, dtype=int)
+    label = 0
+    for start in range(nitems):
+        if labels[start] != 0:
+            continue
+        label += 1
+        queue: deque[int] = deque([start])
+        labels[start] = label
+        while queue:
+            current = queue.popleft()
+            for neighbor in np.flatnonzero(adjacency[current]):
+                idx = int(neighbor)
+                if labels[idx] == 0:
+                    labels[idx] = label
+                    queue.append(idx)
+    return labels
+
+
+def _regioninside(cg: ChunkGraph, rgn1: list[list[list[int]]], rgn2: list[list[list[int]]]) -> bool:
+    seed = _region_seed_point(cg, rgn2)
+    for region in rgn1[1:]:
+        nin = _pointinregion(cg, region, seed)
+        if nin > 0 and nin % 2 == 1:
+            return True
+    return False
+
+
+def _mergeregions(
+    cg: ChunkGraph,
+    rgn1: list[list[list[int]]],
+    rgn2: list[list[list[int]]],
+) -> list[list[list[int]]]:
+    seed2 = _region_seed_point(cg, rgn2)
+    containing = 0
+    for idx in range(1, len(rgn1)):
+        nin = _pointinregion(cg, rgn1[idx], seed2)
+        if nin > 0 and nin % 2 == 1:
+            containing = idx
+    if containing != 0:
+        out = _copy_regions(rgn1)
+        out.extend(_copy_regions(rgn2[1:]))
+        out[containing].extend(_copy_regions(rgn2[:1])[0])
+        return out
+
+    seed1 = _region_seed_point(cg, rgn1)
+    containing = 0
+    for idx in range(1, len(rgn2)):
+        nin = _pointinregion(cg, rgn2[idx], seed1)
+        if nin > 0 and nin % 2 == 1:
+            containing = idx
+    if containing != 0:
+        out = _copy_regions(rgn2)
+        out.extend(_copy_regions(rgn1[1:]))
+        out[containing].extend(_copy_regions(rgn1[:1])[0])
+        return out
+
+    out = _copy_regions(rgn1)
+    out.extend(_copy_regions(rgn2[1:]))
+    out[0].extend(_copy_regions(rgn2[:1])[0])
+    return out
+
+
+def _pointinregion(cg: ChunkGraph, region: list[list[int]], point: np.ndarray) -> int:
+    pts = np.asarray(point, dtype=float).reshape(2, 1)
+    count = 0
+    for loop in region:
+        if loop and _points_in_poly(pts, _region_loop_points(cg, loop))[0]:
+            count += 1
+    return count
+
+
+def _region_seed_point(cg: ChunkGraph, regions: list[list[list[int]]]) -> np.ndarray:
+    for region in regions:
+        for loop in region:
+            if loop:
+                edge, _ = _decode_region_edge(loop[0])
+                return cg.verts[:, cg.edgesendverts[1, edge]]
+    raise ValueError("region list does not contain any edges")
+
+
+def _region_loop_points(cg: ChunkGraph, loop: list[int]) -> np.ndarray:
+    pieces: list[np.ndarray] = []
+    for item in loop:
+        edge, reversed_edge = _decode_region_edge(item)
+        echnk = cg.echnks[edge].sort()[0]
+        pts = echnk.r.reshape(2, echnk.npt, order="F")
+        if reversed_edge:
+            pts = pts[:, ::-1]
+        pieces.append(pts)
+    return np.hstack(pieces)
+
+
+def _decode_region_edge(edge: int) -> tuple[int, bool]:
+    edge_int = int(edge)
+    if edge_int < 0:
+        return -edge_int - 1, True
+    return edge_int, False
+
+
+def _copy_regions(regions: list[list[list[int]]]) -> list[list[list[int]]]:
+    return [[list(loop) for loop in region] for region in regions]
 
 
 def _signed_cycle_vertices(edges: np.ndarray, cycle: list[int]) -> list[int]:

@@ -13,7 +13,7 @@ from .chunker import (
     chunkerpref,
     merge,
 )
-from .chunkgraph import ChunkGraph, chunkgraph, chunkgraphinregion, tochunkgraph
+from .chunkgraph import ChunkGraph, chunkgraph, chunkgraphinregion, find_edge_regions, tochunkgraph
 from .domain import (
     HypOctNode,
     HypOctTree,
@@ -62,6 +62,7 @@ __all__ = [
     "chunkerpoly",
     "chunkgraph",
     "chunkgraphinregion",
+    "find_edge_regions",
     "chunkerinterior",
     "chunkerintegral",
     "chunkerkerneval",

@@ -554,6 +554,40 @@ cg_refined = refine(cg, struct('nover', 1));
 cgb.refine_nchs_after = [cg_refined.echnks.nch];
 devtools_easy.chunkgraph_basic = cgb;
 
+% chunkgrphregionTest.m
+cgr = [];
+verta = [-0.5,-0.5,0.5,0.5;-0.5,0.5,0.5,-0.5];
+vertb = verta*2;
+vertc = verta*3;
+vertd = vertc;
+vertc(1,:) = vertc(1,:)+12;
+evert = [1.1;0];
+vertf = [12;0];
+cgr.verts = [vertc,vertd,vertb,verta,evert,vertf];
+cgr.edgesendverts = [2, 3, 4, 1, 6, 7, 8, 5, 10, 11, 12, 9, 14, 15, 16, 13, 17, 17, NaN;
+                     1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 11, 12, NaN];
+[~, nedges] = size(cgr.edgesendverts);
+fchnks = cell(nedges,1);
+cparams = cell(nedges,1);
+for i = 1:nedges
+    fchnks{i} = [];
+    cparams{i} = [];
+end
+cgr.narms = 3;
+cgr.amp = 0.3;
+cgr.center = [12;0];
+cgr.scale = 0.3;
+cgr.closed_ta = 0;
+cgr.closed_tb = 2*pi;
+fchnks{19} = @(t) starfish(t,cgr.narms,cgr.amp,cgr.center,0,cgr.scale);
+cparams{19}.ta = cgr.closed_ta;
+cparams{19}.tb = cgr.closed_tb;
+cg_region = chunkgraph(cgr.verts,cgr.edgesendverts,fchnks,cparams);
+cgr.edge_regions = find_edge_regions(cg_region);
+[cgr.region_loops, cgr.region_loop_lens, cgr.region_loop_counts] = local_pack_regions(cg_region.regions);
+cgr.region_count = numel(cg_region.regions);
+devtools_easy.chunkgrphregion = cgr;
+
 % chunkgraph_lastlengthTest.m
 cll = [];
 cll.ncircedge = 6;
@@ -1578,6 +1612,29 @@ for j = 1:numel(regions)
         idstrue(intmp == 0) = j;
     else
         idstrue(intmp > 0) = j;
+    end
+end
+end
+
+function [loops, lens, counts] = local_pack_regions(regions)
+nreg = numel(regions);
+counts = zeros(1,nreg);
+maxloops = 0;
+maxlen = 0;
+for ir = 1:nreg
+    counts(ir) = numel(regions{ir});
+    maxloops = max(maxloops, counts(ir));
+    for iloop = 1:counts(ir)
+        maxlen = max(maxlen, numel(regions{ir}{iloop}));
+    end
+end
+loops = zeros(maxlen, maxloops, nreg);
+lens = zeros(maxloops, nreg);
+for ir = 1:nreg
+    for iloop = 1:counts(ir)
+        vals = regions{ir}{iloop};
+        lens(iloop, ir) = numel(vals);
+        loops(1:numel(vals), iloop, ir) = vals(:);
     end
 end
 end

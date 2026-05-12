@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 329 pytest cases because several MATLAB parity tests are
+collection expands to 330 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -114,6 +114,9 @@ Implemented from this scope:
   multiply connected, bridge, loop, nested, and adjacent-triangle region
   cases, graph-region id queries, affine/scale/rotate/reflect transforms, and
   per-edge dyadic refinement counts.
+- Chunkgraph signed-region devtools parity now covers the manual
+  `chunkgrphregionTest.m` nested/disjoint region ordering and edge-side
+  region maps through `findregions` and `find_edge_regions`.
 - Chunkgraph refinement parity now includes graph-level selected-edge
   refinement, per-edge split-chunk routing, vertex endpoint balancing,
   MATLAB-style `NaN` closed-edge construction, and `last_len` endpoint-panel
@@ -454,14 +457,15 @@ edge-to-vertex incidence matrix with `-1` at the start and `+1` at the end.
 The method is `chunkgraph` construction plus source-info assembly. Ground truth
 is four edge chunkers, the explicit `v2emat`, total point count equal to the
 sum over edges, straight-edge node/derivative/normal/weight formulas,
-source-info flattening, exact vertex-edge structure, and the square region
-loop.
+source-info flattening, exact vertex-edge structure, the signed unbounded and
+bounded square region loops, and the edge-side region map.
 
 `test_chunkgraph_accepts_incidence_matrix_edges` checks the alternate graph
 constructor format where edges are supplied as an incidence matrix. The method
 converts incidence columns back to endpoint pairs. Ground truth is the same
 square endpoint matrix `[[0,1,2,3],[1,2,3,0]]`, the original incidence matrix,
-exact vertex-edge structure, and the square region loop.
+exact vertex-edge structure, and the signed unbounded and bounded square
+region loops.
 
 `test_chunkgraph_slice_and_edgeids_match_selected_edges` checks subgraph
 slicing and global point-index selection. The method is `slicegraph([0,1])`
@@ -647,6 +651,12 @@ constructor, region, transform, region-query, and dyadic-refinement cases from
 matrices, region counts for multiply connected/bridge/loop/nested graphs,
 adjacent and nested point-region ids, transformed graph ids after affine,
 scaling, rotation, and reflection operations, and per-edge refinement counts.
+
+`test_chunkgrphregion_devtools_outputs_match_matlab` checks the full
+signed-region workflow from `chunkgrphregionTest.m`. The method reconstructs
+the nested/disjoint graph with a closed starfish edge, converts MATLAB's
+one-based signed region loops to Python's zero-based signed convention, and
+compares region ordering plus `find_edge_regions` side maps.
 
 `test_chunkgraph_lastlength_devtools_outputs_match_matlab` checks graph-level
 refinement behavior from `chunkgraph_lastlengthTest.m`. The method compares
@@ -1088,7 +1098,8 @@ vertices and edge chunk storage.
 checks `procverts`, `findregions`, graph `refine`, graph near-flag wrappers,
 left/right translation and scalar/matrix operator overloads, `tochunkgraph`
 for closed and open components, and `chunkgraphinregion` point/grid ids
-against MATLAB fixture data.
+against MATLAB fixture data. Region assertions compare Python's zero-based
+signed loop convention to MATLAB's one-based signed loops.
 
 ## `tests/test_helm1d.py`
 
