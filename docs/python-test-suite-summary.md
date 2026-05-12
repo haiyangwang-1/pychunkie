@@ -704,9 +704,10 @@ degrees against the MATLAB fixture.
 `test_slicegraph_devtools_outputs_match_matlab` checks the concentric-square
 `slicegraph` workflow. The method compares sliced geometry and edge id
 ordering against MATLAB, and verifies that both MATLAB and Python preserve the
-inner-slice/full-submatrix relation. Direct matrix values remain partial
-because current Python graph double-layer self blocks produce NaNs where the
-MATLAB fixture stores finite special entries.
+inner-slice/full-submatrix relation. Python graph matrices are also checked to
+be finite after Laplace double-layer self-block replacement. Direct matrix
+values remain partial because MATLAB default graph `chunkermat` applies RCIP
+corrections not yet present in the Python scalar graph path.
 
 `test_chunkermat_quadadap_devtools_outputs_match_matlab` checks the starfish
 adaptive-neighbor matrix comparison from `chunkermat_quadadapTest.m`. The

@@ -919,7 +919,9 @@ def test_slicegraph_devtools_outputs_match_matlab():
     np.testing.assert_allclose(mixed.r, fixture.mixed_r, atol=1e-13)
     np.testing.assert_allclose(mixed.r, fixture.mixed_merge_r, atol=1e-13)
     np.testing.assert_allclose(fixture.inner_sysmat, fixture.inner_sysmat_from_full, rtol=1e-12, atol=1e-13)
-    np.testing.assert_allclose(full[np.ix_(idslce, idslce)], inner_mat, rtol=1e-12, atol=1e-13, equal_nan=True)
+    assert np.isfinite(full).all()
+    assert np.isfinite(inner_mat).all()
+    np.testing.assert_allclose(full[np.ix_(idslce, idslce)], inner_mat, rtol=1e-12, atol=1e-13)
     np.testing.assert_array_equal(graph.edgeids([2, 3, 1, 0]), np.asarray(fixture.edgeids_outer_permuted, dtype=int).reshape(-1) - 1)
     np.testing.assert_array_equal(graph.edgeids(inner_edges), np.asarray(fixture.edgeids_inner, dtype=int).reshape(-1) - 1)
 

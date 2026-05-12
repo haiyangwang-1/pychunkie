@@ -762,6 +762,15 @@ def _block_kernel_mat(obj: Any, kerns: Any, opts: dict[str, Any]) -> np.ndarray:
             raise ValueError("block kernel column dimension is incompatible with source edge points")
         local_rows = _block_offsets_for_edges(edge_chunkers, layout.rowdims, target_edges)
         local_cols = _block_offsets_for_edges(edge_chunkers, layout.coldims, source_edges)
+        weighted = _apply_laplace_double_block_self_limits(
+            edge_chunkers,
+            kern,
+            target_edges,
+            source_edges,
+            local_rows,
+            local_cols,
+            weighted,
+        )
         target_lookup = {edge: idx for idx, edge in enumerate(target_edges)}
         source_lookup = {edge: idx for idx, edge in enumerate(source_edges)}
         for itarg, isrc in pairs:
@@ -878,6 +887,28 @@ def _apply_laplace_double_self_limit(
     curvature = (chnkr.d[0] * chnkr.d2[1] - chnkr.d[1] * chnkr.d2[0]) / speed**3
     diag = scale * (-curvature.reshape(-1, order="F") / (4.0 * np.pi)) * chnkr.wts.reshape(-1, order="F")
     np.fill_diagonal(mat, diag)
+    return mat
+
+
+def _apply_laplace_double_block_self_limits(
+    edge_chunkers: list[Chunker],
+    kern: Callable[[Any, Any], np.ndarray],
+    target_edges: list[int],
+    source_edges: list[int],
+    target_offsets: np.ndarray,
+    source_offsets: np.ndarray,
+    mat: np.ndarray,
+) -> np.ndarray:
+    if not _is_laplace_double_kernel(kern):
+        return mat
+    target_lookup = {edge: idx for idx, edge in enumerate(target_edges)}
+    source_lookup = {edge: idx for idx, edge in enumerate(source_edges)}
+    for edge in sorted(set(target_lookup) & set(source_lookup)):
+        i = target_lookup[edge]
+        j = source_lookup[edge]
+        rows = slice(int(target_offsets[i]), int(target_offsets[i + 1]))
+        cols = slice(int(source_offsets[j]), int(source_offsets[j + 1]))
+        _apply_laplace_double_self_limit(edge_chunkers[edge], kern, mat[rows, cols])
     return mat
 
 
