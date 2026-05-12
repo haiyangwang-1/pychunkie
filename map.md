@@ -15,12 +15,10 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 
 ## Current Snapshot
 
-- Verification snapshot: local Python-only subset on 2026-05-12 with Python
-  3.11.9 collected 187 tests: `187 passed`. A full `uv run pytest` run in
-  this worktree collected 365 tests but MATLAB golden-fixture tests were not
-  runnable because `external/chunkie-matlab/startup.m` was absent; full MATLAB
-  parity runs generate ignored `tests/golden/*.mat` files on demand and require
-  a populated `external/chunkie-matlab` checkout.
+- Verification snapshot: full `uv run pytest` on 2026-05-12 with Python
+  3.11.9 collected 365 tests: `365 passed`. MATLAB parity tests generated
+  ignored `tests/golden/*.mat` files on demand using the populated
+  `external/chunkie-matlab` checkout.
 - The implemented surface covers core chunkers/chunkgraphs, domain helpers, kernel factories, dense/FMM/FLAM operator paths, GGQ/adaptive quadrature, RCIP helpers, Legendre utilities, and the lightweight rounded-polygon smoother.
 - No active `should implement` items remain from the current MATLAB scope triage. Deferred work is concentrated in stricter FLAM devtools parity, remaining `chunkerfit` modes, and full solve parity for the hard devtools cases listed in `devtools_coverage.md`.
 - Use `docs/python-test-suite-summary.md` for the per-test index and `devtools_coverage.md` for the MATLAB devtools inventory.
