@@ -58,6 +58,27 @@ def target_data_kernel(src: PointInfo, targ: PointInfo):
     return 1.0 + dx + 0.2 * targ.data[0][:, None]
 
 
+def test_acceleration_option_uses_single_key_without_boolean_aliases():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 3}, {"k": 6})
+    dense = chunkermat(chnkr, smooth_kernel)
+
+    flam_alias = chunkermat(chnkr, smooth_kernel, {"flam": True, "dval": 4.0})
+    fmm_alias = chunkermat(chnkr, smooth_kernel, {"fmm": True})
+    flam_accelerated = chunkermat(
+        chnkr,
+        smooth_kernel,
+        {"acceleration": "flam", "dval": 0.25, "occ": 8, "rank_or_tol": 1.0e-10, "useproxy": False},
+    )
+
+    assert isinstance(flam_alias, np.ndarray)
+    assert isinstance(fmm_alias, np.ndarray)
+    assert isinstance(flam_accelerated, ChunkerFLAMMatrix)
+    np.testing.assert_allclose(flam_alias, dense, atol=1e-14)
+    np.testing.assert_allclose(fmm_alias, dense, atol=1e-14)
+    with pytest.raises(ValueError, match="acceleration must be one of"):
+        chunkermat(chnkr, smooth_kernel, {"acceleration": "fast"})
+
+
 def test_flam_kernbyindex_matches_dense_and_sparse_overwrites():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 6})
     dense = chunkermat(chnkr, smooth_kernel)

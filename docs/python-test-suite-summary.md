@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 309 pytest cases because several MATLAB parity tests are
+collection expands to 310 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -697,6 +697,13 @@ evaluates `daltgrad`, contracts with a two-component density, then reconstructs
 traction and compares to `dalttrac`. Ground truth is the stress formula.
 
 ## `tests/test_flam.py`
+
+`test_acceleration_option_uses_single_key_without_boolean_aliases` checks that
+the canonical `opts["acceleration"]` key is the only acceleration selector. The
+method verifies MATLAB-style boolean aliases such as `{"flam": True}` and
+`{"fmm": True}` leave `chunkermat` on the dense path, while
+`{"acceleration": "flam"}` returns a `ChunkerFLAMMatrix` and invalid
+acceleration strings raise `ValueError`.
 
 `test_flam_kernbyindex_matches_dense_and_sparse_overwrites` checks 0-based
 FLAM matrix callbacks. The method requests selected row/column DOFs from
