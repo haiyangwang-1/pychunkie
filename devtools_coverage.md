@@ -33,134 +33,59 @@ The parity rule for this repo is:
 - Python comparisons: `tests/test_devtools_parity.py`
 - Python verification: `uv run pytest tests/test_devtools_parity.py` on
   2026-05-12 with the regenerated local fixture: `45 passed`
-- Covered now: `absconvgaussTest.m`, `adapgausswtsTest.m`, `legeexpsunitTest.m`,
-  `arclengthfunTest.m`, `chunker_diffintmatTest.m`,
-  `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`,
-  `chunkerfuncuniTest.m`, `chunkerfuncTest.m`, `chunkgraph_basicTest.m`,
-  `chunkgraph_lastlengthTest.m`, `chunkgrphconstructTest.m`,
-  `chunkgrphregionTest.m`, `chunkrgrphOpdimTest.m`,
-  `chunkerintegralTest.m`,
-  `chunkerinteriorTest.m`, `chunkerpolyTest.m`, `chunkerarcparamTest.m`,
-  `chunkermatTest.m`, `chunkermat_helm2dTest.m`, `chunkermat_l2scaleTest.m`, `chunkermat_quadadapTest.m`, `flagrectTest.m`, `flagselfTest.m`,
-  `flagnearTest.m`, `flamutilitiesTest.m`, `helm2d_greenTest.m`, `kernelopTest.m`,
-  `KernDerInterleaveTest.m`, `kernelclassTest.m`, `chunkerkerneval_greenlapTest.m`,
-  `chunkerkerneval_correctionsTest.m`, `chunkerkerneval_gaussidTest.m`, `chunkerkerneval_greenhelmTest.m`,
-  `chunkerkernevalmat_greenlapTest.m`, `slicegraphTest.m`, `smootherTest.m`,
-  `elastickernelsTest.m`, `helm1d_greenTest.m`, `stokes_dtracTest.m`, and
-  `tochunkgraphTest.m`
+- Current fixture scope: 45 pytest comparisons covering easy geometry/kernel
+  diagnostics, chunker/chunkgraph constructors and regions, near-flagging,
+  dense/adaptive operator assembly, Laplace and Helmholtz dense solves,
+  Green-identity target evaluation, selected data-field/FLAM diagnostics,
+  and direct Stokes/elasticity/Helmholtz-1D diagnostics.
+- The ranked inventory below remains the authoritative per-MATLAB-file list.
 
 ## Status At A Glance
 
-| Status | Count | Tests |
+| Status | Count | Meaning |
 | --- | ---: | --- |
-| ✅ 🧪 🎯 fully covered by devtools parity | 35 | `absconvgaussTest.m`, `adapgausswtsTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `chunkerarcparamTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`, `chunkerfuncuniTest.m`, `chunkerfuncTest.m`, `chunkgraph_basicTest.m`, `chunkgraph_lastlengthTest.m`, `chunkgrphconstructTest.m`, `chunkgrphregionTest.m`, `chunkrgrphOpdimTest.m`, `chunkerintegralTest.m`, `chunkerinteriorTest.m`, `chunkerkerneval_correctionsTest.m`, `chunkerkerneval_gaussidTest.m`, `chunkerkerneval_greenhelmTest.m`, `chunkerkernevalmat_greenlapTest.m`, `chunkermatTest.m`, `chunkermat_helm2dTest.m`, `chunkermat_l2scaleTest.m`, `chunkermat_quadadapTest.m`, `chunkerpolyTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `KernDerInterleaveTest.m`, `kernelopTest.m`, `stokes_dtracTest.m`, `tochunkgraphTest.m` |
-| ✅ 🧪 🎯 ⚠️ partial/diagnostic devtools parity | 8 | `chunkerkerneval_greenlapTest.m`, `datafieldTest.m`, `elastickernelsTest.m`, `flamutilitiesTest.m`, `helm1d_greenTest.m`, `kernelclassTest.m`, `slicegraphTest.m`, `smootherTest.m` |
-| 🧩 🧭 helper/reference | 1 | `gradient_check.m` |
-| 🚧 should/pending parity not yet converted | 19 | Remaining ranked entries below, excluding explicit non-goals. |
-| 🚫 explicit non-goal; do not port | 11 | `trappermatTest.m`, `quasiperiodicTest.m`, axisymmetric tests 63-68, and flexural tests 72-74. |
+| ✅ 🧪 🎯 fully covered by devtools parity | 35 | MATLAB file has strict fixture comparison for the behavior tracked here. |
+| ✅ 🧪 🎯 ⚠️ partial/diagnostic devtools parity | 8 | Fixture coverage exists, but the MATLAB file also exercises deferred solve, FLAM, or diagnostic-only paths. |
+| 🧩 🧭 helper/reference | 1 | Shared MATLAB helper, not standalone package behavior. |
+| 🚧 pending parity | 19 | Candidate future ports, excluding explicit non-goals. |
+| 🚫 explicit non-goal | 11 | Trapper, quasiperiodic, axisymmetric, and flexural families. |
 
 ## Scope Triage For Remaining Work
 
-Should implement:
+No active `should implement` items remain from the current triage. Recent
+fixture additions moved the dense Laplace and Helmholtz `chunkermat` solve
+workflows into covered status.
 
-- No active items remain from the current triage.
+Implemented coverage is now grouped as:
 
-Implemented from this scope:
+- Geometry, domain, chunker, chunkgraph, Legendre, and core point-kernel parity,
+  with compact non-devtools fixtures for broad package surfaces.
+- Section III quadrature parity, including native assembly, GGQ self/near/sparse
+  blocks, adaptive neighbor weights, and robust close replacement.
+- Dense/FMM/FLAM operator coverage, including matrix-free scalar and block FMM
+  products, FMM target-evaluation matrix materialization, first-pass PyFLAM
+  matrix/evaluation/classification paths, and selected FLAM devtools
+  diagnostics.
+- Devtools target-evaluation and solve diagnostics, including Laplace/Helmholtz
+  Green identity, Gauss identity, explicit near-target correction, data-field
+  slices, and dense Laplace/Helmholtz starfish solve workflows.
+- RCIP helper and chunkgraph compression workflows, with full solve parity still
+  deferred to the ranked RCIP rows.
 
-- Top-level geometry/domain helpers: `checkcurveparam`, `ellipse`,
-  `hypoct_uni`, `mergeregions`, `nonflatinterface`, `pointinregion`, `redblue`,
-  `regioninside`, and `starfish`; compact non-devtools fixture parity in
-  `geometry_core.mat` now covers these helpers plus core chunker/chunkgraph
-  geometry surfaces, chunker near-flag/nearest/translation helpers, and
-  `chunkerfuncuni` uniform geometry, arcparam init/eval, plus chunkgraph
-  procverts/refine/near-flag wrappers, conversion, operators, and region
-  classification.
-- Helmholtz double-gradient FMM selector wiring.
-- Stokes traction FMM selector wiring.
-- FMM integration across the implemented 2D kernel selector surface, including
-  Laplace derived selectors, Helmholtz target-derivative selectors, full
-  biharmonic scalar selector wiring, Stokes traction/combined paths, and
-  elasticity single/traction/double/alternate-double workflows.
-- Remaining `+lege` helpers: `rts`, `rts_stab`, `adapgauss`,
-  `bernstein_ellipse`, `polsum`, and `tayl`; strict MATLAB fixture parity now
-  covers `rts`, `rts_stab`, scalar `adapgauss`, `bernstein_ellipse`,
-  `polsum`, and scalar-call `tayl` outputs.
-- Adaptive refinement in `chunker.refine` and `chunkerfunc`.
-- `quadggq/buildmattd` sparse special-block assembly.
-- Full adaptive/close quadrature for `quadadap`: GGQ self blocks, adaptive
-  neighbor blocks, direct `adapgausswts` neighbor-block parity, and robust
-  close non-neighbor replacement for log kernels.
-- Optional devtools parity fixtures for adaptive `chunkerfunc`,
-  `chunkgrphconstruct`, `slicegraph`, and the starfish
-  `chunkermat_quadadap` matrix comparison.
-- `chunkermatTest.m`: the fixture saves the starfish Laplace double-layer
-  dense matrix, Dirichlet system, RHS, GMRES/backslash solutions, target
-  evaluation, and residual diagnostics; Python compares the same matrix/solve
-  workflow against MATLAB and enforces the devtools target-accuracy threshold.
-- `chunkermat_helm2dTest.m`: the fixture saves the starfish Helmholtz
-  double-layer dense matrix, Dirichlet system, RHS, GMRES/backslash solutions,
-  adaptive target evaluation, and residual diagnostics; Python compares the
-  same solve workflow against MATLAB and enforces the devtools target-accuracy
-  threshold.
-- `chunkerarcparamTest.m`: `chnk.arcparam.init/eval` and both
-  `arcresample(..., mv_bdries=0)` and boundary-moving
-  `arcresample(..., mv_bdries=1)` paths are covered against MATLAB diagnostics.
-- `chunkgrphregionTest.m`: full signed region construction now saves MATLAB's
-  manually specified nested/disjoint region loops plus `find_edge_regions`
-  side maps and compares them against Python's zero-based signed loops.
-- `chunkrgrphOpdimTest.m`: chunkgraph edge-by-edge block kernels now assemble
-  dense matrices with variable row/column operator dimensions; the fixture
-  compares MATLAB shape, per-edge point counts, and representative off-diagonal
-  blocks.
-- `chunkermat(..., acceleration="fmm")` matrix-free FMM operators and
-  `chunkermatapply` FMM acceleration with sparse special-quadrature
-  corrections for singular kernels.
-- `chunkerinterior` FMM classification with direct close-boundary correction.
-- First-pass PyFLAM integration: `chunkerflam`, `chnk.flam` helper callbacks,
-  `ChunkerFLAMMatrix`, FLAM-backed `chunkermat`/`chunkermatapply`, target
-  evaluation/materialization, and `chunkerinterior` FLAM classification. These
-  are covered by focused Python tests; the Green-identity target-evaluation
-  devtools fixture now also saves MATLAB FLAM diagnostics, and the devtools
-  fixture has strict MATLAB parity for square/circular/rectangular FLAM proxy
-  geometry plus Hilbert/cotangent and target-data directional-derivative
-  datafield slices. The compact operator fixture also compares a smooth
-  multi-chunker block-kernel `chunkerflam` matvec and solve against MATLAB
-  `rskelf_mv`/`rskelf_sv` on the same deterministic RHS.
-- Advanced RCIP chunkgraph workflows: selected vertices, ignored vertices, and
-  global block-kernel subselection for local corner compression.
-- Laplace and Helmholtz Green-identity devtools target-evaluation fixtures:
-  `kernelclass`, `chunkerkerneval_greenlap`, `chunkerkerneval_greenhelm`, and
-  `chunkerkernevalmat_greenlap` now compare saved sources, boundary densities,
-  target truth, adaptive close-target evaluation outputs, eval matrices, and
-  NaN-kernel diagnostics. Python `forceadap` covers close-target corrections;
-  Python FLAM force-adaptive target evaluation is checked against saved direct
-  and MATLAB FLAM fixture values for the Laplace Green-identity workflow.
-  MATLAB FMM values are retained as fixture diagnostics where the original
-  devtools test used them.
-- `chunkerkerneval_gaussidTest.m`: the fixture saves the full `40 x 40`
-  target grid, unit double-layer density, MATLAB adaptive double-layer values,
-  Gauss-identity residuals, and inside/outside labels; Python compares
-  adaptive target evaluation values and direct interior classification.
+Deferred work:
 
-Deferred implementation:
-
-- Remaining FLAM parity beyond the first PyFLAM-backed pass: strict MATLAB
-  devtools fixtures beyond the converted Green-identity target-evaluation and
-  datafield diagnostics, and larger proxy-by-level stress coverage.
+- Stricter FLAM devtools fixtures beyond the converted Green-identity/datafield
+  diagnostics, especially full matrix-entry/target-accuracy stress cases.
 - Remaining `chunkerfit` modes beyond the implemented spline/open-line/circle
   paths.
+- Full solve fixtures for Stokes, RCIP/chunkgraph RCIP, mixed boundary
+  conditions, product quadrature, and biharmonic plate problems listed below.
 
-Do not implement:
+Explicit non-goals:
 
-- The `trapper` family.
-- Axisymmetric, quasiperiodic, and flexural kernel families, including
-  `axissymhelm2d`, `axissymhelm2ddiff`, `helm2dquas`, most of `flex2d`, and
-  matching kernel factories.
-- `quadba`.
-- Full nonlinear MATLAB smoother/Newton workflow and `+chnk/+intchunk`; the
-  lightweight rounded-polygon smoother remains the supported path.
-- MATLAB plotting/visualization methods: `plot`, `plot3`, `scatter`, `quiver`,
-  and `plot_regions`.
+- The `trapper` family, `quadba`, axisymmetric/quasiperiodic/flexural kernels
+  and matching operator factories, full nonlinear MATLAB smoother/Newton
+  behavior plus `+chnk/+intchunk`, and MATLAB plotting/visualization methods.
 
 ## Ranked Test Inventory
 
@@ -212,7 +137,7 @@ Do not implement:
 | 44 | `chunkermat_stok2dTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Validates Stokes single/double/pressure/traction/gradient kernels, then builds and solves a Stokes boundary integral problem with target accuracy checks. | Existing point-kernel fixtures cover Stokes blocks; add full Stokes matrix/solve fixture later. |
 | 45 | `chunkermat_stok_tractiontest.m` | ✅ 🚧 ⚠️ | Hard | Builds a Stokes traction system and compares target velocity/traction evaluation to analytic values. | Save traction matrix, RHS, solution, and target diagnostics; compare Python Stokes traction support. |
 | 46 | `chunkermat_l2scaleTest.m` | ✅ 🧪 🎯 | Hard | Constructs a Helmholtz transmission matrix manually and with `chunkermat` `l2scale`, then compares scaled matrix and density solution. | Covered in `devtools_easy.mat`: compare MATLAB and Python manual l2-scaled Helmholtz transmission-style block matrices against `chunkermat(..., {"l2scale": "true"})` and verify the scaled/unscaled density solves agree to the diagnostic threshold. |
-| 47 | `chunkermatapplyTest.m` | ✅ 🧪 🚧 | Hard | Tests matrix-free `chunkermatapply` against dense matrices for scalar, vector-valued, multi-boundary, and block-kernel cases; includes solve comparisons. | Python covers dense products, explicit `chunkermat` FMM LinearOperator products, and FMM-accelerated special-corrected application; save dense/matrix-free outputs by case for strict MATLAB parity. |
+| 47 | `chunkermatapplyTest.m` | ✅ 🧪 🚧 | Hard | Tests matrix-free `chunkermatapply` against dense matrices for scalar, vector-valued, multi-boundary, and block-kernel cases; includes solve comparisons. | Python covers dense products, explicit scalar and block-kernel `chunkermat` FMM LinearOperator products, FMM l2-scaled block products, FMM target-evaluation matrix materialization, and FMM-accelerated special-corrected application; save dense/matrix-free outputs by case for strict MATLAB parity. |
 | 48 | `chunkermat_quadadap_closetotouchingTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Solves an exterior Laplace Dirichlet problem on two nearly touching disks and demonstrates adaptive quadrature accuracy near close interactions. | Compact non-devtools `quadggq.mat` now covers robust close matrix replacement on two disks; still save the full solve, targets, and adaptive/smooth diagnostics for devtools parity. |
 | 49 | `chunkermat_truepolygonTest.m` | ✅ 🚧 ⚠️ | Hard | Solves a true-corner polygon Neumann problem using adaptive refinement/RCIP-style machinery and checks target accuracy. | Save refined polygon graph/chunker, system, RHS, solution, and targets; compare after Python true-corner support matures. |
 | 50 | `pquadTest.m` | 🚧 | Hard | Tests product quadrature for an interior Helmholtz problem by comparing product-quadrature layer-potential values to a reference solution. | Save product-quadrature matrices/values and compare Python pquad implementation when available. |
@@ -226,7 +151,7 @@ Do not implement:
 | 58 | `kernel_interleaveTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Tests invalid interleave detection, then solves an exterior Neumann problem with a block interleaved Helmholtz representation and fast-direct interfaces. | Python now covers smooth interleaved block-kernel FLAM matrix and target-evaluation application against dense products. Port remaining stages: invalid interleave fixture, Helmholtz block matrix entries, dense solve, FMM paths where applicable, and full fast-direct solve parity. |
 | 59 | `quasiperiodicTest.m` | 🚫 | Very Hard | Tests quasi-periodic Helmholtz kernels, shifted phase relations, combined/transmission/all/gradient kernels, and an integral-equation solve for a periodic scattering setup. | Do not port; quasiperiodic kernels are explicit non-goals. |
 | 60 | `flamutilitiesTest.m` | ✅ 🧪 🎯 ⚠️ | Very Hard | Tests FLAM matrix builder utilities, dense-vs-FLAM matrix entry reconstruction, fast-direct solves, and target accuracy for Laplace problems. | Strict MATLAB fixture parity covers square/circular/rectangular FLAM proxy geometry, the square inside predicate, deterministic Laplace `nproxy_square`, square/rectangular `kernbyindex` callbacks with sparse overwrite precedence, square/rectangular `proxyfun` matrices with filtered neighbor indices, plus a compact Laplace `chunkerflam` `rskelf_mv`/`rskelf_sv` comparison against the PyFLAM-backed operator on the same deterministic RHS. First PyFLAM-backed Python coverage also exists for square/rectangular `chnk.flam` callbacks, sparse overwrite precedence, smooth diagonal shifts, smooth/special l2 scaling, data-field callbacks, `ChunkerFLAMMatrix` apply/adjoint/solve/adjoint-solve/logdet, target evaluation with adaptive correction, and interior classification. Full devtools matrix-entry and target-evaluation parity remains pending. |
-| 61 | `flamproxybylevelTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Tests FLAM matrix building with level-dependent proxy points and checks solve/evaluation errors against tolerances. | Proxy helpers plus default and level-dependent PyFLAM proxy application are implemented and Python-tested for square matrix compression and rectangular target evaluation. MATLAB tolerance comparisons and larger stress fixtures remain pending. |
+| 61 | `flamproxybylevelTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Tests FLAM matrix building with level-dependent proxy points and checks solve/evaluation errors against tolerances. | Proxy helpers plus default and level-dependent PyFLAM proxy application are implemented and Python-tested for square matrix compression, rectangular target evaluation, and a larger shifted solve/evaluation stress case. MATLAB tolerance comparisons remain pending. |
 | 62 | `flamopdimsTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Tests FLAM with multi-operator-dimension Helmholtz systems across two chunkers and compares analytic solution accuracy. | Scalar explicit chunker-sequence, smooth interleaved block-kernel matrix/evaluation, vector-opdim PyFLAM wiring, and smooth multi-chunker block-kernel `rskelf` matvec/solve parity are active through the generic operator surface, including smooth diagonal shifts and target evaluation/materialization. Full two-chunker Helmholtz analytic-solve devtools parity remains pending. |
 | 63 | `axissymkernTest.m` | 🚫 ⚠️ | Very Hard | Compares axisymmetric Helmholtz kernel evaluations against explicit azimuthal integral reference kernels, including shifted-kernel behavior. The file prints errors rather than asserting. | Do not port; axisymmetric kernels are explicit non-goals. |
 | 64 | `axissymkernel_sphereTest.m` | 🚫 ⚠️ | Very Hard | Builds axisymmetric sphere geometry, solves/evaluates a modal layer potential, and compares against spherical Bessel/Hankel analytic values. It prints the error. | Do not port; axisymmetric modal kernels are explicit non-goals. |

@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 338 pytest cases because several MATLAB parity tests are
+collection expands to 342 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -65,132 +65,35 @@ Ground truth comes from four places:
   ignored and generated on demand by `tests/_fixture_generation.py`; if MATLAB
   setup or fixture generation fails, the requesting test fails.
 
-## Implementation Scope Tracked By Tests
+## Scope Snapshot
 
-The living docs split remaining MATLAB parity work into three buckets.
+This file is a test-by-test index. Keep broad implementation status in
+`map.md` and MATLAB devtools port status in `devtools_coverage.md`.
 
-Should implement:
+Current test-backed coverage includes:
 
-- No active items remain from the current triage.
+- Core geometry/domain/chunkgraph behavior, Legendre helpers, point-kernel
+  evaluators, dense/native operators, scalar and block-kernel FMM
+  acceleration, FMM target-evaluation materialization, PyFLAM acceleration,
+  special quadrature, and RCIP helper/compression workflows.
+- MATLAB golden parity for compact fixtures under `tests/golden`, including
+  geometry, kernel/operator, quadrature, and RCIP fixtures.
+- MATLAB devtools parity for 45 focused comparisons in
+  `tests/test_devtools_parity.py`, including Laplace and Helmholtz dense
+  `chunkermat` solve/target-evaluation workflows.
+- Seven parity-stress tests in `tests/test_easy_parity_stress.py` that harden
+  previously shape-only or fixture-narrow areas.
 
-Implemented from this scope:
+Open or intentionally limited areas:
 
-- Top-level geometry/domain helpers: `checkcurveparam`, `ellipse`,
-  `hypoct_uni`, `mergeregions`, `nonflatinterface`, `pointinregion`, `redblue`,
-  `regioninside`, and `starfish`; these now have compact MATLAB fixture parity
-  in `tests/golden/geometry_core.mat`.
-- Chunker preference, storage-growth, data-row allocation/reset, explicit copy,
-  `checkadjinfo`, and sorted-field behavior now have compact MATLAB fixture
-  parity in `tests/golden/chunker_ops.mat` / `geometry_core.mat`.
-- Helmholtz double-gradient FMM selector wiring.
-- Stokes traction FMM selector wiring.
-- FMM integration across the implemented 2D kernel selector surface, including
-  Laplace derived selectors, Helmholtz target-derivative selectors, full
-  biharmonic scalar selector wiring, Stokes traction/combined paths, and
-  elasticity single/traction/double/alternate-double workflows.
-- Remaining `+lege` helpers: `rts`, `rts_stab`, `adapgauss`,
-  `bernstein_ellipse`, `polsum`, and `tayl`.
-- Adaptive refinement in `chunker.refine` and `chunkerfunc`.
-- Section III quadrature parity: `quadggq/buildmattd` sparse special-block
-  assembly, direct `adapgausswts` neighbor-block parity, and `quadadap`
-  log-kernel self, neighbor, and robust close replacement are now covered by
-  compact MATLAB fixtures.
-- `chunkermat(..., acceleration="fmm")` matrix-free FMM operators and
-  `chunkermatapply` FMM acceleration with sparse special-quadrature
-  corrections for singular kernels, including deterministic RHS matvec parity
-  against MATLAB forced-FMM output.
-- `chunkerinterior` FMM and FLAM classification with direct close-boundary
-  correction.
-- Advanced RCIP chunkgraph workflows: selected vertices, ignored vertices, and
-  global block-kernel subselection for local corner compression.
-- Section II kernel/operator parity: MATLAB `@kernel` factory metadata and
-  direct evaluations, kernel algebra/interleave, Green helpers, biharmonic
-  `bhgreen`-derived selectors, Helmholtz-difference interleave identities, and
-  smooth dense operator helper routes.
-- Chunkgraph constructor parity now includes the devtools
-  `chunkgrphconstructTest.m` legacy incidence versus `edgesendverts` workflow
-  with matching curved edge chunkers.
-- Chunkgraph basic devtools parity now covers legacy/new graph formats,
-  multiply connected, bridge, loop, nested, and adjacent-triangle region
-  cases, graph-region id queries, affine/scale/rotate/reflect transforms, and
-  per-edge dyadic refinement counts.
-- Chunkgraph signed-region devtools parity now covers the manual
-  `chunkgrphregionTest.m` nested/disjoint region ordering and edge-side
-  region maps through `findregions` and `find_edge_regions`.
-- Chunkgraph operator-dimension devtools parity now covers dense assembly of
-  edge-by-edge block kernels with variable row/column dimensions from
-  `chunkrgrphOpdimTest.m`.
-- Chunkgraph refinement parity now includes graph-level selected-edge
-  refinement, per-edge split-chunk routing, vertex endpoint balancing,
-  MATLAB-style `NaN` closed-edge construction, and `last_len` endpoint-panel
-  matching from `chunkgraph_lastlengthTest.m`.
-- `chunkerpoly` now covers MATLAB-style non-smooth dyadic true-polygon
-  refinement from `chunkerpolyTest.m`, with strict geometry, derivative,
-  normal, weight, length, and area parity up to panel ordering/orientation.
-- Laplace and Helmholtz Green-identity target-evaluation parity for the devtools
-  `kernelclass`, `chunkerkerneval_greenlap`, and
-  `chunkerkerneval_greenhelm`, `chunkerkerneval_gaussid`, and
-  `chunkerkernevalmat_greenlap` paths, plus Helmholtz near-target correction
-  parity for `chunkerkerneval_corrections`; this includes Python `forceadap`
-  close-target replacement in `chunkerkerneval` and `chunkerkernevalmat` and
-  MATLAB-style correction matrix application through `opts["cormat"]`.
-- Dense `chunkermat` l2 scaling now has devtools parity for the Helmholtz
-  transmission-style matrix relation from `chunkermat_l2scaleTest.m`,
-  including MATLAB-style string truth parsing for `opts.l2scale`.
-- Dense Laplace `chunkermat` solve parity now covers the devtools
-  `chunkermatTest.m` starfish Dirichlet workflow, including the double-layer
-  matrix removable diagonal, RHS, GMRES/backslash solutions, adaptive target
-  evaluation, and target-accuracy diagnostics.
-- Dense Helmholtz `chunkermat` solve parity now covers the devtools
-  `chunkermat_helm2dTest.m` starfish Dirichlet workflow, including the
-  double-layer matrix, RHS, GMRES/backslash solutions, adaptive target
-  evaluation, and target-accuracy diagnostics.
-- Data-field parity for converted slices of the devtools `datafieldTest.m`
-  workflow, including Hilbert/cotangent source data through dense and PyFLAM
-  matrix products plus directional-derivative target data through direct,
-  `forceadap`, and PyFLAM target evaluation against a MATLAB-solved density.
-- Elasticity direct-kernel diagnostic parity from `elastickernelsTest.m`,
-  including Green's identity boundary/target values, sampled direct kernel
-  outputs, finite-difference PDE/divergence/traction/gradient residuals, and
-  MATLAB threshold checks. The later elasticity boundary-integral solve stages
-  remain pending until singular self-quadrature support is available.
-- Helmholtz 1D direct diagnostic parity from `helm1d_greenTest.m`, including
-  flat-interface geometry, incident Hankel data, direct `chnk.helm1d.green`
-  and selector matrices, and `chnk.helm1d.sweep`; the full interface
-  GMRES/FMM/Sommerfeld solve remains pending.
-- PyFLAM-backed acceleration: `chunkerflam`, `chnk.flam` callback/proxy
-  helpers, `ChunkerFLAMMatrix`, `chunkermat`/`chunkermatapply`
-  `acceleration="flam"`, FLAM target evaluation/materialization, FLAM
-  interior classification, adaptive near-target correction, explicit
-  chunker-sequence coercion, smooth interleaved block-kernel matrix and target
-  evaluation paths, smooth multi-chunker block-kernel matrix/solve paths,
-  shape-preserving single-column and multiple-RHS
-  application, adjoint application/solve helpers, l2 scaling, and
-  source/target point-data callbacks. Square, circular, and rectangular FLAM
-  proxy geometry, plus Hilbert/cotangent and target-data directional-derivative
-  devtools datafield slices, now also have strict MATLAB fixture parity; a
-  Laplace and smooth multi-chunker block-kernel `rskelf` matrix products and
-  solves are compared against MATLAB FLAM on deterministic random RHS vectors.
-
-Deferred implementation:
-
-- Remaining FLAM parity beyond the first PyFLAM-backed pass: strict MATLAB
-  devtools FLAM fixtures beyond the converted Green-identity and datafield
-  diagnostics, and larger proxy-by-level stress coverage.
-- Remaining `chunkerfit` modes beyond the implemented spline/open-line/circle
-  paths.
-
-Do not implement:
-
-- The `trapper` family.
-- Axisymmetric, quasiperiodic, and flexural kernel families, including
-  `axissymhelm2d`, `axissymhelm2ddiff`, `helm2dquas`, most of `flex2d`, and
-  matching kernel factories.
-- `quadba`.
-- The full nonlinear MATLAB smoother/Newton workflow and `+chnk/+intchunk`;
-  the lightweight rounded-polygon smoother remains the supported path.
-- MATLAB plotting/visualization methods: `plot`, `plot3`, `scatter`, `quiver`,
-  and `plot_regions`.
+- No active `should implement` items remain in the current triage.
+- Remaining deferred work is mostly stricter FLAM devtools parity, full
+  solve-level fixtures for hard devtools cases such as Stokes/RCIP/product
+  quadrature, and `chunkerfit` modes beyond the implemented
+  spline/open-line/circle paths.
+- Explicit non-goals remain the `trapper` family, axisymmetric/quasiperiodic
+  and flexural kernel families, `quadba`, full nonlinear MATLAB smoother/Newton
+  behavior, `+chnk/+intchunk`, and MATLAB plotting methods.
 
 ## `tests/test_arcparam.py`
 
@@ -977,6 +880,13 @@ proxy-enabled and level-dependent proxy paths. The method applies both FLAM
 Laplace single-layer system, compares against the dense special matrix product,
 and verifies `rskel` does not expose the `rskelf` solve helper.
 
+`test_chunkermat_flam_proxy_by_level_larger_stress_matches_dense` checks a
+larger level-dependent proxy path for both square boundary compression and
+rectangular target-evaluation compression. The method builds a 64-point
+Laplace single-layer system, applies and solves a shifted PyFLAM operator with
+`proxybylevel=True`, materializes a rectangular target-evaluation factor, and
+compares all outputs against dense references.
+
 `test_chunkermat_flam_adjoint_products_match_dense` checks SciPy adjoint
 products for PyFLAM-backed boundary matrices. The method builds
 complex-shifted `rskelf` and `rskel` operators, applies `.H` to vector and
@@ -1568,6 +1478,13 @@ multiple-right-hand-side products against the dense special-quadrature matrix.
 Ground truth is agreement with the dense product after cached sparse GGQ
 corrections are applied.
 
+`test_block_chunkermat_fmm_matches_dense_application_and_l2scale` checks the
+block-kernel FMM return path on `chunkermat` and `chunkermatapply`. The method
+builds a two-component block matrix over two separated chunkers using
+off-diagonal Laplace single-layer blocks and zero diagonal blocks, then compares
+vector, multiple-right-hand-side, and l2-scaled FMM products against dense
+block matrices.
+
 `test_pointinfo_uses_matlab_chunk_contiguous_ordering` checks point ordering
 when flattening chunker fields. The invariant is MATLAB/Fortran chunk-contiguous
 ordering: all nodes of chunk 0, then all nodes of chunk 1, and so on. The
@@ -1579,6 +1496,17 @@ evaluation matrix assembly. The equation is `values = EvalMat sigma` for the
 same smooth polynomial kernel. The method compares `chunkerkernevalmat @ dens`
 to `chunkerkerneval`. Ground truth is the explicit target/source kernel block
 weighted by source quadrature weights, plus direct evaluation equality.
+
+`test_chunkerkernevalmat_fmm_materializes_target_eval_matrix` checks FMM-backed
+materialization for off-boundary target-evaluation matrices. The method
+requests `chunkerkernevalmat(..., {"acceleration": "fmm"})` for a Laplace
+single-layer kernel, compares the materialized matrix against the dense direct
+matrix, and verifies applying it agrees with FMM target evaluation.
+
+`test_chunkerkernevalmat_fmm_materializes_same_source_special_matrix` checks
+the same materialization route for same-source boundary targets with singular
+special quadrature. The method compares the FMM-materialized matrix product
+against `chunkermat` for the Laplace single-layer boundary operator.
 
 `test_chunkermat_accepts_kernel_objects` checks that `chunkermat` accepts a
 `Kernel` object, not only callables. The method uses `kernel("zero")`.

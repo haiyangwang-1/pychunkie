@@ -75,6 +75,30 @@ def test_chunkermat_fmm_returns_matrix_free_operator_matching_dense_application(
     np.testing.assert_allclose(via_fmm @ rhs, dense @ rhs, rtol=1e-9, atol=1e-10)
 
 
+def test_block_chunkermat_fmm_matches_dense_application_and_l2scale():
+    first, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
+    second = first.translate(np.array([2.8, 0.15]))
+    chunkers = [first, second]
+    lap_s = kernel("lap", "s")
+    zero = kernel("zero")
+    blocks = [[zero, lap_s], [-lap_s, zero]]
+    rhs = np.sin(0.17 * np.arange(first.npt + second.npt))
+    rhs2 = np.column_stack((rhs, np.cos(0.11 * np.arange(rhs.size))))
+
+    dense = chunkermat(chunkers, blocks)
+    via_fmm = chunkermat(chunkers, blocks, {"acceleration": "fmm", "eps": 1e-12})
+    applied = chunkermatapply(chunkers, blocks, rhs2, {"acceleration": "fmm", "eps": 1e-12})
+    dense_l2 = chunkermat(chunkers, blocks, {"l2scale": True})
+    via_fmm_l2 = chunkermat(chunkers, blocks, {"acceleration": "fmm", "eps": 1e-12, "l2scale": True})
+
+    assert isinstance(via_fmm, ChunkerFMMMatrix)
+    assert via_fmm.shape == dense.shape
+    np.testing.assert_allclose(via_fmm @ rhs, dense @ rhs, rtol=1e-9, atol=1e-10)
+    np.testing.assert_allclose(via_fmm @ rhs2, dense @ rhs2, rtol=1e-9, atol=1e-10)
+    np.testing.assert_allclose(applied, dense @ rhs2, rtol=1e-9, atol=1e-10)
+    np.testing.assert_allclose(via_fmm_l2 @ rhs, dense_l2 @ rhs, rtol=1e-9, atol=1e-10)
+
+
 def test_pointinfo_uses_matlab_chunk_contiguous_ordering():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 3}, {"k": 5})
     info = pointinfo(chnkr)
@@ -97,6 +121,31 @@ def test_chunkerkernevalmat_matches_direct_target_evaluation():
 
     np.testing.assert_allclose(mat, expected_mat)
     np.testing.assert_allclose(mat @ dens, vals, atol=1e-14)
+
+
+def test_chunkerkernevalmat_fmm_materializes_target_eval_matrix():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
+    lap_s = kernel("lap", "s")
+    targets = np.array([[0.0, 1.6, -1.35], [0.0, -0.4, 0.8]])
+    dens = np.cos(chnkr.r[0].reshape(-1, order="F"))
+
+    dense_mat = chunkerkernevalmat(chnkr, lap_s, targets)
+    fmm_mat = chunkerkernevalmat(chnkr, lap_s, targets, {"acceleration": "fmm", "eps": 1e-12})
+    fmm_vals = chunkerkerneval(chnkr, lap_s, dens, targets, {"acceleration": "fmm", "eps": 1e-12}).reshape(-1, order="F")
+
+    np.testing.assert_allclose(fmm_mat, dense_mat, rtol=1e-9, atol=1e-10)
+    np.testing.assert_allclose(fmm_mat @ dens, fmm_vals, rtol=1e-10, atol=1e-11)
+
+
+def test_chunkerkernevalmat_fmm_materializes_same_source_special_matrix():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
+    lap_s = kernel("lap", "s")
+    dens = np.cos(chnkr.r[0].reshape(-1, order="F"))
+
+    dense_mat = chunkermat(chnkr, lap_s)
+    fmm_mat = chunkerkernevalmat(chnkr, lap_s, chnkr, {"acceleration": "fmm", "eps": 1e-12})
+
+    np.testing.assert_allclose(fmm_mat @ dens, dense_mat @ dens, rtol=1e-9, atol=1e-10)
 
 
 def test_chunkermat_accepts_kernel_objects():

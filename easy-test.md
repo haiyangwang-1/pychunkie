@@ -10,10 +10,17 @@ Status legend:
 - `ignored`: intentionally not part of the current parity-hardening push.
 - `done`: fixed or covered by a stronger test.
 
+## Current Status
+
+- No active too-easy test rows remain from the 2026-05-12 audit.
+- `uv run pytest --collect-only -q` currently collects 342 tests.
+- The completed tables below are an audit trail for prior hardening work, not a
+  current todo list.
+
 ## Active Too-Easy Tests
 
-No active too-easy rows remain from the 2026-05-12 audit. Keep new findings in
-this table until they are fixed, then move them to the completed table below.
+Keep new findings in this table until they are fixed, then move them to the
+completed table below.
 
 | Test or area | Status | Current weakness | Hardening direction |
 | --- | --- | --- | --- |
@@ -85,8 +92,9 @@ moved here so active triage stays focused on unfinished work.
 ## Completed Full Test Ease Audit - 2026-05-12
 
 Scope: project-owned `tests/test_*.py` files only. Vendored tests under
-`external/` are out of scope. `uv run pytest --collect-only -q` collected 322
-pytest cases; parametrized parity tests were audited once per test function.
+`external/` are out of scope. The original audit collected 322 pytest cases;
+the suite now collects 342 after later parity additions. Parametrized parity
+tests were audited once per test function.
 
 Marking rule: a test was marked `too easy` when the behavior under test was
 numerical or geometric, but the assertions would still pass with wrong values

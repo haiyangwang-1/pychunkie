@@ -53,18 +53,31 @@ class ChunkerFMMMatrix(LinearOperator):
         kern: Callable[[Any, Any], np.ndarray],
         opts: dict[str, Any] | None = None,
     ):
-        self.chnkr = _require_chunker(chnkr)
         self.kern = kern
         self.opts = {} if opts is None else dict(opts)
-        self.opdims = _kernel_opdims(self.chnkr, kern)
         self._correction_mat: spmatrix | None = None
-        dtype = _operator_dtype(self.chnkr, kern)
-        shape = (self.chnkr.npt * int(self.opdims[0]), self.chnkr.npt * int(self.opdims[1]))
+        if _is_block_kernel_matrix(kern):
+            self.chnkr = chnkr
+            self.block_layout = _block_kernel_layout(chnkr, kern)
+            self.opdims = None
+            for item in self.block_layout.kernels.flat:
+                _require_fmm(item)
+            dtype = _block_operator_dtype(self.block_layout)
+            shape = (int(self.block_layout.row_offsets[-1]), int(self.block_layout.col_offsets[-1]))
+        else:
+            self.chnkr = _require_chunker(chnkr)
+            self.block_layout = None
+            self.opdims = _kernel_opdims(self.chnkr, kern)
+            _require_fmm(kern)
+            dtype = _operator_dtype(self.chnkr, kern)
+            shape = (self.chnkr.npt * int(self.opdims[0]), self.chnkr.npt * int(self.opdims[1]))
         super().__init__(dtype=dtype, shape=shape)
 
     def _matvec(self, x: np.ndarray) -> np.ndarray:
         if x.size != self.shape[1]:
             raise ValueError("density has incompatible size")
+        if self.block_layout is not None:
+            return _block_chunkermatapply_fmm(self.block_layout, x, self.opts, self._correction())
         return _chunkermatapply_fmm(self.chnkr, self.kern, x, self.opts, self._correction())
 
     def _matmat(self, x: np.ndarray) -> np.ndarray:
@@ -91,6 +104,12 @@ class ChunkerFMMMatrix(LinearOperator):
         return arr
 
     def _correction(self) -> spmatrix | None:
+        if self.block_layout is not None:
+            if not _block_uses_special_quadrature(self.block_layout, self.opts):
+                return None
+            if self._correction_mat is None:
+                self._correction_mat = _block_special_correction_matrix(self.block_layout, self.opts)
+            return self._correction_mat
         if not _uses_special_quadrature(self.kern, self.opts):
             return None
         if self._correction_mat is None:
@@ -375,7 +394,7 @@ def chunkermat(
         if acceleration == "flam":
             return ChunkerFLAMMatrix(chnkr, kern, options.get("dval", 0.0), options)
         if acceleration == "fmm":
-            raise NotImplementedError("block-kernel FMM matrices are not implemented")
+            return ChunkerFMMMatrix(chnkr, kern, options)
         return _block_kernel_mat(chnkr, kern, options)
 
     chnkr = _require_chunker(chnkr)
@@ -416,7 +435,11 @@ def chunkermatapply(
     options = {} if opts is None else dict(opts)
     acceleration = _acceleration(options)
     if acceleration == "fmm":
-        _require_fmm(kern)
+        if _is_block_kernel_matrix(kern):
+            for item in np.asarray(kern, dtype=object).flat:
+                _require_fmm(item)
+        else:
+            _require_fmm(kern)
     chnkobj = chnkr if _is_block_kernel_matrix(kern) else _require_chunker(chnkr)
     op = chunkermat(chnkobj, kern, options)
     dens_arg = _density_matmul_arg(op.shape[1], dens)
@@ -620,7 +643,10 @@ def chunkerkernevalmat(
             return _chunkerkernevalmat_flam(chnkr, kern, targinfo, smooth_options) + _target_adaptive_correction_matrix(chnkr, kern, targinfo, options).toarray()
         return _chunkerkernevalmat_flam(chnkr, kern, targobj, options)
     if acceleration == "fmm":
-        raise NotImplementedError("chunkerkernevalmat does not support FMM acceleration; use chunkerkerneval instead")
+        _require_fmm(kern)
+        if same_source_target and _uses_special_quadrature(kern, opts):
+            return np.asarray(chunkermat(chnkr, kern, options))
+        return _chunkerkernevalmat_fmm(chnkr, kern, targobj, options)
     if same_source_target and _uses_special_quadrature(kern, opts):
         return chunkermat(chnkr, kern, opts)
 
@@ -827,6 +853,26 @@ def _apply_chunkgraph_l2scale(edge_chunkers: list[Chunker], rowdims: np.ndarray,
     return row_scales[:, None] * mat * col_scales[None, :]
 
 
+def _chunker_l2_row_scale(chnkr: Chunker, rowdim: int) -> np.ndarray:
+    return np.repeat(np.sqrt(chnkr.wts.reshape(-1, order="F")), int(rowdim))
+
+
+def _chunker_l2_col_scale(chnkr: Chunker, coldim: int) -> np.ndarray:
+    return np.repeat(1.0 / np.sqrt(chnkr.wts.reshape(-1, order="F")), int(coldim))
+
+
+def _block_l2_row_scale(layout: _BlockKernelLayout) -> np.ndarray:
+    return np.concatenate(
+        [_chunker_l2_row_scale(edge, int(dim)) for edge, dim in zip(layout.chunkers, layout.rowdims)]
+    )
+
+
+def _block_l2_col_scale(layout: _BlockKernelLayout) -> np.ndarray:
+    return np.concatenate(
+        [_chunker_l2_col_scale(edge, int(dim)) for edge, dim in zip(layout.chunkers, layout.coldims)]
+    )
+
+
 def _weighted_density(chnkr: Chunker, dens: ArrayLike) -> np.ndarray:
     dens_arr = np.asarray(dens)
     if dens_arr.size == chnkr.npt:
@@ -994,6 +1040,37 @@ def _block_special_overwrite_matrix(layout: _BlockKernelLayout, options: dict[st
     if _option_bool(options.get("l2scale", False)):
         return sparse.csr_matrix(_apply_chunkgraph_l2scale(layout.chunkers, layout.rowdims, layout.coldims, out))
     return out
+
+
+def _block_uses_special_quadrature(layout: _BlockKernelLayout, options: dict[str, Any]) -> bool:
+    for idx in range(len(layout.chunkers)):
+        if _uses_special_quadrature(layout.kernels[idx, idx], options):
+            return True
+    return False
+
+
+def _block_special_correction_matrix(layout: _BlockKernelLayout, options: dict[str, Any]) -> spmatrix:
+    rows_all: list[np.ndarray] = []
+    cols_all: list[np.ndarray] = []
+    vals_all: list[np.ndarray] = []
+    for idx, chnkr in enumerate(layout.chunkers):
+        kern = layout.kernels[idx, idx]
+        if not _uses_special_quadrature(kern, options):
+            continue
+        local_options = dict(options)
+        local_options.pop("l2scale", None)
+        spmat = _special_correction_matrix(chnkr, kern, local_options).tocoo()
+        if spmat.nnz == 0:
+            continue
+        rows_all.append(spmat.row + int(layout.row_offsets[idx]))
+        cols_all.append(spmat.col + int(layout.col_offsets[idx]))
+        vals_all.append(spmat.data)
+    if not vals_all:
+        return sparse.csr_matrix((int(layout.row_offsets[-1]), int(layout.col_offsets[-1])))
+    return sparse.csr_matrix(
+        (np.concatenate(vals_all), (np.concatenate(rows_all), np.concatenate(cols_all))),
+        shape=(int(layout.row_offsets[-1]), int(layout.col_offsets[-1])),
+    )
 
 
 def _option_bool(value: Any) -> bool:
@@ -1202,13 +1279,73 @@ def _chunkermatapply_fmm(
     correction: spmatrix | None = None,
 ) -> np.ndarray:
     dens_vec = np.asarray(dens).reshape(-1, order="F")
+    op0, op1 = _kernel_opdims(chnkr, kern)
+    use_l2scale = _option_bool(options.get("l2scale", False))
+    eval_dens = dens_vec * _chunker_l2_col_scale(chnkr, op1) if use_l2scale else dens_vec
     fmm_options = dict(options)
     fmm_options["acceleration"] = "fmm"
-    vals = chunkerkerneval(chnkr, kern, dens_vec, chnkr, fmm_options).reshape(-1, order="F")
+    fmm_options.pop("l2scale", None)
+    vals = chunkerkerneval(chnkr, kern, eval_dens, chnkr, fmm_options).reshape(-1, order="F")
     if _uses_special_quadrature(kern, options):
         corr = _special_correction_matrix(chnkr, kern, options) if correction is None else correction
-        vals = vals + corr @ dens_vec
+        vals = vals + corr @ eval_dens
+    if use_l2scale:
+        vals = _chunker_l2_row_scale(chnkr, op0) * vals
     return vals
+
+
+def _block_chunkermatapply_fmm(
+    layout: _BlockKernelLayout,
+    dens: ArrayLike,
+    options: dict[str, Any],
+    correction: spmatrix | None = None,
+) -> np.ndarray:
+    dens_vec = np.asarray(dens).reshape(-1, order="F")
+    ncols = int(layout.col_offsets[-1])
+    if dens_vec.size != ncols:
+        raise ValueError("density has incompatible size")
+    use_l2scale = _option_bool(options.get("l2scale", False))
+    eval_dens = dens_vec * _block_l2_col_scale(layout) if use_l2scale else dens_vec
+    nrows = int(layout.row_offsets[-1])
+    out = np.zeros(nrows, dtype=np.result_type(_block_operator_dtype(layout), eval_dens.dtype))
+    fmm_options = dict(options)
+    fmm_options["acceleration"] = "fmm"
+    fmm_options.pop("l2scale", None)
+
+    for itarg, targ in enumerate(layout.chunkers):
+        rows = slice(int(layout.row_offsets[itarg]), int(layout.row_offsets[itarg + 1]))
+        for isrc, src in enumerate(layout.chunkers):
+            kern = layout.kernels[itarg, isrc]
+            _require_fmm(kern)
+            cols = slice(int(layout.col_offsets[isrc]), int(layout.col_offsets[isrc + 1]))
+            vals = chunkerkerneval(src, kern, eval_dens[cols], targ, fmm_options).reshape(-1, order="F")
+            out[rows] += vals
+
+    if _block_uses_special_quadrature(layout, options):
+        corr = _block_special_correction_matrix(layout, options) if correction is None else correction
+        out = out + corr @ eval_dens
+    if use_l2scale:
+        out = _block_l2_row_scale(layout) * out
+    return out
+
+
+def _chunkerkernevalmat_fmm(
+    chnkr: Chunker,
+    kern: Callable[[Any, Any], np.ndarray],
+    targobj: Chunker | dict[str, Any] | ArrayLike | PointInfo,
+    options: dict[str, Any],
+) -> np.ndarray:
+    targinfo = pointinfo(targobj)
+    op0, op1 = _kernel_opdims(chnkr, kern, targinfo)
+    nrows = targinfo.r.shape[1] * op0
+    ncols = chnkr.npt * op1
+    eye = np.eye(ncols, dtype=_operator_dtype(chnkr, kern))
+    out = np.empty((nrows, ncols), dtype=np.result_type(eye.dtype, complex if np.iscomplexobj(getattr(kern, "params", None)) else float))
+    fmm_options = dict(options)
+    fmm_options["acceleration"] = "fmm"
+    for col in range(ncols):
+        out[:, col] = chunkerkerneval(chnkr, kern, eye[:, col], targinfo, fmm_options).reshape(-1, order="F")
+    return out
 
 
 def _special_correction_matrix(

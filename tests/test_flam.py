@@ -310,6 +310,29 @@ def test_chunkermat_flam_proxy_paths_match_dense_application():
         rskel_proxy.solve(rhs)
 
 
+def test_chunkermat_flam_proxy_by_level_larger_stress_matches_dense():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 8}, {"k": 8})
+    lap_s = kernel("lap", "s")
+    dense = chunkermat(chnkr, lap_s) + 0.75 * np.eye(chnkr.npt)
+    rhs = np.sin(0.13 * np.arange(chnkr.npt))
+    rhs2 = np.column_stack((rhs, np.cos(0.17 * np.arange(chnkr.npt))))
+    targets = np.array(
+        [
+            [0.0, 1.4, -1.35, 0.65, -0.8, 1.7],
+            [0.0, -0.3, 0.75, 1.25, -1.1, 0.2],
+        ]
+    )
+    opts = {"acceleration": "flam", "dval": 0.75, "occ": 16, "rank_or_tol": 1e-8, "proxybylevel": True}
+
+    proxy_by_level = chunkermat(chnkr, lap_s, opts)
+    dense_eval = chunkerkernevalmat(chnkr, lap_s, targets)
+    proxy_eval = chunkerkernevalmat(chnkr, lap_s, targets, {**opts, "dval": 0.0})
+
+    np.testing.assert_allclose(proxy_by_level @ rhs2, dense @ rhs2, rtol=5e-8, atol=5e-10)
+    np.testing.assert_allclose(dense @ proxy_by_level.solve(rhs), rhs, rtol=5e-8, atol=5e-10)
+    np.testing.assert_allclose(proxy_eval, dense_eval, rtol=5e-8, atol=5e-10)
+
+
 def test_chunkermat_flam_adjoint_products_match_dense():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 6})
     dense = chunkermat(chnkr, smooth_kernel) + (0.5 + 0.2j) * np.eye(chnkr.npt)
