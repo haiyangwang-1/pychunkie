@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 326 pytest cases because several MATLAB parity tests are
+collection expands to 327 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -110,6 +110,10 @@ Implemented from this scope:
 - Chunkgraph constructor parity now includes the devtools
   `chunkgrphconstructTest.m` legacy incidence versus `edgesendverts` workflow
   with matching curved edge chunkers.
+- Chunkgraph basic devtools parity now covers legacy/new graph formats,
+  multiply connected, bridge, loop, nested, and adjacent-triangle region
+  cases, graph-region id queries, affine/scale/rotate/reflect transforms, and
+  per-edge dyadic refinement counts.
 - Laplace and Helmholtz Green-identity target-evaluation parity for the devtools
   `kernelclass`, `chunkerkerneval_greenlap`, and
   `chunkerkerneval_greenhelm`, `chunkerkerneval_gaussid`, and
@@ -629,6 +633,13 @@ graph with both MATLAB's legacy incidence matrix and the newer `edgesendverts`
 format, using the same sine-arc edge callbacks. Ground truth is MATLAB's
 balanced vertices, incidence matrices, endpoint indices, and first-edge
 chunker geometry.
+
+`test_chunkgraph_basic_devtools_outputs_match_matlab` checks the graph
+constructor, region, transform, region-query, and dyadic-refinement cases from
+`chunkgraph_basicTest.m`. The method compares MATLAB legacy/new incidence
+matrices, region counts for multiply connected/bridge/loop/nested graphs,
+adjacent and nested point-region ids, transformed graph ids after affine,
+scaling, rotation, and reflection operations, and per-edge refinement counts.
 
 `test_slicegraph_devtools_outputs_match_matlab` checks the concentric-square
 `slicegraph` workflow. The method compares sliced geometry and edge id

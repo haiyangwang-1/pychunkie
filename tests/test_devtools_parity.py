@@ -15,6 +15,7 @@ from chunkie import (
     chunkermat,
     chunkerpoly,
     chunkgraph,
+    chunkgraphinregion,
     kernel,
     lege,
     tochunkgraph,
@@ -155,6 +156,26 @@ def sinearc(t, amp: float, frq: float):
     r = np.vstack((flat, amp * np.sin(frq * flat)))
     d = np.vstack((np.ones_like(flat), amp * frq * np.cos(frq * flat)))
     d2 = np.vstack((np.zeros_like(flat), -(frq**2) * amp * np.sin(flat)))
+    return r, d, d2
+
+
+def loop_curve(t):
+    flat = np.asarray(t, dtype=float).reshape(-1)
+    r = np.vstack((np.cos(flat), np.sin(flat) * np.sin(0.5 * flat)))
+    d = np.vstack(
+        (
+            -np.sin(flat),
+            np.cos(flat) * np.sin(0.5 * flat) + 0.5 * np.sin(flat) * np.cos(0.5 * flat),
+        )
+    )
+    d2 = np.vstack(
+        (
+            -np.cos(flat),
+            -np.sin(flat) * np.sin(0.5 * flat)
+            + np.cos(flat) * np.cos(0.5 * flat)
+            - 0.25 * np.sin(flat) * np.sin(0.5 * flat),
+        )
+    )
     return r, d, d2
 
 
@@ -516,6 +537,69 @@ def test_chunkgrphconstruct_devtools_outputs_match_matlab():
     assert_chunker_fields_match(legacy.echnks[0], fixture.legacy_first_edge, atol=1e-10)
     assert_chunker_fields_match(modern.echnks[0], fixture.new_first_edge, atol=1e-10)
     np.testing.assert_allclose(legacy.echnks[0].r, modern.echnks[0].r, atol=1e-13)
+
+
+def test_chunkgraph_basic_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().chunkgraph_basic
+    edge_specs = [lambda t: sinearc(t, 0.5, 6.0) for _ in range(5)]
+    legacy = chunkgraph(fixture.pentagon_verts, dense_int_array(fixture.pentagon_edge2verts), edge_specs)
+    modern = chunkgraph(fixture.pentagon_verts, dense_int_array(fixture.pentagon_endverts), edge_specs)
+    np.testing.assert_array_equal(legacy.v2emat, dense_int_array(fixture.pentagon_legacy_v2emat))
+    np.testing.assert_array_equal(modern.v2emat, dense_int_array(fixture.pentagon_new_v2emat))
+    np.testing.assert_array_equal(legacy.v2emat, modern.v2emat)
+
+    twoedge_legacy = chunkgraph(fixture.twoedge_verts, dense_int_array(fixture.twoedge_edge2verts))
+    twoedge_modern = chunkgraph(fixture.twoedge_verts, dense_int_array(fixture.twoedge_endverts))
+    np.testing.assert_array_equal(twoedge_legacy.v2emat, dense_int_array(fixture.twoedge_legacy_v2emat))
+    np.testing.assert_array_equal(twoedge_modern.v2emat, dense_int_array(fixture.twoedge_new_v2emat))
+    np.testing.assert_array_equal(twoedge_legacy.v2emat, twoedge_modern.v2emat)
+
+    multi = chunkgraph(np.array([[1, 0, -1, 2, 0, -2], [0, 1, 0, -0.5, 2, -0.5]], dtype=float), np.array([[1, 2, 3, 4, 5, 6], [2, 3, 1, 5, 6, 4]]))
+    bridge = chunkgraph(np.array([[1, 0, -1, 4, 3, 2], [0, 1, 0, 0, 1, 0]], dtype=float), np.array([[1, 2, 3, 4, 5, 6, 1], [3, 1, 2, 6, 4, 5, 6]]))
+    loop = chunkgraph(np.array([[2.0], [1.0]]), np.array([[1], [1]]), [loop_curve], {"ta": 0.0, "tb": 2 * np.pi}, {"k": 12})
+    nested = chunkgraph(np.array([[1, 0, -1, 2, 0, -2], [0, 1, 0, -1, 2, -1]], dtype=float), np.array([[1, 2, 3, 4, 5, 6], [2, 3, 1, 5, 6, 4]]))
+    assert len(multi.regions) == int(fixture.multiconnected_region_count)
+    assert len(bridge.regions) == int(fixture.bridge_region_count)
+    assert len(loop.regions) == int(fixture.loop_region_count)
+    assert len(nested.regions) == int(fixture.nested_region_count)
+
+    adj = chunkgraph(fixture.adjtri_verts, dense_int_array(fixture.adjtri_edges))
+    targets = np.asarray(fixture.adjtri_targets)
+    ids = chunkgraphinregion(adj, targets)
+    np.testing.assert_array_equal(ids, np.asarray(fixture.adjtri_ids, dtype=int).reshape(-1))
+    np.testing.assert_array_equal(ids, np.asarray(fixture.adjtri_idstrue, dtype=int).reshape(-1))
+    np.testing.assert_array_equal(
+        chunkgraphinregion(adj, [fixture.x1, fixture.x1]).reshape(-1, order="F"),
+        np.asarray(fixture.adjtri_ids_grid, dtype=int).reshape(-1, order="F"),
+    )
+
+    A = np.array([[3.0, 2.0], [1.0, 1.0]])
+    v = np.array([[-1.0], [2.0]])
+    affine_targets = A @ targets + v
+    affine = A @ adj + v.reshape(2)
+    np.testing.assert_array_equal(chunkgraphinregion(affine, affine_targets), np.asarray(fixture.adjtri_affine_ids, dtype=int).reshape(-1))
+    scaled_targets = 2 * affine_targets
+    scaled = affine * 2
+    np.testing.assert_array_equal(chunkgraphinregion(scaled, scaled_targets), np.asarray(fixture.adjtri_scaled_ids, dtype=int).reshape(-1))
+    theta = np.pi / 4
+    rot = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
+    rotated_targets = rot @ scaled_targets
+    rotated = scaled.rotate(theta)
+    np.testing.assert_array_equal(chunkgraphinregion(rotated, rotated_targets), np.asarray(fixture.adjtri_rotated_ids, dtype=int).reshape(-1))
+    reflected_targets = rotated_targets.copy()
+    reflected_targets[0] *= -1
+    reflected = rotated.reflect(np.pi / 2)
+    np.testing.assert_array_equal(chunkgraphinregion(reflected, reflected_targets), np.asarray(fixture.adjtri_reflected_ids, dtype=int).reshape(-1))
+
+    nested = chunkgraph(fixture.nested_verts, dense_int_array(fixture.nested_edges))
+    nested_ids = chunkgraphinregion(nested, targets)
+    np.testing.assert_array_equal(nested_ids, np.asarray(fixture.nested_ids, dtype=int).reshape(-1))
+    np.testing.assert_array_equal(nested_ids, np.asarray(fixture.nested_idstrue, dtype=int).reshape(-1))
+
+    refined = adj.refine({"nover": 1})
+    np.testing.assert_array_equal([edge.nch for edge in adj.echnks], np.asarray(fixture.refine_nchs_before, dtype=int).reshape(-1))
+    np.testing.assert_array_equal([edge.nch for edge in refined.echnks], np.asarray(fixture.refine_nchs_after, dtype=int).reshape(-1))
+    np.testing.assert_array_equal(np.asarray(fixture.refine_nchs_after, dtype=int).reshape(-1), 2 * np.asarray(fixture.refine_nchs_before, dtype=int).reshape(-1))
 
 
 def test_slicegraph_devtools_outputs_match_matlab():

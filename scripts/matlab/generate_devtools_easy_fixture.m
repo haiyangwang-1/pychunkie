@@ -466,6 +466,94 @@ cgcon.legacy_first_edge = fixture_pack_chunker(cgrph1.echnks(1));
 cgcon.new_first_edge = fixture_pack_chunker(cgrph2.echnks(1));
 devtools_easy.chunkgrphconstruct = cgcon;
 
+% chunkgraph_basicTest.m
+cgb = [];
+verts = exp(1i*2*pi*(0:4)/5);
+cgb.pentagon_verts = [real(verts); imag(verts)];
+cgb.pentagon_endverts = [1:5; [2:5 1]];
+cgb.pentagon_edge2verts = sparse([-1, 1, 0, 0, 0; ...
+                                    0,-1, 1, 0, 0; ...
+                                    0, 0,-1, 1, 0; ...
+                                    0, 0, 0,-1, 1; ...
+                                    1, 0, 0, 0,-1]);
+fchnks = {};
+for icurve = 1:size(cgb.pentagon_edge2verts, 1)
+    fchnks{icurve} = @(t) local_sinearc(t, 0.5, 6);
+end
+cgrph1 = chunkgraph(cgb.pentagon_verts, cgb.pentagon_edge2verts, fchnks);
+cgrph2 = chunkgraph(cgb.pentagon_verts, cgb.pentagon_endverts, fchnks);
+cgb.pentagon_legacy_v2emat = full(cgrph1.v2emat);
+cgb.pentagon_new_v2emat = full(cgrph2.v2emat);
+
+cgb.twoedge_verts = [1 0 1; -1 0 1];
+cgb.twoedge_edge2verts = sparse([-1 1 0; 0 -1 1]);
+cgb.twoedge_endverts = [1:2; 2:3];
+cg1 = chunkgraph(cgb.twoedge_verts, cgb.twoedge_edge2verts);
+cg2 = chunkgraph(cgb.twoedge_verts, cgb.twoedge_endverts);
+cgb.twoedge_legacy_v2emat = full(cg1.v2emat);
+cgb.twoedge_new_v2emat = full(cg2.v2emat);
+
+verts = [1 0 -1 2 0 -2; 0 1 0 -0.5 2 -0.5];
+edgends = [1 2 3 4 5 6; 2 3 1 5 6 4];
+cg1 = chunkgraph(verts, edgends);
+cgb.multiconnected_region_count = numel(cg1.regions);
+
+verts = [1 0 -1 4 3 2; 0 1 0 0 1 0];
+edgends = [1 2 3 4 5 6 1; 3 1 2 6 4 5 6];
+cg1 = chunkgraph(verts, edgends);
+cgb.bridge_region_count = numel(cg1.regions);
+
+verts = [2; 1];
+edgends = [1; 1];
+cparams_loop = [];
+cparams_loop.ta = 0;
+cparams_loop.tb = 2*pi;
+pref_loop = [];
+pref_loop.k = 12;
+cg1 = chunkgraph(verts, edgends, {@(t) local_loop_curve(t)}, cparams_loop, pref_loop);
+cgb.loop_region_count = numel(cg1.regions);
+
+verts = [1 0 -1 2 0 -2; 0 1 0 -1 2 -1];
+edgends = [1 2 3 4 5 6; 2 3 1 5 6 4];
+cg1 = chunkgraph(verts, edgends);
+cgb.nested_region_count = numel(cg1.regions);
+
+cgb.adjtri_verts = [1 0 -1 0; 0 1 0 -1];
+cgb.adjtri_edges = [1:3, 3, 4; 2:3, 1, 4, 1];
+cg = chunkgraph(cgb.adjtri_verts, cgb.adjtri_edges);
+cgb.x1 = linspace(-pi, pi);
+[xx, yy] = meshgrid(cgb.x1, cgb.x1);
+cgb.adjtri_targets = [xx(:).'; yy(:).'];
+cgb.adjtri_ids = chunkgraphinregion(cg, cgb.adjtri_targets);
+cgb.adjtri_ids_grid = chunkgraphinregion(cg, {cgb.x1, cgb.x1});
+cgb.adjtri_idstrue = local_polygonids(cg, xx, yy);
+A = [3 2; 1 1];
+v = [-1; 2];
+cg_affine = A*cg + v;
+cgb.adjtri_affine_ids = chunkgraphinregion(cg_affine, A*cgb.adjtri_targets + v);
+cg_scaled = cg_affine*2;
+cgb.adjtri_scaled_ids = chunkgraphinregion(cg_scaled, 2*(A*cgb.adjtri_targets + v));
+theta = pi/4;
+rot = [cos(theta) -sin(theta); sin(theta) cos(theta)];
+cg_rot = cg_scaled.rotate(theta);
+cgb.adjtri_rotated_ids = chunkgraphinregion(cg_rot, rot*(2*(A*cgb.adjtri_targets + v)));
+cg_ref = cg_rot.reflect(pi/2);
+targs_ref = rot*(2*(A*cgb.adjtri_targets + v));
+targs_ref(1, :) = -targs_ref(1, :);
+cgb.adjtri_reflected_ids = chunkgraphinregion(cg_ref, targs_ref);
+
+cgb.nested_verts = [1 0 -1 2 0 -2; 0 1 0 -1 2 -1];
+cgb.nested_edges = [1 2 3 4 5 6; 2 3 1 5 6 4];
+cg = chunkgraph(cgb.nested_verts, cgb.nested_edges);
+cgb.nested_ids = chunkgraphinregion(cg, cgb.adjtri_targets);
+cgb.nested_idstrue = local_polygonids(cg, xx, yy);
+
+cg = chunkgraph(cgb.adjtri_verts, cgb.adjtri_edges);
+cgb.refine_nchs_before = [cg.echnks.nch];
+cg_refined = refine(cg, struct('nover', 1));
+cgb.refine_nchs_after = [cg_refined.echnks.nch];
+devtools_easy.chunkgraph_basic = cgb;
+
 % slicegraphTest.m
 slc = [];
 verts_out = [[1;1], [1;-1], [-1;-1], [-1;1]];
@@ -1319,4 +1407,44 @@ ypp = -frq*frq*amp*sin(t);
 r = [(xs(:)).'; (ys(:)).'];
 d = [(xp(:)).'; (yp(:)).'];
 d2 = [(xpp(:)).'; (ypp(:)).'];
+end
+
+function [r, d, d2] = local_loop_curve(t)
+flat = t(:).';
+r = [cos(flat); sin(flat).*sin(0.5*flat)];
+d = [-sin(flat); cos(flat).*sin(0.5*flat) + 0.5*sin(flat).*cos(0.5*flat)];
+d2 = [-cos(flat); -sin(flat).*sin(0.5*flat) + cos(flat).*cos(0.5*flat) - 0.25*sin(flat).*sin(0.5*flat)];
+end
+
+function idstrue = local_polygonids(cg, xx, yy)
+verts = cg.verts;
+edgesendverts = cg.edgesendverts;
+idstrue = nan(size(xx(:)));
+regions = cg.regions;
+for j = 1:numel(regions)
+    vlist = [];
+    for ic = 1:numel(regions{j})
+        elist = regions{j}{ic};
+        for ie = 1:numel(elist)
+            eid = elist(ie);
+            if eid > 0
+                v1 = edgesendverts(1, eid);
+                v2 = edgesendverts(2, eid);
+            else
+                v1 = edgesendverts(2, -eid);
+                v2 = edgesendverts(1, -eid);
+            end
+            vlist = [vlist, v1];
+            if ie == numel(elist)
+                vlist = [vlist, v2];
+            end
+        end
+    end
+    intmp = inpolygon(xx(:), yy(:), verts(1, vlist), verts(2, vlist));
+    if j == 1
+        idstrue(intmp == 0) = j;
+    else
+        idstrue(intmp > 0) = j;
+    end
+end
 end

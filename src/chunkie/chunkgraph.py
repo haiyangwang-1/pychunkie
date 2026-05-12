@@ -171,10 +171,11 @@ class ChunkGraph:
         return out
 
     def findregions(self) -> list[list[list[int]]]:
-        cycles = _simple_cycles(self.edgesendverts)
+        signed_cycles = _bounded_face_cycles(self)
+        self._signed_regions = [[]] + [[list(cycle)] for cycle in signed_cycles]
         regions: list[list[list[int]]] = [[]]
-        for cyc in cycles:
-            regions.append([cyc])
+        for cyc in signed_cycles:
+            regions.append([_unsigned_cycle(cyc)])
         return regions
 
     def slicegraph(self, edges: ArrayLike) -> "ChunkGraph":
@@ -209,6 +210,7 @@ class ChunkGraph:
         out.v2emat = self.v2emat.copy()
         out.vstruc = [(e.copy(), s.copy()) for e, s in self.vstruc]
         out.regions = [[list(cycle) for cycle in region] for region in self.regions]
+        out._signed_regions = [[list(cycle) for cycle in region] for region in getattr(self, "_signed_regions", out.regions)]
         return out
 
     def translate(self, vector: ArrayLike) -> "ChunkGraph":
@@ -400,28 +402,115 @@ def _subchunker(chnkr: Chunker, start: int, nch: int, closed: bool) -> Chunker:
     return sub
 
 
-def _simple_cycles(edges: np.ndarray) -> list[list[int]]:
-    unused = set(range(edges.shape[1]))
+def _bounded_face_cycles(cg: ChunkGraph) -> list[list[int]]:
+    cycles = _oriented_face_cycles(cg)
+    by_component: dict[int, list[list[int]]] = {}
+    comp = _edge_components(cg.edgesendverts, cg.verts.shape[1])
+    for cycle in cycles:
+        by_component.setdefault(comp[abs(cycle[0]) - 1], []).append(cycle)
+
+    bounded: list[list[int]] = []
+    for comp_cycles in by_component.values():
+        if len(comp_cycles) == 2 and {abs(edge) for edge in comp_cycles[0]} == {abs(edge) for edge in comp_cycles[1]}:
+            chosen = max(comp_cycles, key=lambda cyc: _signed_cycle_area(cg, cyc))
+            bounded.append(chosen)
+            continue
+        unbounded = max(range(len(comp_cycles)), key=lambda idx: abs(_signed_cycle_area(cg, comp_cycles[idx])))
+        for idx, cycle in enumerate(comp_cycles):
+            if idx != unbounded:
+                bounded.append(cycle)
+    return _outer_faces_first(cg, bounded)
+
+
+def _oriented_face_cycles(cg: ChunkGraph) -> list[list[int]]:
+    nedge = cg.edgesendverts.shape[1]
+    remaining = list(range(1, nedge + 1)) + list(range(-1, -nedge - 1, -1))
     cycles: list[list[int]] = []
-    while unused:
-        start_edge = min(unused)
-        start_vertex = int(edges[0, start_edge])
-        current_vertex = int(edges[1, start_edge])
-        cycle = [start_edge]
-        unused.remove(start_edge)
-        while current_vertex != start_vertex:
-            candidates = [edge for edge in unused if int(edges[0, edge]) == current_vertex]
-            if not candidates:
+    while remaining:
+        current = remaining.pop(0)
+        start = current
+        cycle = [current]
+        vertex = _oriented_edge_end(cg.edgesendverts, current)
+        for _ in range(2 * nedge + 1):
+            edges, signs = cg.vstruc[vertex]
+            loc = np.flatnonzero((edges == abs(current) - 1) & (signs == np.sign(current)))
+            if loc.size == 0:
                 cycle = []
                 break
-            edge = min(candidates)
-            cycle.append(edge)
-            unused.remove(edge)
-            current_vertex = int(edges[1, edge])
+            next_idx = (int(loc[0]) + 1) % edges.size
+            next_edge = int(edges[next_idx]) + 1
+            next_sign = int(signs[next_idx])
+            current = -next_sign * next_edge
+            if current == start:
+                break
+            cycle.append(current)
+            if current in remaining:
+                remaining.remove(current)
+            vertex = _oriented_edge_end(cg.edgesendverts, current)
+        else:
+            cycle = []
         if cycle:
             cycles.append(cycle)
-    cycles.sort(key=lambda c: abs(_poly_area(_cycle_vertices(edges, c))), reverse=True)
     return cycles
+
+
+def _oriented_edge_end(edges: np.ndarray, signed_edge: int) -> int:
+    edge = abs(signed_edge) - 1
+    return int(edges[1, edge] if signed_edge > 0 else edges[0, edge])
+
+
+def _edge_components(edges: np.ndarray, nverts: int) -> list[int]:
+    parent = list(range(nverts))
+
+    def find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(a: int, b: int) -> None:
+        ra = find(a)
+        rb = find(b)
+        if ra != rb:
+            parent[rb] = ra
+
+    for start, end in edges.T:
+        union(int(start), int(end))
+    roots = {root: idx for idx, root in enumerate(sorted({find(i) for i in range(nverts)}))}
+    return [roots[find(int(start))] for start in edges[0]]
+
+
+def _signed_cycle_vertices(edges: np.ndarray, cycle: list[int]) -> list[int]:
+    verts: list[int] = []
+    for signed_edge in cycle:
+        edge = abs(signed_edge) - 1
+        verts.append(int(edges[0, edge] if signed_edge > 0 else edges[1, edge]))
+    return verts
+
+
+def _signed_cycle_area(cg: ChunkGraph, cycle: list[int]) -> float:
+    verts = _signed_cycle_vertices(cg.edgesendverts, cycle)
+    return _poly_area(cg.verts[:, verts])
+
+
+def _unsigned_cycle(cycle: list[int]) -> list[int]:
+    return [abs(edge) - 1 for edge in cycle]
+
+
+def _outer_faces_first(cg: ChunkGraph, cycles: list[list[int]]) -> list[list[int]]:
+    if len(cycles) < 2:
+        return cycles
+    polys = [cg.verts[:, _signed_cycle_vertices(cg.edgesendverts, cycle)] for cycle in cycles]
+    depths: list[int] = []
+    for ipoly, poly in enumerate(polys):
+        depth = 0
+        for jpoly, other in enumerate(polys):
+            if ipoly == jpoly:
+                continue
+            if np.all(_points_in_poly(poly, other)):
+                depth += 1
+        depths.append(depth)
+    return [cycle for _, cycle in sorted(enumerate(cycles), key=lambda item: (depths[item[0]], item[0]))]
 
 
 def _cycle_vertices(edges: np.ndarray, cycle: list[int]) -> list[int]:
@@ -430,10 +519,18 @@ def _cycle_vertices(edges: np.ndarray, cycle: list[int]) -> list[int]:
 
 def _region_polygons(cg: ChunkGraph) -> list[np.ndarray]:
     polys: list[np.ndarray] = []
-    for region in cg.regions[1:]:
+    regions = getattr(cg, "_signed_regions", None)
+    signed = regions is not None
+    if regions is None:
+        regions = cg.regions
+    for region in regions[1:]:
         if not region:
             continue
-        verts = _cycle_vertices(cg.edgesendverts, [abs(edge) for edge in region[0]])
+        cycle = region[0]
+        if signed:
+            verts = _signed_cycle_vertices(cg.edgesendverts, cycle)
+        else:
+            verts = _cycle_vertices(cg.edgesendverts, [abs(edge) for edge in cycle])
         polys.append(cg.verts[:, verts])
     return polys
 
