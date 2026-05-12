@@ -33,10 +33,10 @@ The parity rule for this repo is:
 - Python comparisons: `tests/test_devtools_parity.py`
 - Python verification: `uv run pytest tests/test_devtools_parity.py` on
   2026-05-12 with the regenerated local fixture: `45 passed`
-- Current fixture scope: 46 pytest comparisons covering easy geometry/kernel
+- Current fixture scope: 47 pytest comparisons covering easy geometry/kernel
   diagnostics, chunker/chunkgraph constructors and regions, near-flagging,
   dense/adaptive operator assembly, close-touching adaptive solves,
-  Laplace and Helmholtz dense solves,
+  Laplace and Helmholtz dense solves, singular PV/HS diagnostics,
   Green-identity target evaluation, selected data-field/FLAM diagnostics,
   and direct Stokes/elasticity/Helmholtz-1D diagnostics.
 - The ranked inventory below remains the authoritative per-MATLAB-file list.
@@ -46,9 +46,9 @@ The parity rule for this repo is:
 | Status | Count | Meaning |
 | --- | ---: | --- |
 | ✅ 🧪 🎯 fully covered by devtools parity | 35 | MATLAB file has strict fixture comparison for the behavior tracked here. |
-| ✅ 🧪 🎯 ⚠️ partial/diagnostic devtools parity | 9 | Fixture coverage exists, but the MATLAB file also exercises deferred solve, FLAM, pquad, or diagnostic-only paths. |
+| ✅ 🧪 🎯 ⚠️ partial/diagnostic devtools parity | 10 | Fixture coverage exists, but the MATLAB file also exercises deferred solve, FLAM, pquad, or diagnostic-only paths. |
 | 🧩 🧭 helper/reference | 1 | Shared MATLAB helper, not standalone package behavior. |
-| 🚧 pending parity | 18 | Candidate future ports, excluding explicit non-goals. |
+| 🚧 pending parity | 17 | Candidate future ports, excluding explicit non-goals. |
 | 🚫 explicit non-goal | 11 | Trapper, quasiperiodic, axisymmetric, and flexural families. |
 
 ## Scope Triage For Remaining Work
@@ -142,7 +142,7 @@ Explicit non-goals:
 | 48 | `chunkermat_quadadap_closetotouchingTest.m` | ✅ 🧪 🎯 ⚠️ | Hard | Solves an exterior Laplace Dirichlet problem on two nearly touching disks and demonstrates adaptive quadrature accuracy near close interactions. | Covered in `devtools_easy.mat`: compare the two-disk geometry, source/target truth, robust adaptive matrix probe products, original GGQ matrix probe products, adaptive/original solves, target evaluations, and MATLAB target-error diagnostics. Helsing-Ojala/product-quadrature diagnostics remain tracked with `pquadTest.m`. |
 | 49 | `chunkermat_truepolygonTest.m` | ✅ 🚧 ⚠️ | Hard | Solves a true-corner polygon Neumann problem using adaptive refinement/RCIP-style machinery and checks target accuracy. | Save refined polygon graph/chunker, system, RHS, solution, and targets; compare after Python true-corner support matures. |
 | 50 | `pquadTest.m` | 🚧 | Hard | Tests product quadrature for an interior Helmholtz problem by comparing product-quadrature layer-potential values to a reference solution. | Save product-quadrature matrices/values and compare Python pquad implementation when available. |
-| 51 | `singularkernelTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Checks principal-value and hypersingular quadratures by comparing boundary tangential and normal derivatives from singular kernels to analytic boundary data. | Save boundary fields, PV/HS values, and relative errors; compare Python singular GGQ paths. |
+| 51 | `singularkernelTest.m` | ✅ 🧪 🎯 ⚠️ | Hard | Checks principal-value and hypersingular quadratures by comparing boundary tangential and normal derivatives from singular kernels to analytic boundary data. | Covered in `devtools_easy.mat`: compare boundary fields, Laplace `sprime` removable self limits, PV `stau` matrix probe products and tangential derivative solve, plus HS `dprime` matrix probe products and normal-derivative diagnostics. The HS final derivative is diagnostic-tolerance parity because the MATLAB test prints but does not assert that error. |
 | 52 | `trappermatTest.m` | 🚫 | Hard | Builds a trapper discretization, assembles a Laplace Dirichlet matrix, compares GMRES/backslash solutions, and evaluates target accuracy. The file prints diagnostics but has no final assert. | Do not port; the trapper family is an explicit non-goal. |
 | 53 | `rcipTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Tests RCIP for an exterior Dirichlet problem on two circular arcs meeting at corners, comparing system matrices, solutions, interpolation to fine grid, and target accuracy. | Python has some RCIP helpers; save coarse/fine operators and densities before attempting full solve parity. |
 | 54 | `chunkgrphrcip_ignoreTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Tests chunkgraph RCIP with artificial vertices ignored, verifying solution accuracy improves when ignored vertices are treated correctly. | Python now covers selected/ignored vertex RCIP compression; save graph, ignored-vertex metadata, solutions with/without ignoring, and target values for strict solve parity. |

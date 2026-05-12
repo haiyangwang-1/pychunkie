@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 343 pytest cases because several MATLAB parity tests are
+collection expands to 344 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -648,6 +648,14 @@ transmission-style Helmholtz l2-scaling relation from
 `diag(sqrt(w))*A*diag(1/sqrt(w))` block matrix and compares it to Python
 `chunkermat(..., {"l2scale": "true"})`, then verifies both solve the same RHS
 to the MATLAB diagnostic threshold.
+
+`test_singularkernel_devtools_pv_hs_outputs_match_matlab` checks principal-
+value and hypersingular quadrature diagnostics from `singularkernelTest.m`.
+The method compares MATLAB/Python boundary fields, Laplace `sprime`
+removable self limits, PV `stau` matrix probe products and tangential
+derivative solve output, and HS `dprime` probe products plus normal-derivative
+diagnostics. Ground truth is strict MATLAB parity for PV outputs and
+diagnostic-tolerance parity for the printed HS final derivative error.
 
 `test_adapgausswts_devtools_neighbor_block_matches_matlab` checks the direct
 adaptive weight routine from `adapgausswtsTest.m`. The method reconstructs the

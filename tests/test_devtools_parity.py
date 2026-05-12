@@ -1704,6 +1704,58 @@ def test_chunkermat_l2scale_devtools_outputs_match_matlab():
     assert err_density <= max(1e-11, 10 * float(fixture.err_density))
 
 
+def test_singularkernel_devtools_pv_hs_outputs_match_matlab():
+    fixture = load_devtools_easy().singularkernel
+    chnkr = chunker_from_fields(fixture.chunker)
+    src = PointInfo(r=point_array(fixture.sources))
+    strengths = np.asarray(fixture.strengths).reshape(-1, order="F")
+    boundary = pointinfo(chnkr)
+    lap_s = kernel("lap", "s")
+    lap_sgrad = kernel("lap", "sg")
+    lap_sp = kernel("lap", "sp")
+    lap_stau = kernel("lap", "stau")
+    lap_d = kernel("lap", "d")
+    lap_dp = kernel("lap", "dp")
+
+    ubdry = lap_s(src, boundary) @ strengths
+    grad = (lap_sgrad(src, boundary) @ strengths).reshape(2, chnkr.npt, order="F")
+    normals = chnkr.n.reshape(2, chnkr.npt, order="F")
+    tangents = np.vstack((-normals[1], normals[0]))
+    unbdry = np.sum(normals * grad, axis=0)
+    utbdry = np.sum(tangents * grad, axis=0)
+    sprime = chunkermat(chnkr, lap_sp)
+    stau = chunkermat(chnkr, lap_stau)
+    dmat = chunkermat(chnkr, lap_d)
+    dprime = chunkermat(chnkr, lap_dp)
+    probe = np.asarray(fixture.probe)
+    sys_pv = 0.5 * np.eye(chnkr.npt) + sprime + np.ones((chnkr.npt, 1)) @ chnkr.wts.reshape(1, -1, order="F")
+    mu_pv = np.linalg.solve(sys_pv, unbdry)
+    utau = stau @ mu_pv
+    sys_hs = -0.5 * np.eye(chnkr.npt) + dmat
+    mu_hs = np.linalg.solve(sys_hs, ubdry)
+    un = dprime @ mu_hs
+    relerr_pv = np.linalg.norm(utau - utbdry) / np.linalg.norm(utbdry)
+    relerr_hs = np.linalg.norm(un - unbdry) / np.linalg.norm(unbdry)
+
+    assert np.isfinite(sprime).all()
+    assert np.isfinite(stau).all()
+    assert np.isfinite(dprime).all()
+    np.testing.assert_allclose(ubdry, np.asarray(fixture.ubdry).reshape(-1, order="F"), rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(unbdry, np.asarray(fixture.unbdry).reshape(-1, order="F"), rtol=1e-11, atol=1e-12)
+    np.testing.assert_allclose(utbdry, np.asarray(fixture.utbdry).reshape(-1, order="F"), rtol=1e-11, atol=1e-12)
+    np.testing.assert_allclose(sprime @ probe, np.asarray(fixture.sprime_probe), rtol=5e-9, atol=1e-9)
+    np.testing.assert_allclose(stau @ probe, np.asarray(fixture.stau_probe), rtol=1e-9, atol=1e-9)
+    np.testing.assert_allclose(dmat @ probe, np.asarray(fixture.d_probe), rtol=3e-7, atol=3e-8)
+    np.testing.assert_allclose(dprime @ probe, np.asarray(fixture.dprime_probe), rtol=5e-7, atol=5e-4)
+    np.testing.assert_allclose(mu_pv, np.asarray(fixture.mu_pv).reshape(-1, order="F"), rtol=2e-9, atol=1e-10)
+    np.testing.assert_allclose(utau, np.asarray(fixture.utau).reshape(-1, order="F"), rtol=2e-9, atol=1e-10)
+    np.testing.assert_allclose(mu_hs, np.asarray(fixture.mu_hs).reshape(-1, order="F"), rtol=5e-8, atol=5e-9)
+    np.testing.assert_allclose(un, np.asarray(fixture.un).reshape(-1, order="F"), rtol=2e-3, atol=3e-4)
+    assert max(relerr_pv, float(fixture.relerr_pv)) < 1e-9
+    assert relerr_hs < 2e-4
+    assert float(fixture.relerr_hs) < 2e-4
+
+
 def test_datafield_devtools_target_data_flam_matches_matlab():
     fixture = load_devtools_easy().datafield
     chnkr = chunker_from_fields(fixture.chunker)

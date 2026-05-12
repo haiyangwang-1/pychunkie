@@ -364,6 +364,13 @@ def build_snapshot() -> dict[str, np.ndarray]:
         chunkermat(cqac_chunker, cqac_kern)
         @ np.asarray(cqac.sysa_probe_rhs)
     )
+    sk = fixture.singularkernel
+    sk_chunker = chunker_from_fields(sk.chunker)
+    sk_probe = np.asarray(sk.probe)
+    out["singularkernel_sprime_probe"] = chunkermat(sk_chunker, kernel("lap", "sp")) @ sk_probe
+    out["singularkernel_stau_probe"] = chunkermat(sk_chunker, kernel("lap", "stau")) @ sk_probe
+    out["singularkernel_d_probe"] = chunkermat(sk_chunker, kernel("lap", "d")) @ sk_probe
+    out["singularkernel_dprime_probe"] = chunkermat(sk_chunker, kernel("lap", "dp")) @ sk_probe
     return out
 
 

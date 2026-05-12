@@ -423,6 +423,7 @@ def chunkermat(
     if mat.shape[1] == chnkr.npt:
         out = mat * wts[None, :]
         out = _apply_laplace_double_self_limit(chnkr, kern, out)
+        out = _apply_laplace_sprime_self_limit(chnkr, kern, out)
         return _apply_l2scale_matrix(chnkr, out) if _option_bool(options.get("l2scale", False)) else out
     if mat.shape[1] % chnkr.npt != 0:
         raise ValueError("kernel column dimension is incompatible with chunker points")
@@ -928,12 +929,34 @@ def _is_laplace_double_kernel(kern: Callable[[Any, Any], np.ndarray]) -> bool:
     }
 
 
+def _is_laplace_sprime_kernel(kern: Callable[[Any, Any], np.ndarray]) -> bool:
+    return str(getattr(kern, "name", "")).lower() == "laplace" and str(getattr(kern, "type", "")).lower() in {
+        "sp",
+        "sprime",
+    }
+
+
 def _apply_laplace_double_self_limit(
     chnkr: Chunker,
     kern: Callable[[Any, Any], np.ndarray],
     mat: np.ndarray,
 ) -> np.ndarray:
     if not _is_laplace_double_kernel(kern) or mat.shape != (chnkr.npt, chnkr.npt):
+        return mat
+    scale = getattr(kern, "params", {}).get("_scale", 1.0)
+    speed = np.sqrt(np.sum(chnkr.d**2, axis=0))
+    curvature = (chnkr.d[0] * chnkr.d2[1] - chnkr.d[1] * chnkr.d2[0]) / speed**3
+    diag = scale * (-curvature.reshape(-1, order="F") / (4.0 * np.pi)) * chnkr.wts.reshape(-1, order="F")
+    np.fill_diagonal(mat, diag)
+    return mat
+
+
+def _apply_laplace_sprime_self_limit(
+    chnkr: Chunker,
+    kern: Callable[[Any, Any], np.ndarray],
+    mat: np.ndarray,
+) -> np.ndarray:
+    if not _is_laplace_sprime_kernel(kern) or mat.shape != (chnkr.npt, chnkr.npt):
         return mat
     scale = getattr(kern, "params", {}).get("_scale", 1.0)
     speed = np.sqrt(np.sum(chnkr.d**2, axis=0))
