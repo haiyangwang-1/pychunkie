@@ -986,6 +986,50 @@ ckgid.max_identity_err = max(ckgid.identity_err);
 ckgid.inside = ckgid.values(:) < -0.5;
 devtools_easy.chunkerkerneval_gaussid = ckgid;
 
+% adapgausswtsTest.m
+agw = [];
+rng(8675309);
+agw.zk = randn() + 1i*randn();
+cparams = [];
+cparams.eps = 1.0e-10;
+cparams.nover = 2;
+pref = [];
+pref.k = 16;
+agw.narms = 3;
+agw.amp = 0.25;
+chnkr = chunkerfunc(@(t) starfish(t, agw.narms, agw.amp), cparams, pref);
+agw.chunker = fixture_pack_chunker(chnkr);
+agw.ns = 10;
+ts = 2*pi*rand(agw.ns, 1);
+agw.sources = 3.0*starfish(ts, agw.narms, agw.amp);
+agw.strengths = randn(agw.ns, 1);
+agw.nt = 3;
+ts = 2*pi*rand(agw.nt, 1);
+agw.targets = starfish(ts, agw.narms, agw.amp);
+agw.targets = agw.targets.*repmat(rand(1, agw.nt), 2, 1);
+fkern = @(s,t) chnk.helm2d.kern(agw.zk, s, t, 'D');
+agw.mat_ggq = chunkermat(chnkr, fkern);
+agw.source_chunk = 1;
+agw.target_chunk = chnkr.adj(1, agw.source_chunk);
+agw.eps = 1.0e-5;
+k = chnkr.k;
+[t, ~] = lege.exps(k);
+bw = lege.barywts(k);
+k2 = max(27, k + 1);
+[t2, w2] = lege.exps(k2);
+opts = [];
+opts.eps = agw.eps;
+[agw.mat, agw.maxrecs, agw.numints, agw.iers] = chnk.adapgausswts( ...
+    chnkr.r, chnkr.d, chnkr.n, chnkr.d2, [], t, bw, agw.source_chunk, ...
+    chnkr.r(:, :, agw.target_chunk), chnkr.d(:, :, agw.target_chunk), ...
+    chnkr.n(:, :, agw.target_chunk), chnkr.d2(:, :, agw.target_chunk), [], ...
+    fkern, [1; 1], t2, w2, opts);
+rows = (agw.target_chunk - 1)*k + (1:k);
+cols = (agw.source_chunk - 1)*k + (1:k);
+agw.matcomp = agw.mat_ggq(rows, cols);
+agw.inferr = norm(agw.matcomp - agw.mat, 'inf');
+devtools_easy.adapgausswts = agw;
+
 % chunkermat_quadadapTest.m
 cqa = [];
 rng(8675309);

@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 324 pytest cases because several MATLAB parity tests are
+collection expands to 325 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -92,8 +92,9 @@ Implemented from this scope:
   `bernstein_ellipse`, `polsum`, and `tayl`.
 - Adaptive refinement in `chunker.refine` and `chunkerfunc`.
 - Section III quadrature parity: `quadggq/buildmattd` sparse special-block
-  assembly and `quadadap` log-kernel self, neighbor, and robust close
-  replacement are now covered by compact MATLAB fixtures.
+  assembly, direct `adapgausswts` neighbor-block parity, and `quadadap`
+  log-kernel self, neighbor, and robust close replacement are now covered by
+  compact MATLAB fixtures.
 - `chunkermat(..., acceleration="fmm")` matrix-free FMM operators and
   `chunkermatapply` FMM acceleration with sparse special-quadrature
   corrections for singular kernels, including deterministic RHS matvec parity
@@ -630,6 +631,12 @@ MATLAB fixture stores finite special entries.
 adaptive-neighbor matrix comparison from `chunkermat_quadadapTest.m`. The
 method compares MATLAB and Python Helmholtz double-layer GGQ and adaptive
 matrices and verifies both routes agree to the devtools Frobenius threshold.
+
+`test_adapgausswts_devtools_neighbor_block_matches_matlab` checks the direct
+adaptive weight routine from `adapgausswtsTest.m`. The method reconstructs the
+saved starfish chunker, Helmholtz double-layer kernel, source chunk, and
+neighbor target chunk, then compares Python `quadadap.adapgausswts` output,
+recursion metadata, and GGQ reference block against MATLAB.
 
 `test_datafield_devtools_target_data_flam_matches_matlab` checks the
 directional-derivative single-layer target-data slice from MATLAB

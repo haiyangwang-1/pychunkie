@@ -934,6 +934,47 @@ def test_chunkerkerneval_gaussid_devtools_outputs_match_matlab():
     assert float(fixture.max_identity_err) < 1e-6
 
 
+def test_adapgausswts_devtools_neighbor_block_matches_matlab():
+    fixture = load_devtools_easy().adapgausswts
+    chnkr = chunker_from_fields(fixture.chunker)
+    kern = kernel("helm", "d", complex(np.asarray(fixture.zk).reshape(-1)[0]))
+    source_chunk = int(fixture.source_chunk) - 1
+    target_chunk = int(fixture.target_chunk) - 1
+    targ = PointInfo(
+        r=chnkr.r[:, :, target_chunk],
+        d=chnkr.d[:, :, target_chunk],
+        n=chnkr.n[:, :, target_chunk],
+        d2=chnkr.d2[:, :, target_chunk],
+    )
+    nodes, weights = lege.exps(max(27, chnkr.k + 1))[:2]
+    bary = lege.barywts(chnkr.k, chnkr.tstor)
+
+    mat, maxrecs, numints, iers = quadadap.adapgausswts(
+        chnkr,
+        source_chunk,
+        targ,
+        kern,
+        kern.opdims,
+        nodes,
+        weights,
+        bary,
+        {"eps": float(fixture.eps)},
+    )
+    ggq = chunkermat(chnkr, kern)
+    rows = slice(target_chunk * chnkr.k, (target_chunk + 1) * chnkr.k)
+    cols = slice(source_chunk * chnkr.k, (source_chunk + 1) * chnkr.k)
+    matcomp = ggq[rows, cols]
+
+    np.testing.assert_allclose(mat, fixture.mat, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(matcomp, fixture.matcomp, rtol=1e-10, atol=2e-9)
+    np.testing.assert_allclose(matcomp, mat, rtol=1e-10, atol=2e-9)
+    np.testing.assert_array_equal(maxrecs, np.asarray(fixture.maxrecs, dtype=int).reshape(-1))
+    np.testing.assert_array_equal(numints, np.asarray(fixture.numints, dtype=int).reshape(-1))
+    np.testing.assert_array_equal(iers, np.asarray(fixture.iers, dtype=int).reshape(-1))
+    assert float(fixture.inferr) < 1e-11
+    assert np.linalg.norm(matcomp - mat, ord=np.inf) < 1e-9
+
+
 def test_chunkermat_quadadap_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().chunkermat_quadadap
     chnkr = chunker_from_fields(fixture.chunker)
