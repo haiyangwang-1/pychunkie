@@ -207,6 +207,15 @@ def sinearc(t, amp: float, frq: float):
     return r, d, d2
 
 
+def chunkermatapply_graph_from_fixture(fixture):
+    edges = np.asarray(fixture.edgesendverts, dtype=int) - 1
+    if hasattr(fixture, "echnks"):
+        edge_chunks = [chunker_from_fields(edge) for edge in np.asarray(fixture.echnks).reshape(-1, order="F")]
+        return chunkgraph(fixture.verts, edges, edge_chunks)
+    edge_specs = [lambda t, amp=float(fixture.amp), frq=float(fixture.frq): sinearc(t, amp, frq) for _ in range(edges.shape[1])]
+    return chunkgraph(fixture.verts, edges, edge_specs, {"nover": max(int(fixture.nover) - 1, 0)})
+
+
 def loop_curve(t):
     flat = np.asarray(t, dtype=float).reshape(-1)
     r = np.vstack((np.cos(flat), np.sin(flat) * np.sin(0.5 * flat)))
@@ -1692,6 +1701,56 @@ def test_chunkermatapply_vector_devtools_outputs_match_matlab():
     assert np.max(np.abs(u_apply - matlab_u_apply)) < 2e-3
     assert np.linalg.norm(sys_probe - matlab_sys_probe) / np.linalg.norm(matlab_sys_probe) < 3e-5
     assert np.max(np.abs(sys_probe - matlab_sys_probe)) < 1e-2
+    assert max(apply_relerr, float(fixture.apply_relerr)) < 1e-13
+
+
+def test_chunkermatapply_graph_scalar_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().chunkermatapply_graph_scalar
+    cgrph = chunkermatapply_graph_from_fixture(fixture)
+    src = PointInfo(r=point_array(fixture.sources))
+    lap_s = kernel("lap", "s")
+    lap_d = -2 * kernel("lap", "d")
+    dens = (lap_s(src, pointinfo(cgrph)) * float(fixture.strengths)).reshape(-1, order="F")
+    sysmat = chunkermat(cgrph, lap_d)
+    sys = np.eye(cgrph.npt) + sysmat
+    udense = sys @ dens
+    u_apply = dens + chunkermatapply(cgrph, lap_d, dens)
+    probe = np.asarray(fixture.probe)
+    sys_probe = sys @ probe
+    apply_relerr = np.linalg.norm(udense - u_apply) / np.linalg.norm(udense)
+    matlab_udense = np.asarray(fixture.udense).reshape(-1, order="F")
+    matlab_u_apply = np.asarray(fixture.u_apply).reshape(-1, order="F")
+    matlab_sys_probe = np.asarray(fixture.sys_probe)
+
+    np.testing.assert_allclose(dens, np.asarray(fixture.dens).reshape(-1, order="F"), rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(u_apply, udense, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(matlab_u_apply, matlab_udense, rtol=1e-12, atol=1e-13)
+    assert np.linalg.norm(udense - matlab_udense) / np.linalg.norm(matlab_udense) < 3.5e-2
+    assert np.linalg.norm(sys_probe - matlab_sys_probe) / np.linalg.norm(matlab_sys_probe) < 6e-2
+    assert max(apply_relerr, float(fixture.apply_relerr)) < 1e-13
+
+
+def test_chunkermatapply_graph_vector_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().chunkermatapply_graph_vector
+    cgrph = chunkermatapply_graph_from_fixture(fixture)
+    kern = transmission_all_kernel_from_fixture(fixture)
+    bdry_data = transmission_point_source_boundary_data(cgrph, fixture)
+    sysmat = chunkermat(cgrph, kern)
+    sys = np.eye(sysmat.shape[0], dtype=complex) + sysmat
+    udense = sys @ bdry_data
+    u_apply = bdry_data + chunkermatapply(cgrph, kern, bdry_data)
+    probe = np.asarray(fixture.probe)
+    sys_probe = sys @ probe
+    apply_relerr = np.linalg.norm(udense - u_apply) / np.linalg.norm(udense)
+    matlab_udense = np.asarray(fixture.udense).reshape(-1, order="F")
+    matlab_u_apply = np.asarray(fixture.u_apply).reshape(-1, order="F")
+    matlab_sys_probe = np.asarray(fixture.sys_probe)
+
+    np.testing.assert_allclose(bdry_data, np.asarray(fixture.bdry_data).reshape(-1, order="F"), rtol=1e-12, atol=1e-11)
+    np.testing.assert_allclose(u_apply, udense, rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(matlab_u_apply, matlab_udense, rtol=1e-12, atol=1e-12)
+    assert np.linalg.norm(udense - matlab_udense) / np.linalg.norm(matlab_udense) < 1e-3
+    assert np.linalg.norm(sys_probe - matlab_sys_probe) / np.linalg.norm(matlab_sys_probe) < 1e-2
     assert max(apply_relerr, float(fixture.apply_relerr)) < 1e-13
 
 

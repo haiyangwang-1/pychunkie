@@ -1575,6 +1575,95 @@ cmav.sys_probe = sys*cmav.probe;
 cmav.apply_relerr = norm(cmav.udense-cmav.u_apply)/norm(cmav.udense);
 devtools_easy.chunkermatapply_vector = cmav;
 
+% chunkermatapplyTest.m scalar/vector chunkgraph slices
+cmag = [];
+nverts = 3;
+verts = exp(1i*2*pi*(0:(nverts-1))/nverts);
+cmag.verts = [real(verts); imag(verts)];
+iind = 1:nverts;
+jind = 1:nverts;
+iind = [iind iind];
+jind = [jind jind + 1];
+jind(jind > nverts) = 1;
+svals = [-ones(1,nverts) ones(1,nverts)];
+edge2verts = sparse(iind,jind,svals,nverts,nverts);
+cmag.edge2verts = full(edge2verts);
+cmag.edgesendverts = [1:nverts; [2:nverts 1]];
+cmag.amp = 0.1;
+cmag.frq = 2;
+cmag.nover = 2;
+fchnks = cell(1,size(edge2verts,1));
+for icurve = 1:size(edge2verts,1)
+    fchnks{icurve} = @(t) local_sinearc(t,cmag.amp,cmag.frq);
+end
+cparams = [];
+cparams.nover = cmag.nover;
+cgrph = chunkgraph(cmag.verts,edge2verts,fchnks,cparams);
+cmag.npt = cgrph.npt;
+for iedge = 1:numel(cgrph.echnks)
+    cmag.echnks(iedge) = fixture_pack_chunker(cgrph.echnks(iedge));
+end
+fkern = -2*kernel('lap','d');
+sysmat = chunkermat(cgrph,fkern);
+sys = eye(cgrph.npt) + sysmat;
+fkernsrc = kernel('lap','s');
+cmag.sources = [1;1];
+cmag.strengths = 1;
+srcinfo = [];
+srcinfo.r = cmag.sources;
+targinfo = [];
+targinfo.r = cgrph.r(:,:);
+targinfo.d = cgrph.d(:,:);
+cmag.dens = fkernsrc.eval(srcinfo,targinfo)*cmag.strengths;
+cmag.udense = sys*cmag.dens;
+cormat = chunkermat(cgrph,fkern,struct("corrections",true));
+opts_apply = [];
+opts_apply.accel = false;
+cmag.u_apply = cmag.dens + chunkermatapply(cgrph,fkern,cmag.dens,cormat,opts_apply);
+rng(24680);
+cmag.probe = randn(cgrph.npt,2);
+cmag.sys_probe = sys*cmag.probe;
+cmag.apply_relerr = norm(cmag.udense-cmag.u_apply)/norm(cmag.udense);
+devtools_easy.chunkermatapply_graph_scalar = cmag;
+
+cmavg = [];
+cmavg.verts = cmag.verts;
+cmavg.edge2verts = cmag.edge2verts;
+cmavg.edgesendverts = cmag.edgesendverts;
+cmavg.amp = cmag.amp;
+cmavg.frq = cmag.frq;
+cmavg.nover = cmag.nover;
+cmavg.npt = cgrph.npt;
+cmavg.echnks = cmag.echnks;
+cmavg.ks = [1.1;2.1]*30;
+cmavg.coefs = [1.0;1.0];
+cmavg.cs = [ones(1,nverts); 2*ones(1,nverts)];
+opts = [];
+opts.bdry_data_type = 'point sources';
+cmavg.sources = [0.0, 3.0; 0.1, -3.2];
+cmavg.charges = [(1.2+1i)*10; (1+0i)*10];
+sources = cell(1,2);
+sources{1} = cmavg.sources(:,1);
+sources{2} = cmavg.sources(:,2);
+charges = cell(1,2);
+charges{1} = cmavg.charges(1);
+charges{2} = cmavg.charges(2);
+opts.sources = sources;
+opts.charges = charges;
+[kerns, cmavg.bdry_data] = chnk.helm2d.transmission_helper(cgrph, cmavg.ks, cmavg.cs, cmavg.coefs, opts);
+sysmat = chunkermat(cgrph,kerns);
+sys = eye(size(sysmat,1)) + sysmat;
+cmavg.udense = sys*cmavg.bdry_data;
+cormat = chunkermat(cgrph,kerns,struct("corrections",true));
+opts_apply = [];
+opts_apply.accel = false;
+cmavg.u_apply = cmavg.bdry_data + chunkermatapply(cgrph,kerns,cmavg.bdry_data,cormat,opts_apply);
+rng(97531);
+cmavg.probe = randn(2*cgrph.npt,2) + 1i*randn(2*cgrph.npt,2);
+cmavg.sys_probe = sys*cmavg.probe;
+cmavg.apply_relerr = norm(cmavg.udense-cmavg.u_apply)/norm(cmavg.udense);
+devtools_easy.chunkermatapply_graph_vector = cmavg;
+
 % chunkermatTest.m
 cmt = [];
 rng(8675309);

@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 346 pytest cases because several MATLAB parity tests are
+collection expands to 348 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -78,7 +78,7 @@ Current test-backed coverage includes:
   special quadrature, and RCIP helper/compression workflows.
 - MATLAB golden parity for compact fixtures under `tests/golden`, including
   geometry, kernel/operator, quadrature, and RCIP fixtures.
-- MATLAB devtools parity for 49 focused comparisons in
+- MATLAB devtools parity for 51 focused comparisons in
   `tests/test_devtools_parity.py`, including Laplace and Helmholtz dense
   `chunkermat` solve/target-evaluation workflows.
 - Seven parity-stress tests in `tests/test_easy_parity_stress.py` that harden
@@ -641,6 +641,15 @@ reconstructs Helmholtz transmission boundary data from saved point sources,
 builds the same `helmdiff all` operator, and compares dense products,
 matrix-free apply output, and deterministic random probe products to MATLAB
 fixture outputs.
+
+`test_chunkermatapply_graph_scalar_devtools_outputs_match_matlab` and
+`test_chunkermatapply_graph_vector_devtools_outputs_match_matlab` check the
+chunkgraph paths from `chunkermatapplyTest.m`. The methods reconstruct the
+MATLAB edge chunkers exactly, verify saved scalar/vector boundary data, and
+assert both MATLAB and Python matrix-free apply agree with their matching dense
+graph products. Cross-language graph matrix values are kept as bounded
+diagnostics because MATLAB applies graph RCIP corrections not yet present in
+the Python scalar graph matrix path.
 
 `test_chunkermat_laplace_solve_devtools_outputs_match_matlab` checks the
 Laplace dense-system solve workflow from `chunkermatTest.m`. The method

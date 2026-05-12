@@ -107,6 +107,23 @@ def transmission_point_source_boundary_data(chnkr: Chunker, fixture) -> np.ndarr
     return out
 
 
+def sinearc(t, amp: float, frq: float):
+    flat = np.asarray(t, dtype=float).reshape(-1)
+    r = np.vstack((flat, amp * np.sin(frq * flat)))
+    d = np.vstack((np.ones_like(flat), amp * frq * np.cos(frq * flat)))
+    d2 = np.vstack((np.zeros_like(flat), -(frq**2) * amp * np.sin(flat)))
+    return r, d, d2
+
+
+def chunkermatapply_graph_from_fixture(fixture):
+    edges = np.asarray(fixture.edgesendverts, dtype=int) - 1
+    if hasattr(fixture, "echnks"):
+        edge_chunks = [chunker_from_fields(edge) for edge in np.asarray(fixture.echnks).reshape(-1, order="F")]
+        return chunkgraph(fixture.verts, edges, edge_chunks)
+    edge_specs = [lambda t, amp=float(fixture.amp), frq=float(fixture.frq): sinearc(t, amp, frq) for _ in range(edges.shape[1])]
+    return chunkgraph(fixture.verts, edges, edge_specs, {"nover": max(int(fixture.nover) - 1, 0)})
+
+
 def build_snapshot() -> dict[str, np.ndarray]:
     fixture = loadmat(MATLAB_FIXTURE, squeeze_me=True, struct_as_record=False)["devtools_easy"]
     out: dict[str, np.ndarray] = {}
@@ -429,6 +446,23 @@ def build_snapshot() -> dict[str, np.ndarray]:
     out["chunkermatapply_vector_bdry_data"] = cmav_bdry_data
     out["chunkermatapply_vector_apply"] = chunkermatapply(cmav_chunker, cmav_kern, cmav_bdry_data)
     out["chunkermatapply_vector_probe"] = (np.eye(cmav_sysmat.shape[0], dtype=complex) + cmav_sysmat) @ np.asarray(cmav.probe)
+    cmag = fixture.chunkermatapply_graph_scalar
+    cmag_graph = chunkermatapply_graph_from_fixture(cmag)
+    cmag_kern = -2 * kernel("lap", "d")
+    cmag_src = PointInfo(r=point_array(cmag.sources))
+    cmag_dens = (kernel("lap", "s")(cmag_src, pointinfo_from_chunker(cmag_graph)) * float(cmag.strengths)).reshape(-1, order="F")
+    cmag_sysmat = chunkermat(cmag_graph, cmag_kern)
+    out["chunkermatapply_graph_scalar_dens"] = cmag_dens
+    out["chunkermatapply_graph_scalar_apply"] = chunkermatapply(cmag_graph, cmag_kern, cmag_dens)
+    out["chunkermatapply_graph_scalar_probe"] = (np.eye(cmag_graph.npt) + cmag_sysmat) @ np.asarray(cmag.probe)
+    cmavg = fixture.chunkermatapply_graph_vector
+    cmavg_graph = chunkermatapply_graph_from_fixture(cmavg)
+    cmavg_kern = transmission_all_kernel_from_fixture(cmavg)
+    cmavg_bdry_data = transmission_point_source_boundary_data(cmavg_graph, cmavg)
+    cmavg_sysmat = chunkermat(cmavg_graph, cmavg_kern)
+    out["chunkermatapply_graph_vector_bdry_data"] = cmavg_bdry_data
+    out["chunkermatapply_graph_vector_apply"] = chunkermatapply(cmavg_graph, cmavg_kern, cmavg_bdry_data)
+    out["chunkermatapply_graph_vector_probe"] = (np.eye(cmavg_sysmat.shape[0], dtype=complex) + cmavg_sysmat) @ np.asarray(cmavg.probe)
     sk = fixture.singularkernel
     sk_chunker = chunker_from_fields(sk.chunker)
     sk_probe = np.asarray(sk.probe)
