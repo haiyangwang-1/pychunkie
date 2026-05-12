@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 337 pytest cases because several MATLAB parity tests are
+collection expands to 338 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -140,6 +140,10 @@ Implemented from this scope:
 - Dense Laplace `chunkermat` solve parity now covers the devtools
   `chunkermatTest.m` starfish Dirichlet workflow, including the double-layer
   matrix removable diagonal, RHS, GMRES/backslash solutions, adaptive target
+  evaluation, and target-accuracy diagnostics.
+- Dense Helmholtz `chunkermat` solve parity now covers the devtools
+  `chunkermat_helm2dTest.m` starfish Dirichlet workflow, including the
+  double-layer matrix, RHS, GMRES/backslash solutions, adaptive target
   evaluation, and target-accuracy diagnostics.
 - Data-field parity for converted slices of the devtools `datafieldTest.m`
   workflow, including Hilbert/cotangent source data through dense and PyFLAM
@@ -719,6 +723,13 @@ Laplace dense-system solve workflow from `chunkermatTest.m`. The method
 compares the saved boundary/target truth, double-layer matrix, Dirichlet
 system, RHS, GMRES/backslash solutions, and adaptive target evaluation against
 MATLAB, then enforces the devtools target-accuracy threshold.
+
+`test_chunkermat_helm2d_solve_devtools_outputs_match_matlab` checks the
+Helmholtz dense-system solve workflow from `chunkermat_helm2dTest.m`. The
+method compares the saved boundary/target truth, double-layer matrix,
+Dirichlet system, RHS, GMRES/backslash solutions, and adaptive target
+evaluation against MATLAB, then enforces the devtools target-accuracy
+threshold.
 
 `test_chunkermat_l2scale_devtools_outputs_match_matlab` checks the
 transmission-style Helmholtz l2-scaling relation from

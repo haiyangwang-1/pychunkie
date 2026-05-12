@@ -1494,6 +1494,50 @@ cmt.relerr = norm(cmt.utarg-cmt.Dsol,'fro')/(sqrt(chnkr.nch)*norm(cmt.utarg,'fro
 cmt.relerr2 = norm(cmt.utarg-cmt.Dsol,'inf')/dot(abs(cmt.sol_backslash(:)),wchnkr(:));
 devtools_easy.chunkermat_laplace = cmt;
 
+% chunkermat_helm2dTest.m
+cmh = [];
+rng(8675309);
+cparams = [];
+cparams.eps = 1.0e-10;
+cparams.nover = 1;
+pref = [];
+pref.k = 32;
+cmh.narms = 3;
+cmh.amp = 0.25;
+cmh.zk = 1.1;
+chnkr = chunkerfunc(@(t) starfish(t, cmh.narms, cmh.amp), cparams, pref);
+cmh.chunker = fixture_pack_chunker(chnkr);
+cmh.ns = 10;
+ts = 2*pi*rand(cmh.ns, 1);
+cmh.sources = 3.0*starfish(ts, cmh.narms, cmh.amp);
+cmh.strengths = randn(cmh.ns, 1);
+cmh.nt = 3;
+ts = 2*pi*rand(cmh.nt, 1);
+cmh.targets = starfish(ts, cmh.narms, cmh.amp);
+cmh.targets = cmh.targets.*repmat(rand(1,cmh.nt),2,1);
+skern = kernel('h', 's', cmh.zk);
+dkern = kernel('h', 'd', cmh.zk);
+srcinfo = [];
+srcinfo.r = cmh.sources;
+cmh.ubdry = skern.eval(srcinfo, chnkr)*cmh.strengths;
+targinfo = [];
+targinfo.r = cmh.targets;
+cmh.utarg = skern.eval(srcinfo, targinfo)*cmh.strengths;
+cmh.D = chunkermat(chnkr, dkern);
+cmh.sys = -0.5*eye(chnkr.k*chnkr.nch) + cmh.D;
+cmh.rhs = cmh.ubdry(:);
+cmh.sol_gmres = gmres(cmh.sys, cmh.rhs, [], 1e-14, 100);
+cmh.sol_backslash = cmh.sys\cmh.rhs;
+cmh.solve_relerr = norm(cmh.sol_gmres-cmh.sol_backslash,'fro')/norm(cmh.sol_backslash,'fro');
+opts = [];
+opts.usesmooth = false;
+opts.verb = false;
+cmh.Dsol = chunkerkerneval(chnkr, dkern, cmh.sol_backslash, cmh.targets, opts);
+wchnkr = chnkr.wts;
+cmh.relerr = norm(cmh.utarg-cmh.Dsol,'fro')/(sqrt(chnkr.nch)*norm(cmh.utarg,'fro'));
+cmh.relerr2 = norm(cmh.utarg-cmh.Dsol,'inf')/dot(abs(cmh.sol_backslash(:)),wchnkr(:));
+devtools_easy.chunkermat_helm2d = cmh;
+
 % chunkermat_l2scaleTest.m
 cml2 = [];
 cml2.zk0 = 2.0;
