@@ -32,6 +32,12 @@ def smooth_kernel(src: PointInfo, targ: PointInfo):
     return 1.0 + dx**2 + 0.5 * dy**2
 
 
+def complex_smooth_kernel(src: PointInfo, targ: PointInfo):
+    dx = targ.r[0, :, None] - src.r[0, None, :]
+    dy = targ.r[1, :, None] - src.r[1, None, :]
+    return (1.0 + 0.5j) * (1.0 + dx**2) + (0.25 - 0.75j) * dy
+
+
 def vector_smooth_kernel(src: PointInfo, targ: PointInfo):
     dx = targ.r[0, :, None] - src.r[0, None, :]
     dy = targ.r[1, :, None] - src.r[1, None, :]
@@ -389,6 +395,20 @@ def test_chunkerkerneval_flam_matches_eval_matrix_and_dense():
 
     np.testing.assert_allclose(flam_vec_mat, dense_vec_mat, rtol=1e-10, atol=1e-11)
     np.testing.assert_allclose(flam_vec_vals, dense_vec_mat @ dens_vec, rtol=1e-10, atol=1e-11)
+
+
+def test_chunkerkerneval_flam_complex_target_eval_matches_dense():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 6})
+    targets = np.array([[0.0, 1.4, -0.25], [0.0, 0.2, 1.3]])
+    dens = np.exp(0.2j * np.arange(chnkr.npt))
+    opts = {"acceleration": "flam", "occ": 8, "rank_or_tol": 1e-10, "useproxy": False}
+
+    dense_mat = chunkerkernevalmat(chnkr, complex_smooth_kernel, targets)
+    flam_mat = chunkerkernevalmat(chnkr, complex_smooth_kernel, targets, opts)
+    flam_vals = chunkerkerneval(chnkr, complex_smooth_kernel, dens, targets, opts).reshape(-1, order="F")
+
+    np.testing.assert_allclose(flam_mat, dense_mat, rtol=1e-10, atol=1e-11)
+    np.testing.assert_allclose(flam_vals, dense_mat @ dens, rtol=1e-10, atol=1e-11)
 
 
 def test_chunkerkerneval_flam_interleaved_block_kernel_matches_dense():

@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 312 pytest cases because several MATLAB parity tests are
+collection expands to 313 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -803,6 +803,11 @@ both materialized and applied outputs against dense target evaluation.
 target FLAM evaluation. The method compares `chunkerkerneval` and
 `chunkerkernevalmat` with `acceleration="flam"` against dense target
 evaluation for scalar and vector-opdim smooth kernels.
+
+`test_chunkerkerneval_flam_complex_target_eval_matches_dense` checks complex
+rectangular target FLAM evaluation. The method materializes and applies a
+complex-valued smooth target-evaluation factor and compares both outputs
+against dense target evaluation.
 
 `test_chunkerkerneval_flam_interleaved_block_kernel_matches_dense` checks
 smooth 2-by-2 interleaved block-kernel FLAM target evaluation. The method

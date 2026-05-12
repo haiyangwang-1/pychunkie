@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-12 with Python 3.11.9 collected 312 tests: `312 passed`. Full MATLAB parity runs generate ignored `tests/golden/*.mat` files on demand and require a populated `external/chunkie-matlab` checkout.
+Verification snapshot: `uv run pytest` on 2026-05-12 with Python 3.11.9 collected 313 tests: `313 passed`. Full MATLAB parity runs generate ignored `tests/golden/*.mat` files on demand and require a populated `external/chunkie-matlab` checkout.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -376,8 +376,8 @@ their matching `@kernel` factories.
 | `chunkermatapply` | ✅ 🧪 🎯 | `chunkermatapply.m` | Smooth dense application is MATLAB-fixture tested; FMM/FLAM acceleration, shape-preserving single-column and multiple-RHS products, and sparse special-quadrature corrections remain Python-tested. |
 | `chunkerintegral` | ✅ 🧪 🎯 | `chunkerintegral.m` | Smooth value and callable integration routes are MATLAB-fixture tested. |
 | `chunkerinterior` | ✅ 🧪 🎯 | `chunkerinterior.m` | Direct point/grid classification is MATLAB-fixture tested; optional Laplace double-layer FMM and FLAM classification use direct close-boundary correction and are Python/devtools-tested. |
-| `chunkerkerneval` | ✅ 🧪 🎯 | `chunkerkerneval.m` | MATLAB parity fixture checks dense target evaluation, including `forceadap` close-target replacement for Laplace Green-identity devtools targets and target-data directional-derivative direct/adaptive/FLAM parity; FLAM target evaluation is Python-tested and partially MATLAB-fixture-tested, with default/level-dependent rectangular proxies, same-source special-quadrature handling, `forceadap=True` using PyFLAM smooth evaluation plus sparse adaptive near-target corrections, and data-bearing targets falling back to non-proxy compression. |
-| `chunkerkernevalmat` | ✅ 🧪 🎯 | `chunkerkernevalmat.m` | MATLAB parity fixture checks eval matrices, including adaptive close-target replacement through `forceadap`; FLAM eval-matrix materialization is Python-tested, with default/level-dependent rectangular proxies, same-source special-quadrature handling, `forceadap=True` using PyFLAM smooth materialization plus sparse adaptive near-target corrections, and data-bearing targets falling back to non-proxy compression. |
+| `chunkerkerneval` | ✅ 🧪 🎯 | `chunkerkerneval.m` | MATLAB parity fixture checks dense target evaluation, including `forceadap` close-target replacement for Laplace Green-identity devtools targets and target-data directional-derivative direct/adaptive/FLAM parity; FLAM target evaluation is Python-tested and partially MATLAB-fixture-tested, with default/level-dependent rectangular proxies, real/complex smooth kernels, same-source special-quadrature handling, `forceadap=True` using PyFLAM smooth evaluation plus sparse adaptive near-target corrections, and data-bearing targets falling back to non-proxy compression. |
+| `chunkerkernevalmat` | ✅ 🧪 🎯 | `chunkerkernevalmat.m` | MATLAB parity fixture checks eval matrices, including adaptive close-target replacement through `forceadap`; FLAM eval-matrix materialization is Python-tested, with default/level-dependent rectangular proxies, real/complex smooth kernels, same-source special-quadrature handling, `forceadap=True` using PyFLAM smooth materialization plus sparse adaptive near-target corrections, and data-bearing targets falling back to non-proxy compression. |
 
 
 
