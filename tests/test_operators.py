@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 import chunkie.operators as operators_mod
 from chunkie import (
@@ -33,6 +34,15 @@ def smooth_kernel(src: PointInfo, targ: PointInfo):
     return 1.0 + dx**2 + 0.5 * dy**2
 
 
+def probe_fragile_kernel(src: PointInfo, targ: PointInfo):
+    if src.r.shape[1] == 1 and targ.r.shape[1] == 1:
+        raise ValueError("single-point dtype probe is not supported")
+    return smooth_kernel(src, targ)
+
+
+probe_fragile_kernel.opdims = (1, 1)
+
+
 def test_chunkermat_matches_chunkerkerneval_on_boundary_for_smooth_kernel():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
     dens = np.cos(chnkr.r[0].reshape(-1, order="F"))
@@ -45,6 +55,26 @@ def test_chunkermat_matches_chunkerkerneval_on_boundary_for_smooth_kernel():
 
     np.testing.assert_allclose(mat_vals, expected)
     np.testing.assert_allclose(mat_vals, eval_vals)
+
+
+def test_chunkermat_allows_dtype_probe_fallback_for_custom_kernel():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
+
+    actual = chunkermat(chnkr, probe_fragile_kernel)
+    expected = smooth_kernel(pointinfo(chnkr), pointinfo(chnkr)) * chnkr.wts.reshape(-1, order="F")[None, :]
+
+    np.testing.assert_allclose(actual, expected)
+
+
+def test_chunkermat_does_not_swallow_real_custom_kernel_errors():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
+
+    def broken_kernel(src: PointInfo, targ: PointInfo):
+        raise RuntimeError("custom kernel failed")
+
+    broken_kernel.opdims = (1, 1)
+    with pytest.raises(RuntimeError, match="custom kernel failed"):
+        chunkermat(chnkr, broken_kernel)
 
 
 def test_chunkermatapply_fmm_matches_special_matrix_application():

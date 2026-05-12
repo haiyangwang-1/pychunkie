@@ -16,6 +16,16 @@ from . import lege
 from .chunker import Chunker, merge
 
 
+_KERNEL_PROBE_EXCEPTIONS = (
+    AttributeError,
+    TypeError,
+    ValueError,
+    IndexError,
+    FloatingPointError,
+    NotImplementedError,
+)
+
+
 @dataclass
 class PointInfo:
     """Flattened source or target point data passed to kernels.
@@ -744,7 +754,7 @@ def _is_block_kernel_matrix(kern: Any) -> bool:
         return False
     try:
         arr = np.asarray(kern, dtype=object)
-    except Exception:
+    except (TypeError, ValueError):
         return False
     return arr.ndim == 2 and arr.size > 0 and all(callable(item) for item in arr.flat)
 
@@ -858,10 +868,7 @@ def _kernel_opdims_between(src: Chunker, targ: Chunker, kern: Callable[[Any, Any
 
 
 def _operator_dtype_between(src: Chunker, targ: Chunker, kern: Callable[[Any, Any], np.ndarray]) -> np.dtype:
-    try:
-        return np.asarray(_eval_kernel(kern, _pointinfo_node(src, 0), _pointinfo_node(targ, 0))).dtype
-    except Exception:
-        return np.dtype(float)
+    return _probe_kernel_dtype(kern, _pointinfo_node(src, 0), _pointinfo_node(targ, 0))
 
 
 def _apply_chunkgraph_l2scale(edge_chunkers: list[Chunker], rowdims: np.ndarray, coldims: np.ndarray, mat: np.ndarray) -> np.ndarray:
@@ -1048,7 +1055,7 @@ def _require_fmm(kern: Callable[[Any, Any], np.ndarray]) -> None:
 def _require_pyflam():
     try:
         import pyflam
-    except Exception as exc:  # pragma: no cover - dependency is required in packaged installs.
+    except (ImportError, OSError) as exc:  # pragma: no cover - dependency is required in packaged installs.
         raise ImportError("FLAM acceleration requires the pyflam package") from exc
     return pyflam
 
@@ -1558,11 +1565,17 @@ def _kernel_opdims(
 
 
 def _operator_dtype(chnkr: Chunker, kern: Callable[[Any, Any], np.ndarray]) -> np.dtype:
+    return _probe_kernel_dtype(
+        kern,
+        _pointinfo_node(chnkr, 0),
+        _pointinfo_node(chnkr, 1 if chnkr.npt > 1 else 0),
+    )
+
+
+def _probe_kernel_dtype(kern: Callable[[Any, Any], np.ndarray], src: PointInfo, targ: PointInfo) -> np.dtype:
     try:
-        src = _pointinfo_node(chnkr, 0)
-        targ = _pointinfo_node(chnkr, 1 if chnkr.npt > 1 else 0)
         return np.asarray(_eval_kernel(kern, src, targ)).dtype
-    except Exception:
+    except _KERNEL_PROBE_EXCEPTIONS:
         return np.dtype(float)
 
 

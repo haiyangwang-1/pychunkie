@@ -19,8 +19,18 @@ from .chnk import biharm2d, elast2d, helm1d, helm2d, lap2d, stok2d
 
 try:  # pragma: no cover - exercised when the optional compiled package imports.
     import fmm2dpy as _fmm2dpy
-except Exception:  # pragma: no cover - keep source installs usable without FMM2D.
+except (ImportError, OSError):  # pragma: no cover - keep source installs usable without FMM2D.
     _fmm2dpy = None
+
+
+_KERNEL_PROBE_EXCEPTIONS = (
+    AttributeError,
+    TypeError,
+    ValueError,
+    IndexError,
+    FloatingPointError,
+    NotImplementedError,
+)
 
 
 @dataclass
@@ -1027,11 +1037,17 @@ def _interleave_indices(npt: int, total_dim: int, offset: int, dim: int) -> np.n
 def _interleave_dtype(items: np.ndarray, src: Any, targ: Any) -> np.dtype:
     dtype = np.dtype(float)
     for item in items.flat:
-        try:
-            dtype = np.result_type(dtype, np.asarray(item(src, targ)).dtype)
-        except Exception:
-            pass
+        probed = _probe_kernel_dtype(item, src, targ)
+        if probed is not None:
+            dtype = np.result_type(dtype, probed)
     return dtype
+
+
+def _probe_kernel_dtype(item: Callable[[Any, Any], np.ndarray], src: Any, targ: Any) -> np.dtype | None:
+    try:
+        return np.asarray(item(src, targ)).dtype
+    except _KERNEL_PROBE_EXCEPTIONS:
+        return None
 
 
 def _interleave_fmm(
@@ -1075,7 +1091,7 @@ def _infer_opdims(func: Callable[[Any, Any], np.ndarray]) -> tuple[int, int]:
         targ = PointInfo(r=np.ones((2, 1)), d=np.ones((2, 1)), d2=np.zeros((2, 1)), n=np.ones((2, 1)))
         shape = func(src, targ).shape
         return int(shape[0]), int(shape[1])
-    except Exception:
+    except _KERNEL_PROBE_EXCEPTIONS:
         return (0, 0)
 
 

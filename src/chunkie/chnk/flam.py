@@ -17,6 +17,16 @@ from .. import lege
 from ..chunker import Chunker, merge
 
 
+_KERNEL_PROBE_EXCEPTIONS = (
+    AttributeError,
+    TypeError,
+    ValueError,
+    IndexError,
+    FloatingPointError,
+    NotImplementedError,
+)
+
+
 def kernbyindex(
     i: ArrayLike,
     j: ArrayLike,
@@ -486,7 +496,7 @@ def _block_dtype(layout: dict[str, Any]) -> np.dtype:
             src_info = _subset_info(_pointinfo(src), np.array([0], dtype=np.int64))
             try:
                 dtype = np.result_type(dtype, np.asarray(_eval_kernel(layout["kernels"][itarg, isrc], src_info, targ_info)).dtype)
-            except Exception:
+            except _KERNEL_PROBE_EXCEPTIONS:
                 pass
     return np.dtype(dtype)
 
@@ -534,7 +544,7 @@ def _is_block_kernel_matrix(kern: Any) -> bool:
         return False
     try:
         arr = np.asarray(kern, dtype=object)
-    except Exception:
+    except (TypeError, ValueError):
         return False
     return arr.ndim == 2 and arr.size > 0 and all(callable(item) for item in arr.flat)
 
