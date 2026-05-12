@@ -416,7 +416,9 @@ square graph from vertices and directed edge endpoints. The invariant is the
 edge-to-vertex incidence matrix with `-1` at the start and `+1` at the end.
 The method is `chunkgraph` construction plus source-info assembly. Ground truth
 is four edge chunkers, the explicit `v2emat`, total point count equal to the
-sum over edges, source-info shape, and at least two detected regions.
+sum over edges, straight-edge node/derivative/normal/weight formulas,
+source-info flattening, exact vertex-edge structure, and the square region
+loop.
 
 `test_chunkgraph_accepts_incidence_matrix_edges` checks the alternate graph
 constructor format where edges are supplied as an incidence matrix. The method

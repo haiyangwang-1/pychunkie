@@ -30,6 +30,9 @@ def square_graph():
 
 def test_chunkgraph_constructs_edges_and_vertex_incidence():
     cg = square_graph()
+    t = cg.echnks[0].tstor
+    u = (t + 1.0) / 2.0
+    base_wts = cg.echnks[0].wstor / 2.0
 
     assert len(cg.echnks) == 4
     assert cg.v2emat.shape == (4, 4)
@@ -45,8 +48,35 @@ def test_chunkgraph_constructs_edges_and_vertex_incidence():
         ),
     )
     assert cg.npt == sum(edge.npt for edge in cg.echnks)
-    assert cg.sourceinfo.r.shape == (2, cg.npt)
-    assert len(cg.regions) >= 2
+    for iedge, edge in enumerate(cg.echnks):
+        start = cg.verts[:, cg.edgesendverts[0, iedge]]
+        end = cg.verts[:, cg.edgesendverts[1, iedge]]
+        tangent = end - start
+        half_tangent = tangent / 2.0
+        speed = np.linalg.norm(half_tangent)
+        expected_r = start[:, None] + tangent[:, None] * u[None, :]
+        expected_d = np.repeat(half_tangent[:, None], cg.k, axis=1)
+        expected_n = np.repeat([[half_tangent[1]], [-half_tangent[0]]], cg.k, axis=1) / speed
+
+        np.testing.assert_allclose(edge.r[:, :, 0], expected_r, atol=1e-15)
+        np.testing.assert_allclose(edge.d[:, :, 0], expected_d, atol=1e-15)
+        np.testing.assert_allclose(edge.d2[:, :, 0], 0.0, atol=1e-15)
+        np.testing.assert_allclose(edge.n[:, :, 0], expected_n, atol=1e-15)
+        np.testing.assert_allclose(edge.wts[:, 0], base_wts, atol=1e-15)
+
+    sourceinfo = cg.sourceinfo
+    np.testing.assert_allclose(sourceinfo.r, cg.r.reshape(2, cg.npt, order="F"))
+    np.testing.assert_allclose(sourceinfo.d, cg.d.reshape(2, cg.npt, order="F"))
+    np.testing.assert_allclose(sourceinfo.d2, cg.d2.reshape(2, cg.npt, order="F"))
+    np.testing.assert_allclose(sourceinfo.n, cg.n.reshape(2, cg.npt, order="F"))
+    np.testing.assert_allclose(sourceinfo.w, cg.wts.reshape(-1, order="F"))
+    assert [(edges.tolist(), signs.tolist()) for edges, signs in cg.vstruc] == [
+        ([0, 3], [-1, 1]),
+        ([0, 1], [1, -1]),
+        ([1, 2], [1, -1]),
+        ([3, 2], [-1, 1]),
+    ]
+    assert cg.regions == [[], [[0, 1, 2, 3]]]
 
 
 def test_chunkgraph_accepts_incidence_matrix_edges():

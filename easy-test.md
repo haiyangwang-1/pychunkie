@@ -62,6 +62,7 @@ moved here so active triage stays focused on unfinished work.
 | `tests/test_helm1d.py::test_helm1d_green_gradient_matches_finite_difference` | done | Checked only target-x gradient and Hessian shape. | Adds target-y gradient and Hessian finite-difference checks. |
 | `tests/test_operators.py::test_pointinfo_uses_matlab_chunk_contiguous_ordering` | done | Checked only the first two flattened position blocks. | Compares full flattened `r`, `d`, `d2`, and normal arrays against chunk-contiguous storage. |
 | `tests/test_spcl.py::test_absconvgauss_derivatives_match_finite_differences` | done | Checked derivative consistency but left the smoothed value as a shape-only assertion. | Compares value, first derivative, and second derivative to the closed-form Gaussian-convolution formulas while retaining finite-difference checks. |
+| `tests/test_chunkgraph.py::test_chunkgraph_constructs_edges_and_vertex_incidence` | done | Checked incidence, counts, source-info shape, and a loose region count without proving the graph retained the expected edge geometry. | Adds straight-edge node, derivative, normal, weight, source-info flattening, vertex-structure, and exact region-loop assertions. |
 
 ## Completed Full Test Ease Audit - 2026-05-12
 
