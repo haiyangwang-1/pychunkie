@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 310 pytest cases because several MATLAB parity tests are
+collection expands to 311 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -817,6 +817,13 @@ checks close-target corrections in the FLAM target-evaluation path. The method
 combines PyFLAM smooth evaluation with sparse adaptive correction blocks and
 compares both materialized matrices and applied values against the dense
 adaptive reference.
+
+`test_chunkerkerneval_flam_same_source_special_quadrature_matches_dense`
+checks FLAM self-target evaluation for singular kernels. The method requests
+`chunkerkernevalmat(..., targobj=chnkr, {"acceleration": "flam"})` and
+`chunkerkerneval(..., targobj=chnkr, {"acceleration": "flam"})` for a Laplace
+single-layer kernel, then compares both routes against the dense GGQ
+same-source matrix.
 
 `test_chunkerinterior_flam_matches_direct_classification` checks FLAM interior
 classification. The method evaluates inside, outside, and near-boundary sample
