@@ -77,6 +77,58 @@ def chunker_from_fields(fields) -> Chunker:
     return chnkr
 
 
+def block_22_kernel(src, targ):
+    dx = targ.r[0, :, None] - src.r[0, None, :]
+    dy = targ.r[1, :, None] - src.r[1, None, :]
+    base = 1.0 + dx**2 + 0.5 * dy**2
+    ntarget, nsource = base.shape
+    out = np.zeros((2 * ntarget, 2 * nsource), dtype=base.dtype)
+    out[0::2, 0::2] = base
+    out[1::2, 1::2] = 2.0 + 0.25 * base
+    out[0::2, 1::2] = 0.1 * dx
+    out[1::2, 0::2] = -0.2 * dy
+    return out
+
+
+block_22_kernel.opdims = (2, 2)
+
+
+def block_21_kernel(src, targ):
+    dx = targ.r[0, :, None] - src.r[0, None, :]
+    dy = targ.r[1, :, None] - src.r[1, None, :]
+    base = 0.75 + 0.2 * dx - 0.1 * dy + 0.05 * dx * dy
+    ntarget, nsource = base.shape
+    out = np.zeros((2 * ntarget, nsource), dtype=base.dtype)
+    out[0::2, :] = base
+    out[1::2, :] = 1.25 - 0.15 * dx + 0.3 * dy**2
+    return out
+
+
+block_21_kernel.opdims = (2, 1)
+
+
+def block_12_kernel(src, targ):
+    dx = targ.r[0, :, None] - src.r[0, None, :]
+    dy = targ.r[1, :, None] - src.r[1, None, :]
+    ntarget, nsource = dx.shape
+    out = np.zeros((ntarget, 2 * nsource), dtype=dx.dtype)
+    out[:, 0::2] = -0.4 + 0.35 * dx**2 + 0.1 * dy
+    out[:, 1::2] = 0.6 + 0.2 * dx - 0.25 * dy
+    return out
+
+
+block_12_kernel.opdims = (1, 2)
+
+
+def block_scalar_kernel(src, targ):
+    dx = targ.r[0, :, None] - src.r[0, None, :]
+    dy = targ.r[1, :, None] - src.r[1, None, :]
+    return 1.0 + dx**2 + 0.5 * dy**2
+
+
+block_scalar_kernel.opdims = (1, 1)
+
+
 def assert_chunker_matches_fields(chnkr: Chunker, fields, label: str) -> None:
     np.testing.assert_allclose(chnkr.r, fields.r, atol=1e-13, err_msg=f"{label}: r")
     np.testing.assert_allclose(chnkr.d, fields.d, atol=1e-13, err_msg=f"{label}: d")
@@ -598,6 +650,35 @@ def test_accelerated_operator_paths_match_matlab_fixture():
     sol = flam_op.solve(rhs)
     np.testing.assert_allclose(sol, fixture.lap_s_flam_solve, rtol=2e-8, atol=2e-10)
     np.testing.assert_allclose(shifted @ sol, rhs, rtol=2e-8, atol=2e-10)
+
+    block_chunkers = [chunker_from_fields(fixture.block_chunker1), chunker_from_fields(fixture.block_chunker2)]
+    block_kernels = [
+        [block_22_kernel, block_21_kernel],
+        [block_12_kernel, block_scalar_kernel],
+    ]
+    block_rhs = np.asarray(fixture.block_rhs).reshape(-1, order="F")
+    block_dense = chunkermat(block_chunkers, block_kernels, {"quad": "native"})
+    block_shifted = block_dense + float(fixture.block_dval) * np.eye(block_dense.shape[0])
+
+    np.testing.assert_allclose(block_dense, fixture.block_dense, rtol=1e-12, atol=1e-13)
+    block_flam = chunkermat(
+        block_chunkers,
+        block_kernels,
+        {
+            "acceleration": "flam",
+            "dval": float(fixture.block_dval),
+            "quad": "native",
+            "occ": 1000,
+            "rank_or_tol": 1e-12,
+            "useproxy": False,
+        },
+    )
+    assert isinstance(block_flam, ChunkerFLAMMatrix)
+    np.testing.assert_allclose(block_flam @ block_rhs, fixture.block_flam_apply, rtol=2e-8, atol=2e-10)
+    np.testing.assert_allclose(block_flam @ block_rhs, block_shifted @ block_rhs, rtol=2e-8, atol=2e-10)
+    block_sol = block_flam.solve(block_rhs)
+    np.testing.assert_allclose(block_sol, fixture.block_flam_solve, rtol=2e-8, atol=2e-10)
+    np.testing.assert_allclose(block_shifted @ block_sol, block_rhs, rtol=2e-8, atol=2e-10)
 
 
 def test_section_iii_quadratures_match_matlab_fixture():

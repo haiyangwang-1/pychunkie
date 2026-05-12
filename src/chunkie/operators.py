@@ -25,6 +25,17 @@ class PointInfo:
     data: np.ndarray | None = None
 
 
+@dataclass
+class _BlockKernelLayout:
+    chunkers: list[Chunker]
+    kernels: np.ndarray
+    opdims_mat: np.ndarray
+    rowdims: np.ndarray
+    coldims: np.ndarray
+    row_offsets: np.ndarray
+    col_offsets: np.ndarray
+
+
 class ChunkerFMMMatrix(LinearOperator):
     """Matrix-free ``chunkermat`` operator using kernel FMM application."""
 
@@ -89,16 +100,23 @@ class ChunkerFLAMMatrix(LinearOperator):
         dval: ArrayLike | float | complex = 0.0,
         opts: dict[str, Any] | None = None,
     ):
-        self.chnkr = _require_chunker(chnkr)
+        self.chnkr = _require_chunker(chnkr) if not _is_block_kernel_matrix(kern) else chnkr
         self.kern = kern
         self.opts = {} if opts is None else dict(opts)
         self.factor = chunkerflam(self.chnkr, self.kern, dval, self.opts)
         self.flamtype = str(self.opts.get("flamtype", "rskelf")).lower()
-        self.opdims = _kernel_opdims(self.chnkr, kern)
-        dtype = _operator_dtype(self.chnkr, kern)
+        if _is_block_kernel_matrix(kern):
+            self.block_layout = _block_kernel_layout(chnkr, kern)
+            self.opdims = None
+            dtype = _block_operator_dtype(self.block_layout)
+            shape = (int(self.block_layout.row_offsets[-1]), int(self.block_layout.col_offsets[-1]))
+        else:
+            self.block_layout = None
+            self.opdims = _kernel_opdims(self.chnkr, kern)
+            dtype = _operator_dtype(self.chnkr, kern)
+            shape = (self.chnkr.npt * int(self.opdims[0]), self.chnkr.npt * int(self.opdims[1]))
         if np.asarray(dval).size:
             dtype = np.result_type(dtype, np.asarray(dval).dtype)
-        shape = (self.chnkr.npt * int(self.opdims[0]), self.chnkr.npt * int(self.opdims[1]))
         super().__init__(dtype=dtype, shape=shape)
 
     def _matvec(self, x: np.ndarray) -> np.ndarray:
@@ -213,8 +231,11 @@ def chunkerflam(
     """Build a PyFLAM compressed representation of a chunker system matrix."""
 
     pyflam = _require_pyflam()
-    chnkr = _require_chunker(chnkobj)
     options = {} if opts is None else dict(opts)
+    if _is_block_kernel_matrix(kern):
+        return _chunkerflam_block(chnkobj, kern, dval, options, pyflam)
+
+    chnkr = _require_chunker(chnkobj)
     opdims = _kernel_opdims(chnkr, kern)
     op0 = int(opdims[0])
     op1 = int(opdims[1])
@@ -265,6 +286,58 @@ def chunkerflam(
     raise NotImplementedError("flamtype must be 'rskelf' or 'rskel'")
 
 
+def _chunkerflam_block(
+    chnkobj: Any,
+    kerns: Any,
+    dval: ArrayLike | float | complex,
+    options: dict[str, Any],
+    pyflam: Any,
+):
+    layout = _block_kernel_layout(chnkobj, kerns)
+    nrows = int(layout.row_offsets[-1])
+    ncols = int(layout.col_offsets[-1])
+    if nrows != ncols:
+        raise ValueError("chunkerflam requires a square discretized operator")
+
+    dval_vec = _dval_vector(dval, nrows)
+    spmat = options.get("sp_nonsmooth", None)
+    if spmat is None:
+        spmat = _block_special_overwrite_matrix(layout, options)
+    else:
+        spmat = spmat.tocsr() if sparse.issparse(spmat) else sparse.csr_matrix(spmat)
+    has_dval = bool(np.any(dval_vec != 0))
+
+    from .chnk import flam
+
+    l2scale = bool(options.get("l2scale", False))
+
+    def matfun(rows: np.ndarray, cols: np.ndarray) -> np.ndarray:
+        out = flam.kernbyindex(rows, cols, layout.chunkers, layout.kernels, layout.opdims_mat, spmat, l2scale)
+        if has_dval:
+            out = _add_diagonal_shift(out, rows, cols, dval_vec)
+        return out
+
+    xflam = np.column_stack(
+        [
+            np.repeat(np.real(pointinfo(chnkr).r), int(opdim), axis=1)
+            for chnkr, opdim in zip(layout.chunkers, layout.coldims)
+        ]
+    )
+    flamtype = str(options.get("flamtype", "rskelf")).lower()
+    occ = int(options.get("occ", 200))
+    rank_or_tol = options.get("rank_or_tol", options.get("eps", options.get("tol", 1.0e-14)))
+    rank_or_tol = int(rank_or_tol) if float(rank_or_tol).is_integer() and float(rank_or_tol) >= 1 else float(rank_or_tol)
+    opts_flam = {
+        "verb": int(bool(options.get("verb", False))),
+        "lvlmax": options.get("lvlmax", np.inf),
+    }
+    if flamtype == "rskelf":
+        return pyflam.rskelf(matfun, xflam, occ, rank_or_tol, None, opts_flam)
+    if flamtype == "rskel":
+        return pyflam.rskel(matfun, xflam, xflam, occ, rank_or_tol, None, opts_flam)
+    raise NotImplementedError("flamtype must be 'rskelf' or 'rskel'")
+
+
 def chunkermat(
     chnkr: Chunker,
     kern: Callable[[Any, Any], np.ndarray],
@@ -274,7 +347,12 @@ def chunkermat(
 
     options = {} if opts is None else dict(opts)
     if _is_block_kernel_matrix(kern):
-        return _chunkgraph_block_mat(chnkr, kern, options)
+        acceleration = _acceleration(options)
+        if acceleration == "flam":
+            return ChunkerFLAMMatrix(chnkr, kern, options.get("dval", 0.0), options)
+        if acceleration == "fmm":
+            raise NotImplementedError("block-kernel FMM matrices are not implemented")
+        return _block_kernel_mat(chnkr, kern, options)
 
     chnkr = _require_chunker(chnkr)
     acceleration = _acceleration(options)
@@ -310,12 +388,12 @@ def chunkermatapply(
 ) -> np.ndarray:
     """Apply the native matrix for ``kern`` on ``chnkr``."""
 
-    chnkr = _require_chunker(chnkr)
     options = {} if opts is None else dict(opts)
     acceleration = _acceleration(options)
     if acceleration == "fmm":
         _require_fmm(kern)
-    op = chunkermat(chnkr, kern, options)
+    chnkobj = chnkr if _is_block_kernel_matrix(kern) else _require_chunker(chnkr)
+    op = chunkermat(chnkobj, kern, options)
     dens_arg = _density_matmul_arg(op.shape[1], dens)
     return op @ dens_arg
 
@@ -537,6 +615,25 @@ def _as_chunker(obj: Any) -> Chunker | None:
     return None
 
 
+def _as_chunker_sequence(obj: Any) -> list[Chunker] | None:
+    if isinstance(obj, Chunker):
+        return [obj]
+    if isinstance(obj, (list, tuple)):
+        items = list(obj)
+        if items and all(isinstance(item, Chunker) for item in items):
+            return items
+    if isinstance(obj, np.ndarray) and obj.dtype == object:
+        items = list(np.ravel(obj, order="F"))
+        if items and all(isinstance(item, Chunker) for item in items):
+            return items
+    edges = getattr(obj, "echnks", None)
+    if edges is not None:
+        edge_chunkers = list(edges)
+        if edge_chunkers and all(isinstance(item, Chunker) for item in edge_chunkers):
+            return edge_chunkers
+    return None
+
+
 def _require_chunker(obj: Any) -> Chunker:
     out = _as_chunker(obj)
     if out is None:
@@ -554,26 +651,22 @@ def _is_block_kernel_matrix(kern: Any) -> bool:
     return arr.ndim == 2 and arr.size > 0 and all(callable(item) for item in arr.flat)
 
 
-def _chunkgraph_block_mat(obj: Any, kerns: Any, opts: dict[str, Any]) -> np.ndarray:
-    edges = getattr(obj, "echnks", None)
-    if edges is None:
-        raise TypeError("block kernel matrices require a chunkgraph-like object with edge chunkers")
-    edge_chunkers = list(edges)
-    nedge = len(edge_chunkers)
+def _block_kernel_layout(obj: Any, kerns: Any) -> _BlockKernelLayout:
+    chunkers = _as_chunker_sequence(obj)
+    if chunkers is None:
+        raise TypeError("block kernel matrices require a chunker sequence or chunkgraph-like object")
+    nchunker = len(chunkers)
     kernels = np.asarray(kerns, dtype=object)
-    if kernels.shape != (nedge, nedge):
-        raise ValueError("block kernel matrix shape must match the number of graph edges")
-    if _acceleration(opts) != "dense":
-        raise NotImplementedError("chunkgraph block-kernel matrices currently support dense assembly only")
+    if kernels.shape != (nchunker, nchunker):
+        raise ValueError("block kernel matrix shape must match the number of chunkers")
 
-    rowdims = np.zeros(nedge, dtype=int)
-    coldims = np.zeros(nedge, dtype=int)
-    block_opdims: dict[tuple[int, int], tuple[int, int]] = {}
-    dtype = np.dtype(float)
-    for itarg, targ in enumerate(edge_chunkers):
-        for isrc, src in enumerate(edge_chunkers):
+    rowdims = np.zeros(nchunker, dtype=int)
+    coldims = np.zeros(nchunker, dtype=int)
+    opdims_mat = np.zeros((2, nchunker, nchunker), dtype=int)
+    for itarg, targ in enumerate(chunkers):
+        for isrc, src in enumerate(chunkers):
             op0, op1 = _kernel_opdims_between(src, targ, kernels[itarg, isrc])
-            block_opdims[(itarg, isrc)] = (op0, op1)
+            opdims_mat[:, itarg, isrc] = (op0, op1)
             if rowdims[itarg] == 0:
                 rowdims[itarg] = op0
             elif rowdims[itarg] != op0:
@@ -582,15 +675,26 @@ def _chunkgraph_block_mat(obj: Any, kerns: Any, opts: dict[str, Any]) -> np.ndar
                 coldims[isrc] = op1
             elif coldims[isrc] != op1:
                 raise ValueError("block kernel column operator dimensions are inconsistent")
-            dtype = np.result_type(dtype, _operator_dtype_between(src, targ, kernels[itarg, isrc]))
 
-    row_offsets = np.concatenate(
-        ([0], np.cumsum([edge.npt * dim for edge, dim in zip(edge_chunkers, rowdims)]))
-    )
-    col_offsets = np.concatenate(
-        ([0], np.cumsum([edge.npt * dim for edge, dim in zip(edge_chunkers, coldims)]))
-    )
-    out = np.zeros((int(row_offsets[-1]), int(col_offsets[-1])), dtype=dtype)
+    row_offsets = np.concatenate(([0], np.cumsum([chnkr.npt * dim for chnkr, dim in zip(chunkers, rowdims)])))
+    col_offsets = np.concatenate(([0], np.cumsum([chnkr.npt * dim for chnkr, dim in zip(chunkers, coldims)])))
+    return _BlockKernelLayout(chunkers, kernels, opdims_mat, rowdims, coldims, row_offsets, col_offsets)
+
+
+def _block_operator_dtype(layout: _BlockKernelLayout) -> np.dtype:
+    dtype = np.dtype(float)
+    for itarg, targ in enumerate(layout.chunkers):
+        for isrc, src in enumerate(layout.chunkers):
+            dtype = np.result_type(dtype, _operator_dtype_between(src, targ, layout.kernels[itarg, isrc]))
+    return np.dtype(dtype)
+
+
+def _block_kernel_mat(obj: Any, kerns: Any, opts: dict[str, Any]) -> np.ndarray:
+    layout = _block_kernel_layout(obj, kerns)
+    edge_chunkers = layout.chunkers
+    kernels = layout.kernels
+    nedge = len(edge_chunkers)
+    out = np.zeros((int(layout.row_offsets[-1]), int(layout.col_offsets[-1])), dtype=_block_operator_dtype(layout))
 
     for kern in _unique_kernel_objects(kernels):
         pairs = [(itarg, isrc) for itarg in range(nedge) for isrc in range(nedge) if kernels[itarg, isrc] is kern]
@@ -599,7 +703,7 @@ def _chunkgraph_block_mat(obj: Any, kerns: Any, opts: dict[str, Any]) -> np.ndar
         targ_merged = merge([edge_chunkers[idx] for idx in target_edges])
         src_merged = merge([edge_chunkers[idx] for idx in source_edges])
         mat = _eval_kernel(kern, pointinfo(src_merged), pointinfo(targ_merged))
-        sample_op1 = block_opdims[pairs[0]][1]
+        sample_op1 = int(layout.opdims_mat[1, pairs[0][0], pairs[0][1]])
         src_weights = src_merged.wts.reshape(-1, order="F")
         if mat.shape[1] == src_merged.npt:
             weighted = mat * src_weights[None, :]
@@ -607,20 +711,20 @@ def _chunkgraph_block_mat(obj: Any, kerns: Any, opts: dict[str, Any]) -> np.ndar
             weighted = mat * np.repeat(src_weights, sample_op1)[None, :]
         else:
             raise ValueError("block kernel column dimension is incompatible with source edge points")
-        local_rows = _block_offsets_for_edges(edge_chunkers, rowdims, target_edges)
-        local_cols = _block_offsets_for_edges(edge_chunkers, coldims, source_edges)
+        local_rows = _block_offsets_for_edges(edge_chunkers, layout.rowdims, target_edges)
+        local_cols = _block_offsets_for_edges(edge_chunkers, layout.coldims, source_edges)
         target_lookup = {edge: idx for idx, edge in enumerate(target_edges)}
         source_lookup = {edge: idx for idx, edge in enumerate(source_edges)}
         for itarg, isrc in pairs:
-            rows = slice(int(row_offsets[itarg]), int(row_offsets[itarg + 1]))
-            cols = slice(int(col_offsets[isrc]), int(col_offsets[isrc + 1]))
+            rows = slice(int(layout.row_offsets[itarg]), int(layout.row_offsets[itarg + 1]))
+            cols = slice(int(layout.col_offsets[isrc]), int(layout.col_offsets[isrc + 1]))
             local_i = target_lookup[itarg]
             local_j = source_lookup[isrc]
             src_rows = slice(int(local_rows[local_i]), int(local_rows[local_i + 1]))
             src_cols = slice(int(local_cols[local_j]), int(local_cols[local_j + 1]))
             out[rows, cols] = weighted[src_rows, src_cols]
     if _option_bool(opts.get("l2scale", False)):
-        return _apply_chunkgraph_l2scale(edge_chunkers, rowdims, coldims, out)
+        return _apply_chunkgraph_l2scale(edge_chunkers, layout.rowdims, layout.coldims, out)
     return out
 
 
@@ -660,6 +764,8 @@ def _apply_chunkgraph_l2scale(edge_chunkers: list[Chunker], rowdims: np.ndarray,
     col_scales = np.concatenate(
         [np.repeat(1.0 / np.sqrt(edge.wts.reshape(-1, order="F")), int(dim)) for edge, dim in zip(edge_chunkers, coldims)]
     )
+    if sparse.issparse(mat):
+        return sparse.diags(row_scales, format="csr") @ mat @ sparse.diags(col_scales, format="csr")
     return row_scales[:, None] * mat * col_scales[None, :]
 
 
@@ -754,6 +860,33 @@ def _special_overwrite_matrix(
     if _option_bool(options.get("l2scale", False)):
         spmat = _apply_l2scale_matrix(chnkr, spmat)
     return spmat
+
+
+def _block_special_overwrite_matrix(layout: _BlockKernelLayout, options: dict[str, Any]) -> spmatrix:
+    rows_all: list[np.ndarray] = []
+    cols_all: list[np.ndarray] = []
+    vals_all: list[np.ndarray] = []
+    for idx, chnkr in enumerate(layout.chunkers):
+        kern = layout.kernels[idx, idx]
+        if not _uses_special_quadrature(kern, options):
+            continue
+        local_options = dict(options)
+        local_options.pop("l2scale", None)
+        spmat = _special_overwrite_matrix(chnkr, kern, local_options).tocoo()
+        if spmat.nnz == 0:
+            continue
+        rows_all.append(spmat.row + int(layout.row_offsets[idx]))
+        cols_all.append(spmat.col + int(layout.col_offsets[idx]))
+        vals_all.append(spmat.data)
+    if not vals_all:
+        return sparse.csr_matrix((int(layout.row_offsets[-1]), int(layout.col_offsets[-1])))
+    out = sparse.csr_matrix(
+        (np.concatenate(vals_all), (np.concatenate(rows_all), np.concatenate(cols_all))),
+        shape=(int(layout.row_offsets[-1]), int(layout.col_offsets[-1])),
+    )
+    if _option_bool(options.get("l2scale", False)):
+        return sparse.csr_matrix(_apply_chunkgraph_l2scale(layout.chunkers, layout.rowdims, layout.coldims, out))
+    return out
 
 
 def _option_bool(value: Any) -> bool:

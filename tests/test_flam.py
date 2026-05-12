@@ -54,6 +54,33 @@ def vector_smooth_kernel(src: PointInfo, targ: PointInfo):
 vector_smooth_kernel.opdims = (2, 2)
 
 
+def block_two_by_one_kernel(src: PointInfo, targ: PointInfo):
+    dx = targ.r[0, :, None] - src.r[0, None, :]
+    dy = targ.r[1, :, None] - src.r[1, None, :]
+    base = 0.75 + 0.2 * dx - 0.1 * dy + 0.05 * dx * dy
+    ntarget, nsource = base.shape
+    out = np.zeros((2 * ntarget, nsource), dtype=base.dtype)
+    out[0::2, :] = base
+    out[1::2, :] = 1.25 - 0.15 * dx + 0.3 * dy**2
+    return out
+
+
+block_two_by_one_kernel.opdims = (2, 1)
+
+
+def block_one_by_two_kernel(src: PointInfo, targ: PointInfo):
+    dx = targ.r[0, :, None] - src.r[0, None, :]
+    dy = targ.r[1, :, None] - src.r[1, None, :]
+    ntarget, nsource = dx.shape
+    out = np.zeros((ntarget, 2 * nsource), dtype=dx.dtype)
+    out[:, 0::2] = -0.4 + 0.35 * dx**2 + 0.1 * dy
+    out[:, 1::2] = 0.6 + 0.2 * dx - 0.25 * dy
+    return out
+
+
+block_one_by_two_kernel.opdims = (1, 2)
+
+
 def data_kernel(src: PointInfo, targ: PointInfo):
     dx = targ.r[0, :, None] - src.r[0, None, :]
     return 1.0 + dx + 0.1 * src.data[0][None, :] + 0.2 * targ.data[0][:, None]
@@ -135,6 +162,56 @@ def test_flam_accepts_vector_opdim_chunker_sequences():
 
     np.testing.assert_allclose(flam_mat @ rhs, dense @ rhs, rtol=1e-10, atol=1e-11)
     np.testing.assert_allclose(applied, dense @ rhs, rtol=1e-10, atol=1e-11)
+
+
+def test_flam_kernbyindex_accepts_multi_chunker_block_kernels():
+    first, _ = chunkerfunc(circle, {"nchmin": 3}, {"k": 5})
+    second = first.translate(np.array([2.6, 0.25]))
+    chunkers = [first, second]
+    blocks = [
+        [vector_smooth_kernel, block_two_by_one_kernel],
+        [block_one_by_two_kernel, smooth_kernel],
+    ]
+    dense = chunkermat(chunkers, blocks)
+    opdims_mat = np.array([[[2, 2], [1, 1]], [[2, 1], [2, 1]]], dtype=int)
+    rows = np.array([0, 3, 2 * first.npt - 1, 2 * first.npt, 2 * first.npt + second.npt - 1])
+    cols = np.array([1, 2 * first.npt - 2, 2 * first.npt, 2 * first.npt + second.npt - 1])
+
+    actual = flam.kernbyindex(rows, cols, chunkers, blocks, opdims_mat)
+    np.testing.assert_allclose(actual, dense[np.ix_(rows, cols)], atol=1e-14)
+
+    overwrite = sparse.csr_matrix(
+        (np.array([8.0, -2.5]), (np.array([rows[1], rows[3]]), np.array([cols[1], cols[2]]))),
+        shape=dense.shape,
+    )
+    overwritten = flam.kernbyindex(rows, cols, chunkers, blocks, opdims_mat, overwrite)
+    assert overwritten[1, 1] == 8.0
+    assert overwritten[3, 2] == -2.5
+
+
+def test_chunkermat_flam_multi_chunker_block_kernel_matches_dense_apply_and_solve():
+    first, _ = chunkerfunc(circle, {"nchmin": 3}, {"k": 5})
+    second = first.translate(np.array([2.6, 0.25]))
+    chunkers = [first, second]
+    blocks = [
+        [vector_smooth_kernel, block_two_by_one_kernel],
+        [block_one_by_two_kernel, smooth_kernel],
+    ]
+    dense = chunkermat(chunkers, blocks)
+    shifted = dense + 1.25 * np.eye(dense.shape[0])
+    rhs = np.sin(0.17 * np.arange(dense.shape[1])) + 0.3 * np.cos(0.11 * np.arange(dense.shape[1]))
+    rhs2 = np.column_stack((rhs, np.cos(0.07 * np.arange(dense.shape[1]))))
+    opts = {"acceleration": "flam", "dval": 1.25, "occ": 8, "rank_or_tol": 1e-10, "useproxy": False}
+
+    flam_mat = chunkermat(chunkers, blocks, opts)
+    applied = chunkermatapply(chunkers, blocks, rhs2, opts)
+
+    assert isinstance(flam_mat, ChunkerFLAMMatrix)
+    assert flam_mat.shape == dense.shape
+    np.testing.assert_allclose(flam_mat @ rhs, shifted @ rhs, rtol=1e-10, atol=1e-11)
+    np.testing.assert_allclose(applied, shifted @ rhs2, rtol=1e-10, atol=1e-11)
+    sol = flam_mat.solve(rhs)
+    np.testing.assert_allclose(shifted @ sol, rhs, rtol=1e-10, atol=1e-11)
 
 
 def test_flam_kernbyindexr_matches_dense_and_sparse_overwrites():

@@ -28,6 +28,9 @@ def kernbyindex(
 ) -> np.ndarray:
     """Return weighted boundary operator entries for FLAM index callbacks."""
 
+    if _is_block_kernel_matrix(kern):
+        return _block_kernbyindex(i, j, chnkobj, kern, opdims, spmat, l2scale)
+
     chnkr = _as_chunker(chnkobj)
     rows = _as_index_array(i)
     cols = _as_index_array(j)
@@ -370,6 +373,124 @@ def _subblock_from_dofs(
     return mat[np.ix_(row_lookup, col_lookup)]
 
 
+def _block_kernbyindex(
+    i: ArrayLike,
+    j: ArrayLike,
+    chnkobj: Any,
+    kerns: Any,
+    opdims: tuple[int, int] | ArrayLike | None = None,
+    spmat: spmatrix | None = None,
+    l2scale: bool = False,
+) -> np.ndarray:
+    rows = _as_index_array(i)
+    cols = _as_index_array(j)
+    layout = _block_layout(chnkobj, kerns, opdims)
+    if rows.size == 0 or cols.size == 0:
+        return np.zeros((rows.size, cols.size))
+    if np.any(rows < 0) or np.any(rows >= layout["row_offsets"][-1]):
+        raise IndexError("target FLAM index is out of range")
+    if np.any(cols < 0) or np.any(cols >= layout["col_offsets"][-1]):
+        raise IndexError("source FLAM index is out of range")
+
+    row_chunk = np.searchsorted(layout["row_offsets"][1:], rows, side="right")
+    col_chunk = np.searchsorted(layout["col_offsets"][1:], cols, side="right")
+    out = np.zeros((rows.size, cols.size), dtype=_block_dtype(layout))
+    infos = [_pointinfo(chnkr) for chnkr in layout["chunkers"]]
+    weights = [chnkr.wts.reshape(-1, order="F") for chnkr in layout["chunkers"]]
+
+    for itarg in range(len(layout["chunkers"])):
+        row_pos = np.flatnonzero(row_chunk == itarg)
+        if row_pos.size == 0:
+            continue
+        local_rows = rows[row_pos] - layout["row_offsets"][itarg]
+        rowdim = int(layout["rowdims"][itarg])
+        targ_dofs = (local_rows // rowdim) * rowdim + (local_rows % rowdim)
+        for isrc in range(len(layout["chunkers"])):
+            col_pos = np.flatnonzero(col_chunk == isrc)
+            if col_pos.size == 0:
+                continue
+            local_cols = cols[col_pos] - layout["col_offsets"][isrc]
+            coldim = int(layout["coldims"][isrc])
+            src_dofs = (local_cols // coldim) * coldim + (local_cols % coldim)
+            block = _subblock_from_dofs(
+                layout["kernels"][itarg, isrc],
+                infos[isrc],
+                weights[isrc],
+                src_dofs,
+                coldim,
+                infos[itarg],
+                weights[itarg],
+                targ_dofs,
+                rowdim,
+                l2scale=l2scale,
+            )
+            out[np.ix_(row_pos, col_pos)] = block
+    return _overwrite_sparse(out, rows, cols, spmat)
+
+
+def _block_layout(chnkobj: Any, kerns: Any, opdims: tuple[int, int] | ArrayLike | None) -> dict[str, Any]:
+    chunkers = _chunker_sequence(chnkobj)
+    kernels = np.asarray(kerns, dtype=object)
+    nchunker = len(chunkers)
+    if kernels.shape != (nchunker, nchunker):
+        raise ValueError("block kernel matrix shape must match the number of chunkers")
+
+    rowdims = np.zeros(nchunker, dtype=int)
+    coldims = np.zeros(nchunker, dtype=int)
+    if opdims is not None:
+        arr = np.asarray(opdims, dtype=int)
+        if arr.shape == (2, nchunker, nchunker):
+            opdims_mat = arr
+        else:
+            flat = arr.reshape(-1)
+            if flat.size != 2 * nchunker * nchunker:
+                raise ValueError("block opdims must have shape (2, nchunker, nchunker)")
+            opdims_mat = flat.reshape(2, nchunker, nchunker, order="F")
+    else:
+        opdims_mat = np.zeros((2, nchunker, nchunker), dtype=int)
+        for itarg, targ in enumerate(chunkers):
+            for isrc, src in enumerate(chunkers):
+                op0, op1 = _opdims(src, kernels[itarg, isrc], None, targobj=targ)
+                opdims_mat[:, itarg, isrc] = (op0, op1)
+
+    for itarg in range(nchunker):
+        for isrc in range(nchunker):
+            op0, op1 = int(opdims_mat[0, itarg, isrc]), int(opdims_mat[1, itarg, isrc])
+            if rowdims[itarg] == 0:
+                rowdims[itarg] = op0
+            elif rowdims[itarg] != op0:
+                raise ValueError("block kernel row operator dimensions are inconsistent")
+            if coldims[isrc] == 0:
+                coldims[isrc] = op1
+            elif coldims[isrc] != op1:
+                raise ValueError("block kernel column operator dimensions are inconsistent")
+
+    row_offsets = np.concatenate(([0], np.cumsum([chnkr.npt * dim for chnkr, dim in zip(chunkers, rowdims)])))
+    col_offsets = np.concatenate(([0], np.cumsum([chnkr.npt * dim for chnkr, dim in zip(chunkers, coldims)])))
+    return {
+        "chunkers": chunkers,
+        "kernels": kernels,
+        "opdims_mat": opdims_mat,
+        "rowdims": rowdims,
+        "coldims": coldims,
+        "row_offsets": row_offsets,
+        "col_offsets": col_offsets,
+    }
+
+
+def _block_dtype(layout: dict[str, Any]) -> np.dtype:
+    dtype = np.dtype(float)
+    for itarg, targ in enumerate(layout["chunkers"]):
+        targ_info = _subset_info(_pointinfo(targ), np.array([0], dtype=np.int64))
+        for isrc, src in enumerate(layout["chunkers"]):
+            src_info = _subset_info(_pointinfo(src), np.array([0], dtype=np.int64))
+            try:
+                dtype = np.result_type(dtype, np.asarray(_eval_kernel(layout["kernels"][itarg, isrc], src_info, targ_info)).dtype)
+            except Exception:
+                pass
+    return np.dtype(dtype)
+
+
 def _as_chunker(obj: Any) -> Chunker:
     if isinstance(obj, Chunker):
         return obj
@@ -387,6 +508,35 @@ def _as_chunker(obj: Any) -> Chunker:
         if isinstance(out, Chunker):
             return out
     raise TypeError("expected a chunker or chunkgraph-like object")
+
+
+def _chunker_sequence(obj: Any) -> list[Chunker]:
+    if isinstance(obj, Chunker):
+        return [obj]
+    if isinstance(obj, (list, tuple)):
+        items = list(obj)
+        if items and all(isinstance(item, Chunker) for item in items):
+            return items
+    if isinstance(obj, np.ndarray) and obj.dtype == object:
+        items = list(np.ravel(obj, order="F"))
+        if items and all(isinstance(item, Chunker) for item in items):
+            return items
+    edges = getattr(obj, "echnks", None)
+    if edges is not None:
+        items = list(edges)
+        if items and all(isinstance(item, Chunker) for item in items):
+            return items
+    raise TypeError("expected a chunker sequence or chunkgraph-like object")
+
+
+def _is_block_kernel_matrix(kern: Any) -> bool:
+    if callable(kern):
+        return False
+    try:
+        arr = np.asarray(kern, dtype=object)
+    except Exception:
+        return False
+    return arr.ndim == 2 and arr.size > 0 and all(callable(item) for item in arr.flat)
 
 
 def _pointinfo(obj: Any) -> Any:

@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 331 pytest cases because several MATLAB parity tests are
+collection expands to 333 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -141,20 +141,20 @@ Implemented from this scope:
   `acceleration="flam"`, FLAM target evaluation/materialization, FLAM
   interior classification, adaptive near-target correction, explicit
   chunker-sequence coercion, smooth interleaved block-kernel matrix and target
-  evaluation paths, shape-preserving single-column and multiple-RHS
+  evaluation paths, smooth multi-chunker block-kernel matrix/solve paths,
+  shape-preserving single-column and multiple-RHS
   application, adjoint application/solve helpers, l2 scaling, and
   source/target point-data callbacks. Square, circular, and rectangular FLAM
   proxy geometry, plus Hilbert/cotangent and target-data directional-derivative
   devtools datafield slices, now also have strict MATLAB fixture parity; a
-  Laplace `rskelf` matrix product and solve are compared against MATLAB FLAM on
-  a deterministic random RHS.
+  Laplace and smooth multi-chunker block-kernel `rskelf` matrix products and
+  solves are compared against MATLAB FLAM on deterministic random RHS vectors.
 
 Deferred implementation:
 
 - Remaining FLAM parity beyond the first PyFLAM-backed pass: strict MATLAB
   devtools FLAM fixtures beyond the converted Green-identity and datafield
-  diagnostics, full block-kernel multi-chunker workflows, and larger
-  proxy-by-level stress coverage.
+  diagnostics, and larger proxy-by-level stress coverage.
 - Remaining `chunkerfit` modes beyond the implemented spline/open-line/circle
   paths.
 
@@ -874,6 +874,19 @@ two-component smooth kernel over a two-chunker list, applies both
 `chunkermatapply(..., {"acceleration": "flam"})`, and compares against the
 dense matrix on `merge(chunkers)`.
 
+`test_flam_kernbyindex_accepts_multi_chunker_block_kernels` checks the
+MATLAB-style chunker-array plus kernel-matrix FLAM callback layout. The method
+uses a two-chunker list with block dimensions `(2,2)`, `(2,1)`, `(1,2)`, and
+`(1,1)`, compares selected 0-based `kernbyindex` entries against the dense
+block matrix, and verifies sparse overwrite precedence across block offsets.
+
+`test_chunkermat_flam_multi_chunker_block_kernel_matches_dense_apply_and_solve`
+checks PyFLAM factorization for a smooth multi-chunker block-kernel system.
+The method builds the same two-chunker block layout, applies a shifted
+`ChunkerFLAMMatrix` to vector and multiple-RHS inputs through `chunkermat` and
+`chunkermatapply`, then verifies the `rskelf` solve residual against the dense
+shifted block matrix.
+
 `test_flam_kernbyindexr_matches_dense_and_sparse_overwrites` checks the
 rectangular target/source FLAM callback. The method selects off-boundary target
 rows and boundary source columns, compares to `chunkerkernevalmat`, and
@@ -1443,13 +1456,16 @@ equation is `M_ij = K(x_i,y_j) w_j`; application is `M sigma`. The method uses
 including matrices, applied values, integrals, and classifications.
 
 `test_accelerated_operator_paths_match_matlab_fixture` checks accelerated
-operator parity for a Laplace single-layer boundary matrix. The method compares
-Python `ChunkerFMMMatrix` and `chunkermatapply(..., {"acceleration": "fmm"})`
+operator parity for a Laplace single-layer boundary matrix and a smooth
+multi-chunker block-kernel system. The method compares Python
+`ChunkerFMMMatrix` and `chunkermatapply(..., {"acceleration": "fmm"})`
 products against MATLAB forced-FMM output, then compares Python
 `ChunkerFLAMMatrix` matvec and `.solve()` results against MATLAB
-`chunkerflam`/`rskelf_mv`/`rskelf_sv` output on the same deterministic random
-right-hand side. Ground truth is `tests/golden/operator_parity.mat`, including
-the dense special-quadrature matrix, FMM product, FLAM product, and FLAM solve.
+`chunkerflam`/`rskelf_mv`/`rskelf_sv` output on deterministic random
+right-hand sides for both scalar and block-kernel systems. Ground truth is
+`tests/golden/operator_parity.mat`, including the dense special-quadrature
+matrix, FMM product, scalar FLAM product/solve, block dense matrix, and block
+FLAM product/solve.
 
 `test_section_iii_quadratures_match_matlab_fixture` checks Section III
 quadrature parity. The method compares native quadrature, log/removable/PV/HS

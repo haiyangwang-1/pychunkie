@@ -113,7 +113,9 @@ Implemented from this scope:
   devtools fixture now also saves MATLAB FLAM diagnostics, and the devtools
   fixture has strict MATLAB parity for square/circular/rectangular FLAM proxy
   geometry plus Hilbert/cotangent and target-data directional-derivative
-  datafield slices.
+  datafield slices. The compact operator fixture also compares a smooth
+  multi-chunker block-kernel `chunkerflam` matvec and solve against MATLAB
+  `rskelf_mv`/`rskelf_sv` on the same deterministic RHS.
 - Advanced RCIP chunkgraph workflows: selected vertices, ignored vertices, and
   global block-kernel subselection for local corner compression.
 - Laplace and Helmholtz Green-identity devtools target-evaluation fixtures:
@@ -134,8 +136,7 @@ Deferred implementation:
 
 - Remaining FLAM parity beyond the first PyFLAM-backed pass: strict MATLAB
   devtools fixtures beyond the converted Green-identity target-evaluation and
-  datafield diagnostics, full block-kernel multi-chunker workflows, and larger
-  proxy-by-level stress coverage.
+  datafield diagnostics, and larger proxy-by-level stress coverage.
 - Remaining `chunkerfit` modes beyond the implemented spline/open-line/circle
   paths.
 
@@ -216,7 +217,7 @@ Do not implement:
 | 59 | `quasiperiodicTest.m` | 🚫 | Very Hard | Tests quasi-periodic Helmholtz kernels, shifted phase relations, combined/transmission/all/gradient kernels, and an integral-equation solve for a periodic scattering setup. | Do not port; quasiperiodic kernels are explicit non-goals. |
 | 60 | `flamutilitiesTest.m` | ✅ 🧪 🎯 ⚠️ | Very Hard | Tests FLAM matrix builder utilities, dense-vs-FLAM matrix entry reconstruction, fast-direct solves, and target accuracy for Laplace problems. | Strict MATLAB fixture parity covers square/circular/rectangular FLAM proxy geometry, the square inside predicate, deterministic Laplace `nproxy_square`, square/rectangular `kernbyindex` callbacks with sparse overwrite precedence, square/rectangular `proxyfun` matrices with filtered neighbor indices, plus a compact Laplace `chunkerflam` `rskelf_mv`/`rskelf_sv` comparison against the PyFLAM-backed operator on the same deterministic RHS. First PyFLAM-backed Python coverage also exists for square/rectangular `chnk.flam` callbacks, sparse overwrite precedence, smooth diagonal shifts, smooth/special l2 scaling, data-field callbacks, `ChunkerFLAMMatrix` apply/adjoint/solve/adjoint-solve/logdet, target evaluation with adaptive correction, and interior classification. Full devtools matrix-entry and target-evaluation parity remains pending. |
 | 61 | `flamproxybylevelTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Tests FLAM matrix building with level-dependent proxy points and checks solve/evaluation errors against tolerances. | Proxy helpers plus default and level-dependent PyFLAM proxy application are implemented and Python-tested for square matrix compression and rectangular target evaluation. MATLAB tolerance comparisons and larger stress fixtures remain pending. |
-| 62 | `flamopdimsTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Tests FLAM with multi-operator-dimension Helmholtz systems across two chunkers and compares analytic solution accuracy. | Scalar explicit chunker-sequence, smooth interleaved block-kernel matrix/evaluation, and simple vector-opdim PyFLAM wiring is active through the generic operator surface, including smooth diagonal shifts and target evaluation/materialization. Full two-chunker Helmholtz/block-opdim devtools parity remains pending. |
+| 62 | `flamopdimsTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Tests FLAM with multi-operator-dimension Helmholtz systems across two chunkers and compares analytic solution accuracy. | Scalar explicit chunker-sequence, smooth interleaved block-kernel matrix/evaluation, vector-opdim PyFLAM wiring, and smooth multi-chunker block-kernel `rskelf` matvec/solve parity are active through the generic operator surface, including smooth diagonal shifts and target evaluation/materialization. Full two-chunker Helmholtz analytic-solve devtools parity remains pending. |
 | 63 | `axissymkernTest.m` | 🚫 ⚠️ | Very Hard | Compares axisymmetric Helmholtz kernel evaluations against explicit azimuthal integral reference kernels, including shifted-kernel behavior. The file prints errors rather than asserting. | Do not port; axisymmetric kernels are explicit non-goals. |
 | 64 | `axissymkernel_sphereTest.m` | 🚫 ⚠️ | Very Hard | Builds axisymmetric sphere geometry, solves/evaluates a modal layer potential, and compares against spherical Bessel/Hankel analytic values. It prints the error. | Do not port; axisymmetric modal kernels are explicit non-goals. |
 | 65 | `chunkermat_axissymhelm2dTest.m` | 🚫 | Very Hard | Builds and solves an axisymmetric Helmholtz 2D matrix problem on a starfish-like generating curve and checks target accuracy. | Do not port; axisymmetric matrix builders are explicit non-goals. |
