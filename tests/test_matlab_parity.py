@@ -227,6 +227,9 @@ def test_extended_legendre_helpers_match_matlab_fixture():
     np.testing.assert_allclose(polsum_pol, fixture["polsum_pol_ext"], atol=1e-13)
     np.testing.assert_allclose(polsum_der, fixture["polsum_der_ext"], atol=1e-12)
     np.testing.assert_allclose(polsum_tot, fixture["polsum_tot_ext"], atol=1e-13)
+    pol_direct, der_direct = lege.pol(fixture["tayl_x_ext"], int(fixture["tayl_n_ext"]))
+    np.testing.assert_allclose(pol_direct, fixture["tayl_pol0_ext"], atol=1e-13)
+    np.testing.assert_allclose(der_direct, fixture["tayl_der0_ext"], atol=1e-12)
     tayl_pol, tayl_der = lege.tayl(
         fixture["tayl_pol0_ext"],
         fixture["tayl_der0_ext"],

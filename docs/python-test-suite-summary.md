@@ -1365,9 +1365,10 @@ Legendre helper surface against MATLAB. The equations include polynomial values
 and derivatives, interpolation matrices, integration matrices, expansion
 evaluation, coefficient antiderivatives, coefficient derivatives, and
 barycentric weights. It also checks `rts`, `rts_stab`, `bernstein_ellipse`,
-`polsum`, scalar MATLAB `tayl` calls, and scalar `adapgauss` output/status
-metadata against saved fixture outputs. The method recomputes every object in
-Python. Ground truth is `tests/golden/lege_extended.mat`.
+`polsum`, direct degree-`n` `pol` values, scalar MATLAB `tayl` calls, and
+scalar `adapgauss` output/status metadata against saved fixture outputs. The
+method recomputes every object in Python. Ground truth is
+`tests/golden/lege_extended.mat`.
 
 `test_chunker_geometry_and_transforms_match_matlab_fixture` checks MATLAB
 parity for chunker geometry, move/transform operations, and dense helper

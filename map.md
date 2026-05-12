@@ -460,7 +460,7 @@ Log/PV/HS support tables are packaged as `.npz` assets and loaded with `importli
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
-| `pol` | ✅ | `+lege/pol.m` | Implemented; indirectly exercised by `pols`. |
+| `pol` | ✅ 🧪 🎯 | `+lege/pol.m` | Degree-`n` polynomial and derivative values are compared against MATLAB fixture outputs. |
 | `rts` | ✅ 🧪 🎯 | `+lege/rts.m` | Alias behavior tested and MATLAB fixture checks nodes/weights. |
 | `rts_stab` | ✅ 🧪 🎯 | `+lege/rts_stab.m` | Alias behavior tested and MATLAB fixture checks stable nodes/weights. |
 | `adapgauss` | ✅ 🧪 🎯 | `+lege/adapgauss.m` | Adaptive Gauss-Legendre scalar/vector integration tested; scalar polynomial output and status metadata have MATLAB fixture parity. |
