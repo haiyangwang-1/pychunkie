@@ -241,13 +241,15 @@ def chunkerflam(
     }
     useproxy = bool(options.get("useproxy", True)) and chnkr.datadim == 0 and op0 == op1
     pxyfun = None
-    if useproxy:
+    if useproxy and flamtype == "rskelf":
         pxyfun = _chunkerflam_proxyfun(chnkr, kern, (op0, op1), options)
+    elif useproxy and flamtype == "rskel":
+        pxyfun = _chunkerkerneval_proxyfun(chnkr, kern, pointinfo(chnkr), (op0, op1), options)
 
     if flamtype == "rskelf":
         return pyflam.rskelf(matfun, xflam, occ, rank_or_tol, pxyfun, opts_flam)
     if flamtype == "rskel":
-        return pyflam.rskel(matfun, xflam, xflam, occ, rank_or_tol, None, opts_flam)
+        return pyflam.rskel(matfun, xflam, xflam, occ, rank_or_tol, pxyfun, opts_flam)
     raise NotImplementedError("flamtype must be 'rskelf' or 'rskel'")
 
 

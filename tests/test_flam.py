@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from scipy import sparse
 
 from chunkie import (
@@ -137,9 +138,13 @@ def test_chunkermat_flam_proxy_paths_match_dense_application():
 
     default_proxy = chunkermat(chnkr, lap_s, opts)
     proxy_by_level = chunkermat(chnkr, lap_s, {**opts, "proxybylevel": True})
+    rskel_proxy = chunkermat(chnkr, lap_s, {**opts, "flamtype": "rskel"})
 
     np.testing.assert_allclose(default_proxy @ rhs, dense @ rhs, rtol=1e-8, atol=1e-10)
     np.testing.assert_allclose(proxy_by_level @ rhs, dense @ rhs, rtol=1e-8, atol=1e-10)
+    np.testing.assert_allclose(rskel_proxy @ rhs, dense @ rhs, rtol=1e-8, atol=1e-10)
+    with pytest.raises(NotImplementedError, match="solve is only available for rskelf"):
+        rskel_proxy.solve(rhs)
 
 
 def test_chunkermat_flam_adds_dval_without_replacing_smooth_diagonal():

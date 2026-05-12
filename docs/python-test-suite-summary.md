@@ -694,8 +694,9 @@ against the dense special matrix, solves a shifted Laplace system, and compares
 
 `test_chunkermat_flam_proxy_paths_match_dense_application` checks the default
 proxy-enabled and level-dependent proxy paths. The method applies both FLAM
-operators to a shifted Laplace single-layer system and compares against the
-dense special matrix product.
+`rskelf` operators plus the proxy-enabled `rskel` operator to a shifted
+Laplace single-layer system, compares against the dense special matrix product,
+and verifies `rskel` does not expose the `rskelf` solve helper.
 
 `test_chunkermat_flam_adds_dval_without_replacing_smooth_diagonal` checks
 diagonal shifts for smooth kernels. The method compares scalar and vector-opdim
