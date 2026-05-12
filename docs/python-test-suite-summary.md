@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 313 pytest cases because several MATLAB parity tests are
+collection expands to 320 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -1022,6 +1022,12 @@ double-prime, and combined-prime selectors. The method uses the existing
 Helmholtz gradient FMM output and compares against dense direct evaluation.
 Ground truth is the direct dense path.
 
+`test_helmholtz_factory_transmission_selectors_match_direct_kernel` checks
+Python factory dispatch for 2D Helmholtz combined-gradient and transmission
+representation selectors. The method evaluates `kernel("helm", selector, ...)`
+for `cgrad`, `c2trans`, `all`, `trans_rep`, `trans_rep_prime`, and
+`trans_rep_grad`, and compares each result to direct `chnk.helm2d.kern`.
+
 `test_helmholtz_double_gradient_fmm_requests_dipole_gradients` checks the
 new Helmholtz double-gradient FMM wiring with a fake `fmm2dpy` module. The
 method builds `kernel("helm","dgrad",zk)`, calls its FMM evaluator, and asserts
@@ -1208,11 +1214,12 @@ linear combinations. The method is direct point-kernel evaluation through
 `lap2d.kern`. Ground truth is `tests/golden/kernel_pointinfo.mat`.
 
 `test_helmholtz_2d_point_kernels_match_matlab_fixture` is parametrized over
-`s`, `d`, `sp`, `stau`, `sgrad`, `dgrad`, `dp`, `c`, and `cp`. The equations
-are the 2D Helmholtz Green's function and the same normal, tangent, gradient,
-and combined projections. The method is direct `helm2d.kern` with saved
-wavenumber and coefficient data. Ground truth is the MATLAB point-kernel
-fixture.
+`s`, `d`, `sp`, `stau`, `sgrad`, `dgrad`, `dp`, `c`, `cp`, `cgrad`,
+`c2trans`, `all`, `trans_rep`, `trans_rep_prime`, and `trans_rep_grad`. The
+equations are the 2D Helmholtz Green's function and the same normal, tangent,
+gradient, combined, and transmission-representation blocks. The method is
+direct `helm2d.kern` with saved wavenumber and coefficient data. Ground truth
+is the MATLAB point-kernel fixture.
 
 `test_helmholtz_1d_point_kernels_match_matlab_fixture` is parametrized over
 `s`, `d`, `sp`, `stau`, `dp`, `c`, `cp`, `c2trans`, `all`, `trans_rep`,

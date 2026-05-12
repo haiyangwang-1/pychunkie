@@ -233,13 +233,24 @@ def test_laplace_point_kernels_match_matlab_fixture(kind):
         "dp",
         "c",
         "cp",
+        "cgrad",
+        "c2trans",
+        "all",
+        "trans_rep",
+        "trans_rep_prime",
+        "trans_rep_grad",
     ],
 )
 def test_helmholtz_2d_point_kernels_match_matlab_fixture(kind):
     fixture = load_fixture("kernel_pointinfo.mat")
     src = pointinfo_dict(fixture["srcinfo"])
     targ = pointinfo_dict(fixture["targinfo"])
-    coefs = fixture["helm_coefs"] if kind in {"c", "cp"} else None
+    if kind == "all":
+        coefs = fixture["helm_all_coefs"]
+    elif kind in {"c", "cp", "cgrad", "c2trans", "trans_rep", "trans_rep_prime", "trans_rep_grad"}:
+        coefs = fixture["helm_coefs"]
+    else:
+        coefs = None
 
     actual = helm2d.kern(fixture["helm_zk"], src, targ, kind, coefs)
     expected = getattr(fixture["helm2d"], kind)

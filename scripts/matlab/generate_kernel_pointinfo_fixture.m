@@ -39,6 +39,12 @@ helm2d.dgrad = chnk.helm2d.kern(helm_zk, srcinfo, targinfo, 'dgrad');
 helm2d.dp = chnk.helm2d.kern(helm_zk, srcinfo, targinfo, 'dp');
 helm2d.c = chnk.helm2d.kern(helm_zk, srcinfo, targinfo, 'c', helm_coefs);
 helm2d.cp = chnk.helm2d.kern(helm_zk, srcinfo, targinfo, 'cp', helm_coefs);
+helm2d.cgrad = chnk.helm2d.kern(helm_zk, srcinfo, targinfo, 'cgrad', helm_coefs);
+helm2d.c2trans = chnk.helm2d.kern(helm_zk, srcinfo, targinfo, 'c2trans', helm_coefs);
+helm2d.all = chnk.helm2d.kern(helm_zk, srcinfo, targinfo, 'all', helm_all_coefs);
+helm2d.trans_rep = chnk.helm2d.kern(helm_zk, srcinfo, targinfo, 'trans_rep', helm_coefs);
+helm2d.trans_rep_prime = chnk.helm2d.kern(helm_zk, srcinfo, targinfo, 'trans_rep_prime', helm_coefs);
+helm2d.trans_rep_grad = chnk.helm2d.kern(helm_zk, srcinfo, targinfo, 'trans_rep_grad', helm_coefs);
 
 helm1d = [];
 helm1d.s = chnk.helm1d.kern(helm1d_zk, srcinfo, targinfo, 's');

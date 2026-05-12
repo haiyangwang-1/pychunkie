@@ -195,17 +195,31 @@ def lap2d_kernel(kind: str, coefs: Any | None = None) -> Kernel:
 
 def helm2d_kernel(kind: str, zk: complex, coefs: Any | None = None) -> Kernel:
     typ = kind.lower()
-    opdims = (2, 1) if typ in {"sg", "sgrad", "dg", "dgrad"} else (1, 1)
+    if typ in {"all", "trans_sys", "ts", "trans_rep_grad", "trep_g", "trans_rep_g"}:
+        opdims = (2, 2)
+    elif typ in {"trans_rep", "trep", "trans_rep_prime", "trep_p", "trans_rep_p"}:
+        opdims = (1, 2)
+    elif typ in {"sg", "sgrad", "dg", "dgrad", "cg", "cgrad", "c2tr", "c2trans"}:
+        opdims = (2, 1)
+    else:
+        opdims = (1, 1)
     if typ in {"c", "combined"}:
         c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs)
         return helm2d_kernel("d", zk) * c[0] + helm2d_kernel("s", zk) * c[1]
+    if typ in {"cp", "cprime"}:
+        c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs)
+        return helm2d_kernel("dp", zk) * c[0] + helm2d_kernel("sp", zk) * c[1]
+    if typ in {"cg", "cgrad"}:
+        c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs)
+        return helm2d_kernel("dg", zk) * c[0] + helm2d_kernel("sg", zk) * c[1]
+    sing = "log" if typ in {"s", "single", "d", "double", "sp", "sprime", "trans_rep", "trep"} else "hs"
     return Kernel(
         name="helmholtz",
         type=typ,
         eval=lambda s, t: helm2d.kern(zk, s, t, typ, coefs),
         fmm=_helm2d_fmm(typ, zk, coefs) or _direct_fmm(lambda s, t: helm2d.kern(zk, s, t, typ, coefs)),
         opdims=opdims,
-        sing="log" if typ in {"s", "single", "d", "double", "sp", "sprime"} else "hs",
+        sing=sing,
         params={"zk": zk} if coefs is None else {"zk": zk, "coefs": coefs},
     )
 

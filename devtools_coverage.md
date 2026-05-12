@@ -147,7 +147,7 @@ Do not implement:
 | 9 | `flagrectTest.m` | ✅ 🧪 🎯 | Easy | Tests rectangle-based near-flagging by comparing direct target flags to tensor-grid flags on a refined starfish chunker. | Covered in `devtools_easy.mat`: compare saved refined starfish chunker, target grid, direct flags, and grid flags against Python `flagnear_rectangle`/grid behavior. |
 | 10 | `flagnearTest.m` | ✅ 🧪 🎯 | Easy | Tests near-point flagging against a brute-force distance check for targets scaled radially around a starfish curve. | Covered in `devtools_easy.mat`: compare saved starfish chunker, targets, MATLAB near flags, and brute-force flags against Python `geometry.flagnear`. |
 | 11 | `kernelopTest.m` | ✅ 🧪 🎯 | Easy | Verifies kernel algebra: interleave, scalar multiply/divide, negation, addition, subtraction, and conjugation on Laplace/Helmholtz kernels. | Covered in `devtools_easy.mat`: compare saved kernel matrices from deterministic source/target normals. |
-| 12 | `KernDerInterleaveTest.m` | ✅ 🧪 🚧 | Easy-Medium | Verifies algebraic relationships among interleaved Helmholtz, Helmholtz-difference, and Laplace kernels, including combined kernels, transmission blocks, gradients, and normal derivative as gradient dot normal. | Existing point-kernel fixtures cover much of this; add devtools fixture with the exact source/target/coefficient cases and compare all interleaved blocks. |
+| 12 | `KernDerInterleaveTest.m` | ✅ 🧪 🚧 | Easy-Medium | Verifies algebraic relationships among interleaved Helmholtz, Helmholtz-difference, and Laplace kernels, including combined kernels, transmission blocks, gradients, and normal derivative as gradient dot normal. | Point-kernel fixtures now cover Laplace and 2D Helmholtz combined-gradient, `c2trans`, `all`, and transmission-representation selector values against MATLAB. Add devtools fixture with the exact source/target/coefficient cases, normal-derivative identities, and Helmholtz-difference selectors to complete this row. |
 | 13 | `helm2d_greenTest.m` | ✅ 🧪 🎯 | Easy-Medium | Uses `gradient_check` to verify `chnk.helm2d.green` potential and gradient components against finite differences. | Covered in `devtools_easy.mat`: compare source/target, MATLAB Green value/gradient/Hessian, and saved finite-difference thresholds against Python `helm2d.green`. |
 | 14 | `stokes_dtracTest.m` | ✅ 🧪 🎯 ⚠️ | Easy-Medium | Compares Stokes double-layer traction values against applying the double-layer gradient kernel and contracting with target normals. The MATLAB file prints the norm but does not assert. | Covered in `devtools_easy.mat`: compare saved Stokes `dtrac`, `dgrad`, `dpres`, reconstructed stress traction, and residual norm against Python kernels. |
 | 15 | `chunkerclassunitTest.m` | ✅ 🧪 🎯 | Medium | Exercises `chunker` constructor failures, chunk allocation/resizing, adjacency links, translations, rotations, affine transforms, and area scaling. | Covered in `devtools_easy.mat`: compare constructor failure flags, adjacency reciprocity, translated/transformed/scaled chunker fields, centroids, and area scaling against Python `Chunker`. |
@@ -218,7 +218,6 @@ Do not implement:
 2. `chunkermat_quadadap_closetotouchingTest.m`: lower-level robust close
    replacement is already covered in `quadggq.mat`; the remaining devtools
    work is the full two-disk solve/evaluation diagnostic.
-3. `KernDerInterleaveTest.m`: Laplace and implemented Helmholtz point-kernel
-   algebra is covered elsewhere, but the exact devtools test still needs
-   Python support for the MATLAB 2D Helmholtz `all`/transmission/difference
-   selectors before it can be strict parity without source changes.
+3. `KernDerInterleaveTest.m`: Laplace and 2D Helmholtz point-kernel algebra is
+   covered elsewhere, but the exact devtools test still needs compact fixture
+   parity for its normal-derivative identities and Helmholtz-difference cases.

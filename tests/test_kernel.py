@@ -134,6 +134,34 @@ def test_fmm2dpy_helmholtz_derived_selectors_match_direct():
         np.testing.assert_allclose(via_fmm, direct, rtol=1e-9, atol=1e-10)
 
 
+def test_helmholtz_factory_transmission_selectors_match_direct_kernel():
+    src = PointInfo(
+        r=np.array([[0.1, -0.8], [-0.3, 0.55]]),
+        n=np.array([[0.6, -0.2], [0.8, 0.98]]),
+    )
+    targ = PointInfo(
+        r=np.array([[-0.45, 0.7, 1.2], [1.1, -0.65, 0.25]]),
+        n=np.array([[0.1, -0.7, 0.3], [0.99, 0.71, -0.95]]),
+    )
+    zk = 1.25 + 0.35j
+    coefs = np.array([0.8 - 0.1j, -0.45 + 0.3j])
+    all_coefs = np.array([[1.1, -0.4], [0.25, 0.7]])
+
+    cases = {
+        "cgrad": coefs,
+        "c2trans": coefs,
+        "all": all_coefs,
+        "trans_rep": coefs,
+        "trans_rep_prime": coefs,
+        "trans_rep_grad": coefs,
+    }
+    for selector, selector_coefs in cases.items():
+        kern = kernel("helm", selector, zk, selector_coefs)
+        actual = kern(src, targ)
+        expected = importlib.import_module("chunkie.chnk.helm2d").kern(zk, src, targ, selector, selector_coefs)
+        np.testing.assert_allclose(actual, expected)
+
+
 def test_helmholtz_double_gradient_fmm_requests_dipole_gradients(monkeypatch):
     kernel_mod = importlib.import_module("chunkie.kernel")
 

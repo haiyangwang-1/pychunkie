@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-12 with Python 3.11.9 collected 313 tests: `313 passed`. Full MATLAB parity runs generate ignored `tests/golden/*.mat` files on demand and require a populated `external/chunkie-matlab` checkout.
+Verification snapshot: `uv run pytest` on 2026-05-12 with Python 3.11.9 collected 320 tests: `320 passed`. Full MATLAB parity runs generate ignored `tests/golden/*.mat` files on demand and require a populated `external/chunkie-matlab` checkout.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -346,7 +346,7 @@ src/
 | `Kernel.zeros`, `Kernel.nans`, module `zeros`, `nans` | ✅ 🧪 🎯 | `@kernel/zeros.m`, `@kernel/nans.m` | MATLAB fixture checks metadata and direct zero/NaN block values. |
 | `kernel` | ✅ 🧪 🎯 | `@kernel/kernel.m` | Dispatches strings, callables, existing kernels, and block arrays for `interleave`; MATLAB fixture covers factory/direct values. |
 | `lap2d_kernel` | ✅ 🧪 🎯 | `@kernel/lap2d.m`, `+chnk/+lap2d/kern.m`, `+chnk/+lap2d/fmm.m` concepts | String dispatch plus `fmm2dpy` single, double, target-normal/tangential derivatives, Hilbert, double-prime, combined-prime, and gradient paths tested against dense direct evaluation; MATLAB fixture checks `@kernel` metadata/eval. |
-| `helm2d_kernel` | ✅ 🧪 🎯 | `@kernel/helm2d.m`, `+chnk/+helm2d/kern.m`, `+chnk/+helm2d/fmm.m` concepts | String dispatch plus `fmm2dpy` single, double, target-normal/tangential derivatives, double-prime, combined-prime, single-gradient, and double-gradient paths tested against dense direct evaluation or FMM wiring tests; MATLAB fixture checks `@kernel` metadata/eval. |
+| `helm2d_kernel` | ✅ 🧪 🎯 | `@kernel/helm2d.m`, `+chnk/+helm2d/kern.m`, `+chnk/+helm2d/fmm.m` concepts | String dispatch plus `fmm2dpy` single, double, target-normal/tangential derivatives, double-prime, combined-prime, combined-gradient, transmission-representation, single-gradient, and double-gradient paths tested against dense direct evaluation or FMM wiring tests; MATLAB fixture checks `@kernel` metadata/eval for the MATLAB factory-supported selectors and direct `+chnk/+helm2d/kern` fixture values for the extended selectors. |
 | `helm1d_kernel` | ✅ 🧪 🎯 | `@kernel/helm1d.m`, `+chnk/+helm1d/kern.m` | MATLAB fixture checks `@kernel` metadata/eval for the supported single-layer factory. |
 | `biharm2d_kernel` | ✅ 🧪 🎯 | `fmm2d/src/biharmonic/*`, `+chnk/+flex2d/bhgreen.m` concepts | Biharmonic Green-kernel factory and selectors are compared against MATLAB `bhgreen`-derived fixture data; FMM wiring remains Python direct/FMM-tested. |
 | `stok2d_kernel` | ✅ 🧪 🎯 | `@kernel/stok2d.m`, `+chnk/+stok2d/kern.m`, `+chnk/+stok2d/fmm.m` concepts | String dispatch plus `fmm2dpy` velocity, pressure, gradient, traction, and combined Stokes paths tested against dense direct evaluation or FMM wiring tests; MATLAB fixture checks `@kernel` metadata/eval. |
@@ -393,12 +393,12 @@ their matching `@kernel` factories.
 | `helm1d.green` | ✅ 🧪 🎯 | `+chnk/+helm1d/green.m` | Value, gradient, and Hessian are MATLAB-fixture tested. |
 | `helm1d.sweep` | ✅ 🧪 🎯 | `+chnk/+helm1d/sweep.m` | Direct causal sums are MATLAB-fixture tested. |
 | `lap2d.kern` | ✅ 🧪 🎯 | `+chnk/+lap2d/kern.m` | Point kernels, including gradient row ordering, are parity-tested. |
-| `helm2d.kern` | ✅ 🧪 🎯 | `+chnk/+helm2d/kern.m` | Point kernels, including gradient row ordering, are parity-tested. |
+| `helm2d.kern` | ✅ 🧪 🎯 | `+chnk/+helm2d/kern.m` | Point kernels, including gradient row ordering, combined-gradient, `c2trans`, `all`, and transmission-representation blocks, are parity-tested. |
 | `helm1d.kern` | ✅ 🧪 🎯 | `+chnk/+helm1d/kern.m` | Many scalar/combined/transmission variants parity-tested. |
 | `stok2d.kern` | ✅ 🧪 🎯 | `+chnk/+stok2d/kern.m` | Stokes variants parity-tested, including pressure/traction/gradient combined paths; `cgrad` parity uses MATLAB's saved `dgrad`/`sgrad` component blocks because the saved MATLAB combined `cgrad` value combines `sgrad` twice. |
 | `elast2d.kern` | ✅ 🧪 🎯 | `+chnk/+elast2d/kern.m` | Elasticity variants parity-tested, including `sgrad`, `dalttrac`, and `daltgrad`. |
 
-✅ External FMM acceleration is wired through `fmm2dpy` for the implemented 2D selector surface: Laplace single/double/normal/tangential/Hilbert/prime/gradient/combined paths; Helmholtz single/double/normal/tangential/prime/gradient/combined-prime paths; biharmonic single/double/normal derivative/gradient/Hessian/Laplacian paths via Laplace moment decompositions; Stokes velocity/pressure/gradient/traction/combined paths; and elasticity single/gradient/traction/double/alternate-double workflows via Laplace/Stokes decompositions. Dense-direct fallbacks remain available for custom kernels, optional dependency absence, and compatibility tests.
+✅ External FMM acceleration is wired through `fmm2dpy` for the implemented 2D selector surface: Laplace single/double/normal/tangential/Hilbert/prime/gradient/combined paths; Helmholtz single/double/normal/tangential/prime/gradient/combined-prime/combined-gradient paths, with dense-direct fallback for Helmholtz transmission-representation selectors; biharmonic single/double/normal derivative/gradient/Hessian/Laplacian paths via Laplace moment decompositions; Stokes velocity/pressure/gradient/traction/combined paths; and elasticity single/gradient/traction/double/alternate-double workflows via Laplace/Stokes decompositions. Dense-direct fallbacks remain available for custom or unsupported kernels, optional dependency absence, and compatibility tests.
 
 
 ### III QUADRATURES

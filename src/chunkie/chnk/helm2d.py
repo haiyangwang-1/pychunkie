@@ -81,6 +81,53 @@ def kern(
     if typ in {"cp", "cprime"}:
         c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs)
         return c[0] * kern(zk, src, targ, "dp") + c[1] * kern(zk, src, targ, "sp")
+    if typ in {"cg", "cgrad"}:
+        c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs)
+        return c[0] * kern(zk, src, targ, "dgrad") + c[1] * kern(zk, src, targ, "sgrad")
+    if typ in {"c2tr", "c2trans"}:
+        c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs)
+        out = np.zeros((2 * targ.r.shape[1], src.r.shape[1]), dtype=complex)
+        out[0::2] = c[0] * kern(zk, src, targ, "d") + c[1] * val
+        out[1::2] = c[0] * kern(zk, src, targ, "dp") + c[1] * kern(zk, src, targ, "sp")
+        return out
+    if typ in {"all", "trans_sys", "ts"}:
+        cc = np.ones((2, 2), dtype=complex) if coefs is None else np.asarray(coefs)
+        nt = targ.r.shape[1]
+        ns = src.r.shape[1]
+        out = np.zeros((2 * nt, 2 * ns), dtype=complex)
+        out[0::2, 0::2] = cc[0, 0] * kern(zk, src, targ, "d")
+        out[0::2, 1::2] = cc[0, 1] * val
+        out[1::2, 0::2] = cc[1, 0] * kern(zk, src, targ, "dp")
+        out[1::2, 1::2] = cc[1, 1] * kern(zk, src, targ, "sp")
+        return out
+    if typ in {"trans_rep", "trep"}:
+        c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs)
+        nt = targ.r.shape[1]
+        ns = src.r.shape[1]
+        out = np.zeros((nt, 2 * ns), dtype=complex)
+        out[:, 0::2] = c[0] * kern(zk, src, targ, "d")
+        out[:, 1::2] = c[1] * val
+        return out
+    if typ in {"trans_rep_prime", "trep_p", "trans_rep_p"}:
+        c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs)
+        nt = targ.r.shape[1]
+        ns = src.r.shape[1]
+        out = np.zeros((nt, 2 * ns), dtype=complex)
+        out[:, 0::2] = c[0] * kern(zk, src, targ, "dp")
+        out[:, 1::2] = c[1] * kern(zk, src, targ, "sp")
+        return out
+    if typ in {"trans_rep_grad", "trep_g", "trans_rep_g"}:
+        c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs)
+        nt = targ.r.shape[1]
+        ns = src.r.shape[1]
+        out = np.zeros((2 * nt, 2 * ns), dtype=complex)
+        dgrad = kern(zk, src, targ, "dgrad")
+        sgrad = kern(zk, src, targ, "sgrad")
+        out[0::2, 0::2] = c[0] * dgrad[0::2]
+        out[0::2, 1::2] = c[1] * sgrad[0::2]
+        out[1::2, 0::2] = c[0] * dgrad[1::2]
+        out[1::2, 1::2] = c[1] * sgrad[1::2]
+        return out
     raise ValueError(f"Unknown Helmholtz kernel type {kind!r}.")
 
 
