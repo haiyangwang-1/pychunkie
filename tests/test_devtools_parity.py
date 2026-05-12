@@ -179,6 +179,37 @@ def loop_curve(t):
     return r, d, d2
 
 
+def chunkgraph_lastlength_graph(fixture):
+    ncircedge = int(fixture.ncircedge)
+    edge_specs = []
+    for _ in range(ncircedge // 2):
+        edge_specs.append(None)
+        edge_specs.append(lambda t, amp=float(fixture.amp), frq=float(fixture.frq): sinearc(t, amp, frq))
+    edge_specs.append(None)
+    edge_specs.append(
+        lambda t,
+        narm=int(fixture.closed_narm),
+        amp=float(fixture.closed_amp),
+        ctr=np.asarray(fixture.closed_ctr, dtype=float).reshape(2),
+        scale=float(fixture.closed_scale): curves.starfish(t, narm, amp, ctr, 0.0, scale)
+    )
+    cparams = [{"eps": 1e-8} for _ in edge_specs]
+    cparams[-1].update({"ta": 0.0, "tb": 2 * np.pi})
+    return chunkgraph(fixture.verts, np.asarray(fixture.edge2verts_with_closed, dtype=float), edge_specs, cparams)
+
+
+def graph_vertex_endpoint_arcs(cg, nverts: int, width: int) -> tuple[np.ndarray, np.ndarray]:
+    arcs = np.full((nverts, width), np.nan)
+    degrees = np.zeros(nverts, dtype=int)
+    for ivert in range(nverts):
+        edges, signs = cg.vstruc[ivert]
+        degrees[ivert] = edges.size
+        for idx, (edge, sign) in enumerate(zip(edges, signs)):
+            ichunk = 0 if sign < 0 else cg.echnks[int(edge)].nch - 1
+            arcs[ivert, idx] = float(cg.echnks[int(edge)].chunklen([ichunk])[0])
+    return arcs, degrees
+
+
 def dense_int_array(value) -> np.ndarray:
     if sparse.issparse(value):
         value = value.toarray()
@@ -600,6 +631,38 @@ def test_chunkgraph_basic_devtools_outputs_match_matlab():
     np.testing.assert_array_equal([edge.nch for edge in adj.echnks], np.asarray(fixture.refine_nchs_before, dtype=int).reshape(-1))
     np.testing.assert_array_equal([edge.nch for edge in refined.echnks], np.asarray(fixture.refine_nchs_after, dtype=int).reshape(-1))
     np.testing.assert_array_equal(np.asarray(fixture.refine_nchs_after, dtype=int).reshape(-1), 2 * np.asarray(fixture.refine_nchs_before, dtype=int).reshape(-1))
+
+
+def test_chunkgraph_lastlength_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().chunkgraph_lastlength
+    graph = chunkgraph_lastlength_graph(fixture)
+    np.testing.assert_array_equal([edge.nch for edge in graph.echnks], np.asarray(fixture.initial_nchs, dtype=int).reshape(-1))
+    assert np.isnan(np.asarray(fixture.edge2verts_with_closed, dtype=float)[:, -1]).all()
+    assert graph.edgesendverts[0, -1] == graph.edgesendverts[1, -1]
+
+    dlist_refined = graph.refine({"nover": 1, "dlist": [1]})
+    np.testing.assert_array_equal([edge.nch for edge in dlist_refined.echnks], np.asarray(fixture.dlist_nchs, dtype=int).reshape(-1))
+
+    splitchunks = [[] for _ in graph.echnks]
+    splitchunks[2] = [2]
+    split_refined = graph.refine({"splitchunks": splitchunks})
+    np.testing.assert_array_equal([edge.nch for edge in split_refined.echnks], np.asarray(fixture.splitchunks_nchs, dtype=int).reshape(-1))
+
+    last_len = float(fixture.last_len)
+    last_refined = graph.refine({"last_len": last_len})
+    arcs, degrees = graph_vertex_endpoint_arcs(
+        last_refined,
+        int(fixture.ncircedge),
+        np.asarray(fixture.last_len_arcs).shape[1],
+    )
+    np.testing.assert_array_equal(degrees, np.asarray(fixture.last_len_degrees, dtype=int).reshape(-1))
+    np.testing.assert_allclose(arcs, np.asarray(fixture.last_len_arcs, dtype=float), atol=5e-11)
+    for row, degree in zip(arcs, degrees):
+        active = row[:degree]
+        np.testing.assert_allclose(active, active[0], atol=5e-11)
+        level = np.log2(active[0] / last_len)
+        assert abs(level - round(level)) < 1e-10
+        assert round(level) <= 0
 
 
 def test_slicegraph_devtools_outputs_match_matlab():

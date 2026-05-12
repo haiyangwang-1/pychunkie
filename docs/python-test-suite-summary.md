@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 327 pytest cases because several MATLAB parity tests are
+collection expands to 328 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -114,6 +114,10 @@ Implemented from this scope:
   multiply connected, bridge, loop, nested, and adjacent-triangle region
   cases, graph-region id queries, affine/scale/rotate/reflect transforms, and
   per-edge dyadic refinement counts.
+- Chunkgraph refinement parity now includes graph-level selected-edge
+  refinement, per-edge split-chunk routing, vertex endpoint balancing,
+  MATLAB-style `NaN` closed-edge construction, and `last_len` endpoint-panel
+  matching from `chunkgraph_lastlengthTest.m`.
 - Laplace and Helmholtz Green-identity target-evaluation parity for the devtools
   `kernelclass`, `chunkerkerneval_greenlap`, and
   `chunkerkerneval_greenhelm`, `chunkerkerneval_gaussid`, and
@@ -640,6 +644,13 @@ constructor, region, transform, region-query, and dyadic-refinement cases from
 matrices, region counts for multiply connected/bridge/loop/nested graphs,
 adjacent and nested point-region ids, transformed graph ids after affine,
 scaling, rotation, and reflection operations, and per-edge refinement counts.
+
+`test_chunkgraph_lastlength_devtools_outputs_match_matlab` checks graph-level
+refinement behavior from `chunkgraph_lastlengthTest.m`. The method compares
+MATLAB and Python chunk counts for selected-edge refinement and per-edge
+split-chunk routing, verifies `NaN` closed-edge construction maps to a closed
+Python edge, and compares `last_len` endpoint-panel arclengths and vertex
+degrees against the MATLAB fixture.
 
 `test_slicegraph_devtools_outputs_match_matlab` checks the concentric-square
 `slicegraph` workflow. The method compares sliced geometry and edge id

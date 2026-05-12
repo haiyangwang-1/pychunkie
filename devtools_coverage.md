@@ -32,12 +32,12 @@ The parity rule for this repo is:
 - Python snapshot generator: `scripts/generate_devtools_easy_python_fixture.py`
 - Python comparisons: `tests/test_devtools_parity.py`
 - Python verification: `uv run pytest tests/test_devtools_parity.py` on
-  2026-05-12 with the regenerated local fixture: `36 passed`
+  2026-05-12 with the regenerated local fixture: `37 passed`
 - Covered now: `absconvgaussTest.m`, `adapgausswtsTest.m`, `legeexpsunitTest.m`,
   `arclengthfunTest.m`, `chunker_diffintmatTest.m`,
   `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`,
   `chunkerfuncuniTest.m`, `chunkerfuncTest.m`, `chunkgraph_basicTest.m`,
-  `chunkgrphconstructTest.m`,
+  `chunkgraph_lastlengthTest.m`, `chunkgrphconstructTest.m`,
   `chunkerintegralTest.m`,
   `chunkerinteriorTest.m`, `chunkerpolyTest.m`, `chunkerarcparamTest.m`,
   `chunkermat_quadadapTest.m`, `flagrectTest.m`, `flagselfTest.m`,
@@ -51,10 +51,10 @@ The parity rule for this repo is:
 
 | Status | Count | Tests |
 | --- | ---: | --- |
-| ✅ 🧪 🎯 fully covered by devtools parity | 25 | `absconvgaussTest.m`, `adapgausswtsTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`, `chunkerfuncuniTest.m`, `chunkgraph_basicTest.m`, `chunkgrphconstructTest.m`, `chunkerintegralTest.m`, `chunkerinteriorTest.m`, `chunkerkerneval_gaussidTest.m`, `chunkerkerneval_greenhelmTest.m`, `chunkerkernevalmat_greenlapTest.m`, `chunkermat_quadadapTest.m`, `chunkerpolyTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `KernDerInterleaveTest.m`, `kernelopTest.m`, `tochunkgraphTest.m` |
+| ✅ 🧪 🎯 fully covered by devtools parity | 26 | `absconvgaussTest.m`, `adapgausswtsTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`, `chunkerfuncuniTest.m`, `chunkgraph_basicTest.m`, `chunkgraph_lastlengthTest.m`, `chunkgrphconstructTest.m`, `chunkerintegralTest.m`, `chunkerinteriorTest.m`, `chunkerkerneval_gaussidTest.m`, `chunkerkerneval_greenhelmTest.m`, `chunkerkernevalmat_greenlapTest.m`, `chunkermat_quadadapTest.m`, `chunkerpolyTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `KernDerInterleaveTest.m`, `kernelopTest.m`, `tochunkgraphTest.m` |
 | ✅ 🧪 🎯 ⚠️ partial/diagnostic devtools parity | 9 | `chunkerarcparamTest.m`, `chunkerfuncTest.m`, `chunkerkerneval_greenlapTest.m`, `datafieldTest.m`, `flamutilitiesTest.m`, `kernelclassTest.m`, `slicegraphTest.m`, `smootherTest.m`, `stokes_dtracTest.m` |
 | 🧩 🧭 helper/reference | 1 | `gradient_check.m` |
-| 🚧 should/pending parity not yet converted | 28 | Remaining ranked entries below, excluding explicit non-goals. |
+| 🚧 should/pending parity not yet converted | 27 | Remaining ranked entries below, excluding explicit non-goals. |
 | 🚫 explicit non-goal; do not port | 11 | `trappermatTest.m`, `quasiperiodicTest.m`, axisymmetric tests 63-68, and flexural tests 72-74. |
 
 ## Scope Triage For Remaining Work
@@ -169,7 +169,7 @@ Do not implement:
 | 23 | `tochunkgraphTest.m` | ✅ 🧪 🎯 | Medium | Converts merged circle/open-arc chunkers to a chunkgraph, checks vertices, edge count, point count, edge chunker preservation, and endpoint alignment after shift/scale. | Covered in `devtools_easy.mat`: compare merged chunker graph fields and manual `chunkgraph` endpoint alignment against Python `tochunkgraph`/`chunkgraph`. |
 | 24 | `slicegraphTest.m` | ✅ 🧪 🎯 ⚠️ | Medium | Builds concentric-square chunkgraphs, slices selected edges, checks sliced geometry, compares sliced system matrix to full submatrix, and verifies edge id ordering. | Covered in `devtools_easy.mat`: compare sliced geometry and `edgeids`, and verify MATLAB and Python each preserve the inner sliced/full-submatrix relation. Direct dense matrix-value parity remains partial because current Python graph double-layer self blocks produce NaNs where MATLAB stores finite special values. |
 | 25 | `chunkgraph_basicTest.m` | ✅ 🧪 🎯 | Medium | Tests chunkgraph constructors, legacy/new graph formats, multiply connected regions, bridge edges, loops, nested regions, dyadic refinement, and region id queries. | Covered in `devtools_easy.mat`: compare legacy/new incidence matrices, region counts for multiply connected/bridge/loop/nested graphs, adjacent and nested point-region ids, affine/scale/rotate/reflect region-query invariance, and graph refinement chunk counts against Python `chunkgraph` APIs. |
-| 26 | `chunkgraph_lastlengthTest.m` | ✅ 🧪 🚧 | Medium | Checks chunkgraph refinement near vertices so all adjacent edge arclengths agree and are negative powers of two times `last_len`. | Save refined edge lengths and expected dyadic ratios; compare Python graph refinement when available. |
+| 26 | `chunkgraph_lastlengthTest.m` | ✅ 🧪 🎯 | Medium | Checks chunkgraph refinement near vertices so all adjacent edge arclengths agree and are negative powers of two times `last_len`. | Covered in `devtools_easy.mat`: compare MATLAB selected-edge refinement, per-edge split-chunk routing, `NaN` closed-edge construction, graph balancing counts, and `last_len` endpoint-panel arclengths/degrees against Python `ChunkGraph.refine`. |
 | 27 | `chunkgrphconstructTest.m` | ✅ 🧪 🎯 | Medium | Builds a pentagonal chunkgraph from circular/sine arcs and compares legacy connectivity construction against newer `edgesendverts` construction. | Covered in `devtools_easy.mat`: compare MATLAB balanced vertices, incidence matrices, endpoint indices, and first-edge sine-arc chunker geometry against Python legacy-incidence and `edgesendverts` construction. |
 | 28 | `chunkgrphregionTest.m` | ✅ 🧪 🚧 | Medium | Builds several graph regions, checks region edge orientation, edge-to-region map, and region numbering against manually specified truth. | Save expected region lists and edge-region maps; compare Python region construction. |
 | 29 | `chunkrgrphOpdimTest.m` | ✅ 🚧 | Medium | Smoke-tests operator dimensions for chunkgraph kernels and block kernels. The file is short and mainly validates dimension plumbing. | Save kernel/operator dimension metadata and assembled shape outputs; compare Python once chunkgraph operator dimensions are supported. |

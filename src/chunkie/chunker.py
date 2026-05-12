@@ -667,7 +667,7 @@ class Chunker:
                 err = float(np.dot(vals, ws) - target)
                 if abs(err) < 1e-12 * max(total, 1.0):
                     break
-                speed = float(lege.exev(np.array([t1]), cdsdt))
+                speed = float(np.asarray(lege.exev(np.array([t1]), cdsdt)).reshape(-1)[0])
                 t1 -= err / speed
                 t1 = min(max(t1, -0.999999999999), 0.999999999999)
 

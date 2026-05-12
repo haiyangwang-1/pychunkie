@@ -47,11 +47,15 @@ class ChunkGraph:
         self.verts = np.asarray(verts, dtype=float)
         if self.verts.ndim != 2 or self.verts.shape[0] != 2:
             raise ValueError("verts must have shape (2, nverts)")
-        self.edgesendverts = _normalize_edges(edgesendverts, self.verts.shape[1])
-        nedge = self.edgesendverts.shape[1]
         p = ChunkerPref.from_any(pref)
 
-        edge_specs = _expand_edge_specs(fchnks, nedge)
+        raw_edges = np.asarray(edgesendverts)
+        nedge_hint = _edge_count_hint(raw_edges, self.verts.shape[1])
+        edge_specs = _expand_edge_specs(fchnks, nedge_hint)
+        self.verts, self.edgesendverts, prebuilt = _normalize_edges_with_closed_vertices(
+            raw_edges, self.verts, edge_specs, cparams, p
+        )
+        nedge = self.edgesendverts.shape[1]
         self.echnks = []
         for iedge in range(nedge):
             cp = _edge_cparams(cparams, iedge)
@@ -61,6 +65,9 @@ class ChunkGraph:
             cp.setdefault("tb", 1.0)
             v0 = self.verts[:, self.edgesendverts[0, iedge]]
             v1 = self.verts[:, self.edgesendverts[1, iedge]]
+            if iedge in prebuilt:
+                self.echnks.append(_fit_edge_chunker(prebuilt[iedge], v0, v1))
+                continue
             spec = edge_specs[iedge]
             if spec is None:
                 chnkr, _ = chunkerfunc(lambda t, a=v0, b=v1: linefunc(t, a, b), cp, p)
@@ -196,10 +203,27 @@ class ChunkGraph:
         return np.array(ids, dtype=int)
 
     def refine(self, opts: dict[str, Any] | None = None) -> "ChunkGraph":
+        opts = {} if opts is None else dict(opts)
         out = self.copy()
-        out.echnks = [edge.refine(opts).sort()[0] for edge in out.echnks]
+        nedge = len(out.echnks)
+        dlist = _normalize_index_list(opts.get("dlist", np.arange(nedge)), nedge)
+        ilist = set(_normalize_index_list(opts.get("ilist", []), nedge))
+        splitchunks = _graph_splitchunks(opts.get("splitchunks", []), nedge)
+        edge_opts = {key: val for key, val in opts.items() if key not in {"dlist", "ilist", "splitchunks", "last_len"}}
+        for iedge in dlist:
+            if iedge in ilist:
+                continue
+            optsj = dict(edge_opts)
+            optsj["splitchunks"] = splitchunks[iedge]
+            out.echnks[iedge] = out.echnks[iedge].refine(optsj).sort()[0]
+        _balance_graph(out)
         out.vstruc = out.procverts()
         out.regions = out.findregions()
+        if "last_len" in opts and opts["last_len"] not in (None, ""):
+            _refine_graph_last_len(out, float(opts["last_len"]), edge_opts)
+            _balance_graph(out)
+            out.vstruc = out.procverts()
+            out.regions = out.findregions()
         return out
 
     def copy(self) -> "ChunkGraph":
@@ -332,6 +356,66 @@ def chunkgraphinregion(cg: ChunkGraph, ptsobj: ArrayLike | tuple[ArrayLike, Arra
     return ids.reshape(grid_shape) if grid_shape is not None else ids
 
 
+def _edge_count_hint(edges: np.ndarray, nverts: int) -> int:
+    if edges.ndim != 2:
+        raise ValueError("edgesendverts must be a 2 x nedge array or incidence matrix")
+    has_nan = np.issubdtype(edges.dtype, np.floating) and np.isnan(edges).any()
+    finite = edges[~np.isnan(edges)] if has_nan else edges
+    if edges.shape[0] == 2 and (has_nan or np.all(finite >= 0)):
+        return edges.shape[1]
+    if edges.shape[1] != nverts:
+        raise ValueError("incidence matrix must have one column per vertex")
+    return edges.shape[0]
+
+
+def _normalize_edges_with_closed_vertices(
+    edges: np.ndarray,
+    verts: np.ndarray,
+    edge_specs: Sequence[Any],
+    cparams: Sequence[dict[str, Any]] | dict[str, Any] | None,
+    pref: ChunkerPref,
+) -> tuple[np.ndarray, np.ndarray, dict[int, Chunker]]:
+    if not (np.issubdtype(edges.dtype, np.floating) and np.isnan(edges).any()):
+        return verts, _normalize_edges(edges, verts.shape[1]), {}
+    if edges.ndim != 2 or edges.shape[0] != 2:
+        raise ValueError("NaN closed-edge notation requires a 2 x nedge edgesendverts array")
+
+    raw = edges.astype(float, copy=True)
+    nan_cols = np.unique(np.nonzero(np.isnan(raw))[1])
+    for col in nan_cols:
+        if not np.all(np.isnan(raw[:, col])):
+            raise ValueError("NaN closed-edge columns must have both endpoints set to NaN")
+
+    finite = raw[~np.isnan(raw)]
+    if finite.size:
+        if np.max(finite) >= verts.shape[1]:
+            if np.min(finite) >= 1 and np.max(finite) <= verts.shape[1]:
+                raw[~np.isnan(raw)] -= 1
+            else:
+                raise ValueError("edge vertex index out of range")
+        elif np.min(finite) < 0:
+            raise ValueError("edge vertex index out of range")
+
+    out_edges = np.zeros(raw.shape, dtype=int)
+    prebuilt: dict[int, Chunker] = {}
+    verts_out = verts.copy()
+    for iedge in range(raw.shape[1]):
+        if iedge in nan_cols:
+            spec = edge_specs[iedge]
+            if spec is None:
+                raise ValueError("NaN closed-edge notation requires a callable or Chunker edge spec")
+            cp = _edge_cparams(cparams, iedge)
+            cp.setdefault("ifclosed", True)
+            chnkr = _edge_chunker_from_spec(spec, cp, pref)
+            new_vert = verts_out.shape[1]
+            verts_out = np.column_stack((verts_out, chnkr.r[:, 0, 0]))
+            out_edges[:, iedge] = new_vert
+            prebuilt[iedge] = chnkr
+        else:
+            out_edges[:, iedge] = raw[:, iedge].astype(int)
+    return verts_out, out_edges, prebuilt
+
+
 def _normalize_edges(edges: ArrayLike, nverts: int) -> np.ndarray:
     arr = np.asarray(edges, dtype=int)
     if arr.ndim != 2:
@@ -355,6 +439,15 @@ def _normalize_edges(edges: ArrayLike, nverts: int) -> np.ndarray:
     return out
 
 
+def _edge_chunker_from_spec(spec: Any, cparams: dict[str, Any], pref: ChunkerPref) -> Chunker:
+    if isinstance(spec, Chunker):
+        return spec.copy().sort()[0]
+    if callable(spec):
+        chnkr, _ = chunkerfunc(spec, cparams, pref)
+        return chnkr.sort()[0]
+    raise TypeError("edge spec must be None, callable, or Chunker")
+
+
 def _expand_edge_specs(specs: Any, nedge: int) -> list[Any]:
     if specs is None:
         return [None] * nedge
@@ -372,6 +465,107 @@ def _edge_cparams(cparams: Any, iedge: int) -> dict[str, Any]:
     if isinstance(cparams, dict):
         return dict(cparams)
     return dict(cparams[iedge])
+
+
+def _normalize_index_list(value: Any, nitems: int) -> list[int]:
+    arr = np.asarray(value, dtype=int).reshape(-1)
+    out: list[int] = []
+    for item in arr:
+        idx = int(item)
+        if idx < 0 or idx >= nitems:
+            raise IndexError("graph edge index out of range")
+        out.append(idx)
+    return out
+
+
+def _graph_splitchunks(value: Any, nedge: int) -> list[np.ndarray]:
+    if value is None:
+        return [np.zeros(0, dtype=int) for _ in range(nedge)]
+    if isinstance(value, (list, tuple)) and len(value) == nedge and any(isinstance(item, (list, tuple, np.ndarray)) for item in value):
+        return [np.asarray(item, dtype=int).reshape(-1) for item in value]
+    chunks = np.asarray(value, dtype=int).reshape(-1)
+    return [chunks.copy() for _ in range(nedge)]
+
+
+def _refine_graph_last_len(cg: ChunkGraph, last_len: float, opts: dict[str, Any]) -> None:
+    if last_len <= 0.0:
+        raise ValueError("last_len must be positive")
+    stype = str(opts.get("stype", "a"))
+    tol = 1e-10 * max(last_len, 1.0)
+    for _ in range(int(opts.get("maxiter_last_len", 20))):
+        changed = False
+        cg.vstruc = cg.procverts()
+        for edges, signs in cg.vstruc:
+            if edges.size == 0:
+                continue
+            endpoint_info: list[tuple[int, int, int, float]] = []
+            for edge, sign in zip(edges, signs):
+                iedge = int(edge)
+                isign = int(sign)
+                ichunk = 0 if isign < 0 else cg.echnks[iedge].nch - 1
+                length = float(cg.echnks[iedge].chunklen([ichunk])[0])
+                endpoint_info.append((iedge, isign, ichunk, length))
+            target = _last_len_target([item[3] for item in endpoint_info], last_len)
+            for iedge, isign, ichunk, length in endpoint_info:
+                if abs(length - target) <= tol:
+                    continue
+                ratio = target / length
+                if ratio <= 1e-8 or ratio >= 1.0 - 1e-8:
+                    continue
+                frac = ratio if isign < 0 else 1.0 - ratio
+                cg.echnks[iedge] = cg.echnks[iedge].split(ichunk, frac=frac, stype=stype).sort()[0]
+                changed = True
+        if not changed:
+            break
+    else:
+        raise RuntimeError("graph last_len refinement did not converge")
+    cg.vstruc = cg.procverts()
+    cg.regions = cg.findregions()
+
+
+def _balance_graph(cg: ChunkGraph) -> None:
+    for _ in range(1000):
+        changed = False
+        cg.vstruc = cg.procverts()
+        for edges, signs in cg.vstruc:
+            if edges.size == 0:
+                continue
+            endpoint_info: list[tuple[int, int, float]] = []
+            for edge, sign in zip(edges, signs):
+                iedge = int(edge)
+                isign = int(sign)
+                ichunk = 0 if isign < 0 else cg.echnks[iedge].nch - 1
+                length = float(cg.echnks[iedge].chunklen([ichunk])[0])
+                endpoint_info.append((iedge, isign, length))
+            lengths = np.asarray([item[2] for item in endpoint_info], dtype=float)
+            amin = float(np.min(lengths))
+            amax_idx = int(np.argmax(lengths))
+            if amin <= 0.0:
+                continue
+            nsplit = int(np.floor(np.log2(float(lengths[amax_idx]) / amin)))
+            if nsplit <= 0:
+                continue
+            iedge, isign, _ = endpoint_info[amax_idx]
+            for _ in range(nsplit):
+                ichunk = 0 if isign < 0 else cg.echnks[iedge].nch - 1
+                cg.echnks[iedge] = cg.echnks[iedge].split(ichunk).sort()[0]
+            changed = True
+        if not changed:
+            cg.vstruc = cg.procverts()
+            cg.regions = cg.findregions()
+            return
+    raise RuntimeError("graph balance did not converge")
+
+
+def _last_len_target(lengths: Sequence[float], last_len: float) -> float:
+    lens = np.asarray(lengths, dtype=float)
+    level = -np.log2(float(np.min(lens)) / last_len)
+    if level - np.round(level) < 1e-8:
+        level = float(np.round(level))
+    else:
+        level = float(np.ceil(level))
+    level = max(level, 1.0)
+    return float(last_len * 2.0 ** (-level))
 
 
 def _fit_edge_chunker(chnkr: Chunker, v0: np.ndarray, v1: np.ndarray) -> Chunker:

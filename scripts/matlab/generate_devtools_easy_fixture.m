@@ -554,6 +554,71 @@ cg_refined = refine(cg, struct('nover', 1));
 cgb.refine_nchs_after = [cg_refined.echnks.nch];
 devtools_easy.chunkgraph_basic = cgb;
 
+% chunkgraph_lastlengthTest.m
+cll = [];
+cll.ncircedge = 6;
+rots = exp(1i*2*pi*(1:cll.ncircedge)/cll.ncircedge);
+cll.rad = 6;
+cll.verts = cll.rad*[real(rots); imag(rots)];
+nverts = size(cll.verts, 2);
+cll.edge2verts = [1:nverts; circshift(1:nverts, -1)];
+cll.edge2verts = [cll.edge2verts, [2; 6]];
+edge2verts_nan = [cll.edge2verts, [NaN; NaN]];
+cll.edge2verts_with_closed = edge2verts_nan;
+cll.amp = -0.5;
+cll.frq = 6;
+fchnks = cell(size(edge2verts_nan, 2), 1);
+for i = 1:cll.ncircedge/2
+    fchnks{2*i-1} = [];
+    fchnks{2*i} = @(t) local_sinearc(t, cll.amp, cll.frq);
+end
+fchnks{size(cll.edge2verts, 2)} = [];
+cll.closed_narm = 3;
+cll.closed_amp = 0.3;
+cll.closed_ctr = [0; 0];
+cll.closed_scale = 0.3;
+fchnks{end} = @(t) starfish(t, cll.closed_narm, cll.closed_amp, cll.closed_ctr, 0, cll.closed_scale);
+cparams = cell(1, size(edge2verts_nan, 2));
+for i = 1:length(cparams)
+    cparams{i}.eps = 1e-8;
+end
+cparams{end}.ta = 0;
+cparams{end}.tb = 2*pi;
+cgrph = chunkgraph(cll.verts, edge2verts_nan, fchnks, cparams);
+cll.initial_nchs = [cgrph.echnks.nch];
+cll.closed_edge_endverts = cgrph.edgesendverts(:, end);
+cll.closed_edge_start = cgrph.echnks(end).r(:, 1, 1);
+
+ref_opts = [];
+ref_opts.nover = 1;
+ref_opts.dlist = 2;
+cgrph2 = refine(cgrph, ref_opts);
+cll.dlist_nchs = [cgrph2.echnks.nch];
+
+ref_opts = [];
+ref_opts.splitchunks = cell(1, length(cgrph.echnks));
+ref_opts.splitchunks{3} = 3;
+cgrph3 = refine(cgrph, ref_opts);
+cll.splitchunks_nchs = [cgrph3.echnks.nch];
+
+cll.last_len = 2;
+cgrph4 = refine(cgrph, struct("last_len", cll.last_len));
+cll.last_len_nchs = [cgrph4.echnks.nch];
+cll.last_len_arcs = NaN(nverts, 4);
+cll.last_len_degrees = zeros(1, nverts);
+for j = 1:nverts
+    loc_edges = cgrph4.vstruc{j}{1};
+    loc_dir = cgrph4.vstruc{j}{2};
+    cll.last_len_degrees(j) = length(loc_edges);
+    idch_loc = [cgrph4.echnks(loc_edges).nch];
+    idch_loc(loc_dir == -1) = 1;
+    for k = 1:length(loc_edges)
+        wts = cgrph4.echnks(loc_edges(k)).wts;
+        cll.last_len_arcs(j, k) = sum(wts(:, idch_loc(k)));
+    end
+end
+devtools_easy.chunkgraph_lastlength = cll;
+
 % slicegraphTest.m
 slc = [];
 verts_out = [[1;1], [1;-1], [-1;-1], [-1;1]];
