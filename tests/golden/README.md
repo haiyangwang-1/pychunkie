@@ -41,10 +41,10 @@ uv run python scripts/clean_test_data.py
 devtools parity track used by `tests/test_devtools_parity.py`, including
 chunker/chunkgraph constructors, region and near-flag helpers, dense/adaptive
 operator assembly, close-touching adaptive solve diagnostics,
-Laplace and Helmholtz dense solve workflows, scalar and vector-valued
+Laplace, Helmholtz, and Stokes dense solve workflows, scalar and vector-valued
 chunker plus diagnostic chunkgraph matrix-free apply paths, singular PV/HS
 diagnostics, Green-identity target evaluation, selected data-field/FLAM diagnostics, and direct
-Stokes/elasticity/Helmholtz-1D diagnostics.
+elasticity/Helmholtz-1D diagnostics.
 
 For manual inspection, `scripts/generate_devtools_easy_python_fixture.py`
 generates `devtools_easy_python.npz` from the live Python package using the

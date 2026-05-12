@@ -1314,6 +1314,62 @@ def test_stokes_dtrac_devtools_output_matches_matlab():
     assert float(fixture.residual_norm) < 1e-13
 
 
+def test_chunkermat_stok2d_devtools_solve_matches_matlab():
+    fixture = load_devtools_easy().chunkermat_stok2d
+    chnkr = chunker_from_fields(fixture.chunker)
+    mu = float(fixture.mu)
+    coefs = np.asarray(fixture.coefs).reshape(-1, order="F")
+    sources = PointInfo(r=point_array(fixture.sources), n=point_array(fixture.sources_n))
+    targets = PointInfo(r=point_array(fixture.targets), n=point_array(fixture.targets_n))
+    strengths = np.asarray(fixture.strengths).reshape(-1, order="F")
+    matlab_sol = np.asarray(fixture.sol).reshape(-1, order="F")
+    stok_d = kernel("stok", "d", mu)
+    cvel = kernel("stok", "cvel", mu, coefs)
+
+    ubdry = stok_d(sources, pointinfo(chnkr)) @ strengths
+    utarg = stok_d(sources, targets) @ strengths
+    D = chunkermat(chnkr, cvel)
+    sys = -0.5 * np.eye(D.shape[0]) + D + chnkr.normonesmat() / np.sum(chnkr.wts)
+    rhs = ubdry.reshape(-1, order="F")
+    sol = np.linalg.solve(sys, rhs)
+    Dsol = chunkerkerneval(chnkr, cvel, matlab_sol, targets, {"acceleration": "fmm", "eps": 1e-11}).reshape(-1, order="F")
+
+    np.testing.assert_allclose(ubdry, np.asarray(fixture.ubdry).reshape(-1, order="F"), rtol=1e-11, atol=1e-11)
+    np.testing.assert_allclose(utarg, np.asarray(fixture.utarg).reshape(-1, order="F"), rtol=1e-11, atol=1e-11)
+    np.testing.assert_allclose(D, np.asarray(fixture.D), rtol=5e-8, atol=5e-9)
+    np.testing.assert_allclose(sys, np.asarray(fixture.sys), rtol=5e-8, atol=5e-9)
+    np.testing.assert_allclose(sol, matlab_sol, rtol=2e-7, atol=1e-8)
+    np.testing.assert_allclose(Dsol, np.asarray(fixture.Dsol).reshape(-1, order="F"), rtol=5e-10, atol=5e-11)
+    assert np.linalg.norm(sys @ sol - rhs) / np.linalg.norm(rhs) < 5e-13
+    assert np.linalg.norm(sys @ matlab_sol - rhs) / np.linalg.norm(rhs) < 5e-9
+    assert np.linalg.norm(utarg - Dsol) / (np.sqrt(chnkr.nch) * np.linalg.norm(utarg)) < 2e-10
+
+    svel = kernel("stok", "svel", mu)
+    Ssol = chunkerkerneval(chnkr, svel, matlab_sol, targets, {"acceleration": "fmm", "eps": 1e-11}).reshape(-1, order="F")
+    Ssys = chunkerkernevalmat(chnkr, svel, targets)
+    np.testing.assert_allclose(Ssys, np.asarray(fixture.Ssys), rtol=1e-11, atol=1e-12)
+    np.testing.assert_allclose(Ssol, np.asarray(fixture.Ssol).reshape(-1, order="F"), rtol=5e-10, atol=5e-11)
+    assert np.linalg.norm(Ssol - Ssys @ matlab_sol) < 2e-10
+
+    for selector, field, rtol, atol in [
+        ("dvel", "Dvel", 5e-10, 5e-11),
+        ("strac", "Strac", 2e-9, 5e-10),
+        ("dtrac", "Dtrac", 5e-8, 2e-8),
+        ("spres", "Spres", 5e-10, 5e-11),
+        ("dpres", "Dpres", 5e-8, 2e-8),
+    ]:
+        vals = chunkerkerneval(chnkr, kernel("stok", selector, mu), matlab_sol, targets, {"acceleration": "fmm", "eps": 1e-11}).reshape(-1, order="F")
+        np.testing.assert_allclose(vals, np.asarray(getattr(fixture, field)).reshape(-1, order="F"), rtol=rtol, atol=atol)
+
+    pressure = chunkerkerneval(chnkr, kernel("stok", "cpres", mu, coefs), matlab_sol, targets, {"acceleration": "fmm", "eps": 1e-11}).reshape(-1, order="F")
+    pressure = pressure - pressure[0]
+    grad = chunkerkerneval(chnkr, kernel("stok", "cgrad", mu, coefs), matlab_sol, targets, {"acceleration": "fmm", "eps": 1e-11}).reshape(-1, order="F")
+    np.testing.assert_allclose(pressure, np.asarray(fixture.pressure_direct).reshape(-1, order="F"), rtol=5e-10, atol=5e-11)
+    np.testing.assert_allclose(grad, np.asarray(fixture.grad_direct).reshape(-1, order="F"), rtol=5e-9, atol=5e-10)
+    assert np.linalg.norm(pressure - np.asarray(fixture.pressure_exact).reshape(-1, order="F")) / np.linalg.norm(fixture.pressure_exact) < 2e-10
+    assert np.linalg.norm(grad - np.asarray(fixture.grad_exact).reshape(-1, order="F")) / np.linalg.norm(fixture.grad_exact) < 2e-10
+
+
 def test_elastickernels_devtools_direct_diagnostics_match_matlab():
     fixture = load_devtools_easy().elastickernels
     chnkr = chunker_from_fields(fixture.chunker)

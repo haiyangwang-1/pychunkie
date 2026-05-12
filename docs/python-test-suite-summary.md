@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 348 pytest cases because several MATLAB parity tests are
+collection expands to 349 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -78,8 +78,8 @@ Current test-backed coverage includes:
   special quadrature, and RCIP helper/compression workflows.
 - MATLAB golden parity for compact fixtures under `tests/golden`, including
   geometry, kernel/operator, quadrature, and RCIP fixtures.
-- MATLAB devtools parity for 51 focused comparisons in
-  `tests/test_devtools_parity.py`, including Laplace and Helmholtz dense
+- MATLAB devtools parity for 52 focused comparisons in
+  `tests/test_devtools_parity.py`, including Laplace, Helmholtz, and Stokes dense
   `chunkermat` solve/target-evaluation workflows.
 - Seven parity-stress tests in `tests/test_easy_parity_stress.py` that harden
   previously shape-only or fixture-narrow areas.
@@ -88,7 +88,7 @@ Open or intentionally limited areas:
 
 - No active `should implement` items remain in the current triage.
 - Remaining deferred work is mostly stricter FLAM devtools parity, full
-  solve-level fixtures for hard devtools cases such as Stokes/RCIP/product
+  solve-level fixtures for hard devtools cases such as RCIP/product
   quadrature, and `chunkerfit` modes beyond the implemented
   spline/open-line/circle paths.
 - Explicit non-goals remain the `trapper` family, axisymmetric/quasiperiodic
@@ -715,6 +715,13 @@ stress identity `t = -p n + mu (grad u + grad u^T) n`, reconstructed from
 blocks through the generic `kernel` wrapper and contracts with saved
 strengths. Ground truth is MATLAB's `Kt`, `Kg`, `Kp`, reconstructed traction,
 and residual norm below `1e-13`.
+
+`test_chunkermat_stok2d_devtools_solve_matches_matlab` checks the dense Stokes
+combined-velocity solve from MATLAB `chunkermat_stok2dTest.m`. The method
+compares the saved starfish geometry, source-driven boundary and target values,
+dense special-quadrature matrix, stabilized system, MATLAB GMRES density, FMM
+target velocity, single-layer evaluation matrix, velocity/traction/pressure
+selector evaluations, and combined pressure/gradient diagnostics.
 
 `test_elastickernels_devtools_direct_diagnostics_match_matlab` checks the
 direct-kernel diagnostic portion of MATLAB `elastickernelsTest.m`. The method

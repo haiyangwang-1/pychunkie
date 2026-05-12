@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 from scipy.io import loadmat
 
-from chunkie import Chunker, chunkerfit, chunkerfunc, chunkerfuncuni, chunkerintegral, chunkerinterior, chunkermat, chunkermatapply, chunkerpoly, chunkgraph, kernel, lege, tochunkgraph
+from chunkie import Chunker, chunkerfit, chunkerfunc, chunkerfuncuni, chunkerintegral, chunkerinterior, chunkerkerneval, chunkerkernevalmat, chunkermat, chunkermatapply, chunkerpoly, chunkgraph, kernel, lege, tochunkgraph
 from chunkie.chnk import arcparam, curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, quadadap, smoother, spcl
 from chunkie.operators import PointInfo
 
@@ -413,6 +413,31 @@ def build_snapshot() -> dict[str, np.ndarray]:
     out["stokes_dtrac_Kg"] = kg
     out["stokes_dtrac_Kp"] = kp
     out["stokes_dtrac_reconstructed"] = reconstructed
+
+    stok = fixture.chunkermat_stok2d
+    stok_chunker = chunker_from_fields(stok.chunker)
+    stok_mu = float(stok.mu)
+    stok_coefs = np.asarray(stok.coefs).reshape(-1, order="F")
+    stok_sources = PointInfo(r=point_array(stok.sources), n=point_array(stok.sources_n))
+    stok_targets = PointInfo(r=point_array(stok.targets), n=point_array(stok.targets_n))
+    stok_strengths = np.asarray(stok.strengths).reshape(-1, order="F")
+    stok_cvel = kernel("stok", "cvel", stok_mu, stok_coefs)
+    stok_d = kernel("stok", "d", stok_mu)
+    stok_D = chunkermat(stok_chunker, stok_cvel)
+    stok_sys = -0.5 * np.eye(stok_D.shape[0]) + stok_D + stok_chunker.normonesmat() / np.sum(stok_chunker.wts)
+    stok_rhs = (stok_d(stok_sources, pointinfo_from_chunker(stok_chunker)) @ stok_strengths).reshape(-1, order="F")
+    stok_sol = np.linalg.solve(stok_sys, stok_rhs)
+    out["chunkermat_stok2d_D"] = stok_D
+    out["chunkermat_stok2d_sys"] = stok_sys
+    out["chunkermat_stok2d_sol"] = stok_sol
+    out["chunkermat_stok2d_Dsol"] = chunkerkerneval(
+        stok_chunker,
+        stok_cvel,
+        np.asarray(stok.sol).reshape(-1, order="F"),
+        stok_targets,
+        {"acceleration": "fmm", "eps": 1e-11},
+    )
+    out["chunkermat_stok2d_Ssys"] = chunkerkernevalmat(stok_chunker, kernel("stok", "svel", stok_mu), stok_targets)
 
     cqa = fixture.chunkermat_quadadap
     cqa_chunker = chunker_from_fields(cqa.chunker)

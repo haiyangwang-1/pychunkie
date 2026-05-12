@@ -13,7 +13,7 @@ Status legend:
 ## Current Status
 
 - No active too-easy test rows remain from the 2026-05-12 audit.
-- `uv run pytest --collect-only -q` currently collects 348 tests.
+- `uv run pytest --collect-only -q` currently collects 349 tests.
 - The completed tables below are an audit trail for prior hardening work, not a
   current todo list.
 
@@ -93,7 +93,7 @@ moved here so active triage stays focused on unfinished work.
 
 Scope: project-owned `tests/test_*.py` files only. Vendored tests under
 `external/` are out of scope. The original audit collected 322 pytest cases;
-the suite now collects 348 after later parity additions. Parametrized parity
+the suite now collects 349 after later parity additions. Parametrized parity
 tests were audited once per test function.
 
 Marking rule: a test was marked `too easy` when the behavior under test was
