@@ -55,7 +55,6 @@ def test_top_level_public_exports_are_stable():
 def test_chnk_public_exports_are_stable_and_lazy():
     for name in [
         "chunkie.chnk.flam",
-        "chunkie.chnk.smoother",
     ]:
         sys.modules.pop(name, None)
     sys.modules.pop("chunkie.chnk", None)
@@ -63,7 +62,6 @@ def test_chnk_public_exports_are_stable_and_lazy():
     chnk = importlib.import_module("chunkie.chnk")
     expected = {
         "chunk_nearparam",
-        "arcparam",
         "biharm2d",
         "curvature2d",
         "curves",
@@ -79,8 +77,6 @@ def test_chnk_public_exports_are_stable_and_lazy():
         "lap2d",
         "normal2d",
         "perp",
-        "smoother",
-        "spcl",
         "stok2d",
     }
     assert set(chnk.__all__) == expected
@@ -112,3 +108,24 @@ def test_quadrature_public_exports_are_stable_and_lazy():
 
     assert ggq.__name__ == "chunkie.quadrature.ggq"
     assert rcip.__name__ == "chunkie.quadrature.rcip"
+
+
+def test_numerics_public_exports_are_stable_and_lazy():
+    for name in [
+        "chunkie.numerics.arcparam",
+        "chunkie.numerics.smoother",
+        "chunkie.numerics.special",
+    ]:
+        sys.modules.pop(name, None)
+    sys.modules.pop("chunkie.numerics", None)
+
+    numerics = importlib.import_module("chunkie.numerics")
+    expected = {"arcparam", "smoother", "special"}
+    assert set(numerics.__all__) == expected
+    assert "chunkie.numerics.arcparam" not in sys.modules
+    assert "chunkie.numerics.smoother" not in sys.modules
+
+    from chunkie.numerics import arcparam, special
+
+    assert arcparam.__name__ == "chunkie.numerics.arcparam"
+    assert callable(special.absconvgauss)

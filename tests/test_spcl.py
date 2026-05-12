@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.special import erf
 
-from chunkie.chnk import spcl
+from chunkie.numerics import special
 
 
 def test_absconvgauss_derivatives_match_finite_differences():
@@ -11,11 +11,11 @@ def test_absconvgauss_derivatives_match_finite_differences():
     h = 0.125
     eps = 1e-6
 
-    val, der, der2 = spcl.absconvgauss(x, a, b, h)
-    vp = spcl.absconvgauss(x + eps, a, b, h)[0]
-    vm = spcl.absconvgauss(x - eps, a, b, h)[0]
-    dp = spcl.absconvgauss(x + eps, a, b, h)[1]
-    dm = spcl.absconvgauss(x - eps, a, b, h)[1]
+    val, der, der2 = special.absconvgauss(x, a, b, h)
+    vp = special.absconvgauss(x + eps, a, b, h)[0]
+    vm = special.absconvgauss(x - eps, a, b, h)[0]
+    dp = special.absconvgauss(x + eps, a, b, h)[1]
+    dm = special.absconvgauss(x - eps, a, b, h)[1]
 
     x2 = x / (np.sqrt(2.0) * h)
     expfac = np.exp(-(x * x) / (2.0 * h * h))

@@ -95,10 +95,6 @@ src/
     │   └── private helpers
     ├── chnk/
     │   ├── __init__.py
-    │   ├── arcparam.py
-    │   │   ├── class ArcParamData
-    │   │   ├── init
-    │   │   └── eval
     │   ├── curves.py
     │   │   ├── linefunc, fpara, fsine, bymode
     │   │   └── _pack
@@ -126,16 +122,22 @@ src/
     │   ├── lap2d.py
     │   │   ├── green, kern
     │   │   └── _require
+    │   └── stok2d.py
+    │       ├── kern
+    │       └── private helpers
+    ├── numerics/
+    │   ├── __init__.py
+    │   ├── arcparam.py
+    │   │   ├── class ArcParamData
+    │   │   ├── init
+    │   │   └── eval
     │   ├── smoother.py
     │   │   ├── class UniformMesh, class SmoothMesh
     │   │   ├── get_umesh, get_mesh, smooth
     │   │   ├── smooth_curve, smooth_curve2, smooth_curve3
     │   │   └── _panel_nodes
-    │   ├── spcl.py
-    │   │   └── absconvgauss
-    │   └── stok2d.py
-    │       ├── kern
-    │       └── private helpers
+    │   └── special.py
+    │       └── absconvgauss
     ├── quadrature/
     │   ├── __init__.py
     │   ├── adaptive.py
@@ -180,6 +182,7 @@ src/
 - ✅ [src/chunkie/__init__.py](src/chunkie/__init__.py) exports the public Python API. MATLAB has no direct single-file equivalent; it is a Python package facade over MATLAB class folders and package folders.
 - ✅ 🧪 [src/chunkie/domain.py](src/chunkie/domain.py) implements top-level MATLAB geometry/domain helpers exported from the Python package facade.
 - ✅ [src/chunkie/chnk/__init__.py](src/chunkie/chnk/__init__.py) currently mirrors remaining MATLAB `+chnk` package exports while the Python package is being reorganized; quadrature and RCIP helpers have moved out.
+- ✅ 🧪 [src/chunkie/numerics/__init__.py](src/chunkie/numerics/__init__.py) exposes arclength parametrization, lightweight smoother, and special scalar helper modules.
 - ✅ 🧪 [src/chunkie/quadrature/__init__.py](src/chunkie/quadrature/__init__.py) exposes Python-native quadrature modules for native, GGQ, adaptive, panel-product, and RCIP workflows.
 - ✅ [src/chunkie/lege/__init__.py](src/chunkie/lege/__init__.py) mirrors MATLAB `+lege` package exports.
 
@@ -301,7 +304,7 @@ src/
 | `mergeregions` | ✅ 🧪 🎯 | `mergeregions.m` | Merges nested/disjoint chunkgraph region lists. |
 
 
-#### `chnk/arcparam.py`
+#### `numerics/arcparam.py`
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
@@ -500,7 +503,7 @@ Log/PV/HS support tables are packaged as `.npz` assets and loaded with `importli
 | `tayl` | ✅ 🧪 🎯 | `+lege/tayl.m` | Taylor stepping tested against direct Legendre evaluation and scalar-call MATLAB parity fixture outputs. |
 
 ### V SMOOTH
-#### `chnk/smoother.py`
+#### `numerics/smoother.py`
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
@@ -512,7 +515,7 @@ Log/PV/HS support tables are packaged as `.npz` assets and loaded with `importli
 | `get_mesh` | ✅ 🧪 | `+chnk/+smoother/get_mesh.m` | Legendre-panel mesh expansion tested. |
 | `_panel_nodes` | 🧩 ✅ 🧪 | Internal Python helper | Builds panel-local Legendre nodes and weights. |
 
-#### `chnk/spcl.py`
+#### `numerics/special.py`
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |

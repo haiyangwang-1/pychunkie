@@ -1,7 +1,7 @@
 import numpy as np
 
 from chunkie import chunkerfunc, merge
-from chunkie.chnk import arcparam
+from chunkie.numerics import arcparam
 
 
 def circle(t, radius=1.0, center=(0.0, 0.0)):

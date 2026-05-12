@@ -11,7 +11,6 @@ from typing import Any
 
 
 _SUBMODULES = {
-    "arcparam",
     "biharm2d",
     "curves",
     "elast2d",
@@ -20,8 +19,6 @@ _SUBMODULES = {
     "helm1d",
     "helm2d",
     "lap2d",
-    "smoother",
-    "spcl",
     "stok2d",
 }
 
@@ -50,7 +47,6 @@ def __getattr__(name: str) -> Any:
 
 __all__ = [
     "chunk_nearparam",
-    "arcparam",
     "biharm2d",
     "curvature2d",
     "curves",
@@ -66,7 +62,5 @@ __all__ = [
     "lap2d",
     "normal2d",
     "perp",
-    "smoother",
-    "spcl",
     "stok2d",
 ]

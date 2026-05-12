@@ -1,7 +1,7 @@
 import numpy as np
 
 from chunkie import lege
-from chunkie.chnk import smoother
+from chunkie.numerics import smoother
 
 
 def test_smoother_uniform_mesh_matches_polygon_edges():

@@ -22,7 +22,6 @@ from chunkie import (
 )
 from chunkie import lege
 from chunkie.chnk import (
-    arcparam,
     chunk_nearparam,
     curvature2d,
     curves,
@@ -33,6 +32,7 @@ from chunkie.chnk import (
     normal2d,
     perp,
 )
+from chunkie.numerics import arcparam
 from _fixture_generation import assert_chunker_matches_fields, chunker_from_fields, load_generated_mat_fixture
 
 

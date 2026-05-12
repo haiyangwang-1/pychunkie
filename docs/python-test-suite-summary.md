@@ -1138,8 +1138,8 @@ caches are compared to the same state.
 `curvature2d`, `chunk_nearparam`, and `flagself` against MATLAB outputs, with
 one-based MATLAB pair indices converted at assertion time.
 
-`test_arcparam_helpers_match_matlab_fixture` checks `chnk.arcparam.init` and
-`chnk.arcparam.eval` against MATLAB fixture data for the full chunker and a
+`test_arcparam_helpers_match_matlab_fixture` checks `numerics.arcparam.init` and
+`numerics.arcparam.eval` against MATLAB fixture data for the full chunker and a
 selected-panel subset, including stored coefficients, panel lengths,
 condition/error diagnostics, original-node evaluation, and sample arclength
 evaluation.

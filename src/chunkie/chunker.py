@@ -809,7 +809,7 @@ class Chunker:
     def arcresample(self, opts: dict[str, Any] | None = None) -> tuple["Chunker", float]:
         """Reparameterize panel nodes by arc length on each existing chunk."""
 
-        from .chnk import arcparam
+        from .numerics import arcparam
 
         options = {} if opts is None else dict(opts)
         if bool(options.get("mv_bdries", False)):

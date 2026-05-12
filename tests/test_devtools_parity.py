@@ -25,7 +25,8 @@ from chunkie import (
     lege,
     tochunkgraph,
 )
-from chunkie.chnk import arcparam, curves, elast2d, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, flam, helm1d, helm2d, lap2d, smoother, spcl
+from chunkie.chnk import curves, elast2d, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, flam, helm1d, helm2d, lap2d
+from chunkie.numerics import arcparam, smoother, special
 from chunkie.quadrature import adaptive as quadadap
 from chunkie.operators import PointInfo, pointinfo
 from _fixture_generation import chunker_from_fields, load_generated_mat_fixture, point_array, pointinfo_from_mat
@@ -447,7 +448,7 @@ def _elastic_finite_difference_errors(lam: float, mu: float, src: PointInfo, tar
 def test_absconvgauss_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().absconvgauss
 
-    val, der, der2 = spcl.absconvgauss(fixture.x, float(fixture.m), float(fixture.offset), float(fixture.h))
+    val, der, der2 = special.absconvgauss(fixture.x, float(fixture.m), float(fixture.offset), float(fixture.h))
 
     np.testing.assert_allclose(val, fixture.val, atol=1e-15)
     np.testing.assert_allclose(der, fixture.der, atol=1e-15)
