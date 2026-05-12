@@ -25,7 +25,7 @@ from chunkie import (
     lege,
     tochunkgraph,
 )
-from chunkie.chnk import flam
+from chunkie.acceleration import flam
 from chunkie.kernels import elasticity as elast2d
 from chunkie.kernels import helmholtz as helm2d
 from chunkie.kernels import helmholtz_1d as helm1d

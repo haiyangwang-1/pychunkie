@@ -14,7 +14,7 @@ from chunkie import (
     kernel,
     merge,
 )
-from chunkie.chnk import flam
+from chunkie.acceleration import flam
 
 
 def circle(t):

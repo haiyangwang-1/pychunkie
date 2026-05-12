@@ -16,8 +16,8 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 ## Current Snapshot
 
 - Verification snapshot: local Python-only subset on 2026-05-12 with Python
-  3.11.9 collected 183 tests: `183 passed`. A full `uv run pytest` run in
-  this worktree collected 361 tests but MATLAB golden-fixture tests were not
+  3.11.9 collected 187 tests: `187 passed`. A full `uv run pytest` run in
+  this worktree collected 365 tests but MATLAB golden-fixture tests were not
   runnable because `external/chunkie-matlab/startup.m` was absent; full MATLAB
   parity runs generate ignored `tests/golden/*.mat` files on demand and require
   a populated `external/chunkie-matlab` checkout.
@@ -93,7 +93,7 @@ src/
     │   ├── chunkerintegral, chunkerinterior
     │   ├── chunkerkerneval, chunkerkernevalmat
     │   └── private helpers
-    ├── chnk/
+    ├── acceleration/
     │   ├── __init__.py
     │   └── flam.py
     │       ├── kernbyindex, kernbyindexr
@@ -184,8 +184,8 @@ src/
 ## Package Exports
 
 - ✅ [src/chunkie/__init__.py](src/chunkie/__init__.py) exports the public Python API. MATLAB has no direct single-file equivalent; it is a Python package facade over MATLAB class folders and package folders.
+- ✅ 🧪 [src/chunkie/acceleration/__init__.py](src/chunkie/acceleration/__init__.py) exposes FLAM callback/proxy helper modules.
 - ✅ 🧪 [src/chunkie/domain.py](src/chunkie/domain.py) implements top-level MATLAB geometry/domain helpers exported from the Python package facade.
-- ✅ [src/chunkie/chnk/__init__.py](src/chunkie/chnk/__init__.py) currently mirrors the remaining MATLAB `+chnk` FLAM helpers while the Python package is being reorganized; geometry, numerics, quadrature, RCIP, and physics kernel helpers have moved out.
 - ✅ 🧪 [src/chunkie/geometry/__init__.py](src/chunkie/geometry/__init__.py) exposes curve constructors and low-level geometric predicates.
 - ✅ 🧪 [src/chunkie/kernels/__init__.py](src/chunkie/kernels/__init__.py) exposes concrete Laplace, Helmholtz, Stokes, biharmonic, and elasticity kernel-family modules.
 - ✅ 🧪 [src/chunkie/numerics/__init__.py](src/chunkie/numerics/__init__.py) exposes arclength parametrization, lightweight smoother, and special scalar helper modules.
@@ -328,7 +328,7 @@ src/
 | `linefunc` | ✅ 🧪 🎯 | `+chnk/+curves/linefunc.m` | Tested and MATLAB fixture parity-tested. |
 | `fsine` | ✅ 🧪 🎯 | `+chnk/+curves/fsine.m` | Tested and MATLAB fixture parity-tested. |
 
-#### `chnk/flam.py`
+#### `acceleration/flam.py`
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |

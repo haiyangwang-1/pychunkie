@@ -52,21 +52,21 @@ def test_top_level_public_exports_are_stable():
         assert hasattr(chunkie, name)
 
 
-def test_chnk_public_exports_are_stable_and_lazy():
+def test_acceleration_public_exports_are_stable_and_lazy():
     for name in [
-        "chunkie.chnk.flam",
+        "chunkie.acceleration.flam",
     ]:
         sys.modules.pop(name, None)
-    sys.modules.pop("chunkie.chnk", None)
+    sys.modules.pop("chunkie.acceleration", None)
 
-    chnk = importlib.import_module("chunkie.chnk")
+    acceleration = importlib.import_module("chunkie.acceleration")
     expected = {"flam"}
-    assert set(chnk.__all__) == expected
-    assert "chunkie.chnk.flam" not in sys.modules
+    assert set(acceleration.__all__) == expected
+    assert "chunkie.acceleration.flam" not in sys.modules
 
-    from chunkie.chnk import flam
+    from chunkie.acceleration import flam
 
-    assert flam.__name__ == "chunkie.chnk.flam"
+    assert flam.__name__ == "chunkie.acceleration.flam"
 
 
 def test_geometry_public_exports_are_stable_and_lazy():

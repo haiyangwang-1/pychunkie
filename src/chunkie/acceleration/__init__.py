@@ -1,8 +1,4 @@
-"""Utilities mirroring MATLAB ``+chnk``.
-
-Submodules are imported on first access so lightweight imports such as
-``chunkie.kernel`` do not eagerly load every geometry, FLAM, and kernel helper.
-"""
+"""Acceleration helper modules."""
 
 from __future__ import annotations
 
@@ -10,9 +6,8 @@ from importlib import import_module
 from typing import Any
 
 
-_SUBMODULES = {
-    "flam",
-}
+_SUBMODULES = {"flam"}
+
 
 def __getattr__(name: str) -> Any:
     if name in _SUBMODULES:
@@ -21,6 +16,5 @@ def __getattr__(name: str) -> Any:
         return module
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
-__all__ = [
-    "flam",
-]
+
+__all__ = ["flam"]

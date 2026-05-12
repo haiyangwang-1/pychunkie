@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 361 pytest cases because several MATLAB parity tests are
+collection expands to 365 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -884,11 +884,11 @@ acceleration strings raise `ValueError`.
 
 `test_flam_kernbyindex_matches_dense_and_sparse_overwrites` checks 0-based
 FLAM matrix callbacks. The method requests selected row/column DOFs from
-`chnk.flam.kernbyindex`, compares them to the dense weighted matrix, and
+`acceleration.flam.kernbyindex`, compares them to the dense weighted matrix, and
 verifies sparse special-quadrature entries overwrite smooth entries.
 
 `test_flam_accepts_explicit_chunker_sequences` checks scalar FLAM behavior for
-explicit sequences of chunkers. The method compares `chnk.flam.kernbyindex`,
+explicit sequences of chunkers. The method compares `acceleration.flam.kernbyindex`,
 `chunkermat(..., {"acceleration": "flam"})`, and
 `chunkermatapply(..., {"acceleration": "flam"})` on a two-chunker list against
 the same dense operations on `merge(chunkers)`.

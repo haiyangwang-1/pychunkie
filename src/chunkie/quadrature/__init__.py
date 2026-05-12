@@ -1,8 +1,7 @@
 """Quadrature and corner-compression routines.
 
 This package is the Python-facing home for native smooth assembly, GGQ/adaptive
-special quadrature, panel product quadrature, and RCIP helpers. The old
-``chunkie.chnk`` module names remain as MATLAB-compatible wrappers.
+special quadrature, panel product quadrature, and RCIP helpers.
 """
 
 from __future__ import annotations

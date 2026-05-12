@@ -296,7 +296,7 @@ def chunkerflam(
         spmat = spmat.tocsr() if sparse.issparse(spmat) else sparse.csr_matrix(spmat)
     has_dval = bool(np.any(dval_vec != 0))
 
-    from .chnk import flam
+    from .acceleration import flam
 
     l2scale = bool(options.get("l2scale", False))
 
@@ -351,7 +351,7 @@ def _chunkerflam_block(
         spmat = spmat.tocsr() if sparse.issparse(spmat) else sparse.csr_matrix(spmat)
     has_dval = bool(np.any(dval_vec != 0))
 
-    from .chnk import flam
+    from .acceleration import flam
 
     l2scale = bool(options.get("l2scale", False))
 
@@ -1206,7 +1206,7 @@ def _chunkerflam_proxyfun(
     opdims: tuple[int, int],
     options: dict[str, Any],
 ):
-    from .chnk import flam
+    from .acceleration import flam
 
     rank_or_tol = options.get("rank_or_tol", options.get("eps", options.get("tol", 1.0e-14)))
     optsnpxy = {"rank_or_tol": float(rank_or_tol), "nsrc": int(options.get("occ", 200))}
@@ -1272,7 +1272,7 @@ def _chunkerkerneval_flam_factor(
     options: dict[str, Any],
 ):
     pyflam = _require_pyflam()
-    from .chnk import flam
+    from .acceleration import flam
 
     targinfo = pointinfo(targobj)
     op0, op1 = _kernel_opdims(chnkr, kern, targinfo)
@@ -1308,7 +1308,7 @@ def _chunkerkerneval_proxyfun(
     opdims: tuple[int, int],
     options: dict[str, Any],
 ):
-    from .chnk import flam
+    from .acceleration import flam
 
     rank_or_tol = options.get("rank_or_tol", options.get("eps", options.get("tol", 1.0e-14)))
     optsnpxy = {"rank_or_tol": float(rank_or_tol), "nsrc": int(options.get("occ", 200))}
