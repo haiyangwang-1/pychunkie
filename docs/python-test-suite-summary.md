@@ -718,7 +718,7 @@ the proxy path disabled automatically for data-bearing chunkers.
 `test_chunkerkerneval_flam_matches_eval_matrix_and_dense` checks off-boundary
 target FLAM evaluation. The method compares `chunkerkerneval` and
 `chunkerkernevalmat` with `acceleration="flam"` against dense target
-evaluation for a smooth kernel.
+evaluation for scalar and vector-opdim smooth kernels.
 
 `test_chunkerkerneval_flam_default_proxy_matches_dense` checks the integrated
 rectangular FLAM proxy path for target evaluation. The method leaves

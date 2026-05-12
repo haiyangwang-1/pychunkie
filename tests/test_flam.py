@@ -214,6 +214,15 @@ def test_chunkerkerneval_flam_matches_eval_matrix_and_dense():
     np.testing.assert_allclose(flam_mat, dense_mat, rtol=1e-10, atol=1e-11)
     np.testing.assert_allclose(flam_vals, dense_mat @ dens, rtol=1e-10, atol=1e-11)
 
+    pts = chnkr.r.reshape(2, chnkr.npt, order="F")
+    dens_vec = np.vstack((np.cos(pts[0]), np.sin(pts[1]))).reshape(-1, order="F")
+    dense_vec_mat = chunkerkernevalmat(chnkr, vector_smooth_kernel, targets)
+    flam_vec_mat = chunkerkernevalmat(chnkr, vector_smooth_kernel, targets, opts)
+    flam_vec_vals = chunkerkerneval(chnkr, vector_smooth_kernel, dens_vec, targets, opts).reshape(-1, order="F")
+
+    np.testing.assert_allclose(flam_vec_mat, dense_vec_mat, rtol=1e-10, atol=1e-11)
+    np.testing.assert_allclose(flam_vec_vals, dense_vec_mat @ dens_vec, rtol=1e-10, atol=1e-11)
+
 
 def test_chunkerkerneval_flam_default_proxy_matches_dense():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 6})
