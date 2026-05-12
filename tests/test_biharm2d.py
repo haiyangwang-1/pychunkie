@@ -1,7 +1,7 @@
 import numpy as np
 
 from chunkie import PointInfo, chunkerfunc, chunkerkerneval, kernel
-from chunkie.chnk import biharm2d
+from chunkie.kernels import biharmonic as biharm2d
 
 
 def circle(t):

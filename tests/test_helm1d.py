@@ -1,7 +1,7 @@
 import numpy as np
 
 from chunkie import kernel
-from chunkie.chnk import helm1d
+from chunkie.kernels import helmholtz_1d as helm1d
 
 
 def test_helm1d_green_gradient_matches_finite_difference():

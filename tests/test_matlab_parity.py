@@ -17,7 +17,12 @@ from chunkie import (
     lege,
     pointinfo,
 )
-from chunkie.chnk import biharm2d, elast2d, helm1d, helm2d, lap2d, stok2d
+from chunkie.kernels import biharmonic as biharm2d
+from chunkie.kernels import elasticity as elast2d
+from chunkie.kernels import helmholtz as helm2d
+from chunkie.kernels import helmholtz_1d as helm1d
+from chunkie.kernels import laplace as lap2d
+from chunkie.kernels import stokes as stok2d
 from chunkie.quadrature import adaptive as quadadap
 from chunkie.quadrature import ggq as quadggq
 from chunkie.quadrature import native as quadnative

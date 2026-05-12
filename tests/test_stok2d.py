@@ -1,7 +1,7 @@
 import numpy as np
 
 from chunkie import PointInfo, kernel
-from chunkie.chnk import stok2d
+from chunkie.kernels import stokes as stok2d
 
 
 def _interleave_2x2(kxx, kxy, kyx, kyy):

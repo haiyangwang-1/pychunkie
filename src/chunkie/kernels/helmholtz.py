@@ -6,7 +6,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 from scipy.special import hankel1
 
-from . import lap2d
+from . import laplace as lap2d
 from chunkie.operators import PointInfo, pointinfo
 
 

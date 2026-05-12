@@ -538,7 +538,7 @@ gradient, Hessian, and finite-difference error thresholds.
 `test_helm1d_green_devtools_direct_outputs_match_matlab` checks the direct
 Green/kernel/sweep subset of MATLAB `helm1d_greenTest.m`. The method compares
 flat-interface chunker geometry, incident Hankel values, trimmed right-hand
-side data, `chnk.helm1d.green`, selector matrices, and the sweep convolution
+side data, `kernels.helmholtz_1d.green`, selector matrices, and the sweep convolution
 helper against the MATLAB fixture. The full fast-solve wrapper and Sommerfeld
 integral target solve remain pending.
 
@@ -1228,7 +1228,7 @@ Ground truth is the direct dense path.
 Python factory dispatch for 2D Helmholtz combined-gradient and transmission
 representation selectors. The method evaluates `kernel("helm", selector, ...)`
 for `cgrad`, `c2trans`, `all`, `trans_rep`, `trans_rep_prime`, and
-`trans_rep_grad`, and compares each result to direct `chnk.helm2d.kern`.
+`trans_rep_grad`, and compares each result to direct `kernels.helmholtz.kern`.
 
 `test_helmholtz_double_gradient_fmm_requests_dipole_gradients` checks the
 new Helmholtz double-gradient FMM wiring with a fake `fmm2dpy` module. The

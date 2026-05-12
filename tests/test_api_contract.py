@@ -60,21 +60,13 @@ def test_chnk_public_exports_are_stable_and_lazy():
     sys.modules.pop("chunkie.chnk", None)
 
     chnk = importlib.import_module("chunkie.chnk")
-    expected = {
-        "biharm2d",
-        "elast2d",
-        "flam",
-        "helm1d",
-        "helm2d",
-        "lap2d",
-        "stok2d",
-    }
+    expected = {"flam"}
     assert set(chnk.__all__) == expected
     assert "chunkie.chnk.flam" not in sys.modules
 
-    from chunkie.chnk import lap2d
+    from chunkie.chnk import flam
 
-    assert lap2d.__name__ == "chunkie.chnk.lap2d"
+    assert flam.__name__ == "chunkie.chnk.flam"
 
 
 def test_geometry_public_exports_are_stable_and_lazy():
@@ -106,6 +98,30 @@ def test_geometry_public_exports_are_stable_and_lazy():
 
     assert curves.__name__ == "chunkie.geometry.curves"
     assert callable(flagnear)
+
+
+def test_kernels_public_exports_are_stable_and_lazy():
+    for name in [
+        "chunkie.kernels.biharmonic",
+        "chunkie.kernels.elasticity",
+        "chunkie.kernels.helmholtz",
+        "chunkie.kernels.helmholtz_1d",
+        "chunkie.kernels.laplace",
+        "chunkie.kernels.stokes",
+    ]:
+        sys.modules.pop(name, None)
+    sys.modules.pop("chunkie.kernels", None)
+
+    kernels = importlib.import_module("chunkie.kernels")
+    expected = {"biharmonic", "elasticity", "helmholtz", "helmholtz_1d", "laplace", "stokes"}
+    assert set(kernels.__all__) == expected
+    assert "chunkie.kernels.laplace" not in sys.modules
+    assert "chunkie.kernels.helmholtz" not in sys.modules
+
+    from chunkie.kernels import laplace, stokes
+
+    assert laplace.__name__ == "chunkie.kernels.laplace"
+    assert callable(stokes.kern)
 
 
 def test_quadrature_public_exports_are_stable_and_lazy():

@@ -95,28 +95,10 @@ src/
     │   └── private helpers
     ├── chnk/
     │   ├── __init__.py
-    │   ├── flam.py
-    │   │   ├── kernbyindex, kernbyindexr
-    │   │   ├── proxy_square_pts, proxy_circ_pts, proxy_rect_pts, nproxy_square
-    │   │   └── proxyfun, proxyfunr
-    │   ├── biharm2d.py
-    │   │   ├── green, kern
-    │   │   └── _require
-    │   ├── elast2d.py
-    │   │   ├── kern
-    │   │   └── private helpers
-    │   ├── helm1d.py
-    │   │   ├── green, kern, sweep
-    │   │   └── private helpers
-    │   ├── helm2d.py
-    │   │   ├── green, kern
-    │   │   └── _require
-    │   ├── lap2d.py
-    │   │   ├── green, kern
-    │   │   └── _require
-    │   └── stok2d.py
-    │       ├── kern
-    │       └── private helpers
+    │   └── flam.py
+    │       ├── kernbyindex, kernbyindexr
+    │       ├── proxy_square_pts, proxy_circ_pts, proxy_rect_pts, nproxy_square
+    │       └── proxyfun, proxyfunr
     ├── geometry/
     │   ├── __init__.py
     │   ├── curves.py
@@ -127,6 +109,26 @@ src/
     │       ├── flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself
     │       ├── chunk_nearparam
     │       └── _ptinfo_field
+    ├── kernels/
+    │   ├── __init__.py
+    │   ├── biharmonic.py
+    │   │   ├── green, kern
+    │   │   └── _require
+    │   ├── elasticity.py
+    │   │   ├── kern
+    │   │   └── private helpers
+    │   ├── helmholtz.py
+    │   │   ├── green, kern
+    │   │   └── _require
+    │   ├── helmholtz_1d.py
+    │   │   ├── green, kern, sweep
+    │   │   └── private helpers
+    │   ├── laplace.py
+    │   │   ├── green, kern
+    │   │   └── _require
+    │   └── stokes.py
+    │       ├── kern
+    │       └── private helpers
     ├── numerics/
     │   ├── __init__.py
     │   ├── arcparam.py
@@ -183,8 +185,9 @@ src/
 
 - ✅ [src/chunkie/__init__.py](src/chunkie/__init__.py) exports the public Python API. MATLAB has no direct single-file equivalent; it is a Python package facade over MATLAB class folders and package folders.
 - ✅ 🧪 [src/chunkie/domain.py](src/chunkie/domain.py) implements top-level MATLAB geometry/domain helpers exported from the Python package facade.
-- ✅ [src/chunkie/chnk/__init__.py](src/chunkie/chnk/__init__.py) currently mirrors remaining MATLAB `+chnk` package exports while the Python package is being reorganized; geometry, numerics, quadrature, and RCIP helpers have moved out.
+- ✅ [src/chunkie/chnk/__init__.py](src/chunkie/chnk/__init__.py) currently mirrors the remaining MATLAB `+chnk` FLAM helpers while the Python package is being reorganized; geometry, numerics, quadrature, RCIP, and physics kernel helpers have moved out.
 - ✅ 🧪 [src/chunkie/geometry/__init__.py](src/chunkie/geometry/__init__.py) exposes curve constructors and low-level geometric predicates.
+- ✅ 🧪 [src/chunkie/kernels/__init__.py](src/chunkie/kernels/__init__.py) exposes concrete Laplace, Helmholtz, Stokes, biharmonic, and elasticity kernel-family modules.
 - ✅ 🧪 [src/chunkie/numerics/__init__.py](src/chunkie/numerics/__init__.py) exposes arclength parametrization, lightweight smoother, and special scalar helper modules.
 - ✅ 🧪 [src/chunkie/quadrature/__init__.py](src/chunkie/quadrature/__init__.py) exposes Python-native quadrature modules for native, GGQ, adaptive, panel-product, and RCIP workflows.
 - ✅ [src/chunkie/lege/__init__.py](src/chunkie/lege/__init__.py) mirrors MATLAB `+lege` package exports.
@@ -400,7 +403,7 @@ their matching `@kernel` factories.
 
 
 
-#### `chnk/biharm2d.py`, `lap2d.py`, `helm2d.py`, `helm1d.py`, `stok2d.py`, `elast2d.py`
+#### `kernels/biharmonic.py`, `laplace.py`, `helmholtz.py`, `helmholtz_1d.py`, `stokes.py`, `elasticity.py`
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |

@@ -158,7 +158,7 @@ def test_helmholtz_factory_transmission_selectors_match_direct_kernel():
     for selector, selector_coefs in cases.items():
         kern = kernel("helm", selector, zk, selector_coefs)
         actual = kern(src, targ)
-        expected = importlib.import_module("chunkie.chnk.helm2d").kern(zk, src, targ, selector, selector_coefs)
+        expected = importlib.import_module("chunkie.kernels.helmholtz").kern(zk, src, targ, selector, selector_coefs)
         np.testing.assert_allclose(actual, expected)
 
 

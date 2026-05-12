@@ -25,7 +25,11 @@ from chunkie import (
     lege,
     tochunkgraph,
 )
-from chunkie.chnk import elast2d, flam, helm1d, helm2d, lap2d
+from chunkie.chnk import flam
+from chunkie.kernels import elasticity as elast2d
+from chunkie.kernels import helmholtz as helm2d
+from chunkie.kernels import helmholtz_1d as helm1d
+from chunkie.kernels import laplace as lap2d
 from chunkie.geometry import curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself
 from chunkie.numerics import arcparam, smoother, special
 from chunkie.quadrature import adaptive as quadadap

@@ -1,7 +1,7 @@
 import numpy as np
 
 from chunkie import PointInfo, kernel
-from chunkie.chnk import elast2d
+from chunkie.kernels import elasticity as elast2d
 
 
 def _interleave_2x2(kxx, kxy, kyx, kyy):

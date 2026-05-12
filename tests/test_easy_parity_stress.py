@@ -12,7 +12,8 @@ from chunkie import (
     merge,
     pointinfo,
 )
-from chunkie.chnk import helm2d, lap2d
+from chunkie.kernels import helmholtz as helm2d
+from chunkie.kernels import laplace as lap2d
 from chunkie.numerics import smoother
 from chunkie.quadrature import adaptive as quadadap
 from chunkie.quadrature import ggq as quadggq

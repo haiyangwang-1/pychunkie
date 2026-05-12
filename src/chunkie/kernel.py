@@ -15,7 +15,14 @@ from typing import Any
 
 import numpy as np
 
-from .chnk import biharm2d, elast2d, helm1d, helm2d, lap2d, stok2d
+from .kernels import (
+    biharmonic as biharm2d,
+    elasticity as elast2d,
+    helmholtz as helm2d,
+    helmholtz_1d as helm1d,
+    laplace as lap2d,
+    stokes as stok2d,
+)
 
 try:  # pragma: no cover - exercised when the optional compiled package imports.
     import fmm2dpy as _fmm2dpy
