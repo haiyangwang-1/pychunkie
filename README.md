@@ -7,7 +7,8 @@ The port is intentionally conservative:
 
 - mirror the MATLAB package structure where practical under `src/chunkie`;
 - use `uv` and the project-local `.venv`;
-- keep runtime dependencies focused on `numpy`, `scipy`, and `fmm2dpy`;
+- keep runtime dependencies focused on `numpy`, `scipy`, and `fmm2dpy`, plus
+  `matplotlib` for demo/visualization support;
 - add FMM2D acceleration incrementally while dense/direct functionality remains
   the reference path;
 - test behavior against MATLAB-generated golden fixtures as the port grows.
@@ -36,11 +37,19 @@ uv's source table and built from the upstream FMM2D repository during install.
 
 - [docs/bie-overview.md](docs/bie-overview.md) describes the core BIE API,
   kernel families, chunkgraphs, and dense/FMM/FLAM workflows.
-- `examples/smooth_laplace_bvp.py` solves smooth interior/exterior Laplace
-  Dirichlet and Neumann model problems.
-- `examples/nonsmooth_laplace_polygon.py` solves the same manufactured
-  interior problem on a dyadically refined square.
-- `examples/chunkgraph_multiregion_bvp.py` demonstrates a multiply connected
-  chunkgraph BVP and region classification.
-- `examples/accelerated_physics_kernels.py` compares FMM and FLAM accelerated
-  paths for Laplace, Helmholtz, Stokes, and biharmonic kernels.
+- `examples/smooth_laplace_dirichlet.py` and
+  `examples/smooth_laplace_neumann.py` solve smooth unit-circle Laplace model
+  problems; `examples/smooth_laplace_bvp.py` runs both for the old command.
+- `examples/nonsmooth_laplace_dirichlet.py` and
+  `examples/nonsmooth_laplace_neumann.py` solve manufactured interior/exterior
+  problems on a dyadically refined square and write corrected off-boundary
+  layer-potential/error PNGs under `examples/output/`.
+- `examples/nonsmooth_laplace_rcip.py` is a small RCIP corner-compression
+  diagnostic; `examples/nonsmooth_laplace_polygon.py` runs the split
+  nonsmooth examples together for the old command.
+- `examples/chunkgraph_region_classification.py` and
+  `examples/chunkgraph_annular_dirichlet.py` demonstrate multi-region
+  chunkgraph classification and a square-annulus BVP.
+- `examples/accelerated_fmm_kernels.py` and
+  `examples/accelerated_flam_laplace.py` compare FMM target evaluation and a
+  FLAM shifted Laplace solve.

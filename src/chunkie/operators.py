@@ -16,6 +16,16 @@ from . import lege
 from .chunker import Chunker, merge
 
 
+_KERNEL_PROBE_EXCEPTIONS = (
+    AttributeError,
+    TypeError,
+    ValueError,
+    IndexError,
+    FloatingPointError,
+    NotImplementedError,
+)
+
+
 @dataclass
 class PointInfo:
     """Flattened source or target point data passed to kernels.
@@ -567,8 +577,10 @@ def chunkerkerneval(
     same_source_target = targobj is chnkr
     chnkr = _require_chunker(chnkr)
     acceleration = _acceleration(options)
-    if acceleration == "flam" and same_source_target and _uses_special_quadrature(kern, options):
-        vals = chunkermat(chnkr, kern, options) @ np.asarray(dens).reshape(-1, order="F")
+    if same_source_target and _uses_special_quadrature(kern, options):
+        mat_options = dict(options)
+        mat_options.pop("acceleration", None)
+        vals = chunkermat(chnkr, kern, mat_options) @ np.asarray(dens).reshape(-1, order="F")
         opdims = getattr(kern, "opdims", (1, 1))[0]
         return vals.reshape(opdims, chnkr.npt, order="F")
     if acceleration == "flam":
@@ -744,7 +756,7 @@ def _is_block_kernel_matrix(kern: Any) -> bool:
         return False
     try:
         arr = np.asarray(kern, dtype=object)
-    except Exception:
+    except (TypeError, ValueError):
         return False
     return arr.ndim == 2 and arr.size > 0 and all(callable(item) for item in arr.flat)
 
@@ -825,6 +837,11 @@ def _block_kernel_mat(obj: Any, kerns: Any, opts: dict[str, Any]) -> np.ndarray:
         for itarg, isrc in pairs:
             rows = slice(int(layout.row_offsets[itarg]), int(layout.row_offsets[itarg + 1]))
             cols = slice(int(layout.col_offsets[isrc]), int(layout.col_offsets[isrc + 1]))
+            if itarg == isrc and _uses_special_quadrature(kern, opts):
+                local_options = dict(opts)
+                local_options.pop("l2scale", None)
+                out[rows, cols] = chunkermat(edge_chunkers[itarg], kern, local_options)
+                continue
             local_i = target_lookup[itarg]
             local_j = source_lookup[isrc]
             src_rows = slice(int(local_rows[local_i]), int(local_rows[local_i + 1]))
@@ -858,10 +875,7 @@ def _kernel_opdims_between(src: Chunker, targ: Chunker, kern: Callable[[Any, Any
 
 
 def _operator_dtype_between(src: Chunker, targ: Chunker, kern: Callable[[Any, Any], np.ndarray]) -> np.dtype:
-    try:
-        return np.asarray(_eval_kernel(kern, _pointinfo_node(src, 0), _pointinfo_node(targ, 0))).dtype
-    except Exception:
-        return np.dtype(float)
+    return _probe_kernel_dtype(kern, _pointinfo_node(src, 0), _pointinfo_node(targ, 0))
 
 
 def _apply_chunkgraph_l2scale(edge_chunkers: list[Chunker], rowdims: np.ndarray, coldims: np.ndarray, mat: np.ndarray) -> np.ndarray:
@@ -1048,7 +1062,7 @@ def _require_fmm(kern: Callable[[Any, Any], np.ndarray]) -> None:
 def _require_pyflam():
     try:
         import pyflam
-    except Exception as exc:  # pragma: no cover - dependency is required in packaged installs.
+    except (ImportError, OSError) as exc:  # pragma: no cover - dependency is required in packaged installs.
         raise ImportError("FLAM acceleration requires the pyflam package") from exc
     return pyflam
 
@@ -1354,13 +1368,18 @@ def _chunkermatapply_fmm(
     op0, op1 = _kernel_opdims(chnkr, kern)
     use_l2scale = _option_bool(options.get("l2scale", False))
     eval_dens = dens_vec * _chunker_l2_col_scale(chnkr, op1) if use_l2scale else dens_vec
+    if _uses_special_quadrature(kern, options):
+        mat_options = dict(options)
+        mat_options.pop("acceleration", None)
+        mat_options.pop("l2scale", None)
+        vals = chunkermat(chnkr, kern, mat_options) @ eval_dens
+        if use_l2scale:
+            vals = _chunker_l2_row_scale(chnkr, op0) * vals
+        return vals
     fmm_options = dict(options)
     fmm_options["acceleration"] = "fmm"
     fmm_options.pop("l2scale", None)
     vals = chunkerkerneval(chnkr, kern, eval_dens, chnkr, fmm_options).reshape(-1, order="F")
-    if _uses_special_quadrature(kern, options):
-        corr = _special_correction_matrix(chnkr, kern, options) if correction is None else correction
-        vals = vals + corr @ eval_dens
     if use_l2scale:
         vals = _chunker_l2_row_scale(chnkr, op0) * vals
     return vals
@@ -1558,11 +1577,17 @@ def _kernel_opdims(
 
 
 def _operator_dtype(chnkr: Chunker, kern: Callable[[Any, Any], np.ndarray]) -> np.dtype:
+    return _probe_kernel_dtype(
+        kern,
+        _pointinfo_node(chnkr, 0),
+        _pointinfo_node(chnkr, 1 if chnkr.npt > 1 else 0),
+    )
+
+
+def _probe_kernel_dtype(kern: Callable[[Any, Any], np.ndarray], src: PointInfo, targ: PointInfo) -> np.dtype:
     try:
-        src = _pointinfo_node(chnkr, 0)
-        targ = _pointinfo_node(chnkr, 1 if chnkr.npt > 1 else 0)
         return np.asarray(_eval_kernel(kern, src, targ)).dtype
-    except Exception:
+    except _KERNEL_PROBE_EXCEPTIONS:
         return np.dtype(float)
 
 

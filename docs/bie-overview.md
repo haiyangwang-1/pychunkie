@@ -160,11 +160,24 @@ Run examples with `uv` from the repository root:
 
 ```powershell
 uv run python examples/smooth_laplace_bvp.py
+uv run python examples/smooth_laplace_dirichlet.py
+uv run python examples/smooth_laplace_neumann.py
+uv run python examples/nonsmooth_laplace_dirichlet.py
+uv run python examples/nonsmooth_laplace_neumann.py
+uv run python examples/nonsmooth_laplace_rcip.py
 uv run python examples/nonsmooth_laplace_polygon.py
+uv run python examples/chunkgraph_region_classification.py
+uv run python examples/chunkgraph_annular_dirichlet.py
 uv run python examples/chunkgraph_multiregion_bvp.py
+uv run python examples/accelerated_fmm_kernels.py
+uv run python examples/accelerated_flam_laplace.py
 uv run python examples/accelerated_physics_kernels.py
 ```
 
 The demos print relative or absolute errors against manufactured solutions.
-They are intended as starting points for building problem-specific solvers, not
-as a complete application layer.
+The nonsmooth Dirichlet and Neumann demos also write off-boundary
+layer-potential and error heatmaps under `examples/output/` using sparse
+near-target correction matrices for close grid targets. Their default dyadic
+corner depth is set high enough to keep the interior Neumann corner density
+from dominating the field-error plot. They are intended as starting points for
+building problem-specific solvers, not as a complete application layer.

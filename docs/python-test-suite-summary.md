@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 351 pytest cases because several MATLAB parity tests are
+collection expands to 361 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -1550,6 +1550,12 @@ off-diagonal Laplace single-layer blocks and zero diagonal blocks, then compares
 vector, multiple-right-hand-side, and l2-scaled FMM products against dense
 block matrices.
 
+`test_block_chunkermat_reuses_special_quadrature_for_self_blocks` checks dense
+block-kernel assembly when diagonal blocks are singular kernels. The method
+builds a two-chunker block matrix with Laplace single-layer kernels on every
+block, verifies the result is finite, and compares each diagonal block against
+the corresponding single-chunker special-quadrature matrix.
+
 `test_pointinfo_uses_matlab_chunk_contiguous_ordering` checks point ordering
 when flattening chunker fields. The invariant is MATLAB/Fortran chunk-contiguous
 ordering: all nodes of chunk 0, then all nodes of chunk 1, and so on. The
@@ -1687,6 +1693,26 @@ enables `quadadap.buildmat(..., robust=True)`, and verifies adaptive correction
 calls for target subsets outside the self/neighbor blocks. Ground truth is a
 finite matrix, at least one non-panel-sized adaptive target set, and a
 measurable difference from the non-robust matrix.
+
+## `tests/test_pquad.py`
+
+`test_low_level_pquad_weights_match_oversampled_legendre_moments` checks the
+isolated Helsing-Ojala product-quadrature weight generator. The method builds a
+straight source panel and compares log, Cauchy, hypersingular, and
+supersingular moment actions against high-order Legendre quadrature. Ground
+truth is direct oversampled integration of polynomial test densities.
+
+`test_pquad_panel_weights_can_compose_to_original_nodes` checks the two product
+weight modes. The method builds upsampled-node and original-node weights for a
+close circle-panel target, then verifies that composing the upsampled weights
+with the interpolation matrix reproduces the original-node weights.
+
+`test_pquad_split_panel_matrix_matches_oversampled_legendre` checks complete
+kernel-split panel assembly for close targets. The method compares isolated
+`pquad.panel_matrix` output for Laplace and Helmholtz scalar single/double
+layers against high-order oversampled Legendre panel matrices on exterior and
+interior close targets. Ground truth is direct kernel evaluation on a
+high-order source-panel interpolation.
 
 ## `tests/test_rcip.py`
 

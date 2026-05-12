@@ -27,46 +27,11 @@ from chunkie import (
 )
 from chunkie.chnk import arcparam, curves, elast2d, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, flam, helm1d, helm2d, lap2d, quadadap, smoother, spcl
 from chunkie.operators import PointInfo, pointinfo
-from _fixture_generation import load_generated_mat_fixture
+from _fixture_generation import chunker_from_fields, load_generated_mat_fixture, point_array, pointinfo_from_mat
 
 
 def load_devtools_easy():
     return load_generated_mat_fixture("devtools_easy.mat", squeeze_me=True, struct_as_record=False)["devtools_easy"]
-
-
-def chunker_from_fields(fields) -> Chunker:
-    k = int(fields.k)
-    nch = int(fields.nch)
-    dim = int(fields.dim)
-    chnkr = Chunker(
-        {"k": k, "dim": dim, "nchstor": nch, "nchmax": nch},
-        np.asarray(fields.tstor).reshape(-1),
-        np.asarray(fields.wstor).reshape(-1),
-    )
-    chnkr.addchunk(nch)
-    chnkr.r = np.asarray(fields.r)
-    chnkr.d = np.asarray(fields.d)
-    chnkr.d2 = np.asarray(fields.d2)
-    chnkr.n = np.asarray(fields.n)
-    chnkr.wts = np.asarray(fields.wts)
-    chnkr.adj = np.asarray(fields.adj, dtype=int)
-    return chnkr
-
-
-def pointinfo_from_mat(obj) -> PointInfo:
-    return PointInfo(
-        r=point_array(obj.r),
-        d=point_array(obj.d) if hasattr(obj, "d") else None,
-        d2=point_array(obj.d2) if hasattr(obj, "d2") else None,
-        n=point_array(obj.n) if hasattr(obj, "n") else None,
-    )
-
-
-def point_array(value) -> np.ndarray:
-    arr = np.asarray(value)
-    if arr.ndim == 1:
-        arr = arr.reshape(-1, 1)
-    return arr
 
 
 def _assert_kernder_algebra(case, coefs: np.ndarray, coefa: np.ndarray) -> None:

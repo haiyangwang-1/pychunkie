@@ -24,6 +24,14 @@ from chunkie.chnk import quadnative
 
 
 _QUADGGQ_DATA_PATH = ("data", "quadggq")
+_KERNEL_PROBE_EXCEPTIONS = (
+    AttributeError,
+    TypeError,
+    ValueError,
+    IndexError,
+    FloatingPointError,
+    NotImplementedError,
+)
 
 
 @dataclass
@@ -390,7 +398,7 @@ def _kernel_dtype(chnkr: Chunker, kern: Callable[[Any, Any], np.ndarray]) -> np.
     try:
         src = PointInfo(r=chnkr.r[:, :1, 0], d=chnkr.d[:, :1, 0], d2=chnkr.d2[:, :1, 0], n=chnkr.n[:, :1, 0])
         return np.asarray(_eval_kernel(kern, src, src)).dtype
-    except Exception:
+    except _KERNEL_PROBE_EXCEPTIONS:
         return np.dtype(float)
 
 

@@ -8,6 +8,7 @@ dependencies = [
     # Runtime Python package. uv builds this from the pinned FMM2D source below;
     # the external/fmm2d submodule is only a parity-test reference checkout.
     "fmm2dpy",
+    "matplotlib>=3.10",
     "numpy>=2.4.4",
     "pyflam",
     "scipy>=1.17.1",

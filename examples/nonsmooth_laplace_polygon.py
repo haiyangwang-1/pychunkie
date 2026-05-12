@@ -1,81 +1,45 @@
-"""Non-smooth Laplace BVP demo on a square with dyadic corner refinement.
+"""Run the split nonsmooth-square Laplace examples.
 
-Run from the repository root:
+For learning from the code, read these smaller scripts first:
+
+    examples/nonsmooth_laplace_dirichlet.py
+    examples/nonsmooth_laplace_neumann.py
+    examples/nonsmooth_laplace_rcip.py
+
+This wrapper is kept for the old command:
 
     uv run python examples/nonsmooth_laplace_polygon.py
-
-The same manufactured interior solution, u=x, is used for Dirichlet and
-Neumann data. The square is kept geometrically non-smooth; dyadic panels
-resolve the corner neighborhoods instead of rounding them.
 """
 
 from __future__ import annotations
 
-import numpy as np
+import argparse
+from pathlib import Path
 
-from chunkie import chunkerkerneval, chunkermat, chunkerpoly, kernel
-
-
-def flat_nodes(chnkr):
-    return chnkr.r.reshape(chnkr.dim, chnkr.npt, order="F")
-
-
-def single_layer_dirichlet(chnkr, boundary_values):
-    lap_s = kernel("lap", "s")
-    s_mat = chunkermat(chnkr, lap_s)
-    weights = chnkr.wts.reshape(-1, order="F")
-    system = np.block(
-        [
-            [s_mat, np.ones((chnkr.npt, 1))],
-            [weights[None, :], np.zeros((1, 1))],
-        ]
-    )
-    sol = np.linalg.solve(system, np.concatenate((boundary_values, [0.0])))
-    return sol[:-1], sol[-1]
+from _nonsmooth_laplace_common import DEFAULT_DEPTH, DEFAULT_GRID_SIZE
+from nonsmooth_laplace_dirichlet import run_demo as run_dirichlet_demo
+from nonsmooth_laplace_neumann import run_demo as run_neumann_demo
+from nonsmooth_laplace_rcip import run_demo as run_rcip_demo
 
 
-def polygon_kprime_matrix(chnkr):
-    """Principal-value K' matrix for straight-panel polygon nodes.
-
-    Nodes do not lie exactly on the corners, and straight panels have zero
-    smooth curvature, so only the undefined self entries need replacement.
-    """
-
-    kprime = chunkermat(chnkr, kernel("lap", "sp"))
-    kprime[np.diag_indices_from(kprime)] = 0.0
-    return kprime
+def parse_args() -> argparse.Namespace:
+    default_output = Path(__file__).resolve().parent / "output" / "nonsmooth_laplace_polygon"
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output-dir", type=Path, default=default_output)
+    parser.add_argument("--depth", type=int, default=DEFAULT_DEPTH)
+    parser.add_argument("--grid-size", type=int, default=DEFAULT_GRID_SIZE)
+    parser.add_argument("--rcip-nsub", type=int, default=3)
+    return parser.parse_args()
 
 
 def main() -> None:
-    verts = np.array(
-        [
-            [-1.0, 1.0, 1.0, -1.0],
-            [-1.0, -1.0, 1.0, 1.0],
-        ]
-    )
-    chnkr = chunkerpoly(
-        verts,
-        {"ifclosed": True, "dyadic": True, "depth": 3, "widths": 0.25},
-        {"k": 12, "nchmax": 2000},
-    )
-
-    boundary = flat_nodes(chnkr)
-    normals = chnkr.n.reshape(chnkr.dim, chnkr.npt, order="F")
-    targets = np.array([[0.0, 0.3, -0.2], [0.0, 0.2, 0.4]])
-    truth = targets[0]
-    lap_s = kernel("lap", "s")
-
-    sigma_d, const_d = single_layer_dirichlet(chnkr, boundary[0])
-    vals_d = chunkerkerneval(chnkr, lap_s, sigma_d, targets, {"forceadap": True}).reshape(-1) + const_d
-
-    kprime = polygon_kprime_matrix(chnkr)
-    sigma_n = np.linalg.lstsq(0.5 * np.eye(chnkr.npt) + kprime, normals[0], rcond=None)[0]
-    vals_n = chunkerkerneval(chnkr, lap_s, sigma_n, targets, {"forceadap": True}).reshape(-1)
-    vals_n += truth[0] - vals_n[0]
-
-    print(f"dyadic square: {chnkr.nch} chunks, {chnkr.npt} nodes, area {chnkr.area():.6f}")
-    print(f"interior Dirichlet max error: {np.max(np.abs(vals_d - truth)):.3e}")
-    print(f"interior Neumann max error, after constant fix: {np.max(np.abs(vals_n - truth)):.3e}")
+    args = parse_args()
+    print("RCIP diagnostic")
+    run_rcip_demo(args.rcip_nsub)
+    print("\nDirichlet BVPs")
+    run_dirichlet_demo(args.output_dir / "dirichlet", args.depth, args.grid_size)
+    print("\nNeumann BVPs")
+    run_neumann_demo(args.output_dir / "neumann", args.depth, args.grid_size)
 
 
 if __name__ == "__main__":

@@ -99,6 +99,18 @@ def test_block_chunkermat_fmm_matches_dense_application_and_l2scale():
     np.testing.assert_allclose(via_fmm_l2 @ rhs, dense_l2 @ rhs, rtol=1e-9, atol=1e-10)
 
 
+def test_block_chunkermat_reuses_special_quadrature_for_self_blocks():
+    first, _ = chunkerfunc(circle, {"nchmin": 3}, {"k": 6})
+    second = first.translate(np.array([2.8, 0.15]))
+    lap_s = kernel("lap", "s")
+    dense = chunkermat([first, second], [[lap_s, lap_s], [lap_s, lap_s]])
+
+    assert np.isfinite(dense).all()
+    nfirst = first.npt
+    np.testing.assert_allclose(dense[:nfirst, :nfirst], chunkermat(first, lap_s), atol=1e-13)
+    np.testing.assert_allclose(dense[nfirst:, nfirst:], chunkermat(second, lap_s), atol=1e-13)
+
+
 def test_pointinfo_uses_matlab_chunk_contiguous_ordering():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 3}, {"k": 5})
     info = pointinfo(chnkr)
