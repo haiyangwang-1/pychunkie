@@ -493,7 +493,7 @@ Log/PV/HS support tables are packaged as `.npz` assets and loaded with `importli
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
-| `absconvgauss` | ✅ 🧪 | `+chnk/+spcl/absconvgauss.m` | Derivatives tested against finite differences. |
+| `absconvgauss` | ✅ 🧪 🎯 | `+chnk/+spcl/absconvgauss.m` | Derivatives are tested against finite differences and MATLAB devtools fixture outputs. |
 
 
 ## Support Tree
