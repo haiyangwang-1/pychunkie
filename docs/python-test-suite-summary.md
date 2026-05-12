@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 325 pytest cases because several MATLAB parity tests are
+collection expands to 326 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -107,6 +107,9 @@ Implemented from this scope:
   direct evaluations, kernel algebra/interleave, Green helpers, biharmonic
   `bhgreen`-derived selectors, Helmholtz-difference interleave identities, and
   smooth dense operator helper routes.
+- Chunkgraph constructor parity now includes the devtools
+  `chunkgrphconstructTest.m` legacy incidence versus `edgesendverts` workflow
+  with matching curved edge chunkers.
 - Laplace and Helmholtz Green-identity target-evaluation parity for the devtools
   `kernelclass`, `chunkerkerneval_greenlap`, and
   `chunkerkerneval_greenhelm`, `chunkerkerneval_gaussid`, and
@@ -619,6 +622,13 @@ lightweight smoother path against the MATLAB smoother diagnostic fixture. The
 method verifies the MATLAB and Python error thresholds and then checks the
 supported Python rounded-polygon chunker for zero reported errors, `2*nv`
 chunks, clean adjacency, unit normals, and positive chunk lengths.
+
+`test_chunkgrphconstruct_devtools_outputs_match_matlab` checks the constructor
+equivalence from `chunkgrphconstructTest.m`. The method builds the pentagonal
+graph with both MATLAB's legacy incidence matrix and the newer `edgesendverts`
+format, using the same sine-arc edge callbacks. Ground truth is MATLAB's
+balanced vertices, incidence matrices, endpoint indices, and first-edge
+chunker geometry.
 
 `test_slicegraph_devtools_outputs_match_matlab` checks the concentric-square
 `slicegraph` workflow. The method compares sliced geometry and edge id

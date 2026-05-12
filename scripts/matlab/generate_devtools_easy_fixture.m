@@ -436,6 +436,36 @@ tcg.manual_first_start = cgrph.echnks(1).r(:,1);
 tcg.manual_first_end = cgrph.echnks(1).r(:,end);
 devtools_easy.tochunkgraph = tcg;
 
+% chunkgrphconstructTest.m
+cgcon = [];
+cgcon.verts = exp(1i*2*pi*(0:4)/5);
+cgcon.verts = [real(cgcon.verts); imag(cgcon.verts)];
+cgcon.edge2verts = sparse([-1, 1, 0, 0, 0; ...
+                            0,-1, 1, 0, 0; ...
+                            0, 0,-1, 1, 0; ...
+                            0, 0, 0,-1, 1; ...
+                            1, 0, 0, 0,-1]);
+cgcon.edgesendverts = [1:5; [2:5 1]];
+cgcon.amp = 0.5;
+cgcon.frq = 6;
+fchnks = {};
+for icurve = 1:size(cgcon.edge2verts, 1)
+    fchnks{icurve} = @(t) local_sinearc(t, cgcon.amp, cgcon.frq);
+end
+cgrph1 = chunkgraph(cgcon.verts, cgcon.edge2verts, fchnks);
+cgrph2 = chunkgraph(cgcon.verts, cgcon.edgesendverts, fchnks);
+cgrph1 = balance(cgrph1);
+cgrph2 = balance(cgrph2);
+cgcon.legacy_verts = cgrph1.verts;
+cgcon.new_verts = cgrph2.verts;
+cgcon.legacy_v2emat = full(cgrph1.v2emat);
+cgcon.new_v2emat = full(cgrph2.v2emat);
+cgcon.legacy_edgesendverts = cgrph1.edgesendverts;
+cgcon.new_edgesendverts = cgrph2.edgesendverts;
+cgcon.legacy_first_edge = fixture_pack_chunker(cgrph1.echnks(1));
+cgcon.new_first_edge = fixture_pack_chunker(cgrph2.echnks(1));
+devtools_easy.chunkgrphconstruct = cgcon;
+
 % slicegraphTest.m
 slc = [];
 verts_out = [[1;1], [1;-1], [-1;-1], [-1;1]];
@@ -1277,4 +1307,16 @@ omega = 2*pi/per;
 r = [t(:), amp*cos(omega*t(:))].';
 d = [ones(length(t),1), -omega*amp*sin(omega*t(:))].';
 d2 = [zeros(length(t),1), -omega^2*amp*cos(omega*t(:))].';
+end
+
+function [r, d, d2] = local_sinearc(t, amp, frq)
+xs = t;
+ys = amp*sin(frq*t);
+xp = ones(size(t));
+yp = amp*frq*cos(frq*t);
+xpp = zeros(size(t));
+ypp = -frq*frq*amp*sin(t);
+r = [(xs(:)).'; (ys(:)).'];
+d = [(xp(:)).'; (yp(:)).'];
+d2 = [(xpp(:)).'; (ypp(:)).'];
 end

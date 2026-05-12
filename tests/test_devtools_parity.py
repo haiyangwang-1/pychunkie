@@ -150,6 +150,20 @@ def sorted_pairs(pairs: np.ndarray) -> np.ndarray:
     return arr[:, order]
 
 
+def sinearc(t, amp: float, frq: float):
+    flat = np.asarray(t, dtype=float).reshape(-1)
+    r = np.vstack((flat, amp * np.sin(frq * flat)))
+    d = np.vstack((np.ones_like(flat), amp * frq * np.cos(frq * flat)))
+    d2 = np.vstack((np.zeros_like(flat), -(frq**2) * amp * np.sin(flat)))
+    return r, d, d2
+
+
+def dense_int_array(value) -> np.ndarray:
+    if sparse.issparse(value):
+        value = value.toarray()
+    return np.asarray(value, dtype=int)
+
+
 def assert_chunker_fields_match(chnkr: Chunker, fields, atol: float = 1e-12) -> None:
     np.testing.assert_allclose(chnkr.r, fields.r, atol=atol)
     np.testing.assert_allclose(chnkr.d, fields.d, atol=atol)
@@ -483,6 +497,25 @@ def test_tochunkgraph_devtools_outputs_match_matlab():
     np.testing.assert_allclose(manual.echnks[0].r[:, -1, -1], fixture.manual_verts[:, 1], atol=1e-2)
     np.testing.assert_allclose(manual.echnks[0].r[:, 0, 0], fixture.manual_first_start, atol=1e-12)
     np.testing.assert_allclose(manual.echnks[0].r[:, -1, -1], fixture.manual_first_end, atol=1e-12)
+
+
+def test_chunkgrphconstruct_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().chunkgrphconstruct
+    edge_specs = [lambda t, amp=float(fixture.amp), frq=float(fixture.frq): sinearc(t, amp, frq) for _ in range(5)]
+
+    legacy = chunkgraph(fixture.verts, dense_int_array(fixture.edge2verts), edge_specs)
+    modern = chunkgraph(fixture.verts, dense_int_array(fixture.edgesendverts), edge_specs)
+
+    np.testing.assert_allclose(legacy.verts, fixture.legacy_verts, atol=1e-14)
+    np.testing.assert_allclose(modern.verts, fixture.new_verts, atol=1e-14)
+    np.testing.assert_array_equal(legacy.v2emat, dense_int_array(fixture.legacy_v2emat))
+    np.testing.assert_array_equal(modern.v2emat, dense_int_array(fixture.new_v2emat))
+    np.testing.assert_array_equal(legacy.v2emat, modern.v2emat)
+    np.testing.assert_array_equal(legacy.edgesendverts, dense_int_array(fixture.legacy_edgesendverts) - 1)
+    np.testing.assert_array_equal(modern.edgesendverts, dense_int_array(fixture.new_edgesendverts) - 1)
+    assert_chunker_fields_match(legacy.echnks[0], fixture.legacy_first_edge, atol=1e-10)
+    assert_chunker_fields_match(modern.echnks[0], fixture.new_first_edge, atol=1e-10)
+    np.testing.assert_allclose(legacy.echnks[0].r, modern.echnks[0].r, atol=1e-13)
 
 
 def test_slicegraph_devtools_outputs_match_matlab():
