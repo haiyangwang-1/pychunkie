@@ -1448,6 +1448,8 @@ def chunkerpoly(
 
     if rounded:
         return _rounded_chunkerpoly(vertices, cparams, p, edgevals)
+    if bool(cparams.get("dyadic", "depth" in cparams)):
+        return _dyadic_chunkerpoly(vertices, cparams, p, edgevals)
 
     if ifclosed:
         starts = vertices
@@ -1497,6 +1499,105 @@ def chunkerpoly(
     chnkr.adj = adjs
     chnkr.recompute_geometry()
     return chnkr
+
+
+def _dyadic_chunkerpoly(
+    vertices: np.ndarray,
+    cparams: dict[str, Any],
+    pref: ChunkerPref,
+    edgevals: ArrayLike | None,
+) -> Chunker:
+    ifclosed = bool(cparams.get("ifclosed", True))
+    depth = int(cparams.get("depth", 30))
+    if depth < 0:
+        raise ValueError("depth must be a nonnegative integer")
+
+    if ifclosed:
+        starts = vertices
+        ends = np.column_stack((vertices[:, 1:], vertices[:, 0]))
+    else:
+        starts = vertices[:, :-1]
+        ends = vertices[:, 1:]
+    nedge = starts.shape[1]
+    lengths = np.sqrt(np.sum((ends - starts) ** 2, axis=0))
+    if np.any(lengths <= 0.0):
+        raise ValueError("polygon edges must have positive length")
+
+    widths = _polygon_widths(vertices, lengths, cparams, ifclosed)
+    eps = np.asarray(cparams.get("eps", 1.0e-6), dtype=float).reshape(-1)
+    eps0 = float(eps[0]) if eps.size else 1.0e-6
+    ncorner = nedge if ifclosed else max(nedge - 1, 0)
+    nch = nedge + 2 * ncorner * (depth + 1)
+    if nch > pref.nchmax:
+        raise ValueError("too many polygon chunks for nchmax")
+
+    edge_data = None
+    if edgevals is not None:
+        edge_data = np.asarray(edgevals, dtype=float)
+        if edge_data.size % nedge != 0:
+            raise ValueError("number of edge values should be multiple of number of edges")
+        edge_data = edge_data.reshape(edge_data.size // nedge, nedge)
+
+    p = ChunkerPref(pref.nchmax, pref.k, pref.dim, max(pref.nchstor, nch), pref.verttol)
+    chnkr = Chunker(p).addchunk(nch)
+    if edge_data is not None:
+        chnkr.makedatarows(edge_data.shape[0])
+
+    breaks = [0.0] + [2.0 ** (ilevel - depth) for ilevel in range(depth + 1)]
+
+    ich = 0
+    for iedge in range(nedge):
+        start = starts[:, iedge]
+        end = ends[:, iedge]
+        length = float(lengths[iedge])
+        tangent = (end - start) / length
+        w0 = float(widths[iedge])
+        w1 = float(widths[(iedge + 1) % widths.size] if ifclosed else widths[iedge + 1])
+        if length <= w0 + w1 + 2.0 * eps0 * length:
+            raise ValueError("widths too large for side")
+
+        _fill_line_chunk(chnkr, ich, start + tangent * w0, end - tangent * w1)
+        if edge_data is not None:
+            chnkr.datastor[:, :, ich] = edge_data[:, iedge][:, None]
+        ich += 1
+
+        if not ifclosed and iedge == nedge - 1:
+            continue
+
+        next_edge = (iedge + 1) % nedge
+        next_start = starts[:, next_edge]
+        next_end = ends[:, next_edge]
+        next_tangent = (next_end - next_start) / float(lengths[next_edge])
+        corner = end
+        width = w1
+
+        for hi, lo in zip(reversed(breaks[1:]), reversed(breaks[:-1])):
+            _fill_line_chunk(chnkr, ich, corner - tangent * (hi * width), corner - tangent * (lo * width))
+            if edge_data is not None:
+                chnkr.datastor[:, :, ich] = edge_data[:, iedge][:, None]
+            ich += 1
+
+        for lo, hi in zip(breaks[:-1], breaks[1:]):
+            _fill_line_chunk(chnkr, ich, corner + next_tangent * (lo * width), corner + next_tangent * (hi * width))
+            if edge_data is not None:
+                chnkr.datastor[:, :, ich] = edge_data[:, next_edge][:, None]
+            ich += 1
+
+    if ich != nch:
+        raise RuntimeError("dyadic polygon chunk count mismatch")
+    adjs = np.zeros((2, nch), dtype=int)
+    adjs[0] = np.arange(0, nch)
+    adjs[1] = np.arange(2, nch + 2)
+    if ifclosed:
+        adjs[0, 0] = nch
+        adjs[1, -1] = 1
+    else:
+        adjs[0, 0] = -1
+        adjs[1, -1] = -1
+    chnkr.adj = adjs
+    chnkr.recompute_geometry()
+    refined = chnkr.refine()
+    return refined.sort()[0]
 
 
 def _rounded_chunkerpoly(

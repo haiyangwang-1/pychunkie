@@ -295,6 +295,39 @@ def assert_chunker_fields_match(chnkr: Chunker, fields, atol: float = 1e-12) -> 
     np.testing.assert_allclose(chnkr.area(), fields.area, atol=atol)
 
 
+def assert_chunker_geometry_multiset_match(chnkr: Chunker, fields, atol: float = 1e-12) -> None:
+    expected_r = np.asarray(fields.r)
+    expected_d = np.asarray(fields.d)
+    expected_d2 = np.asarray(fields.d2)
+    expected_n = np.asarray(fields.n)
+    expected_wts = np.asarray(fields.wts)
+    assert chnkr.r.shape == expected_r.shape
+
+    actual_centers = np.mean(chnkr.r, axis=1).T
+    expected_centers = np.mean(expected_r, axis=1).T
+    distances = np.linalg.norm(expected_centers[:, None, :] - actual_centers[None, :, :], axis=2)
+    order = np.argmin(distances, axis=1)
+    assert len(np.unique(order)) == chnkr.nch
+    np.testing.assert_allclose(distances[np.arange(chnkr.nch), order], 0.0, atol=atol)
+
+    for iexpected, iactual in enumerate(order):
+        r_actual = chnkr.r[:, :, iactual]
+        r_expected = expected_r[:, :, iexpected]
+        if np.max(np.abs(r_actual - r_expected)) <= atol:
+            np.testing.assert_allclose(chnkr.d[:, :, iactual], expected_d[:, :, iexpected], atol=atol)
+            np.testing.assert_allclose(chnkr.d2[:, :, iactual], expected_d2[:, :, iexpected], atol=atol)
+            np.testing.assert_allclose(chnkr.n[:, :, iactual], expected_n[:, :, iexpected], atol=atol)
+            np.testing.assert_allclose(chnkr.wts[:, iactual], expected_wts[:, iexpected], atol=atol)
+        else:
+            np.testing.assert_allclose(r_actual[:, ::-1], r_expected, atol=atol)
+            np.testing.assert_allclose(-chnkr.d[:, ::-1, iactual], expected_d[:, :, iexpected], atol=atol)
+            np.testing.assert_allclose(chnkr.d2[:, ::-1, iactual], expected_d2[:, :, iexpected], atol=atol)
+            np.testing.assert_allclose(-chnkr.n[:, ::-1, iactual], expected_n[:, :, iexpected], atol=atol)
+            np.testing.assert_allclose(chnkr.wts[::-1, iactual], expected_wts[:, iexpected], atol=atol)
+    np.testing.assert_allclose(np.sort(chnkr.chunklen()), np.sort(np.asarray(fields.chunklen).reshape(-1)), atol=atol)
+    np.testing.assert_allclose(chnkr.area(), fields.area, atol=atol)
+
+
 def test_absconvgauss_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().absconvgauss
 
@@ -889,6 +922,7 @@ def test_chunkerpoly_devtools_outputs_match_matlab():
     assert float(fixture.truepoly_length_err) < 1e-12
     np.testing.assert_allclose(truepoly.area(), float(fixture.barb_area), rtol=1e-12, atol=1e-12)
     np.testing.assert_allclose(np.sum(truepoly.wts), float(fixture.barb_length), rtol=1e-12, atol=1e-12)
+    assert_chunker_geometry_multiset_match(truepoly, fixture.truepoly, atol=1e-11)
     assert truepoly.datadim == np.asarray(fixture.edgevals).shape[0]
     assert rounded.datadim == np.asarray(fixture.edgevals).shape[0]
     assert rounded.nch == 2 * nverts

@@ -124,6 +124,9 @@ Implemented from this scope:
   refinement, per-edge split-chunk routing, vertex endpoint balancing,
   MATLAB-style `NaN` closed-edge construction, and `last_len` endpoint-panel
   matching from `chunkgraph_lastlengthTest.m`.
+- `chunkerpoly` now covers MATLAB-style non-smooth dyadic true-polygon
+  refinement from `chunkerpolyTest.m`, with strict geometry, derivative,
+  normal, weight, length, and area parity up to panel ordering/orientation.
 - Laplace and Helmholtz Green-identity target-evaluation parity for the devtools
   `kernelclass`, `chunkerkerneval_greenlap`, and
   `chunkerkerneval_greenhelm`, `chunkerkerneval_gaussid`, and
@@ -633,9 +636,10 @@ chunker fields plus adjacency, area, and warning diagnostics.
 `test_chunkerpoly_devtools_outputs_match_matlab` checks the barbell-like
 polygon cases from `chunkerpolyTest.m`. The method builds Python rounded,
 true-polygon, and open polygon chunkers from the fixture inputs. Ground truth
-is MATLAB status/diagnostics, true-polygon area and length, data dimensions,
-rounded chunk count and positive lengths, and open lightweight adjacency and
-length invariants.
+is MATLAB status/diagnostics, the non-smooth dyadic true-polygon panel
+geometry/derivatives/normals/weights/lengths/area as an unordered
+orientation-aware panel set, data dimensions, rounded chunk count and positive
+lengths, and open lightweight adjacency and length invariants.
 
 `test_smoother_devtools_output_matches_matlab_thresholds` checks the
 lightweight smoother path against the MATLAB smoother diagnostic fixture. The
