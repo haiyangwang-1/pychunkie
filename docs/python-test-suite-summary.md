@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 342 pytest cases because several MATLAB parity tests are
+collection expands to 343 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -620,6 +620,14 @@ corrections not yet present in the Python scalar graph path.
 adaptive-neighbor matrix comparison from `chunkermat_quadadapTest.m`. The
 method compares MATLAB and Python Helmholtz double-layer GGQ and adaptive
 matrices and verifies both routes agree to the devtools Frobenius threshold.
+
+`test_chunkermat_quadadap_closetotouching_devtools_solve_matches_matlab`
+checks the near-touching two-disk adaptive solve from
+`chunkermat_quadadap_closetotouchingTest.m`. The method compares MATLAB and
+Python boundary/target truth, robust adaptive and original GGQ matrix probe
+products, adaptive/original dense solves, and close-corrected target
+evaluations. Ground truth is MATLAB's saved solve/evaluation diagnostics, with
+Helsing-Ojala product-quadrature output deferred to the pquad track.
 
 `test_chunkermat_laplace_solve_devtools_outputs_match_matlab` checks the
 Laplace dense-system solve workflow from `chunkermatTest.m`. The method

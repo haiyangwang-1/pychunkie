@@ -1542,6 +1542,46 @@ def test_chunkermat_quadadap_devtools_outputs_match_matlab():
     assert np.linalg.norm(ggq - adap, "fro") / np.linalg.norm(ggq, "fro") < 1e-9
 
 
+def test_chunkermat_quadadap_closetotouching_devtools_solve_matches_matlab():
+    fixture = load_devtools_easy().chunkermat_quadadap_closetotouching
+    chnkr = chunker_from_fields(fixture.chunker)
+    src = PointInfo(r=point_array(fixture.sources))
+    targets = point_array(fixture.targets)
+    strengths = np.asarray(fixture.strengths).reshape(-1, order="F")
+    lap_s = kernel("lap", "s")
+    combined = kernel("lap", "c", [1.0, float(fixture.eta)])
+
+    ubdry = lap_s(src, pointinfo(chnkr)) @ strengths
+    utarg = lap_s(src, PointInfo(r=targets)) @ strengths
+    mat_adap = chunkermat(chnkr, combined, {"adaptive_correction": True, "robust": True})
+    mat_original = chunkermat(chnkr, combined)
+    probe = np.asarray(fixture.sysa_probe_rhs)
+    rhs = np.asarray(fixture.rhs).reshape(-1, order="F")
+    sys_adap = 0.5 * np.eye(chnkr.npt) + mat_adap
+    sys_original = 0.5 * np.eye(chnkr.npt) + mat_original
+    sol_adap = np.linalg.solve(sys_adap, rhs)
+    sol_original = np.linalg.solve(sys_original, rhs)
+    layer_adap = chunkerkerneval(chnkr, combined, sol_adap, targets, {"forceadap": True}).reshape(-1, order="F")
+    layer_original = chunkerkerneval(chnkr, combined, sol_original, targets, {"forceadap": True}).reshape(-1, order="F")
+    relerr_adap = np.linalg.norm(utarg - layer_adap) / (np.sqrt(chnkr.nch) * np.linalg.norm(utarg))
+    relerr_original = np.linalg.norm(utarg - layer_original) / (np.sqrt(chnkr.nch) * np.linalg.norm(utarg))
+    relerr2_adap = np.linalg.norm(utarg - layer_adap, ord=np.inf) / np.dot(np.abs(sol_adap), chnkr.wts.reshape(-1, order="F"))
+    relerr2_original = np.linalg.norm(utarg - layer_original, ord=np.inf) / np.dot(np.abs(sol_original), chnkr.wts.reshape(-1, order="F"))
+
+    np.testing.assert_allclose(ubdry, np.asarray(fixture.ubdry).reshape(-1, order="F"), rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(utarg, np.asarray(fixture.utarg).reshape(-1, order="F"), rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(mat_adap @ probe, np.asarray(fixture.mata_probe), rtol=3e-8, atol=1e-8)
+    np.testing.assert_allclose(mat_original @ probe, np.asarray(fixture.mato_probe), rtol=3e-8, atol=1e-8)
+    np.testing.assert_allclose(sol_adap, np.asarray(fixture.sola).reshape(-1, order="F"), rtol=5e-8, atol=5e-10)
+    np.testing.assert_allclose(sol_original, np.asarray(fixture.solo).reshape(-1, order="F"), rtol=5e-8, atol=5e-10)
+    np.testing.assert_allclose(layer_adap, np.asarray(fixture.layersola).reshape(-1, order="F"), rtol=5e-8, atol=5e-10)
+    np.testing.assert_allclose(layer_original, np.asarray(fixture.layersolo).reshape(-1, order="F"), rtol=5e-8, atol=5e-10)
+    assert max(relerr_adap, float(fixture.relerr_adap)) < 1e-10
+    assert max(relerr2_adap, float(fixture.relerr2_adap)) < 1e-10
+    np.testing.assert_allclose(relerr_original, float(fixture.relerr_original), rtol=5e-8, atol=5e-10)
+    np.testing.assert_allclose(relerr2_original, float(fixture.relerr2_original), rtol=5e-8, atol=5e-10)
+
+
 def test_chunkermat_laplace_solve_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().chunkermat_laplace
     chnkr = chunker_from_fields(fixture.chunker)

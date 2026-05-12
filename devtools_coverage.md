@@ -33,9 +33,10 @@ The parity rule for this repo is:
 - Python comparisons: `tests/test_devtools_parity.py`
 - Python verification: `uv run pytest tests/test_devtools_parity.py` on
   2026-05-12 with the regenerated local fixture: `45 passed`
-- Current fixture scope: 45 pytest comparisons covering easy geometry/kernel
+- Current fixture scope: 46 pytest comparisons covering easy geometry/kernel
   diagnostics, chunker/chunkgraph constructors and regions, near-flagging,
-  dense/adaptive operator assembly, Laplace and Helmholtz dense solves,
+  dense/adaptive operator assembly, close-touching adaptive solves,
+  Laplace and Helmholtz dense solves,
   Green-identity target evaluation, selected data-field/FLAM diagnostics,
   and direct Stokes/elasticity/Helmholtz-1D diagnostics.
 - The ranked inventory below remains the authoritative per-MATLAB-file list.
@@ -45,9 +46,9 @@ The parity rule for this repo is:
 | Status | Count | Meaning |
 | --- | ---: | --- |
 | ✅ 🧪 🎯 fully covered by devtools parity | 35 | MATLAB file has strict fixture comparison for the behavior tracked here. |
-| ✅ 🧪 🎯 ⚠️ partial/diagnostic devtools parity | 8 | Fixture coverage exists, but the MATLAB file also exercises deferred solve, FLAM, or diagnostic-only paths. |
+| ✅ 🧪 🎯 ⚠️ partial/diagnostic devtools parity | 9 | Fixture coverage exists, but the MATLAB file also exercises deferred solve, FLAM, pquad, or diagnostic-only paths. |
 | 🧩 🧭 helper/reference | 1 | Shared MATLAB helper, not standalone package behavior. |
-| 🚧 pending parity | 19 | Candidate future ports, excluding explicit non-goals. |
+| 🚧 pending parity | 18 | Candidate future ports, excluding explicit non-goals. |
 | 🚫 explicit non-goal | 11 | Trapper, quasiperiodic, axisymmetric, and flexural families. |
 
 ## Scope Triage For Remaining Work
@@ -138,7 +139,7 @@ Explicit non-goals:
 | 45 | `chunkermat_stok_tractiontest.m` | ✅ 🚧 ⚠️ | Hard | Builds a Stokes traction system and compares target velocity/traction evaluation to analytic values. | Save traction matrix, RHS, solution, and target diagnostics; compare Python Stokes traction support. |
 | 46 | `chunkermat_l2scaleTest.m` | ✅ 🧪 🎯 | Hard | Constructs a Helmholtz transmission matrix manually and with `chunkermat` `l2scale`, then compares scaled matrix and density solution. | Covered in `devtools_easy.mat`: compare MATLAB and Python manual l2-scaled Helmholtz transmission-style block matrices against `chunkermat(..., {"l2scale": "true"})` and verify the scaled/unscaled density solves agree to the diagnostic threshold. |
 | 47 | `chunkermatapplyTest.m` | ✅ 🧪 🚧 | Hard | Tests matrix-free `chunkermatapply` against dense matrices for scalar, vector-valued, multi-boundary, and block-kernel cases; includes solve comparisons. | Python covers dense products, explicit scalar and block-kernel `chunkermat` FMM LinearOperator products, FMM l2-scaled block products, FMM target-evaluation matrix materialization, and FMM-accelerated special-corrected application; save dense/matrix-free outputs by case for strict MATLAB parity. |
-| 48 | `chunkermat_quadadap_closetotouchingTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Solves an exterior Laplace Dirichlet problem on two nearly touching disks and demonstrates adaptive quadrature accuracy near close interactions. | Compact non-devtools `quadggq.mat` now covers robust close matrix replacement on two disks; still save the full solve, targets, and adaptive/smooth diagnostics for devtools parity. |
+| 48 | `chunkermat_quadadap_closetotouchingTest.m` | ✅ 🧪 🎯 ⚠️ | Hard | Solves an exterior Laplace Dirichlet problem on two nearly touching disks and demonstrates adaptive quadrature accuracy near close interactions. | Covered in `devtools_easy.mat`: compare the two-disk geometry, source/target truth, robust adaptive matrix probe products, original GGQ matrix probe products, adaptive/original solves, target evaluations, and MATLAB target-error diagnostics. Helsing-Ojala/product-quadrature diagnostics remain tracked with `pquadTest.m`. |
 | 49 | `chunkermat_truepolygonTest.m` | ✅ 🚧 ⚠️ | Hard | Solves a true-corner polygon Neumann problem using adaptive refinement/RCIP-style machinery and checks target accuracy. | Save refined polygon graph/chunker, system, RHS, solution, and targets; compare after Python true-corner support matures. |
 | 50 | `pquadTest.m` | 🚧 | Hard | Tests product quadrature for an interior Helmholtz problem by comparing product-quadrature layer-potential values to a reference solution. | Save product-quadrature matrices/values and compare Python pquad implementation when available. |
 | 51 | `singularkernelTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Checks principal-value and hypersingular quadratures by comparing boundary tangential and normal derivatives from singular kernels to analytic boundary data. | Save boundary fields, PV/HS values, and relative errors; compare Python singular GGQ paths. |
@@ -168,8 +169,7 @@ Explicit non-goals:
 
 ## Suggested Next Ports
 
-1. `chunkermat_quadadap_closetotouchingTest.m`: lower-level robust close
-   replacement is already covered in `quadggq.mat`; the remaining devtools
-   work is the full two-disk solve/evaluation diagnostic.
-2. `chunkermatapplyTest.m`: save dense and accelerated matrix-free products
+1. `chunkermatapplyTest.m`: save dense and accelerated matrix-free products
    for scalar, vector, multi-boundary, and block-kernel cases.
+2. `chunkermat_stok2dTest.m`: extend existing point-kernel diagnostics with
+   the full Stokes boundary-integral solve and target checks.

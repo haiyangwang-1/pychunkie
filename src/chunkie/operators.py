@@ -405,9 +405,16 @@ def chunkermat(
         _require_fmm(kern)
         return ChunkerFMMMatrix(chnkr, kern, options)
     if _uses_special_quadrature(kern, options):
-        from .chnk import quadggq
+        if _option_bool(options.get("adaptive_correction", False)):
+            from .chnk import quadadap
 
-        mat = quadggq.buildmat(chnkr, kern, getattr(kern, "opdims", None), _special_quadrature_type(kern, options))
+            adap_options = dict(options)
+            adap_options.setdefault("sing", _special_quadrature_type(kern, options))
+            mat = quadadap.buildmat(chnkr, kern, getattr(kern, "opdims", None), adap_options)
+        else:
+            from .chnk import quadggq
+
+            mat = quadggq.buildmat(chnkr, kern, getattr(kern, "opdims", None), _special_quadrature_type(kern, options))
         return _apply_l2scale_matrix(chnkr, mat) if _option_bool(options.get("l2scale", False)) else mat
 
     srcinfo = pointinfo(chnkr)

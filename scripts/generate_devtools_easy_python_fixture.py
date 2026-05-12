@@ -353,6 +353,17 @@ def build_snapshot() -> dict[str, np.ndarray]:
     cqa_kern = kernel("helm", "d", cqa.zk)
     out["chunkermat_quadadap_ggq"] = chunkermat(cqa_chunker, cqa_kern)
     out["chunkermat_quadadap_adap"] = quadadap.buildmat(cqa_chunker, cqa_kern, cqa_kern.opdims, {"sing": "log", "robust": False})
+    cqac = fixture.chunkermat_quadadap_closetotouching
+    cqac_chunker = chunker_from_fields(cqac.chunker)
+    cqac_kern = kernel("lap", "c", [1.0, float(cqac.eta)])
+    out["chunkermat_quadadap_closetouching_mata_probe"] = (
+        chunkermat(cqac_chunker, cqac_kern, {"adaptive_correction": True, "robust": True})
+        @ np.asarray(cqac.sysa_probe_rhs)
+    )
+    out["chunkermat_quadadap_closetouching_mato_probe"] = (
+        chunkermat(cqac_chunker, cqac_kern)
+        @ np.asarray(cqac.sysa_probe_rhs)
+    )
     return out
 
 

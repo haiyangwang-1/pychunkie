@@ -40,7 +40,8 @@ uv run python scripts/clean_test_data.py
 `scripts/matlab/generate_devtools_easy_fixture.m`. It covers the compact
 devtools parity track used by `tests/test_devtools_parity.py`, including
 chunker/chunkgraph constructors, region and near-flag helpers, dense/adaptive
-operator assembly, Laplace and Helmholtz dense solve workflows,
+operator assembly, close-touching adaptive solve diagnostics,
+Laplace and Helmholtz dense solve workflows,
 Green-identity target evaluation, selected data-field/FLAM diagnostics, and
 direct Stokes/elasticity/Helmholtz-1D diagnostics.
 
