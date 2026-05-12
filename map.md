@@ -558,10 +558,10 @@ root files:
 
 Support file roles:
 
-- 🧭 `.gitmodules`: pins external reference dependencies for CI and local parity setup.
+- 🧭 `.gitmodules`: pins external test/parity reference dependencies for CI and local parity setup; these are not Python package runtime or build dependencies.
 - 🧭 `external/chunkie-matlab`: MATLAB `chunkIE` reference checkout used by fixture-generation scripts.
 - 🧭 `external/FLAM`: FLAM reference checkout pinned for future MATLAB/CI parity work; Python FLAM integration remains deferred.
-- 🧭 `external/fmm2d`: Flatiron FMM2D checkout pinned to the same commit used by the `fmm2dpy` Python dependency.
+- 🧭 `external/fmm2d`: Flatiron FMM2D checkout pinned for MATLAB-side FMM2D reference and MEX parity setup; the runtime `fmm2dpy` package is pinned separately through `pyproject.toml` / `uv.lock`.
 - 🧭 `docs/matlab-reference-setup.md`: local MATLAB checkout / fixture setup notes.
 - 🧭 `docs/special-quadrature.md`: special quadrature implementation notes.
 - 🧭 `src/chunkie/data/quadggq/*.npz`: packaged NumPy copies of upstream MATLAB GGQ near, log self, PV support, and HS support tables used at runtime.

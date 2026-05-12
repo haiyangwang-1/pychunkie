@@ -1,7 +1,8 @@
 # Installing fmm2dpy
 
 `pychunkie` depends on `fmm2dpy`, the Python bindings for the Flatiron
-Institute FMM2D library. The dependency is pinned to this upstream commit:
+Institute FMM2D library. The runtime dependency is declared as `fmm2dpy` in
+`pyproject.toml`, and uv pins the package source to this upstream commit:
 
 ```text
 550dae5b77b1e006c8ffae37fc832f8c2b536871
@@ -10,8 +11,10 @@ Institute FMM2D library. The dependency is pinned to this upstream commit:
 The upstream repository is <https://github.com/flatironinstitute/fmm2d>. Its
 `pyproject.toml` builds the Python package with `scikit-build-core`, CMake, a C
 compiler, and a Fortran compiler. Install those native build tools before
-running `uv sync`. The same upstream commit is also pinned as the
-`external/fmm2d` submodule for CI and local reference setup.
+running `uv sync`.
+
+The `external/fmm2d` submodule is a separate test-time reference checkout for
+MATLAB parity and MEX setup. It is not used to install or import `fmm2dpy`.
 
 ## Verify the install
 

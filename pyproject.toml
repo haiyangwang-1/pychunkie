@@ -5,15 +5,23 @@ description = "A Python port of the MATLAB chunkIE package."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "fmm2dpy @ git+https://github.com/flatironinstitute/fmm2d.git@550dae5b77b1e006c8ffae37fc832f8c2b536871",
+    # Runtime Python package. uv builds this from the pinned FMM2D source below;
+    # the external/fmm2d submodule is only a parity-test reference checkout.
+    "fmm2dpy",
     "numpy>=2.4.4",
     "scipy>=1.17.1",
 ]
 
 [dependency-groups]
-dev = [
+test = [
     "pytest>=9.0.3",
 ]
+dev = [
+    { include-group = "test" },
+]
+
+[tool.uv.sources]
+fmm2dpy = { git = "https://github.com/flatironinstitute/fmm2d.git", rev = "550dae5b77b1e006c8ffae37fc832f8c2b536871" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

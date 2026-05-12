@@ -1,16 +1,22 @@
 # MATLAB Reference Setup
 
-Initialize the pinned reference dependencies from the repository root:
+Initialize the pinned test/parity reference dependencies from the repository
+root:
 
 ```powershell
 git submodule update --init --recursive
 ```
 
-Current submodule pins:
+Current test-only submodule pins:
 
 - `external/chunkie-matlab`: `af34cc41c81114e693b515066e4d308067bf7e63`
+  for MATLAB fixture generation and parity inspection.
 - `external/FLAM`: `73b7accda7c1a933517b008831d8404d8d3cc764`
+  for MATLAB-side FLAM parity references.
 - `external/fmm2d`: `550dae5b77b1e006c8ffae37fc832f8c2b536871`
+  for MATLAB-side FMM2D reference and MEX parity setup.
+
+These submodules are not Python package runtime or build dependencies.
 
 Local status:
 
@@ -61,6 +67,8 @@ Notes:
   signal is `MEX completed successfully` and the existence of
   `external/chunkie-matlab/chunkie/fmm2d/matlab/fmm2d.mexw64`.
 
-The Python port now declares the upstream `fmm2dpy` Python package dependency.
-That is separate from MATLAB MEX support: the MEX build above is only needed for
-running MATLAB-side FMM2D reference code, not for importing `chunkie` in Python.
+The Python port declares the upstream `fmm2dpy` Python package as a runtime
+dependency in `pyproject.toml`, with its pinned FMM2D source recorded under
+`[tool.uv.sources]`. That is separate from MATLAB MEX support: the MEX build
+above is only needed for running MATLAB-side FMM2D reference code, not for
+importing `chunkie` in Python.
