@@ -428,7 +428,10 @@ def chunkerkerneval(
             smooth_options = dict(options)
             smooth_options.pop("forceadap", None)
             vals = _chunkerkerneval_flam(chnkr, kern, dens, targinfo, smooth_options).reshape(-1, order="F")
-            correction = _target_adaptive_correction_matrix(chnkr, kern, targinfo, options)
+            correction_options = dict(options)
+            correction_options["recompute_source_normals"] = True
+            correction_options.setdefault("transinv", False)
+            correction = _target_adaptive_correction_matrix(chnkr, kern, targinfo, correction_options)
             vals = vals + correction @ np.asarray(dens).reshape(-1, order="F")
             return vals.reshape(-1, targinfo.r.shape[1], order="F")
         return _chunkerkerneval_flam(chnkr, kern, dens, targinfo, options)
@@ -443,7 +446,10 @@ def chunkerkerneval(
     srcinfo = pointinfo(chnkr)
     targinfo = pointinfo(targobj)
     if bool(options.get("forceadap", False)):
-        mat = _target_adaptive_matrix(chnkr, kern, targinfo, options)
+        eval_options = dict(options)
+        eval_options["recompute_source_normals"] = True
+        eval_options.setdefault("transinv", False)
+        mat = _target_adaptive_matrix(chnkr, kern, targinfo, eval_options)
         vals = mat @ np.asarray(dens).reshape(-1, order="F")
         return vals.reshape(-1, targinfo.r.shape[1], order="F")
     if use_fmm:

@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-12 with Python 3.11.9 collected 323 tests: `323 passed`. Full MATLAB parity runs generate ignored `tests/golden/*.mat` files on demand and require a populated `external/chunkie-matlab` checkout.
+Verification snapshot: `uv run pytest` on 2026-05-12 with Python 3.11.9 collected 324 tests: `324 passed`. Full MATLAB parity runs generate ignored `tests/golden/*.mat` files on demand and require a populated `external/chunkie-matlab` checkout.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -377,7 +377,7 @@ their matching `@kernel` factories.
 | `chunkermatapply` | ✅ 🧪 🎯 | `chunkermatapply.m` | Smooth dense application is MATLAB-fixture tested; FMM/FLAM acceleration, shape-preserving single-column and multiple-RHS products, and sparse special-quadrature corrections remain Python-tested. |
 | `chunkerintegral` | ✅ 🧪 🎯 | `chunkerintegral.m` | Smooth value and callable integration routes are MATLAB-fixture tested. |
 | `chunkerinterior` | ✅ 🧪 🎯 | `chunkerinterior.m` | Direct point/grid classification is MATLAB-fixture tested; optional Laplace double-layer FMM and FLAM classification use direct close-boundary correction and are Python/devtools-tested. |
-| `chunkerkerneval` | ✅ 🧪 🎯 | `chunkerkerneval.m` | MATLAB parity fixture checks dense target evaluation, including `forceadap` close-target replacement for Laplace Green-identity devtools targets and target-data directional-derivative direct/adaptive/FLAM parity; FLAM target evaluation is Python-tested and partially MATLAB-fixture-tested, with default/level-dependent rectangular proxies, real/complex smooth kernels, same-source special-quadrature handling, `forceadap=True` using PyFLAM smooth evaluation plus sparse adaptive near-target corrections, and data-bearing targets falling back to non-proxy compression. |
+| `chunkerkerneval` | ✅ 🧪 🎯 | `chunkerkerneval.m` | MATLAB parity fixture checks dense target evaluation, including `forceadap` close-target replacement for Laplace Green-identity devtools targets, full-grid Gauss identity values/classification, and target-data directional-derivative direct/adaptive/FLAM parity; FLAM target evaluation is Python-tested and partially MATLAB-fixture-tested, with default/level-dependent rectangular proxies, real/complex smooth kernels, same-source special-quadrature handling, `forceadap=True` using PyFLAM smooth evaluation plus sparse adaptive near-target corrections, and data-bearing targets falling back to non-proxy compression. Adaptive target evaluation recomputes source normals from interpolated derivatives to match MATLAB `chunkerkerneval_adap`. |
 | `chunkerkernevalmat` | ✅ 🧪 🎯 | `chunkerkernevalmat.m` | MATLAB parity fixture checks eval matrices, including adaptive close-target replacement through `forceadap`; FLAM eval-matrix materialization is Python-tested, with default/level-dependent rectangular proxies, real/complex smooth kernels, same-source special-quadrature handling, `forceadap=True` using PyFLAM smooth materialization plus sparse adaptive near-target corrections, and data-bearing targets falling back to non-proxy compression. |
 
 
@@ -413,7 +413,7 @@ their matching `@kernel` factories.
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
-| `buildmat` | ✅ 🧪 🎯 | `+chnk/+quadadap/buildmat.m` | MATLAB fixture checks log self blocks, adaptive Gauss neighbor blocks, and robust close non-neighbor replacement; other singularity types delegate to `quadggq`. |
+| `buildmat` | ✅ 🧪 🎯 | `+chnk/+quadadap/buildmat.m` | MATLAB fixture checks log self blocks, adaptive Gauss neighbor blocks, and robust close non-neighbor replacement; adaptive weights use MATLAB's translation-invariant recentering by default, and other singularity types delegate to `quadggq`. |
 
 #### `chnk/quadggq.py`
 
@@ -587,7 +587,7 @@ Support file roles:
 - 🧭 `scripts/generate_quadggq_package_data.py`: converts upstream MATLAB `+chnk/+quadggq` table files into the package `.npz` data assets.
 - 🧭 `scripts/matlab/*.m`: MATLAB fixture-generation scripts; these are the source of the `.mat` golden data used for 🎯 flags.
 - 🧪 `tests/_fixture_generation.py`: ensures missing MATLAB parity fixture files are generated on demand before tests load them; generation failure is a test failure.
-- 🧪 `tests/golden/*.mat`: ignored MATLAB-generated parity fixture files created on demand by tests. `devtools_easy.mat` covers the low/mid devtools track through adaptive `chunkerfunc`, `chunkerarcparam`, partial `slicegraph`, `chunkermat_quadadap`, Laplace/Helmholtz Green-identity target-evaluation parity, and converted `datafieldTest.m` Hilbert/cotangent plus target-data directional-derivative slices. `geometry_core.mat` covers compact I GEOMETRY parity excluding `chunkerfit` and smoother workflows. `quadggq.mat` covers Section III native, GGQ, and adaptive quadrature behavior; `rcip.mat` covers Section III RCIP helpers, Schur updates, chunkgraph driver metadata, and recursive compression.
+- 🧪 `tests/golden/*.mat`: ignored MATLAB-generated parity fixture files created on demand by tests. `devtools_easy.mat` covers the low/mid devtools track through adaptive `chunkerfunc`, `chunkerarcparam`, partial `slicegraph`, `chunkermat_quadadap`, Laplace/Helmholtz Green-identity and Gauss-identity target-evaluation parity, and converted `datafieldTest.m` Hilbert/cotangent plus target-data directional-derivative slices. `geometry_core.mat` covers compact I GEOMETRY parity excluding `chunkerfit` and smoother workflows. `quadggq.mat` covers Section III native, GGQ, and adaptive quadrature behavior; `rcip.mat` covers Section III RCIP helpers, Schur updates, chunkgraph driver metadata, and recursive compression.
 - 🧪 `tests/test_matlab_parity.py`: main exact-behavior comparison suite against golden data.
 - 🧪 `tests/test_geometry_parity.py`: focused I GEOMETRY comparison suite against `geometry_core.mat`.
 - 🧪 `tests/test_matlab_fixtures.py`: basic fixture comparison suite.
@@ -619,7 +619,7 @@ Do not implement:
 
 ## Recommended Next Flags To Upgrade
 
-- Promote more optional devtools parity into generated fixtures where runtime cost allows; current generated coverage includes `chunkerfunc`, `chunkerarcparam`, `slicegraph`, `chunkermat_quadadap`, and Laplace/Helmholtz Green-identity target-evaluation paths.
+- Promote more optional devtools parity into generated fixtures where runtime cost allows; current generated coverage includes `chunkerfunc`, `chunkerarcparam`, `slicegraph`, `chunkermat_quadadap`, and Laplace/Helmholtz Green-identity plus Gauss-identity target-evaluation paths.
 - Add focused tests for remaining implemented but currently lightly tested methods that are outside the compact I GEOMETRY and devtools fixtures.
 - Add stricter MATLAB fixtures for full devtools solve/evaluation workflows around adaptive close quadrature; `smoother.py` remains a lightweight rounded-polygon path and full MATLAB smoothing/Newton behavior is a non-goal.
 - Add stricter MATLAB fixtures for FMM-heavy solve/evaluation workflows and implemented selector families, especially direct/FMM layer-potential Green identity paths.

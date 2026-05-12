@@ -956,6 +956,36 @@ ckgh.utarg_identity = ckgh.Sun - ckgh.Du;
 ckgh.relerr = norm(ckgh.utarg - ckgh.utarg_identity, 'fro')/norm(ckgh.utarg, 'fro');
 devtools_easy.chunkerkerneval_greenhelm = ckgh;
 
+% chunkerkerneval_gaussidTest.m
+ckgid = [];
+rng(8675309);
+cparams = [];
+cparams.eps = 1.0e-4;
+pref = [];
+pref.k = 16;
+ckgid.narms = 5;
+ckgid.amp = 0.5;
+ckgid.nxdir = 40;
+chnkr = chunkerfunc(@(t) starfish(t, ckgid.narms, ckgid.amp), cparams, pref);
+ckgid.chunker = fixture_pack_chunker(chnkr);
+ckgid.density = ones(chnkr.k, chnkr.nch);
+rmin = min(chnkr);
+rmax = max(chnkr);
+ckgid.xgrid = linspace(rmin(1), rmax(1), ckgid.nxdir);
+ckgid.ygrid = linspace(rmin(2), rmax(2), ckgid.nxdir);
+[xx, yy] = meshgrid(ckgid.xgrid, ckgid.ygrid);
+ckgid.targets = [xx(:).'; yy(:).'];
+kernd = kernel('lap', 'd');
+opts = [];
+opts.forceadap = false;
+opts.fac = 1.0;
+opts.accel = true;
+ckgid.values = chunkerkerneval(chnkr, kernd, ckgid.density, ckgid.targets, opts);
+ckgid.identity_err = min(abs(ckgid.values(:)), abs(ckgid.values(:) + 1));
+ckgid.max_identity_err = max(ckgid.identity_err);
+ckgid.inside = ckgid.values(:) < -0.5;
+devtools_easy.chunkerkerneval_gaussid = ckgid;
+
 % chunkermat_quadadapTest.m
 cqa = [];
 rng(8675309);

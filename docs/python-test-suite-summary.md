@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 323 pytest cases because several MATLAB parity tests are
+collection expands to 324 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -108,9 +108,9 @@ Implemented from this scope:
   smooth dense operator helper routes.
 - Laplace and Helmholtz Green-identity target-evaluation parity for the devtools
   `kernelclass`, `chunkerkerneval_greenlap`, and
-  `chunkerkerneval_greenhelm`, and `chunkerkernevalmat_greenlap` paths,
-  including Python `forceadap` close-target replacement in `chunkerkerneval`
-  and `chunkerkernevalmat`.
+  `chunkerkerneval_greenhelm`, `chunkerkerneval_gaussid`, and
+  `chunkerkernevalmat_greenlap` paths, including Python `forceadap`
+  close-target replacement in `chunkerkerneval` and `chunkerkernevalmat`.
 - Data-field parity for converted slices of the devtools `datafieldTest.m`
   workflow, including Hilbert/cotangent source data through dense and PyFLAM
   matrix products plus directional-derivative target data through direct,
@@ -692,6 +692,14 @@ method uses the saved complex wave number, source strengths, boundary
 densities, and targets, then evaluates single and double Helmholtz layers with
 `chunkerkerneval(..., forceadap=True)`. Ground truth is MATLAB's layer
 potentials and relative identity residual.
+
+`test_chunkerkerneval_gaussid_devtools_outputs_match_matlab` checks the
+adaptive assertion from `chunkerkerneval_gaussidTest.m`. The method uses the
+saved starfish geometry, full `40 x 40` target grid, and unit double-layer
+density, then compares Python `chunkerkerneval(..., forceadap=True)` values to
+MATLAB and verifies the Gauss identity values classify as either `0` outside
+or `-1` inside. Ground truth is MATLAB's target values, identity residuals, and
+inside/outside labels.
 
 ## `tests/test_easy_parity_stress.py`
 

@@ -91,6 +91,8 @@ def adapgausswts(
     eps = float(options.get("eps", 1.0e-12))
     maxints = int(options.get("maxints", 100000))
     maxdepth = int(options.get("maxdepth", 52))
+    transinv = bool(options.get("transinv", True))
+    recompute_source_normals = bool(options.get("recompute_source_normals", False))
     t = np.asarray(lege.exps(max(27, chnkr.k + 1))[0] if nodes is None else nodes, dtype=float)
     w = np.asarray(lege.exps(max(27, chnkr.k + 1))[1] if weights is None else weights, dtype=float)
     bw = np.asarray(lege.barywts(chnkr.k, chnkr.tstor) if barywts is None else barywts, dtype=float)
@@ -106,7 +108,30 @@ def adapgausswts(
     source = _chunk_source_arrays(chnkr, src_chunk)
     for itarg in range(ntarg):
         one_targ = _single_target(targinfo, itarg)
-        initial = _adaptive_panel_integral(-1.0, 1.0, source, chnkr.tstor, bw, one_targ, kern, (op0, op1), t, w)
+        source_one = source
+        if transinv:
+            source_one = dict(source)
+            source_one["r"] = source["r"] - one_targ.r
+            one_targ = PointInfo(
+                r=np.zeros_like(one_targ.r),
+                d=one_targ.d,
+                d2=one_targ.d2,
+                n=one_targ.n,
+                data=one_targ.data,
+            )
+        initial = _adaptive_panel_integral(
+            -1.0,
+            1.0,
+            source_one,
+            chnkr.tstor,
+            bw,
+            one_targ,
+            kern,
+            (op0, op1),
+            t,
+            w,
+            recompute_source_normals,
+        )
         stack = [(-1.0, 1.0, initial)]
         accum = np.zeros_like(initial)
         for count in range(1, maxints + 1):
@@ -114,8 +139,32 @@ def adapgausswts(
             maxrecs[itarg] = max(maxrecs[itarg], len(stack))
             a, b, parent = stack.pop()
             mid = 0.5 * (a + b)
-            left = _adaptive_panel_integral(a, mid, source, chnkr.tstor, bw, one_targ, kern, (op0, op1), t, w)
-            right = _adaptive_panel_integral(mid, b, source, chnkr.tstor, bw, one_targ, kern, (op0, op1), t, w)
+            left = _adaptive_panel_integral(
+                a,
+                mid,
+                source_one,
+                chnkr.tstor,
+                bw,
+                one_targ,
+                kern,
+                (op0, op1),
+                t,
+                w,
+                recompute_source_normals,
+            )
+            right = _adaptive_panel_integral(
+                mid,
+                b,
+                source_one,
+                chnkr.tstor,
+                bw,
+                one_targ,
+                kern,
+                (op0, op1),
+                t,
+                w,
+                recompute_source_normals,
+            )
             if np.max(np.abs(left + right - parent)) <= eps:
                 accum = accum + left + right
                 if not stack:
@@ -143,19 +192,24 @@ def _adaptive_panel_integral(
     opdims: tuple[int, int],
     nodes: np.ndarray,
     weights: np.ndarray,
+    recompute_source_normals: bool = False,
 ) -> np.ndarray:
     scale = (b - a) / 2.0
     shift = (b + a) / 2.0
     tt = scale * nodes + shift
     interp = _barycentric_matrix(ct, bw, tt)
+    rint = source["r"] @ interp
+    dint = source["d"] @ interp
+    d2int = source["d2"] @ interp
+    speed = np.sqrt(np.sum(np.abs(dint) ** 2, axis=0))
+    src_n = _normal_from_derivative(dint, speed) if recompute_source_normals else source["n"] @ interp
     src = PointInfo(
-        r=source["r"] @ interp,
-        d=source["d"] @ interp,
-        d2=source["d2"] @ interp,
-        n=source["n"] @ interp,
+        r=rint,
+        d=dint,
+        d2=d2int,
+        n=src_n,
         data=None if source["data"] is None else source["data"] @ interp,
     )
-    speed = np.sqrt(np.sum(np.abs(src.d) ** 2, axis=0))
     dsdt = scale * weights * speed
     kvals = quadggq._eval_kernel(kern, src, targ)
     op0 = int(opdims[0])
@@ -165,6 +219,15 @@ def _adaptive_panel_integral(
         block = kvals[:, op1 * inode : op1 * (inode + 1)] * dsdt[inode]
         out += np.kron(interp[:, inode], block)
     return out
+
+
+def _normal_from_derivative(d: np.ndarray, speed: np.ndarray) -> np.ndarray:
+    if d.shape[0] != 2:
+        raise ValueError("source-normal recomputation is only implemented for two-dimensional chunkers")
+    n = np.empty_like(d)
+    n[0] = d[1]
+    n[1] = -d[0]
+    return n / speed[None, :]
 
 
 def _apply_robust_close_corrections(

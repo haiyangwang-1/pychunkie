@@ -913,6 +913,27 @@ def test_chunkerkerneval_greenhelm_devtools_outputs_match_matlab():
     assert float(fixture.relerr) < 1e-11
 
 
+def test_chunkerkerneval_gaussid_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().chunkerkerneval_gaussid
+    chnkr = chunker_from_fields(fixture.chunker)
+    lap_d = kernel("lap", "d")
+    dens = np.asarray(fixture.density)
+    targets = point_array(fixture.targets)
+
+    values = chunkerkerneval(chnkr, lap_d, dens, targets, {"forceadap": True, "fac": 1.0}).reshape(-1, order="F")
+    expected = np.asarray(fixture.values).reshape(-1, order="F")
+    identity_err = np.minimum(np.abs(values), np.abs(values + 1.0))
+    expected_inside = np.asarray(fixture.inside, dtype=bool).reshape(-1)
+    interior = chunkerinterior(chnkr, targets, {"acceleration": "dense"})
+
+    np.testing.assert_allclose(values, expected, rtol=1e-8, atol=5e-8)
+    np.testing.assert_allclose(identity_err, np.asarray(fixture.identity_err).reshape(-1, order="F"), rtol=1e-7, atol=5e-8)
+    np.testing.assert_array_equal(values < -0.5, expected_inside)
+    np.testing.assert_array_equal(interior, expected_inside)
+    assert identity_err.max() < 1e-6
+    assert float(fixture.max_identity_err) < 1e-6
+
+
 def test_chunkermat_quadadap_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().chunkermat_quadadap
     chnkr = chunker_from_fields(fixture.chunker)
