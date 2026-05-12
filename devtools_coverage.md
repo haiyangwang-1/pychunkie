@@ -32,7 +32,7 @@ The parity rule for this repo is:
 - Python snapshot generator: `scripts/generate_devtools_easy_python_fixture.py`
 - Python comparisons: `tests/test_devtools_parity.py`
 - Python verification: `uv run pytest tests/test_devtools_parity.py` on
-  2026-05-12 with the regenerated local fixture: `29 passed`
+  2026-05-12 with the regenerated local fixture: `30 passed`
 - Covered now: `absconvgaussTest.m`, `legeexpsunitTest.m`,
   `arclengthfunTest.m`, `chunker_diffintmatTest.m`,
   `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`,
@@ -50,9 +50,9 @@ The parity rule for this repo is:
 | Status | Count | Tests |
 | --- | ---: | --- |
 | ✅ 🧪 🎯 fully covered by devtools parity | 20 | `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`, `chunkerfuncuniTest.m`, `chunkerintegralTest.m`, `chunkerinteriorTest.m`, `chunkerkerneval_greenhelmTest.m`, `chunkerkernevalmat_greenlapTest.m`, `chunkermat_quadadapTest.m`, `chunkerpolyTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `kernelopTest.m`, `tochunkgraphTest.m` |
-| ✅ 🧪 🎯 ⚠️ partial/diagnostic devtools parity | 8 | `chunkerarcparamTest.m`, `chunkerfuncTest.m`, `chunkerkerneval_greenlapTest.m`, `flamutilitiesTest.m`, `kernelclassTest.m`, `slicegraphTest.m`, `smootherTest.m`, `stokes_dtracTest.m` |
+| ✅ 🧪 🎯 ⚠️ partial/diagnostic devtools parity | 9 | `chunkerarcparamTest.m`, `chunkerfuncTest.m`, `chunkerkerneval_greenlapTest.m`, `datafieldTest.m`, `flamutilitiesTest.m`, `kernelclassTest.m`, `slicegraphTest.m`, `smootherTest.m`, `stokes_dtracTest.m` |
 | 🧩 🧭 helper/reference | 1 | `gradient_check.m` |
-| 🚧 should/pending parity not yet converted | 34 | Remaining ranked entries below, excluding explicit non-goals. |
+| 🚧 should/pending parity not yet converted | 33 | Remaining ranked entries below, excluding explicit non-goals. |
 | 🚫 explicit non-goal; do not port | 11 | `trappermatTest.m`, `quasiperiodicTest.m`, axisymmetric tests 63-68, and flexural tests 72-74. |
 
 ## Scope Triage For Remaining Work
@@ -97,7 +97,7 @@ Implemented from this scope:
   are covered by focused Python tests; the Green-identity target-evaluation
   devtools fixture now also saves MATLAB FLAM diagnostics, and the devtools
   fixture has strict MATLAB parity for square/circular/rectangular FLAM proxy
-  geometry.
+  geometry plus the target-data directional-derivative datafield slice.
 - Advanced RCIP chunkgraph workflows: selected vertices, ignored vertices, and
   global block-kernel subselection for local corner compression.
 - Laplace and Helmholtz Green-identity devtools target-evaluation fixtures:
@@ -113,9 +113,9 @@ Implemented from this scope:
 Deferred implementation:
 
 - Remaining FLAM parity beyond the first PyFLAM-backed pass: strict MATLAB
-  devtools fixtures beyond the converted Green-identity target-evaluation
-  diagnostic, full block-kernel multi-chunker workflows, and larger
-  proxy-by-level stress coverage.
+  devtools fixtures beyond the converted Green-identity target-evaluation and
+  target-data datafield diagnostics, full block-kernel multi-chunker workflows,
+  and larger proxy-by-level stress coverage.
 - Remaining `chunkerfit` modes beyond the implemented spline/open-line/circle
   paths.
 
@@ -164,7 +164,7 @@ Do not implement:
 | 27 | `chunkgrphconstructTest.m` | ✅ 🧪 🚧 | Medium | Builds a pentagonal chunkgraph from circular/sine arcs and compares legacy connectivity construction against newer `edgesendverts` construction. | Save both graph forms and compare Python graph construction equivalence. |
 | 28 | `chunkgrphregionTest.m` | ✅ 🧪 🚧 | Medium | Builds several graph regions, checks region edge orientation, edge-to-region map, and region numbering against manually specified truth. | Save expected region lists and edge-region maps; compare Python region construction. |
 | 29 | `chunkrgrphOpdimTest.m` | ✅ 🚧 | Medium | Smoke-tests operator dimensions for chunkgraph kernels and block kernels. The file is short and mainly validates dimension plumbing. | Save kernel/operator dimension metadata and assembled shape outputs; compare Python once chunkgraph operator dimensions are supported. |
-| 30 | `datafieldTest.m` | ✅ 🧪 🚧 ⚠️ | Medium-Hard | Tests chunker data fields used by custom kernels, including Hilbert/cotangent-style kernels, directional derivative single-layer kernels, FLAM comparison, and data propagation to target info. | Focused Python tests now cover PyFLAM callbacks for a data-dependent kernel with proxy disabled. Strict MATLAB data-field fixtures, custom-kernel matrices, and directional derivative diagnostics remain pending. |
+| 30 | `datafieldTest.m` | ✅ 🧪 🎯 ⚠️ | Medium-Hard | Tests chunker data fields used by custom kernels, including Hilbert/cotangent-style kernels, directional derivative single-layer kernels, FLAM comparison, and data propagation to target info. | Covered in `devtools_easy.mat` for the directional-derivative single-layer target-data slice: compare saved MATLAB density, direct/adaptive/FLAM target evaluations, and directional-gradient truth. Hilbert/cotangent custom-kernel matrices remain pending. |
 | 31 | `kernelclassTest.m` | ✅ 🧪 🎯 ⚠️ | Medium-Hard | Tests `kernel` objects as carriers of FMM/singularity metadata through `chunkerkerneval`, verifies Green's identity, and checks NaN-kernel propagation. | Covered in `devtools_easy.mat`: compare saved sources, boundary densities, close-corrected Python `forceadap` Green identity, and NaN-kernel propagation. MATLAB direct/FMM equality is retained as fixture diagnostics; Python FMM close-target correction remains partial. |
 | 32 | `elastickernelsTest.m` | ✅ 🧪 🚧 | Medium-Hard | Validates elasticity kernels by checking PDE residuals, alternative double-layer residuals, divergence, traction, Green's identity, gradient consistency, and direct kernel values. | Existing point-kernel fixtures cover some elasticity blocks; add saved PDE residual arrays and boundary identity values. |
 | 33 | `helm1d_greenTest.m` | ✅ 🧪 🚧 ⚠️ | Medium-Hard | Tests 1D/interface Helmholtz Green functions and a fast solve wrapper for a layered/flat interface setup, ending with a relative error below `1e-5`. | Start with Green/sweep outputs before attempting the full GMRES/interface solve. |

@@ -970,6 +970,38 @@ cqa.mat_adap = chnk.quadadap.buildmat(chnkr, fkern, [1 1], 'log', opts);
 cqa.relerr = norm(cqa.mat_ggq - cqa.mat_adap, 'fro') / norm(cqa.mat_ggq, 'fro');
 devtools_easy.chunkermat_quadadap = cqa;
 
+% datafieldTest.m directional derivative target-data slice
+df = [];
+rng(8675309);
+df.nt = 10;
+df.srcinfo = [];
+df.srcinfo.r = [5;4];
+df.targinfo = [];
+df.targinfo.r = 0.5*starfish(randn(df.nt,1));
+df.v = [2;1];
+df.targinfo.data = repmat(df.v,1,df.nt);
+chnkr = chunkerfunc(@(t) starfish(t));
+df.chunker = fixture_pack_chunker(chnkr);
+spkern = kernel('l','sp');
+df.unbdry = spkern.eval(df.srcinfo,chnkr);
+sysmat = 0.5*eye(chnkr.npt) + onesmat(chnkr) + chunkermat(chnkr,spkern);
+df.mu = sysmat\df.unbdry;
+kern = local_directional_der_S_kern();
+df.deru = chunkerkerneval(chnkr,kern,df.mu,df.targinfo);
+opts = [];
+opts.forceadap = true;
+df.deru_adap = chunkerkerneval(chnkr,kern,df.mu,df.targinfo,opts);
+opts = [];
+opts.flam = true;
+df.deru_flam = chunkerkerneval(chnkr,kern,df.mu,df.targinfo,opts);
+sgradkern = kernel('l','sg');
+df.gradutrue = sgradkern.eval(df.srcinfo,df.targinfo);
+df.derutrue = sum(reshape(df.gradutrue,2,numel(df.gradutrue)/2).*df.v,1);
+df.err_direct = norm(df.deru(:)-df.derutrue(:))/norm(df.derutrue(:));
+df.err_adap = norm(df.deru_adap(:)-df.deru(:))/norm(df.deru(:));
+df.err_flam = norm(df.deru_flam(:)-df.deru(:))/norm(df.deru(:));
+devtools_easy.datafield = df;
+
 % FLAM helper geometry
 flamh = [];
 [flamh.square64_pr, flamh.square64_ptau, flamh.square64_pw, square_pin] = chnk.flam.proxy_square_pts(64);
@@ -999,6 +1031,19 @@ function [f, g] = local_helm2d_green_grady(zk, src, trg)
 [~, g1, h1] = chnk.helm2d.green(zk, src, trg);
 f = g1(2);
 g = h1(2:3);
+end
+
+function kern = local_directional_der_S_kern()
+kern = kernel();
+kern.opdims = [1,1];
+kern.sing = 'pv';
+kern.eval = @(s,t) local_directional_der_S(s,t);
+end
+
+function submat = local_directional_der_S(s,t)
+v = t.data(:,:);
+[~,grad] = chnk.lap2d.green(s.r,t.r);
+submat = grad(:,:,1).*(v(1,:).') + grad(:,:,2).*(v(2,:).');
 end
 
 function [r, d, d2] = local_cos_func(t, per, amp)

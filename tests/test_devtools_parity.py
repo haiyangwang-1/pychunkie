@@ -3,6 +3,7 @@ import pytest
 
 from chunkie import (
     Chunker,
+    Kernel,
     chunkerfit,
     chunkerfunc,
     chunkerfuncuni,
@@ -17,7 +18,7 @@ from chunkie import (
     lege,
     tochunkgraph,
 )
-from chunkie.chnk import arcparam, curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, flam, helm2d, quadadap, smoother, spcl
+from chunkie.chnk import arcparam, curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, flam, helm2d, lap2d, quadadap, smoother, spcl
 from chunkie.operators import PointInfo, pointinfo
 from _fixture_generation import load_generated_mat_fixture
 
@@ -763,6 +764,51 @@ def test_chunkermat_quadadap_devtools_outputs_match_matlab():
     np.testing.assert_allclose(adap, fixture.mat_adap, rtol=1e-9, atol=2e-9)
     assert float(fixture.relerr) < 1e-9
     assert np.linalg.norm(ggq - adap, "fro") / np.linalg.norm(ggq, "fro") < 1e-9
+
+
+def test_datafield_devtools_target_data_flam_matches_matlab():
+    fixture = load_devtools_easy().datafield
+    chnkr = chunker_from_fields(fixture.chunker)
+    srcinfo = PointInfo(r=point_array(fixture.srcinfo.r))
+    targinfo = PointInfo(r=point_array(fixture.targinfo.r), data=np.asarray(fixture.targinfo.data))
+    v = np.asarray(fixture.v).reshape(-1, order="F")
+
+    def directional_derivative_single_layer(src, targ):
+        _, grad, _ = lap2d.green(src.r, targ.r)
+        target_data = np.asarray(targ.data)
+        if target_data.ndim == 1:
+            target_data = target_data.reshape(2, -1)
+        return grad[:, :, 0] * target_data[0, :, None] + grad[:, :, 1] * target_data[1, :, None]
+
+    directional_derivative_kernel = Kernel(
+        name="directional_derivative_single_layer",
+        type="custom",
+        eval=directional_derivative_single_layer,
+        opdims=(1, 1),
+        sing="pv",
+    )
+    spkern = kernel("lap", "sp")
+
+    unbdry = spkern(srcinfo, pointinfo(chnkr)).reshape(-1, order="F")
+    mu = np.asarray(fixture.mu).reshape(-1, order="F")
+    deru = chunkerkerneval(chnkr, directional_derivative_kernel, mu, targinfo).reshape(-1, order="F")
+    deru_adap = chunkerkerneval(chnkr, directional_derivative_kernel, mu, targinfo, {"forceadap": True}).reshape(-1, order="F")
+    flam_opts = {"acceleration": "flam", "occ": 32, "rank_or_tol": 1.0e-10}
+    deru_flam = chunkerkerneval(chnkr, directional_derivative_kernel, mu, targinfo, flam_opts).reshape(-1, order="F")
+    gradutrue = kernel("lap", "sg")(srcinfo, targinfo).reshape(2, -1, order="F")
+    derutrue = np.sum(gradutrue * v[:, None], axis=0)
+
+    np.testing.assert_allclose(unbdry, fixture.unbdry, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(deru, np.asarray(fixture.deru).reshape(-1, order="F"), rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(deru_adap, np.asarray(fixture.deru_adap).reshape(-1, order="F"), rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(deru_flam, np.asarray(fixture.deru_flam).reshape(-1, order="F"), rtol=1e-8, atol=2e-9)
+    np.testing.assert_allclose(derutrue, np.asarray(fixture.derutrue).reshape(-1, order="F"), rtol=1e-10, atol=1e-12)
+    assert np.linalg.norm(deru - derutrue) / np.linalg.norm(derutrue) < 1e-10
+    assert np.linalg.norm(deru_adap - deru) / np.linalg.norm(deru) < 1e-10
+    assert np.linalg.norm(deru_flam - deru) / np.linalg.norm(deru) < 1e-8
+    assert float(fixture.err_direct) < 1e-10
+    assert float(fixture.err_adap) < 1e-10
+    assert float(fixture.err_flam) < 1e-10
 
 
 def test_flam_proxy_geometry_helpers_match_matlab_fixture():
