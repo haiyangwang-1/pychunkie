@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
+import warnings
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -1026,7 +1027,54 @@ def chunkerfunc(
         adjs[1, -1] = -1
     chnkr.adj = adjs
     chnkr.recompute_geometry()
+    _warn_if_closed_endpoint_mismatch(chnkr, eps, ifclosed, fcurve, ta, tb)
     return chnkr, ab
+
+
+def _warn_if_closed_endpoint_mismatch(
+    chnkr: Chunker,
+    eps: float,
+    ifclosed: bool,
+    fcurve: Callable[[np.ndarray], Any],
+    ta: float,
+    tb: float,
+) -> None:
+    if not ifclosed or chnkr.nch == 0:
+        return
+    endpoint_outputs = _curve_outputs(fcurve, np.array([ta, tb]))
+    left = endpoint_outputs[0][:, 0]
+    right = endpoint_outputs[0][:, -1]
+    bbox = chnkr.max() - chnkr.min()
+    scale = float(max(np.max(np.abs(bbox)), 1.0))
+    msgbase = "CHUNKERFUNC: "
+    if np.linalg.norm(left - right) / scale > eps:
+        warnings.warn(
+            msgbase
+            + "start and end points of curve parameterization are not the same to target precision "
+            + "but ifclosed flag is true. Check curve parameterization or if not a closed curve "
+            + "set flag appropriately and consider creating a chunkgraph object",
+            UserWarning,
+            stacklevel=2,
+        )
+        return
+    if len(endpoint_outputs) >= 2:
+        left_tangent = endpoint_outputs[1][:, 0]
+        right_tangent = endpoint_outputs[1][:, -1]
+        left_tangent = left_tangent / np.linalg.norm(left_tangent)
+        right_tangent = right_tangent / np.linalg.norm(right_tangent)
+    else:
+        _, tend = chnkr.chunkends([0, chnkr.nch - 1])
+        left_tangent = tend[:, 0, 0]
+        right_tangent = tend[:, 1, -1]
+    if np.linalg.norm(left_tangent - right_tangent) > eps * chnkr.k:
+        warnings.warn(
+            msgbase
+            + "unit tangent vectors at start and end points of curve are not the same to target precision "
+            + "but ifclosed flag is true. Check curve parameterization or if not a closed curve "
+            + "set flag appropriately and consider creating a chunkgraph object",
+            UserWarning,
+            stacklevel=2,
+        )
 
 
 def _curve_interval_outputs(

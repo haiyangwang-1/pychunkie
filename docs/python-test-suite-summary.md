@@ -617,9 +617,9 @@ Helmholtz, and Helmholtz-difference kernels. Ground truth is the MATLAB fixture.
 
 `test_chunkerfunc_devtools_outputs_match_matlab` checks adaptive
 `chunkerfunc` cases from the MATLAB devtools test: starfish construction,
-`nout=3`, random Fourier-mode construction, reversal, circle area, and
-refinement. Ground truth is MATLAB-saved chunker fields plus adjacency, area,
-and warning diagnostics.
+`nout=3`, random Fourier-mode construction, reversal, circle area, refinement,
+and open/closed endpoint warning behavior. Ground truth is MATLAB-saved
+chunker fields plus adjacency, area, and warning diagnostics.
 
 `test_chunkerpoly_devtools_outputs_match_matlab` checks the barbell-like
 polygon cases from `chunkerpolyTest.m`. The method builds Python rounded,

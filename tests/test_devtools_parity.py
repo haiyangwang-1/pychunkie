@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import pytest
 from scipy import sparse
@@ -446,6 +448,20 @@ def test_chunkerfunc_devtools_outputs_match_matlab():
     assert bool(fixture.closed_warning_seen)
     assert bool(fixture.near_closed_warning_seen)
     assert not bool(fixture.open_warning_seen)
+    with pytest.warns(UserWarning, match="unit tangent vectors"):
+        chunkerfunc(lambda t: np.vstack((np.cos(np.asarray(t).reshape(-1)), np.sin(np.asarray(t).reshape(-1) / 2))))
+    with pytest.warns(UserWarning, match="start and end points"):
+        chunkerfunc(
+            lambda t: np.vstack((np.cos(np.asarray(t).reshape(-1)), np.sin(np.asarray(t).reshape(-1)))),
+            {"ta": 0.0, "tb": 2 * np.pi - 1.0e-3},
+        )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        chunkerfunc(
+            lambda t: np.vstack((np.cos(np.asarray(t).reshape(-1)), np.sin(np.asarray(t).reshape(-1)))),
+            {"ta": 0.0, "tb": 2 * np.pi - 1.0e-3, "ifclosed": False},
+        )
+    assert caught == []
     assert_chunker_fields_match(starfish, fixture.starfish, atol=1e-11)
     assert_chunker_fields_match(starfish_nout, fixture.starfish_nout, atol=1e-11)
     assert_chunker_fields_match(bymode, fixture.bymode, atol=1e-11)
