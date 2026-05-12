@@ -705,9 +705,9 @@ with an additive diagonal, ensuring the shift does not overwrite the native
 smooth diagonal.
 
 `test_chunkermat_flam_l2scale_matches_scaled_dense_matrix` checks FLAM l2
-scaling. The method compares a shifted smooth FLAM operator with `l2scale=True`
-against the dense weighted matrix transformed by the square-root source and
-target quadrature weights.
+scaling. The method compares shifted smooth and singular-special FLAM
+operators with `l2scale=True` against dense weighted matrices transformed by
+the square-root source and target quadrature weights.
 
 `test_chunkermat_flam_preserves_point_data_without_proxy` checks that point
 data fields are passed through FLAM matrix callbacks. The method allocates a

@@ -578,7 +578,7 @@ def _special_overwrite_matrix(
     from .chnk import quadggq
 
     qtype = str(options.get("sing", getattr(kern, "sing", "log") or "log")).lower()
-    return quadggq.buildmattd(
+    spmat = quadggq.buildmattd(
         chnkr,
         kern,
         getattr(kern, "opdims", None),
@@ -586,6 +586,13 @@ def _special_overwrite_matrix(
         ilist=options.get("ilist", None),
         corrections=False,
     )
+    if bool(options.get("l2scale", False)):
+        op0, op1 = _kernel_opdims(chnkr, kern)
+        weights = chnkr.wts.reshape(-1, order="F")
+        row_scale = np.sqrt(np.repeat(weights, op0))
+        col_scale = 1.0 / np.sqrt(np.repeat(weights, op1))
+        spmat = sparse.diags(row_scale, format="csr") @ spmat @ sparse.diags(col_scale, format="csr")
+    return spmat
 
 
 def _add_diagonal_shift(out: np.ndarray, rows: np.ndarray, cols: np.ndarray, dval: np.ndarray) -> np.ndarray:

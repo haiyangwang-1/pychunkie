@@ -181,6 +181,13 @@ def test_chunkermat_flam_l2scale_matches_scaled_dense_matrix():
 
     np.testing.assert_allclose(flam_mat @ rhs, scaled_dense @ rhs, rtol=1e-10, atol=1e-11)
 
+    lap_s = kernel("lap", "s")
+    special_dense = chunkermat(chnkr, lap_s)
+    scaled_special = np.sqrt(weights)[:, None] * special_dense * (1.0 / np.sqrt(weights))[None, :] + np.eye(chnkr.npt)
+    flam_special = chunkermat(chnkr, lap_s, {"acceleration": "flam", "dval": 1.0, "l2scale": True, "occ": 8, "rank_or_tol": 1e-10, "useproxy": False})
+
+    np.testing.assert_allclose(flam_special @ rhs, scaled_special @ rhs, rtol=1e-10, atol=1e-11)
+
 
 def test_chunkermat_flam_preserves_point_data_without_proxy():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 6})
