@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 351 pytest cases because several MATLAB parity tests are
+collection expands to 353 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -76,6 +76,8 @@ Current test-backed coverage includes:
   evaluators, dense/native operators, scalar and block-kernel FMM
   acceleration, FMM target-evaluation materialization, PyFLAM acceleration,
   special quadrature, and RCIP helper/compression workflows.
+- Public API contract guards for top-level `chunkie` exports, `chunkie.chnk`
+  exports, and lazy `chunkie.chnk` submodule/helper imports.
 - MATLAB golden parity for compact fixtures under `tests/golden`, including
   geometry, kernel/operator, quadrature, and RCIP fixtures.
 - MATLAB devtools parity for 54 focused comparisons in
@@ -95,6 +97,16 @@ Open or intentionally limited areas:
 - Explicit non-goals remain the `trapper` family, axisymmetric/quasiperiodic
   and flexural kernel families, `quadba`, full nonlinear MATLAB smoother/Newton
   behavior, `+chnk/+intchunk`, and MATLAB plotting methods.
+
+## `tests/test_api_contract.py`
+
+`test_top_level_public_exports_are_stable` checks that the documented
+top-level `chunkie.__all__` facade continues to expose the same public names
+after internal refactors.
+
+`test_chnk_public_exports_are_stable_and_lazy` checks that `chunkie.chnk`
+keeps the same MATLAB-style export names while lazily loading heavy submodules
+such as quadrature, FLAM, and RCIP helpers only when accessed.
 
 ## `tests/test_arcparam.py`
 
