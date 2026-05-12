@@ -158,6 +158,21 @@ def test_chunkermat_flam_proxy_paths_match_dense_application():
         rskel_proxy.solve(rhs)
 
 
+def test_chunkermat_flam_adjoint_products_match_dense():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 6})
+    dense = chunkermat(chnkr, smooth_kernel) + (0.5 + 0.2j) * np.eye(chnkr.npt)
+    rhs = np.exp(0.1j * np.arange(chnkr.npt))
+    rhs_mat = np.column_stack((rhs, np.conj(rhs)))
+    opts = {"acceleration": "flam", "dval": 0.5 + 0.2j, "occ": 16, "rank_or_tol": 1e-10, "useproxy": False}
+
+    rskelf_mat = chunkermat(chnkr, smooth_kernel, opts)
+    rskel_mat = chunkermat(chnkr, smooth_kernel, {**opts, "flamtype": "rskel"})
+
+    np.testing.assert_allclose(rskelf_mat.H @ rhs, dense.conj().T @ rhs, rtol=1e-10, atol=1e-11)
+    np.testing.assert_allclose(rskelf_mat.H @ rhs_mat, dense.conj().T @ rhs_mat, rtol=1e-10, atol=1e-11)
+    np.testing.assert_allclose(rskel_mat.H @ rhs, dense.conj().T @ rhs, rtol=1e-10, atol=1e-11)
+
+
 def test_chunkermat_flam_adds_dval_without_replacing_smooth_diagonal():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 6})
     dense_scalar = chunkermat(chnkr, smooth_kernel) + 0.5 * np.eye(chnkr.npt)

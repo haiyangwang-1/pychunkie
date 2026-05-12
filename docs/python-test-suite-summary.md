@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 300 pytest cases because several MATLAB parity tests are
+collection expands to 301 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -109,8 +109,8 @@ Implemented from this scope:
 - PyFLAM-backed acceleration: `chunkerflam`, `chnk.flam` callback/proxy
   helpers, `ChunkerFLAMMatrix`, `chunkermat`/`chunkermatapply`
   `acceleration="flam"`, FLAM target evaluation/materialization, FLAM
-  interior classification, adaptive near-target correction, multiple-RHS
-  application, l2 scaling, and source/target point-data callbacks.
+  interior classification, adaptive near-target correction, multiple-RHS and
+  adjoint application, l2 scaling, and source/target point-data callbacks.
 
 Deferred implementation:
 
@@ -700,6 +700,12 @@ proxy-enabled and level-dependent proxy paths. The method applies both FLAM
 `rskelf` operators plus the proxy-enabled `rskel` operator to a shifted
 Laplace single-layer system, compares against the dense special matrix product,
 and verifies `rskel` does not expose the `rskelf` solve helper.
+
+`test_chunkermat_flam_adjoint_products_match_dense` checks SciPy adjoint
+products for PyFLAM-backed boundary matrices. The method builds
+complex-shifted `rskelf` and `rskel` operators, applies `.H` to vector and
+multiple-RHS inputs, and compares with the conjugate-transpose dense matrix
+product.
 
 `test_chunkermat_flam_adds_dval_without_replacing_smooth_diagonal` checks
 diagonal shifts for smooth kernels. The method compares scalar, complex-shift,

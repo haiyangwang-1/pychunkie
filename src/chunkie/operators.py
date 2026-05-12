@@ -113,6 +113,18 @@ class ChunkerFLAMMatrix(LinearOperator):
             return np.empty((self.shape[0], 0), dtype=np.result_type(self.dtype, x.dtype))
         return self._apply(x)
 
+    def _rmatvec(self, x: np.ndarray) -> np.ndarray:
+        if x.size != self.shape[0]:
+            raise ValueError("density has incompatible size")
+        return self._apply(x, trans="c")
+
+    def _rmatmat(self, x: np.ndarray) -> np.ndarray:
+        if x.shape[0] != self.shape[0]:
+            raise ValueError("density matrix has incompatible row count")
+        if x.shape[1] == 0:
+            return np.empty((self.shape[1], 0), dtype=np.result_type(self.dtype, x.dtype))
+        return self._apply(x, trans="c")
+
     def solve(self, rhs: ArrayLike) -> np.ndarray:
         """Apply the FLAM approximate inverse to one or more right-hand sides."""
 
@@ -149,16 +161,16 @@ class ChunkerFLAMMatrix(LinearOperator):
             return arr.copy()
         return arr
 
-    def _apply(self, x: ArrayLike) -> np.ndarray:
+    def _apply(self, x: ArrayLike, trans: str = "n") -> np.ndarray:
         pyflam = _require_pyflam()
         arr = np.asarray(x)
         one_dim = arr.ndim == 1
         if one_dim:
             arr = arr.reshape(-1, 1)
         if self.flamtype == "rskelf":
-            out = pyflam.rskelf_partial_mv(self.factor, arr)
+            out = pyflam.rskelf_partial_mv(self.factor, arr, trans=trans)
         elif self.flamtype == "rskel":
-            out = pyflam.rskel_mv(self.factor, arr)
+            out = pyflam.rskel_mv(self.factor, arr, trans=trans)
         else:
             raise NotImplementedError(f"unsupported FLAM factor type {self.flamtype!r}")
         return out[:, 0] if one_dim else out
