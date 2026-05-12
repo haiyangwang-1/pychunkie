@@ -445,8 +445,8 @@ exact vertex-edge structure, and the square region loop.
 `test_chunkgraph_slice_and_edgeids_match_selected_edges` checks subgraph
 slicing and global point-index selection. The method is `slicegraph([0,1])`
 and `edgeids([0,1])`. Ground truth is a two-edge subgraph with the expected
-endpoint matrix, and point ids whose global coordinates match the concatenated
-coordinates of the selected edge chunkers.
+endpoint matrix, exact selected global point ids, subgraph coordinates,
+derivatives, and weights matching the selected edge chunkers.
 
 `test_chunkgraph_region_ids_survive_translation` checks region classification
 on a square graph and after translation. The geometric invariant is that

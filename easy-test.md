@@ -75,6 +75,7 @@ moved here so active triage stays focused on unfinished work.
 | `tests/test_chunker.py::test_refine_oversamples_by_splitting_chunks` | done | Checked split count, adjacency, area, and length, but not the geometry of the split panels. | Adds analytic half-circle position, derivative, normal, and weight checks for both refined panels. |
 | `tests/test_domain.py::test_nonflatinterface_derivatives_and_redblue_colormap` | done | Used finite differences for the y-derivative but did not check the closed-form y-coordinate or second derivative. | Adds analytic y-coordinate, first-derivative, and second-derivative assertions. |
 | `tests/test_chunkgraph.py::test_chunkgraph_accepts_incidence_matrix_edges` | done | Checked only endpoint conversion from incidence-matrix input. | Adds incidence preservation, vertex-structure, and exact region-loop assertions. |
+| `tests/test_chunkgraph.py::test_chunkgraph_slice_and_edgeids_match_selected_edges` | done | Checked selected coordinate lookup but not exact edge IDs or subgraph differential fields. | Adds exact global ID, subgraph coordinate, derivative, and weight assertions. |
 
 ## Completed Full Test Ease Audit - 2026-05-12
 

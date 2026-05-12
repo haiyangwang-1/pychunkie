@@ -116,6 +116,7 @@ def test_chunkgraph_slice_and_edgeids_match_selected_edges():
     np.testing.assert_array_equal(sub.edgesendverts, np.array([[0, 1], [1, 2]]))
     ids = cg.edgeids([0, 1])
     assert ids.size == cg.echnks[0].npt + cg.echnks[1].npt
+    np.testing.assert_array_equal(ids, np.arange(cg.echnks[0].npt + cg.echnks[1].npt))
     expected = np.hstack(
         (
             cg.echnks[0].r.reshape(2, -1, order="F"),
@@ -123,6 +124,9 @@ def test_chunkgraph_slice_and_edgeids_match_selected_edges():
         )
     )
     np.testing.assert_allclose(cg.r.reshape(2, -1, order="F")[:, ids], expected)
+    np.testing.assert_allclose(sub.r.reshape(2, -1, order="F"), expected)
+    np.testing.assert_allclose(sub.d.reshape(2, -1, order="F"), cg.d.reshape(2, -1, order="F")[:, ids])
+    np.testing.assert_allclose(sub.wts.reshape(-1, order="F"), cg.wts.reshape(-1, order="F")[ids])
 
 
 def test_chunkgraph_region_ids_survive_translation():
