@@ -460,9 +460,9 @@ Log/PV/HS support tables are packaged as `.npz` assets and loaded with `importli
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
 | `pol` | ✅ | `+lege/pol.m` | Implemented; indirectly exercised by `pols`. |
-| `rts` | ✅ 🧪 | `+lege/rts.m` | Alias behavior tested. |
-| `rts_stab` | ✅ 🧪 | `+lege/rts_stab.m` | Alias behavior tested. |
-| `adapgauss` | ✅ 🧪 | `+lege/adapgauss.m` | Adaptive Gauss-Legendre scalar/vector integration tested. |
+| `rts` | ✅ 🧪 🎯 | `+lege/rts.m` | Alias behavior tested and MATLAB fixture checks nodes/weights. |
+| `rts_stab` | ✅ 🧪 🎯 | `+lege/rts_stab.m` | Alias behavior tested and MATLAB fixture checks stable nodes/weights. |
+| `adapgauss` | ✅ 🧪 🎯 | `+lege/adapgauss.m` | Adaptive Gauss-Legendre scalar/vector integration tested; scalar polynomial output and status metadata have MATLAB fixture parity. |
 | `pols` | ✅ 🧪 🎯 | `+lege/pols.m` | MATLAB parity fixture checks polynomials and derivatives. |
 | `exps` | ✅ 🧪 🎯 | `+lege/exps.m` | MATLAB parity fixture checks nodes, weights, transforms. |
 | `exev` | ✅ 🧪 🎯 | `+lege/exev.m` | MATLAB parity fixture checks expansion evaluation. |

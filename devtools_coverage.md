@@ -77,8 +77,9 @@ Implemented from this scope:
   Laplace derived selectors, Helmholtz target-derivative selectors, full
   biharmonic scalar selector wiring, Stokes traction/combined paths, and
   elasticity single/traction/double/alternate-double workflows.
-- Remaining `+lege` helpers: `adapgauss`, `bernstein_ellipse`, `polsum`, and
-  `tayl`; strict MATLAB fixture parity now covers `bernstein_ellipse`,
+- Remaining `+lege` helpers: `rts`, `rts_stab`, `adapgauss`,
+  `bernstein_ellipse`, `polsum`, and `tayl`; strict MATLAB fixture parity now
+  covers `rts`, `rts_stab`, scalar `adapgauss`, `bernstein_ellipse`,
   `polsum`, and scalar-call `tayl` outputs.
 - Adaptive refinement in `chunker.refine` and `chunkerfunc`.
 - `quadggq/buildmattd` sparse special-block assembly.

@@ -151,6 +151,12 @@ def test_extended_legendre_helpers_match_matlab_fixture():
     np.testing.assert_allclose(w, fixture["w_ext"], atol=1e-14)
     np.testing.assert_allclose(u, fixture["u_ext"], atol=1e-13)
     np.testing.assert_allclose(v, fixture["v_ext"], atol=1e-13)
+    rts_x, rts_w = lege.rts(k)
+    rts_stab_x, rts_stab_w = lege.rts_stab(k)
+    np.testing.assert_allclose(rts_x, fixture["rts_x_ext"], atol=1e-14)
+    np.testing.assert_allclose(rts_w, fixture["rts_w_ext"], atol=1e-14)
+    np.testing.assert_allclose(rts_stab_x, fixture["rts_stab_x_ext"], atol=1e-14)
+    np.testing.assert_allclose(rts_stab_w, fixture["rts_stab_w_ext"], atol=1e-14)
     np.testing.assert_allclose(pols, fixture["pol_ext"], atol=1e-13)
     np.testing.assert_allclose(ders, fixture["der_ext"], atol=1e-12)
     np.testing.assert_allclose(matrin, fixture["matrin_ext"], atol=1e-13)
@@ -179,6 +185,15 @@ def test_extended_legendre_helpers_match_matlab_fixture():
     )
     np.testing.assert_allclose(tayl_pol, fixture["tayl_pol_ext"], atol=1e-13)
     np.testing.assert_allclose(tayl_der, fixture["tayl_der_ext"], atol=1e-12)
+    adap_val, adap_maxrec, adap_numint, adap_ier = lege.adapgauss(
+        lambda x: x**4,
+        float(fixture["adap_poly_a_ext"]),
+        float(fixture["adap_poly_b_ext"]),
+    )
+    np.testing.assert_allclose(adap_val, fixture["adap_poly_val_ext"], atol=1e-13)
+    assert adap_maxrec == int(fixture["adap_poly_maxrec_ext"])
+    assert adap_numint == int(fixture["adap_poly_numint_ext"])
+    assert adap_ier == int(fixture["adap_poly_ier_ext"])
 
 
 def test_chunker_geometry_and_transforms_match_matlab_fixture():

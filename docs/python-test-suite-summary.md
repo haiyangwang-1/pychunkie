@@ -88,8 +88,8 @@ Implemented from this scope:
   Laplace derived selectors, Helmholtz target-derivative selectors, full
   biharmonic scalar selector wiring, Stokes traction/combined paths, and
   elasticity single/traction/double/alternate-double workflows.
-- Remaining `+lege` helpers: `adapgauss`, `bernstein_ellipse`, `polsum`, and
-  `tayl`.
+- Remaining `+lege` helpers: `rts`, `rts_stab`, `adapgauss`,
+  `bernstein_ellipse`, `polsum`, and `tayl`.
 - Adaptive refinement in `chunker.refine` and `chunkerfunc`.
 - Section III quadrature parity: `quadggq/buildmattd` sparse special-block
   assembly and `quadadap` log-kernel self, neighbor, and robust close
@@ -1232,9 +1232,10 @@ compares stored fields. Ground truth is `tests/golden/chunker_circle.mat`.
 Legendre helper surface against MATLAB. The equations include polynomial values
 and derivatives, interpolation matrices, integration matrices, expansion
 evaluation, coefficient antiderivatives, coefficient derivatives, and
-barycentric weights. It also checks `bernstein_ellipse`, `polsum`, and scalar
-MATLAB `tayl` calls against saved fixture outputs. The method recomputes every
-object in Python. Ground truth is `tests/golden/lege_extended.mat`.
+barycentric weights. It also checks `rts`, `rts_stab`, `bernstein_ellipse`,
+`polsum`, scalar MATLAB `tayl` calls, and scalar `adapgauss` output/status
+metadata against saved fixture outputs. The method recomputes every object in
+Python. Ground truth is `tests/golden/lege_extended.mat`.
 
 `test_chunker_geometry_and_transforms_match_matlab_fixture` checks MATLAB
 parity for chunker geometry, move/transform operations, and dense helper
