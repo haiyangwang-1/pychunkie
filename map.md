@@ -49,6 +49,8 @@ src/
     │   ├── chunkerfunc, chunkerfuncuni, chunkerfit, chunkerpoly, chunkerpoints
     │   ├── merge
     │   └── private helpers
+    ├── _chunker_polygon.py
+    │   └── private polygon construction helpers used by chunkerpoly
     ├── chunkgraph.py
     │   ├── class SourceInfo
     │   ├── class ChunkGraph
@@ -197,7 +199,7 @@ src/
 | `sort` | ✅ 🧪 🎯 | `@chunker/sort.m` | Python tested on open segments; strict geometry fixture compares sorted chunker fields. |
 | `chunkerpref` | ✅ 🧪 🎯 | `@chunkerpref/chunkerpref.m` | Python preference wrapper has MATLAB fixture coverage for explicit field overrides. |
 | `chunkerpoly` | ✅ 🧪 🎯 | `chunkerpoly.m`, `+chnk/+smoother/*` workflows | Straight-edge, MATLAB-style dyadic true-polygon refinement, and rounded-corner polygon paths are implemented and tested; devtools parity compares the non-smooth true-polygon chunk geometry as an unordered/orientation-aware panel set, while exact rounded smoother geometry remains the supported lightweight path. |
-| `_rounded_chunkerpoly`, `_polygon_widths`, `_fill_line_chunk`, `_fill_quadratic_chunk` | 🧩 ✅ 🧪 | `chunkerpoly.m`, `+chnk/+smoother/*` concepts | Internal rounded polygon construction helpers. |
+| `_dyadic_chunkerpoly`, `_rounded_chunkerpoly`, `_polygon_widths`, `_fill_line_chunk`, `_fill_quadratic_chunk` | 🧩 ✅ 🧪 | `chunkerpoly.m`, `+chnk/+smoother/*` concepts | Internal polygon construction helpers live in `src/chunkie/_chunker_polygon.py` and are re-imported by `chunker.py` without changing public constructors. |
 | `flagnear` | ✅ 🧪 🎯 | `@chunker/flagnear.m`, `+chnk/flagnear*` helpers | Python tested against brute-force distances and MATLAB fixture flags. |
 | `flagnear_rectangle` | ✅ 🧪 🎯 | `@chunker/flagnear_rectangle.m` | 2D rectangle flags covered by direct MATLAB fixture values. |
 | `flagnear_rectangle_grid` | ✅ 🧪 🎯 | `@chunker/flagnear_rectangle_grid.m` | Python meshgrid ordering and MATLAB fixture values covered. |
