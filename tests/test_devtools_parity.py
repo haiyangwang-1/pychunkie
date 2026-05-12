@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from scipy import sparse
 
 from chunkie import (
     Chunker,
@@ -896,3 +897,38 @@ def test_flam_proxy_geometry_helpers_match_matlab_fixture():
         float(fixture.nproxy_lap_s_width),
         {"nsrc": int(fixture.nproxy_lap_s_nsrc), "rank_or_tol": float(fixture.nproxy_lap_s_tol)},
     ) == int(fixture.nproxy_lap_s)
+
+    chnkr = chunker_from_fields(fixture.kernbyindex_chunker)
+    lap_s = kernel("lap", "s")
+    rows = np.asarray(fixture.kbi_rows, dtype=int).reshape(-1) - 1
+    cols = np.asarray(fixture.kbi_cols, dtype=int).reshape(-1) - 1
+    np.testing.assert_allclose(
+        flam.kernbyindex(rows, cols, chnkr, lap_s, (1, 1)),
+        fixture.kbi_mat,
+        rtol=1e-13,
+        atol=1e-13,
+    )
+    overwrite = sparse.csr_matrix((np.array([9.0, -4.0]), (np.array([2, 7]), np.array([4, 8]))), shape=(chnkr.npt, chnkr.npt))
+    np.testing.assert_allclose(
+        flam.kernbyindex(rows, cols, chnkr, lap_s, (1, 1), overwrite),
+        fixture.kbi_overwrite,
+        rtol=1e-13,
+        atol=1e-13,
+    )
+
+    rrows = np.asarray(fixture.kbir_rows, dtype=int).reshape(-1) - 1
+    rcols = np.asarray(fixture.kbir_cols, dtype=int).reshape(-1) - 1
+    targets = np.asarray(fixture.kbir_targets)
+    np.testing.assert_allclose(
+        flam.kernbyindexr(rrows, rcols, targets, chnkr, lap_s, (1, 1)),
+        fixture.kbir_mat,
+        rtol=1e-13,
+        atol=1e-13,
+    )
+    roverwrite = sparse.csr_matrix((np.array([7.0, -3.0]), (np.array([1, 2]), np.array([2, 5]))), shape=(targets.shape[1], chnkr.npt))
+    np.testing.assert_allclose(
+        flam.kernbyindexr(rrows, rcols, targets, chnkr, lap_s, (1, 1), roverwrite),
+        fixture.kbir_overwrite,
+        rtol=1e-13,
+        atol=1e-13,
+    )
