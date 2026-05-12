@@ -721,6 +721,13 @@ kop.ckern2 = ckern2.eval(kop.src, kop.targ);
 kop.conj_dkern = conj_dkern.eval(kop.src, kop.targ);
 devtools_easy.kernelop = kop;
 
+% KernDerInterleaveTest.m
+kdi = [];
+kdi.helm = local_kernder_helm_case();
+kdi.hdiff = local_kernder_hdiff_case();
+kdi.lap = local_kernder_lap_case();
+devtools_easy.kernderinterleave = kdi;
+
 % stokes_dtracTest.m
 sdtr = [];
 rng(8675309);
@@ -1074,6 +1081,75 @@ devtools_easy.flam_helpers = flamh;
 
 save(fullfile(outdir, 'devtools_easy.mat'), 'devtools_easy', '-v7');
 
+
+function out = local_kernder_base()
+out = [];
+out.coefs = [1; 0.5];
+out.coefa = [1, 0.3; -1i, 0.2];
+out.src = [];
+out.src.r = [0; -1];
+out.src.n = [1; -2];
+out.targ = [];
+out.targ.r = [[1.1; 0.3], [0.3; 0.8]];
+out.targ.n = [[-1; 0.3], [-1; 0.4]];
+end
+
+function out = local_kernder_helm_case()
+out = local_kernder_base();
+out.zk = 1;
+out.s = kernel('h', 's', out.zk).eval(out.src, out.targ);
+out.d = kernel('h', 'd', out.zk).eval(out.src, out.targ);
+out.c = kernel('h', 'c', out.zk, out.coefs).eval(out.src, out.targ);
+out.sp = kernel('h', 'sp', out.zk).eval(out.src, out.targ);
+out.dp = kernel('h', 'dp', out.zk).eval(out.src, out.targ);
+out.cp = kernel('h', 'cp', out.zk, out.coefs).eval(out.src, out.targ);
+out.all = kernel('h', 'all', out.zk, out.coefa).eval(out.src, out.targ);
+out.trans_rep = kernel('h', 'trans_rep', out.zk, out.coefs).eval(out.src, out.targ);
+out.trans_rep_prime = kernel('h', 'trans_rep_prime', out.zk, out.coefs).eval(out.src, out.targ);
+out.c2trans = kernel('h', 'c2tr', out.zk, out.coefs).eval(out.src, out.targ);
+out.sgrad = chnk.helm2d.kern(out.zk, out.src, out.targ, 'sgrad');
+out.dgrad = chnk.helm2d.kern(out.zk, out.src, out.targ, 'dgrad');
+out.cgrad = chnk.helm2d.kern(out.zk, out.src, out.targ, 'cgrad', out.coefs);
+out.trans_rep_grad = chnk.helm2d.kern(out.zk, out.src, out.targ, 'trans_rep_grad', out.coefs);
+out.dp_grad_dot = sum(reshape(out.targ.n, 2, 2) .* reshape(out.dgrad, 2, []), 1).';
+end
+
+function out = local_kernder_hdiff_case()
+out = local_kernder_base();
+out.zks = [1, 2];
+out.coefs_diff = [[1; 0.5], [1; 0.5]];
+out.coefa_diff = repmat(out.coefa, [1, 1, 2]);
+out.coefb_diff = repmat(reshape(out.coefs_diff, 2, 1, 2), [1, 2, 1]);
+out.s = kernel('helmdiff', 's', out.zks).eval(out.src, out.targ);
+out.d = kernel('helmdiff', 'd', out.zks).eval(out.src, out.targ);
+out.c = kernel('helmdiff', 'c', out.zks, out.coefs_diff).eval(out.src, out.targ);
+out.sp = kernel('helmdiff', 'sp', out.zks).eval(out.src, out.targ);
+out.dp = kernel('helmdiff', 'dp', out.zks).eval(out.src, out.targ);
+out.cp = kernel('helmdiff', 'cp', out.zks, out.coefs_diff).eval(out.src, out.targ);
+out.all = kernel('helmdiff', 'all', out.zks, out.coefa_diff).eval(out.src, out.targ);
+out.trans_rep = kernel('helmdiff', 'trans_rep', out.zks, out.coefs_diff).eval(out.src, out.targ);
+out.trans_rep_prime = kernel('helmdiff', 'trans_rep_prime', out.zks, out.coefs_diff).eval(out.src, out.targ);
+out.c2trans = kernel('helmdiff', 'c2tr', out.zks, out.coefb_diff).eval(out.src, out.targ);
+out.sgrad = chnk.helm2d.kern(out.zks(1), out.src, out.targ, 'sgrad_diff') - chnk.helm2d.kern(out.zks(2), out.src, out.targ, 'sgrad_diff');
+out.dgrad = chnk.helm2d.kern(out.zks(1), out.src, out.targ, 'dgrad_diff') - chnk.helm2d.kern(out.zks(2), out.src, out.targ, 'dgrad_diff');
+out.cgrad = chnk.helm2d.kern(out.zks(1), out.src, out.targ, 'cgrad_diff', out.coefs_diff) - chnk.helm2d.kern(out.zks(2), out.src, out.targ, 'cgrad_diff', out.coefs_diff);
+out.trans_rep_grad = chnk.helm2d.kern(out.zks(1), out.src, out.targ, 'trans_rep_grad_diff', out.coefb_diff(:, :, 1)) - chnk.helm2d.kern(out.zks(2), out.src, out.targ, 'trans_rep_grad_diff', out.coefb_diff(:, :, 2));
+out.dp_grad_dot = sum(reshape(out.targ.n, 2, 2) .* reshape(out.dgrad, 2, []), 1).';
+end
+
+function out = local_kernder_lap_case()
+out = local_kernder_base();
+out.s = kernel('l', 's').eval(out.src, out.targ);
+out.d = kernel('l', 'd').eval(out.src, out.targ);
+out.c = kernel('l', 'c', out.coefs).eval(out.src, out.targ);
+out.sp = kernel('l', 'sp').eval(out.src, out.targ);
+out.dp = kernel('l', 'dp').eval(out.src, out.targ);
+out.cp = kernel('l', 'cp', out.coefs).eval(out.src, out.targ);
+out.sgrad = chnk.lap2d.kern(out.src, out.targ, 'sgrad');
+out.dgrad = chnk.lap2d.kern(out.src, out.targ, 'dgrad');
+out.cgrad = chnk.lap2d.kern(out.src, out.targ, 'cgrad', out.coefs);
+out.dp_grad_dot = sum(reshape(out.targ.n, 2, 2) .* reshape(out.dgrad, 2, []), 1).';
+end
 
 function [d, d2] = local_absconvgauss_der(x, a, b, h)
 [~, d, d2] = chnk.spcl.absconvgauss(x, a, b, h);

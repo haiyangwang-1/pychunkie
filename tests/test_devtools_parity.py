@@ -63,6 +63,55 @@ def point_array(value) -> np.ndarray:
     return arr
 
 
+def _assert_kernder_algebra(case, coefs: np.ndarray, coefa: np.ndarray) -> None:
+    s = _kernder_array(case.s)
+    d = _kernder_array(case.d)
+    c = _kernder_array(case.c)
+    sp = _kernder_array(case.sp)
+    dp = _kernder_array(case.dp)
+    cp = _kernder_array(case.cp)
+    sgrad = _kernder_array(case.sgrad)
+    dgrad = _kernder_array(case.dgrad)
+    cgrad = _kernder_array(case.cgrad)
+    c2trans = _kernder_array(case.c2trans)
+
+    np.testing.assert_allclose(coefs[0] * d + coefs[1] * s, c, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(coefs[0] * dp + coefs[1] * sp, cp, rtol=1e-12, atol=1e-13)
+
+    all_mat = np.asarray(case.all)
+    all_assembled = np.zeros_like(all_mat)
+    all_assembled[0::2, 0::2] = coefa[0, 0] * d
+    all_assembled[0::2, 1::2] = coefa[0, 1] * s
+    all_assembled[1::2, 0::2] = coefa[1, 0] * dp
+    all_assembled[1::2, 1::2] = coefa[1, 1] * sp
+    np.testing.assert_allclose(all_assembled, all_mat, rtol=1e-12, atol=1e-13)
+
+    np.testing.assert_allclose(np.hstack((coefs[0] * d, coefs[1] * s)), case.trans_rep, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(np.hstack((coefs[0] * dp, coefs[1] * sp)), case.trans_rep_prime, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(coefs[0] * dgrad + coefs[1] * sgrad, cgrad, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(np.hstack((coefs[0] * dgrad, coefs[1] * sgrad)), case.trans_rep_grad, rtol=1e-12, atol=1e-13)
+
+    c2_assembled = np.zeros_like(c2trans)
+    c2_assembled[0::2] = coefs[0] * d + coefs[1] * s
+    c2_assembled[1::2] = coefs[0] * dp + coefs[1] * sp
+    np.testing.assert_allclose(c2_assembled, c2trans, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(dp.reshape(-1, order="F"), np.asarray(case.dp_grad_dot).reshape(-1), rtol=1e-12, atol=1e-13)
+
+
+def _kernder_array(value) -> np.ndarray:
+    arr = np.asarray(value)
+    if arr.ndim == 1:
+        return arr.reshape(-1, 1)
+    return arr
+
+
+def _assert_kernder_field(actual: np.ndarray, expected, label: str) -> None:
+    expected_arr = np.asarray(expected)
+    if expected_arr.shape != actual.shape:
+        expected_arr = expected_arr.reshape(actual.shape, order="F")
+    np.testing.assert_allclose(actual, expected_arr, rtol=1e-12, atol=1e-13, err_msg=label)
+
+
 def laplace_green_identity_quantities(fixture):
     chnkr = chunker_from_fields(fixture.chunker)
     src = PointInfo(r=point_array(fixture.sources))
@@ -637,6 +686,95 @@ def test_kernelop_devtools_outputs_match_matlab():
 
     for name, actual in checks.items():
         np.testing.assert_allclose(actual, getattr(fixture, name), atol=1e-13, err_msg=name)
+
+
+def test_kernderinterleave_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().kernderinterleave
+
+    helm = fixture.helm
+    src = pointinfo_from_mat(helm.src)
+    targ = pointinfo_from_mat(helm.targ)
+    coefs = np.asarray(helm.coefs).reshape(-1, order="F")
+    coefa = np.asarray(helm.coefa)
+    zk = complex(helm.zk)
+    helm_checks = {
+        "s": kernel("helm", "s", zk)(src, targ),
+        "d": kernel("helm", "d", zk)(src, targ),
+        "c": kernel("helm", "c", zk, coefs)(src, targ),
+        "sp": kernel("helm", "sp", zk)(src, targ),
+        "dp": kernel("helm", "dp", zk)(src, targ),
+        "cp": kernel("helm", "cp", zk, coefs)(src, targ),
+        "all": kernel("helm", "all", zk, coefa)(src, targ),
+        "trans_rep": kernel("helm", "trans_rep", zk, coefs)(src, targ),
+        "trans_rep_prime": kernel("helm", "trans_rep_prime", zk, coefs)(src, targ),
+        "c2trans": kernel("helm", "c2trans", zk, coefs)(src, targ),
+        "sgrad": helm2d.kern(zk, src, targ, "sgrad"),
+        "dgrad": helm2d.kern(zk, src, targ, "dgrad"),
+        "cgrad": helm2d.kern(zk, src, targ, "cgrad", coefs),
+        "trans_rep_grad": helm2d.kern(zk, src, targ, "trans_rep_grad", coefs),
+    }
+    for name, actual in helm_checks.items():
+        _assert_kernder_field(actual, getattr(helm, name), f"helm {name}")
+    _assert_kernder_algebra(helm, coefs, coefa)
+
+    hdiff = fixture.hdiff
+    hsrc = pointinfo_from_mat(hdiff.src)
+    htarg = pointinfo_from_mat(hdiff.targ)
+    zks = np.asarray(hdiff.zks).reshape(-1)
+    coefs_diff = np.asarray(hdiff.coefs_diff)
+    coefa_diff = np.asarray(hdiff.coefa_diff)
+    coefb_diff = np.asarray(hdiff.coefb_diff)
+    hdiff_checks = {
+        "s": kernel("helmdiff", "s", zks)(hsrc, htarg),
+        "d": kernel("helmdiff", "d", zks)(hsrc, htarg),
+        "c": kernel("helmdiff", "c", zks, coefs_diff)(hsrc, htarg),
+        "sp": kernel("helmdiff", "sp", zks)(hsrc, htarg),
+        "dp": kernel("helmdiff", "dp", zks)(hsrc, htarg),
+        "cp": kernel("helmdiff", "cp", zks, coefs_diff)(hsrc, htarg),
+        "all": kernel("helmdiff", "all", zks, coefa_diff)(hsrc, htarg),
+        "trans_rep": kernel("helmdiff", "trans_rep", zks, coefs_diff)(hsrc, htarg),
+        "trans_rep_prime": kernel("helmdiff", "trans_rep_prime", zks, coefs_diff)(hsrc, htarg),
+        "c2trans": kernel("helmdiff", "c2trans", zks, coefb_diff)(hsrc, htarg),
+        "sgrad": helm2d.kern(zks[0], hsrc, htarg, "sgrad_diff") - helm2d.kern(zks[1], hsrc, htarg, "sgrad_diff"),
+        "dgrad": helm2d.kern(zks[0], hsrc, htarg, "dgrad_diff") - helm2d.kern(zks[1], hsrc, htarg, "dgrad_diff"),
+        "cgrad": helm2d.kern(zks[0], hsrc, htarg, "cgrad_diff", coefs_diff) - helm2d.kern(zks[1], hsrc, htarg, "cgrad_diff", coefs_diff),
+        "trans_rep_grad": helm2d.kern(zks[0], hsrc, htarg, "trans_rep_grad_diff", coefb_diff[:, :, 0])
+        - helm2d.kern(zks[1], hsrc, htarg, "trans_rep_grad_diff", coefb_diff[:, :, 1]),
+    }
+    for name, actual in hdiff_checks.items():
+        _assert_kernder_field(actual, getattr(hdiff, name), f"helmdiff {name}")
+    _assert_kernder_algebra(hdiff, coefs, coefa)
+
+    lap = fixture.lap
+    lsrc = pointinfo_from_mat(lap.src)
+    ltarg = pointinfo_from_mat(lap.targ)
+    lap_coefs = np.asarray(lap.coefs).reshape(-1, order="F")
+    lap_checks = {
+        "s": kernel("lap", "s")(lsrc, ltarg),
+        "d": kernel("lap", "d")(lsrc, ltarg),
+        "c": kernel("lap", "c", lap_coefs)(lsrc, ltarg),
+        "sp": kernel("lap", "sp")(lsrc, ltarg),
+        "dp": kernel("lap", "dp")(lsrc, ltarg),
+        "cp": kernel("lap", "cp", lap_coefs)(lsrc, ltarg),
+        "sgrad": lap2d.kern(lsrc, ltarg, "sgrad"),
+        "dgrad": lap2d.kern(lsrc, ltarg, "dgrad"),
+        "cgrad": lap2d.kern(lsrc, ltarg, "cgrad", lap_coefs),
+    }
+    for name, actual in lap_checks.items():
+        _assert_kernder_field(actual, getattr(lap, name), f"lap {name}")
+    lap_s = _kernder_array(lap.s)
+    lap_d = _kernder_array(lap.d)
+    lap_c = _kernder_array(lap.c)
+    lap_sp = _kernder_array(lap.sp)
+    lap_dp = _kernder_array(lap.dp)
+    lap_cp = _kernder_array(lap.cp)
+    lap_sgrad = _kernder_array(lap.sgrad)
+    lap_dgrad = _kernder_array(lap.dgrad)
+    lap_cgrad = _kernder_array(lap.cgrad)
+    np.testing.assert_allclose(lap_coefs[0] * lap_d + lap_coefs[1] * lap_s, lap_c, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(lap_coefs[0] * lap_dp + lap_coefs[1] * lap_sp, lap_cp, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(lap_coefs[0] * lap_dgrad + lap_coefs[1] * lap_sgrad, lap_cgrad, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(lap_dp.reshape(-1, order="F"), np.asarray(lap.dp_grad_dot).reshape(-1), rtol=1e-12, atol=1e-13)
 
 
 def test_stokes_dtrac_devtools_output_matches_matlab():

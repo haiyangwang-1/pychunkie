@@ -139,6 +139,8 @@ def kernel(kern: str | Callable[[Any, Any], np.ndarray] | Kernel, *args: Any) ->
         return lap2d_kernel(*args)
     if name in {"helmholtz", "helm", "h"}:
         return helm2d_kernel(*args)
+    if name in {"helmholtz difference", "helmdiff", "hdiff", "helm_diff"}:
+        return helm2ddiff_kernel(*args)
     if name in {"helmholtz1d", "helm1d", "h1d"}:
         return helm1d_kernel(*args)
     if name in {"biharmonic", "biharm", "b"}:
@@ -222,6 +224,57 @@ def helm2d_kernel(kind: str, zk: complex, coefs: Any | None = None) -> Kernel:
         sing=sing,
         params={"zk": zk} if coefs is None else {"zk": zk, "coefs": coefs},
     )
+
+
+def helm2ddiff_kernel(kind: str, zks: Any, coefs: Any | None = None) -> Kernel:
+    typ = kind.lower()
+    z = np.asarray(zks).reshape(-1)
+    if z.size != 2:
+        raise ValueError("Helmholtz-difference kernels require exactly two wavenumbers")
+    if typ in {"all", "trans_sys", "ts", "trans_rep_grad", "trep_g", "trans_rep_g"}:
+        opdims = (2, 2)
+    elif typ in {"trans_rep", "trep", "trans_rep_prime", "trep_p", "trans_rep_p"}:
+        opdims = (1, 2)
+    elif typ in {"sg", "sgrad", "dg", "dgrad", "cg", "cgrad", "c2tr", "c2trans"}:
+        opdims = (2, 1)
+    else:
+        opdims = (1, 1)
+
+    c = _helmdiff_default_coefs(typ) if coefs is None else np.asarray(coefs)
+
+    def eval_(srcinfo: Any, targinfo: Any) -> np.ndarray:
+        if typ in {"c", "combined", "cp", "cprime", "trans_rep", "trep", "trans_rep_prime", "trep_p", "trans_rep_p"}:
+            cmat = np.asarray(c)
+            return helm2d.kern(z[0], srcinfo, targinfo, f"{typ}_diff", cmat[:, 0]) - helm2d.kern(
+                z[1], srcinfo, targinfo, f"{typ}_diff", cmat[:, 1]
+            )
+        if typ in {"all", "trans_sys", "ts", "c2tr", "c2trans"}:
+            carr = np.asarray(c)
+            return helm2d.kern(z[0], srcinfo, targinfo, f"{typ}_diff", carr[:, :, 0]) - helm2d.kern(
+                z[1], srcinfo, targinfo, f"{typ}_diff", carr[:, :, 1]
+            )
+        scale = np.asarray(c).reshape(-1)
+        return scale[0] * helm2d.kern(z[0], srcinfo, targinfo, f"{typ}_diff") - scale[1] * helm2d.kern(
+            z[1], srcinfo, targinfo, f"{typ}_diff"
+        )
+
+    return Kernel(
+        name="helmholtz difference",
+        type=typ,
+        eval=eval_,
+        fmm=_direct_fmm(eval_),
+        opdims=opdims,
+        sing="log",
+        params={"zks": zks, "coefs": c},
+    )
+
+
+def _helmdiff_default_coefs(typ: str) -> np.ndarray:
+    if typ in {"all", "trans_sys", "ts", "c2tr", "c2trans"}:
+        return np.ones((2, 2, 2), dtype=float)
+    if typ in {"c", "combined", "cp", "cprime", "trans_rep", "trep", "trans_rep_prime", "trep_p", "trans_rep_p"}:
+        return np.ones((2, 2), dtype=float)
+    return np.ones(2, dtype=float)
 
 
 def helm1d_kernel(kind: str, zk: complex, coefs: Any | None = None) -> Kernel:

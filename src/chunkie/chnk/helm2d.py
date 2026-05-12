@@ -6,6 +6,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 from scipy.special import hankel1
 
+from . import lap2d
 from chunkie.operators import PointInfo, pointinfo
 
 
@@ -34,6 +35,14 @@ def green(zk: complex, src: ArrayLike, targ: ArrayLike) -> tuple[np.ndarray, np.
     return val, grad, hess
 
 
+def helmdiffgreen(zk: complex, src: ArrayLike, targ: ArrayLike) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Evaluate the Helmholtz Green function with the Laplace log singularity removed."""
+
+    val, grad, hess = green(zk, src, targ)
+    lap_val, lap_grad, lap_hess = lap2d.green(src, targ)
+    return val - lap_val, grad - lap_grad, hess - lap_hess
+
+
 def kern(
     zk: complex,
     srcinfo: PointInfo | dict | ArrayLike,
@@ -46,7 +55,13 @@ def kern(
     src = pointinfo(srcinfo)
     targ = pointinfo(targinfo)
     typ = kind.lower()
-    val, grad, hess = green(zk, src.r, targ.r)
+    is_diff = typ.endswith("_diff")
+    suffix = "_diff" if is_diff else ""
+    if is_diff:
+        typ = typ[: -len("_diff")]
+        val, grad, hess = helmdiffgreen(zk, src.r, targ.r)
+    else:
+        val, grad, hess = green(zk, src.r, targ.r)
 
     if typ in {"s", "single"}:
         return val
@@ -76,53 +91,55 @@ def kern(
             + hess[:, :, 2] * src.n[1, None, :] * targ.n[1, :, None]
         )
     if typ in {"c", "combined"}:
-        c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs)
-        return c[0] * kern(zk, src, targ, "d") + c[1] * kern(zk, src, targ, "s")
+        c = _coef_vector(coefs)
+        return c[0] * kern(zk, src, targ, f"d{suffix}") + c[1] * kern(zk, src, targ, f"s{suffix}")
     if typ in {"cp", "cprime"}:
-        c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs)
-        return c[0] * kern(zk, src, targ, "dp") + c[1] * kern(zk, src, targ, "sp")
+        c = _coef_vector(coefs)
+        return c[0] * kern(zk, src, targ, f"dp{suffix}") + c[1] * kern(zk, src, targ, f"sp{suffix}")
     if typ in {"cg", "cgrad"}:
-        c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs)
-        return c[0] * kern(zk, src, targ, "dgrad") + c[1] * kern(zk, src, targ, "sgrad")
+        c = _coef_vector(coefs)
+        return c[0] * kern(zk, src, targ, f"dgrad{suffix}") + c[1] * kern(zk, src, targ, f"sgrad{suffix}")
     if typ in {"c2tr", "c2trans"}:
         c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs)
+        if c.size == 2 or is_diff:
+            c = np.tile(c.reshape(-1, order="F")[:2].reshape(1, 2), (2, 1))
         out = np.zeros((2 * targ.r.shape[1], src.r.shape[1]), dtype=complex)
-        out[0::2] = c[0] * kern(zk, src, targ, "d") + c[1] * val
-        out[1::2] = c[0] * kern(zk, src, targ, "dp") + c[1] * kern(zk, src, targ, "sp")
+        out[0::2] = c[0, 0] * kern(zk, src, targ, f"d{suffix}") + c[0, 1] * val
+        out[1::2] = c[1, 0] * kern(zk, src, targ, f"dp{suffix}") + c[1, 1] * kern(zk, src, targ, f"sp{suffix}")
         return out
     if typ in {"all", "trans_sys", "ts"}:
         cc = np.ones((2, 2), dtype=complex) if coefs is None else np.asarray(coefs)
         nt = targ.r.shape[1]
         ns = src.r.shape[1]
         out = np.zeros((2 * nt, 2 * ns), dtype=complex)
-        out[0::2, 0::2] = cc[0, 0] * kern(zk, src, targ, "d")
+        out[0::2, 0::2] = cc[0, 0] * kern(zk, src, targ, f"d{suffix}")
         out[0::2, 1::2] = cc[0, 1] * val
-        out[1::2, 0::2] = cc[1, 0] * kern(zk, src, targ, "dp")
-        out[1::2, 1::2] = cc[1, 1] * kern(zk, src, targ, "sp")
+        out[1::2, 0::2] = cc[1, 0] * kern(zk, src, targ, f"dp{suffix}")
+        out[1::2, 1::2] = cc[1, 1] * kern(zk, src, targ, f"sp{suffix}")
         return out
     if typ in {"trans_rep", "trep"}:
-        c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs)
+        c = _coef_vector(coefs)
         nt = targ.r.shape[1]
         ns = src.r.shape[1]
         out = np.zeros((nt, 2 * ns), dtype=complex)
-        out[:, 0::2] = c[0] * kern(zk, src, targ, "d")
+        out[:, 0::2] = c[0] * kern(zk, src, targ, f"d{suffix}")
         out[:, 1::2] = c[1] * val
         return out
     if typ in {"trans_rep_prime", "trep_p", "trans_rep_p"}:
-        c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs)
+        c = _coef_vector(coefs)
         nt = targ.r.shape[1]
         ns = src.r.shape[1]
         out = np.zeros((nt, 2 * ns), dtype=complex)
-        out[:, 0::2] = c[0] * kern(zk, src, targ, "dp")
-        out[:, 1::2] = c[1] * kern(zk, src, targ, "sp")
+        out[:, 0::2] = c[0] * kern(zk, src, targ, f"dp{suffix}")
+        out[:, 1::2] = c[1] * kern(zk, src, targ, f"sp{suffix}")
         return out
     if typ in {"trans_rep_grad", "trep_g", "trans_rep_g"}:
-        c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs)
+        c = _coef_vector(coefs)
         nt = targ.r.shape[1]
         ns = src.r.shape[1]
         out = np.zeros((2 * nt, 2 * ns), dtype=complex)
-        dgrad = kern(zk, src, targ, "dgrad")
-        sgrad = kern(zk, src, targ, "sgrad")
+        dgrad = kern(zk, src, targ, f"dgrad{suffix}")
+        sgrad = kern(zk, src, targ, f"sgrad{suffix}")
         out[0::2, 0::2] = c[0] * dgrad[0::2]
         out[0::2, 1::2] = c[1] * sgrad[0::2]
         out[1::2, 0::2] = c[0] * dgrad[1::2]
@@ -134,3 +151,9 @@ def kern(
 def _require(value: object, label: str) -> None:
     if value is None:
         raise ValueError(f"{label} are required")
+
+
+def _coef_vector(coefs: ArrayLike | None) -> np.ndarray:
+    if coefs is None:
+        return np.array([1.0, 1.0j])
+    return np.asarray(coefs).reshape(-1, order="F")

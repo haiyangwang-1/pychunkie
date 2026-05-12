@@ -32,7 +32,7 @@ The parity rule for this repo is:
 - Python snapshot generator: `scripts/generate_devtools_easy_python_fixture.py`
 - Python comparisons: `tests/test_devtools_parity.py`
 - Python verification: `uv run pytest tests/test_devtools_parity.py` on
-  2026-05-12 with the regenerated local fixture: `31 passed`
+  2026-05-12 with the regenerated local fixture: `32 passed`
 - Covered now: `absconvgaussTest.m`, `legeexpsunitTest.m`,
   `arclengthfunTest.m`, `chunker_diffintmatTest.m`,
   `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`,
@@ -40,7 +40,7 @@ The parity rule for this repo is:
   `chunkerinteriorTest.m`, `chunkerpolyTest.m`, `chunkerarcparamTest.m`,
   `chunkermat_quadadapTest.m`, `flagrectTest.m`, `flagselfTest.m`,
   `flagnearTest.m`, `flamutilitiesTest.m`, `helm2d_greenTest.m`, `kernelopTest.m`,
-  `kernelclassTest.m`, `chunkerkerneval_greenlapTest.m`,
+  `KernDerInterleaveTest.m`, `kernelclassTest.m`, `chunkerkerneval_greenlapTest.m`,
   `chunkerkerneval_greenhelmTest.m`, `chunkerkernevalmat_greenlapTest.m`,
   `slicegraphTest.m`, `smootherTest.m`, `stokes_dtracTest.m`, and
   `tochunkgraphTest.m`
@@ -49,10 +49,10 @@ The parity rule for this repo is:
 
 | Status | Count | Tests |
 | --- | ---: | --- |
-| ✅ 🧪 🎯 fully covered by devtools parity | 20 | `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`, `chunkerfuncuniTest.m`, `chunkerintegralTest.m`, `chunkerinteriorTest.m`, `chunkerkerneval_greenhelmTest.m`, `chunkerkernevalmat_greenlapTest.m`, `chunkermat_quadadapTest.m`, `chunkerpolyTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `kernelopTest.m`, `tochunkgraphTest.m` |
+| ✅ 🧪 🎯 fully covered by devtools parity | 21 | `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`, `chunkerfuncuniTest.m`, `chunkerintegralTest.m`, `chunkerinteriorTest.m`, `chunkerkerneval_greenhelmTest.m`, `chunkerkernevalmat_greenlapTest.m`, `chunkermat_quadadapTest.m`, `chunkerpolyTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `KernDerInterleaveTest.m`, `kernelopTest.m`, `tochunkgraphTest.m` |
 | ✅ 🧪 🎯 ⚠️ partial/diagnostic devtools parity | 9 | `chunkerarcparamTest.m`, `chunkerfuncTest.m`, `chunkerkerneval_greenlapTest.m`, `datafieldTest.m`, `flamutilitiesTest.m`, `kernelclassTest.m`, `slicegraphTest.m`, `smootherTest.m`, `stokes_dtracTest.m` |
 | 🧩 🧭 helper/reference | 1 | `gradient_check.m` |
-| 🚧 should/pending parity not yet converted | 33 | Remaining ranked entries below, excluding explicit non-goals. |
+| 🚧 should/pending parity not yet converted | 32 | Remaining ranked entries below, excluding explicit non-goals. |
 | 🚫 explicit non-goal; do not port | 11 | `trappermatTest.m`, `quasiperiodicTest.m`, axisymmetric tests 63-68, and flexural tests 72-74. |
 
 ## Scope Triage For Remaining Work
@@ -148,7 +148,7 @@ Do not implement:
 | 9 | `flagrectTest.m` | ✅ 🧪 🎯 | Easy | Tests rectangle-based near-flagging by comparing direct target flags to tensor-grid flags on a refined starfish chunker. | Covered in `devtools_easy.mat`: compare saved refined starfish chunker, target grid, direct flags, and grid flags against Python `flagnear_rectangle`/grid behavior. |
 | 10 | `flagnearTest.m` | ✅ 🧪 🎯 | Easy | Tests near-point flagging against a brute-force distance check for targets scaled radially around a starfish curve. | Covered in `devtools_easy.mat`: compare saved starfish chunker, targets, MATLAB near flags, and brute-force flags against Python `geometry.flagnear`. |
 | 11 | `kernelopTest.m` | ✅ 🧪 🎯 | Easy | Verifies kernel algebra: interleave, scalar multiply/divide, negation, addition, subtraction, and conjugation on Laplace/Helmholtz kernels. | Covered in `devtools_easy.mat`: compare saved kernel matrices from deterministic source/target normals. |
-| 12 | `KernDerInterleaveTest.m` | ✅ 🧪 🚧 | Easy-Medium | Verifies algebraic relationships among interleaved Helmholtz, Helmholtz-difference, and Laplace kernels, including combined kernels, transmission blocks, gradients, and normal derivative as gradient dot normal. | Point-kernel fixtures now cover Laplace and 2D Helmholtz combined-gradient, `c2trans`, `all`, and transmission-representation selector values against MATLAB. Add devtools fixture with the exact source/target/coefficient cases, normal-derivative identities, and Helmholtz-difference selectors to complete this row. |
+| 12 | `KernDerInterleaveTest.m` | ✅ 🧪 🎯 | Easy-Medium | Verifies algebraic relationships among interleaved Helmholtz, Helmholtz-difference, and Laplace kernels, including combined kernels, transmission blocks, gradients, and normal derivative as gradient dot normal. | Covered in `devtools_easy.mat`: compare the exact source/target/coefficient cases for Laplace, Helmholtz, and Helmholtz-difference combined kernels, transmission blocks, `all` interleaving, gradients, and normal-derivative identities. |
 | 13 | `helm2d_greenTest.m` | ✅ 🧪 🎯 | Easy-Medium | Uses `gradient_check` to verify `chnk.helm2d.green` potential and gradient components against finite differences. | Covered in `devtools_easy.mat`: compare source/target, MATLAB Green value/gradient/Hessian, and saved finite-difference thresholds against Python `helm2d.green`. |
 | 14 | `stokes_dtracTest.m` | ✅ 🧪 🎯 ⚠️ | Easy-Medium | Compares Stokes double-layer traction values against applying the double-layer gradient kernel and contracting with target normals. The MATLAB file prints the norm but does not assert. | Covered in `devtools_easy.mat`: compare saved Stokes `dtrac`, `dgrad`, `dpres`, reconstructed stress traction, and residual norm against Python kernels. |
 | 15 | `chunkerclassunitTest.m` | ✅ 🧪 🎯 | Medium | Exercises `chunker` constructor failures, chunk allocation/resizing, adjacency links, translations, rotations, affine transforms, and area scaling. | Covered in `devtools_easy.mat`: compare constructor failure flags, adjacency reciprocity, translated/transformed/scaled chunker fields, centroids, and area scaling against Python `Chunker`. |
@@ -219,6 +219,5 @@ Do not implement:
 2. `chunkermat_quadadap_closetotouchingTest.m`: lower-level robust close
    replacement is already covered in `quadggq.mat`; the remaining devtools
    work is the full two-disk solve/evaluation diagnostic.
-3. `KernDerInterleaveTest.m`: Laplace and 2D Helmholtz point-kernel algebra is
-   covered elsewhere, but the exact devtools test still needs compact fixture
-   parity for its normal-derivative identities and Helmholtz-difference cases.
+3. `chunkerkerneval_correctionsTest.m`: save the corrected and uncorrected
+   near-target values plus the source geometry and density.
