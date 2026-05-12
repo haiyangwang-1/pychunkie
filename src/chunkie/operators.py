@@ -54,6 +54,71 @@ class _BlockKernelLayout:
     col_offsets: np.ndarray
 
 
+@dataclass(frozen=True)
+class _OperatorOptions:
+    raw: dict[str, Any]
+
+    @classmethod
+    def from_any(cls, opts: dict[str, Any] | "_OperatorOptions" | None) -> "_OperatorOptions":
+        if isinstance(opts, cls):
+            return opts
+        return cls({} if opts is None else dict(opts))
+
+    @property
+    def acceleration(self) -> str:
+        value = self.raw.get("acceleration", "dense")
+        if value is None:
+            return "dense"
+        acceleration = str(value).lower()
+        if acceleration not in {"dense", "fmm", "flam"}:
+            raise ValueError("acceleration must be one of 'dense', 'fmm', or 'flam'")
+        return acceleration
+
+    def flag(self, name: str, default: bool = False) -> bool:
+        return _option_bool(self.raw.get(name, default))
+
+    @property
+    def l2scale(self) -> bool:
+        return self.flag("l2scale")
+
+    @property
+    def flamtype(self) -> str:
+        return str(self.raw.get("flamtype", "rskelf")).lower()
+
+    @property
+    def flam_occ(self) -> int:
+        return int(self.raw.get("occ", 200))
+
+    @property
+    def flam_rank_or_tol(self) -> int | float:
+        value = self.raw.get("rank_or_tol", self.raw.get("eps", self.raw.get("tol", 1.0e-14)))
+        value_float = float(value)
+        return int(value) if value_float.is_integer() and value_float >= 1 else value_float
+
+    def flam_options(self, *, store_default: str | None = None) -> dict[str, Any]:
+        opts = {
+            "verb": int(self.flag("verb")),
+            "lvlmax": self.raw.get("lvlmax", np.inf),
+        }
+        if store_default is not None:
+            opts["store"] = self.raw.get("store", store_default)
+        return opts
+
+    def fmm_tol(self, default: float = 1.0e-12) -> float:
+        return float(self.raw.get("eps", self.raw.get("tol", default)))
+
+    def uses_special_quadrature(self, kern: Callable[[Any, Any], np.ndarray]) -> bool:
+        if self.flag("forcesmooth") or self.flag("usesmooth"):
+            return False
+        if self.flag("forceadap"):
+            return True
+        return getattr(kern, "sing", "") in {"log", "pv", "hs"}
+
+    def special_quadrature_type(self, kern: Callable[[Any, Any], np.ndarray]) -> str:
+        qtype = str(self.raw.get("sing", getattr(kern, "sing", "log") or "log")).lower()
+        return "log" if qtype == "smooth" else qtype
+
+
 class ChunkerFMMMatrix(LinearOperator):
     """Matrix-free ``chunkermat`` operator using kernel FMM application."""
 
@@ -141,7 +206,7 @@ class ChunkerFLAMMatrix(LinearOperator):
         self.kern = kern
         self.opts = {} if opts is None else dict(opts)
         self.factor = chunkerflam(self.chnkr, self.kern, dval, self.opts)
-        self.flamtype = str(self.opts.get("flamtype", "rskelf")).lower()
+        self.flamtype = _flamtype(self.opts)
         if _is_block_kernel_matrix(kern):
             self.block_layout = _block_kernel_layout(chnkr, kern)
             self.opdims = None
@@ -298,7 +363,7 @@ def chunkerflam(
 
     from .chnk import flam
 
-    l2scale = bool(options.get("l2scale", False))
+    l2scale = _l2scale(options)
 
     def matfun(rows: np.ndarray, cols: np.ndarray) -> np.ndarray:
         out = flam.kernbyindex(rows, cols, chnkr, kern, (op0, op1), spmat, l2scale)
@@ -308,15 +373,11 @@ def chunkerflam(
 
     srcinfo = pointinfo(chnkr)
     xflam = np.repeat(np.real(srcinfo.r), op1, axis=1)
-    flamtype = str(options.get("flamtype", "rskelf")).lower()
-    occ = int(options.get("occ", 200))
-    rank_or_tol = options.get("rank_or_tol", options.get("eps", options.get("tol", 1.0e-14)))
-    rank_or_tol = int(rank_or_tol) if float(rank_or_tol).is_integer() and float(rank_or_tol) >= 1 else float(rank_or_tol)
-    opts_flam = {
-        "verb": int(bool(options.get("verb", False))),
-        "lvlmax": options.get("lvlmax", np.inf),
-    }
-    useproxy = bool(options.get("useproxy", True)) and chnkr.datadim == 0 and op0 == op1
+    flamtype = _flamtype(options)
+    occ = _flam_occ(options)
+    rank_or_tol = _flam_rank_or_tol(options)
+    opts_flam = _flam_options(options)
+    useproxy = _flag(options, "useproxy", True) and chnkr.datadim == 0 and op0 == op1
     pxyfun = None
     if useproxy and flamtype == "rskelf":
         pxyfun = _chunkerflam_proxyfun(chnkr, kern, (op0, op1), options)
@@ -353,7 +414,7 @@ def _chunkerflam_block(
 
     from .chnk import flam
 
-    l2scale = bool(options.get("l2scale", False))
+    l2scale = _l2scale(options)
 
     def matfun(rows: np.ndarray, cols: np.ndarray) -> np.ndarray:
         out = flam.kernbyindex(rows, cols, layout.chunkers, layout.kernels, layout.opdims_mat, spmat, l2scale)
@@ -367,14 +428,10 @@ def _chunkerflam_block(
             for chnkr, opdim in zip(layout.chunkers, layout.coldims)
         ]
     )
-    flamtype = str(options.get("flamtype", "rskelf")).lower()
-    occ = int(options.get("occ", 200))
-    rank_or_tol = options.get("rank_or_tol", options.get("eps", options.get("tol", 1.0e-14)))
-    rank_or_tol = int(rank_or_tol) if float(rank_or_tol).is_integer() and float(rank_or_tol) >= 1 else float(rank_or_tol)
-    opts_flam = {
-        "verb": int(bool(options.get("verb", False))),
-        "lvlmax": options.get("lvlmax", np.inf),
-    }
+    flamtype = _flamtype(options)
+    occ = _flam_occ(options)
+    rank_or_tol = _flam_rank_or_tol(options)
+    opts_flam = _flam_options(options)
     if flamtype == "rskelf":
         return pyflam.rskelf(matfun, xflam, occ, rank_or_tol, None, opts_flam)
     if flamtype == "rskel":
@@ -415,7 +472,7 @@ def chunkermat(
         _require_fmm(kern)
         return ChunkerFMMMatrix(chnkr, kern, options)
     if _uses_special_quadrature(kern, options):
-        if _option_bool(options.get("adaptive_correction", False)):
+        if _flag(options, "adaptive_correction"):
             from .chnk import quadadap
 
             adap_options = dict(options)
@@ -425,7 +482,7 @@ def chunkermat(
             from .chnk import quadggq
 
             mat = quadggq.buildmat(chnkr, kern, getattr(kern, "opdims", None), _special_quadrature_type(kern, options))
-        return _apply_l2scale_matrix(chnkr, mat) if _option_bool(options.get("l2scale", False)) else mat
+        return _apply_l2scale_matrix(chnkr, mat) if _l2scale(options) else mat
 
     srcinfo = pointinfo(chnkr)
     mat = _eval_kernel(kern, srcinfo, srcinfo)
@@ -434,13 +491,13 @@ def chunkermat(
         out = mat * wts[None, :]
         out = _apply_laplace_double_self_limit(chnkr, kern, out)
         out = _apply_laplace_sprime_self_limit(chnkr, kern, out)
-        return _apply_l2scale_matrix(chnkr, out) if _option_bool(options.get("l2scale", False)) else out
+        return _apply_l2scale_matrix(chnkr, out) if _l2scale(options) else out
     if mat.shape[1] % chnkr.npt != 0:
         raise ValueError("kernel column dimension is incompatible with chunker points")
     opdims_col = mat.shape[1] // chnkr.npt
     out = mat * np.repeat(wts, opdims_col)[None, :]
     out = _apply_stokes_strac_self_limit(chnkr, kern, out)
-    return _apply_l2scale_matrix(chnkr, out) if _option_bool(options.get("l2scale", False)) else out
+    return _apply_l2scale_matrix(chnkr, out) if _l2scale(options) else out
 
 
 def chunkermatapply(
@@ -532,17 +589,17 @@ def chunkerinterior(
             lap_d,
             dens,
             PointInfo(r=pts),
-            {"acceleration": acceleration, "eps": float(options.get("eps", options.get("tol", 1e-12)))},
+            {"acceleration": acceleration, "eps": _fmm_tol(options)},
         ).reshape(-1, order="F")
         inside = vals < -0.5
-        if bool(options.get("closecorr", options.get("corrections", True))):
+        if _flag(options, "closecorr", _flag(options, "corrections", True)):
             near_fac = float(options.get("near_fac", options.get("fac", 1.0)))
             near = np.any(chnkr.flagnear(pts, {"fac": near_fac}), axis=1)
             if np.any(near):
-                corrected = _chunkerinterior_direct(chnkr, pts[:, near], bool(options.get("axissym", False)))
+                corrected = _chunkerinterior_direct(chnkr, pts[:, near], _flag(options, "axissym"))
                 inside[near] = corrected
     else:
-        inside = _chunkerinterior_direct(chnkr, pts, bool(options.get("axissym", False)))
+        inside = _chunkerinterior_direct(chnkr, pts, _flag(options, "axissym"))
 
     if grid_shape is not None:
         return inside.reshape(grid_shape)
@@ -583,7 +640,7 @@ def chunkerkerneval(
         return vals.reshape(opdims, chnkr.npt, order="F")
     if acceleration == "flam":
         targinfo = pointinfo(targobj)
-        if bool(options.get("forceadap", False)):
+        if _flag(options, "forceadap"):
             smooth_options = dict(options)
             smooth_options.pop("forceadap", None)
             vals = _chunkerkerneval_flam(chnkr, kern, dens, targinfo, smooth_options).reshape(-1, order="F")
@@ -612,9 +669,9 @@ def chunkerkerneval(
         corr_vals = cormat @ dens_vec if sparse.issparse(cormat) else np.asarray(cormat) @ dens_vec
         vals = mat @ weighted + corr_vals
         return vals.reshape(-1, targinfo.r.shape[1], order="F")
-    if bool(options.get("forceadap", False)) and use_fmm:
+    if _flag(options, "forceadap") and use_fmm:
         weighted = _weighted_density(chnkr, dens)
-        vals = kern.fmm(float(options.get("eps", options.get("tol", 1e-12))), srcinfo, targinfo, weighted)
+        vals = kern.fmm(_fmm_tol(options), srcinfo, targinfo, weighted)
         if isinstance(vals, tuple):
             vals = vals[0]
         vals = np.asarray(vals).reshape(-1, order="F")
@@ -624,7 +681,7 @@ def chunkerkerneval(
         correction = _target_adaptive_correction_matrix(chnkr, kern, targinfo, correction_options)
         vals = vals + correction @ np.asarray(dens).reshape(-1, order="F")
         return vals.reshape(-1, targinfo.r.shape[1], order="F")
-    if bool(options.get("forceadap", False)):
+    if _flag(options, "forceadap"):
         eval_options = dict(options)
         eval_options["recompute_source_normals"] = True
         eval_options.setdefault("transinv", False)
@@ -633,7 +690,7 @@ def chunkerkerneval(
         return vals.reshape(-1, targinfo.r.shape[1], order="F")
     if use_fmm:
         weighted = _weighted_density(chnkr, dens)
-        vals = kern.fmm(float(options.get("eps", options.get("tol", 1e-12))), srcinfo, targinfo, weighted)
+        vals = kern.fmm(_fmm_tol(options), srcinfo, targinfo, weighted)
         if isinstance(vals, tuple):
             vals = vals[0]
         return np.asarray(vals).reshape(-1, targinfo.r.shape[1], order="F")
@@ -663,13 +720,13 @@ def chunkerkernevalmat(
     same_source_target = targobj is chnkr
     chnkr = _require_chunker(chnkr)
     options = {} if opts is None else dict(opts)
-    if bool(options.get("corrections", False)):
+    if _flag(options, "corrections"):
         return _target_adaptive_correction_matrix(chnkr, kern, pointinfo(targobj), options)
     acceleration = _acceleration(options)
     if acceleration == "flam":
         if same_source_target and _uses_special_quadrature(kern, opts):
             return np.asarray(chunkermat(chnkr, kern, options))
-        if bool(options.get("forceadap", False)):
+        if _flag(options, "forceadap"):
             targinfo = pointinfo(targobj)
             smooth_options = dict(options)
             smooth_options.pop("forceadap", None)
@@ -685,7 +742,7 @@ def chunkerkernevalmat(
 
     srcinfo = pointinfo(chnkr)
     targinfo = pointinfo(targobj)
-    if bool(options.get("forceadap", False)):
+    if _flag(options, "forceadap"):
         return _target_adaptive_matrix(chnkr, kern, targinfo, options)
     mat = _eval_kernel(kern, srcinfo, targinfo)
     wts = chnkr.wts.reshape(-1, order="F")
@@ -840,7 +897,7 @@ def _block_kernel_mat(obj: Any, kerns: Any, opts: dict[str, Any]) -> np.ndarray:
             src_rows = slice(int(local_rows[local_i]), int(local_rows[local_i + 1]))
             src_cols = slice(int(local_cols[local_j]), int(local_cols[local_j + 1]))
             out[rows, cols] = weighted[src_rows, src_cols]
-    if _option_bool(opts.get("l2scale", False)):
+    if _l2scale(opts):
         return _apply_chunkgraph_l2scale(edge_chunkers, layout.rowdims, layout.coldims, out)
     return out
 
@@ -930,18 +987,15 @@ def _eval_kernel(kern: Callable[[Any, Any], np.ndarray], srcinfo: PointInfo, tar
     return kern(srcinfo, targinfo)
 
 
-def _uses_special_quadrature(kern: Callable[[Any, Any], np.ndarray], opts: dict[str, Any] | None) -> bool:
-    options = {} if opts is None else dict(opts)
-    if bool(options.get("forcesmooth", False)) or bool(options.get("usesmooth", False)):
-        return False
-    if bool(options.get("forceadap", False)):
-        return True
-    return getattr(kern, "sing", "") in {"log", "pv", "hs"}
+def _uses_special_quadrature(
+    kern: Callable[[Any, Any], np.ndarray],
+    opts: dict[str, Any] | _OperatorOptions | None,
+) -> bool:
+    return _OperatorOptions.from_any(opts).uses_special_quadrature(kern)
 
 
-def _special_quadrature_type(kern: Callable[[Any, Any], np.ndarray], options: dict[str, Any]) -> str:
-    qtype = str(options.get("sing", getattr(kern, "sing", "log") or "log")).lower()
-    return "log" if qtype == "smooth" else qtype
+def _special_quadrature_type(kern: Callable[[Any, Any], np.ndarray], options: dict[str, Any] | _OperatorOptions) -> str:
+    return _OperatorOptions.from_any(options).special_quadrature_type(kern)
 
 
 def _is_laplace_double_kernel(kern: Callable[[Any, Any], np.ndarray]) -> bool:
@@ -1037,14 +1091,36 @@ def _apply_laplace_double_block_self_limits(
     return mat
 
 
-def _acceleration(options: dict[str, Any]) -> str:
-    value = options.get("acceleration", "dense")
-    if value is None:
-        return "dense"
-    acceleration = str(value).lower()
-    if acceleration not in {"dense", "fmm", "flam"}:
-        raise ValueError("acceleration must be one of 'dense', 'fmm', or 'flam'")
-    return acceleration
+def _acceleration(options: dict[str, Any] | _OperatorOptions) -> str:
+    return _OperatorOptions.from_any(options).acceleration
+
+
+def _flag(options: dict[str, Any] | _OperatorOptions, name: str, default: bool = False) -> bool:
+    return _OperatorOptions.from_any(options).flag(name, default)
+
+
+def _l2scale(options: dict[str, Any] | _OperatorOptions) -> bool:
+    return _OperatorOptions.from_any(options).l2scale
+
+
+def _flamtype(options: dict[str, Any] | _OperatorOptions) -> str:
+    return _OperatorOptions.from_any(options).flamtype
+
+
+def _flam_occ(options: dict[str, Any] | _OperatorOptions) -> int:
+    return _OperatorOptions.from_any(options).flam_occ
+
+
+def _flam_rank_or_tol(options: dict[str, Any] | _OperatorOptions) -> int | float:
+    return _OperatorOptions.from_any(options).flam_rank_or_tol
+
+
+def _flam_options(options: dict[str, Any] | _OperatorOptions, *, store_default: str | None = None) -> dict[str, Any]:
+    return _OperatorOptions.from_any(options).flam_options(store_default=store_default)
+
+
+def _fmm_tol(options: dict[str, Any] | _OperatorOptions, default: float = 1.0e-12) -> float:
+    return _OperatorOptions.from_any(options).fmm_tol(default)
 
 
 def _require_fmm(kern: Callable[[Any, Any], np.ndarray]) -> None:
@@ -1089,7 +1165,7 @@ def _special_overwrite_matrix(
         ilist=options.get("ilist", None),
         corrections=False,
     )
-    if _option_bool(options.get("l2scale", False)):
+    if _l2scale(options):
         spmat = _apply_l2scale_matrix(chnkr, spmat)
     return spmat
 
@@ -1116,7 +1192,7 @@ def _block_special_overwrite_matrix(layout: _BlockKernelLayout, options: dict[st
         (np.concatenate(vals_all), (np.concatenate(rows_all), np.concatenate(cols_all))),
         shape=(int(layout.row_offsets[-1]), int(layout.col_offsets[-1])),
     )
-    if _option_bool(options.get("l2scale", False)):
+    if _l2scale(options):
         return sparse.csr_matrix(_apply_chunkgraph_l2scale(layout.chunkers, layout.rowdims, layout.coldims, out))
     return out
 
@@ -1201,10 +1277,10 @@ def _chunkerflam_proxyfun(
 ):
     from .chnk import flam
 
-    rank_or_tol = options.get("rank_or_tol", options.get("eps", options.get("tol", 1.0e-14)))
-    optsnpxy = {"rank_or_tol": float(rank_or_tol), "nsrc": int(options.get("occ", 200))}
+    rank_or_tol = _flam_rank_or_tol(options)
+    optsnpxy = {"rank_or_tol": float(rank_or_tol), "nsrc": _flam_occ(options)}
     width = float(np.max(chnkr.max() - chnkr.min()))
-    proxybylevel = bool(options.get("proxybylevel", False))
+    proxybylevel = _flag(options, "proxybylevel")
     if not proxybylevel:
         npxy = flam.nproxy_square(kern, width, optsnpxy)
         if npxy == -1:
@@ -1213,7 +1289,7 @@ def _chunkerflam_proxyfun(
 
         def pxyfun(x: np.ndarray, slf: np.ndarray, nbr: np.ndarray, l: np.ndarray, ctr: np.ndarray):
             _ = x
-            return flam.proxyfun(slf, nbr, l, ctr, chnkr, kern, opdims, pr, ptau, pw, pin, True, bool(options.get("l2scale", False)))
+            return flam.proxyfun(slf, nbr, l, ctr, chnkr, kern, opdims, pr, ptau, pw, pin, True, _l2scale(options))
 
         return pxyfun
 
@@ -1224,7 +1300,7 @@ def _chunkerflam_proxyfun(
         if npxy == -1:
             return np.zeros((0, np.asarray(slf).size)), np.asarray(nbr, dtype=np.int64)
         pr, ptau, pw, pin = flam.proxy_square_pts(npxy)
-        return flam.proxyfun(slf, nbr, l, ctr, chnkr, kern, opdims, pr, ptau, pw, pin, True, bool(options.get("l2scale", False)))
+        return flam.proxyfun(slf, nbr, l, ctr, chnkr, kern, opdims, pr, ptau, pw, pin, True, _l2scale(options))
 
     return pxyfun
 
@@ -1277,18 +1353,13 @@ def _chunkerkerneval_flam_factor(
 
     rx = np.repeat(np.real(targinfo.r), op0, axis=1)
     cx = np.repeat(np.real(pointinfo(chnkr).r), op1, axis=1)
-    occ = int(options.get("occ", 200))
-    rank_or_tol = options.get("rank_or_tol", options.get("eps", options.get("tol", 1.0e-14)))
-    rank_or_tol = int(rank_or_tol) if float(rank_or_tol).is_integer() and float(rank_or_tol) >= 1 else float(rank_or_tol)
-    opts_ifmm = {
-        "verb": int(bool(options.get("verb", False))),
-        "lvlmax": options.get("lvlmax", np.inf),
-        # Store near and diagonal blocks; application still receives matfun for
-        # interactions not retained by the compact representation.
-        "store": options.get("store", "n"),
-    }
+    occ = _flam_occ(options)
+    rank_or_tol = _flam_rank_or_tol(options)
+    opts_ifmm = _flam_options(options, store_default="n")
+    # Store near and diagonal blocks; application still receives matfun for
+    # interactions not retained by the compact representation.
     pxyfun = None
-    if bool(options.get("useproxy", True)) and chnkr.datadim == 0 and targinfo.data is None:
+    if _flag(options, "useproxy", True) and chnkr.datadim == 0 and targinfo.data is None:
         pxyfun = _chunkerkerneval_proxyfun(chnkr, kern, targinfo, (op0, op1), options)
     factor = pyflam.ifmm(matfun, rx, cx, occ, rank_or_tol, pxyfun, opts_ifmm)
     return factor, matfun, (nrows, ncols)
@@ -1303,11 +1374,11 @@ def _chunkerkerneval_proxyfun(
 ):
     from .chnk import flam
 
-    rank_or_tol = options.get("rank_or_tol", options.get("eps", options.get("tol", 1.0e-14)))
-    optsnpxy = {"rank_or_tol": float(rank_or_tol), "nsrc": int(options.get("occ", 200))}
+    rank_or_tol = _flam_rank_or_tol(options)
+    optsnpxy = {"rank_or_tol": float(rank_or_tol), "nsrc": _flam_occ(options)}
     all_points = np.column_stack((np.real(targinfo.r), np.real(pointinfo(chnkr).r)))
     width = float(np.max(np.max(all_points, axis=1) - np.min(all_points, axis=1)))
-    proxybylevel = bool(options.get("proxybylevel", False))
+    proxybylevel = _flag(options, "proxybylevel")
     if not proxybylevel:
         npxy = flam.nproxy_square(kern, width, optsnpxy)
         if npxy == -1:
@@ -1359,7 +1430,7 @@ def _chunkermatapply_fmm(
 ) -> np.ndarray:
     dens_vec = np.asarray(dens).reshape(-1, order="F")
     op0, op1 = _kernel_opdims(chnkr, kern)
-    use_l2scale = _option_bool(options.get("l2scale", False))
+    use_l2scale = _l2scale(options)
     eval_dens = dens_vec * _chunker_l2_col_scale(chnkr, op1) if use_l2scale else dens_vec
     fmm_options = dict(options)
     fmm_options["acceleration"] = "fmm"
@@ -1383,7 +1454,7 @@ def _block_chunkermatapply_fmm(
     ncols = int(layout.col_offsets[-1])
     if dens_vec.size != ncols:
         raise ValueError("density has incompatible size")
-    use_l2scale = _option_bool(options.get("l2scale", False))
+    use_l2scale = _l2scale(options)
     eval_dens = dens_vec * _block_l2_col_scale(layout) if use_l2scale else dens_vec
     nrows = int(layout.row_offsets[-1])
     out = np.zeros(nrows, dtype=np.result_type(_block_operator_dtype(layout), eval_dens.dtype))
