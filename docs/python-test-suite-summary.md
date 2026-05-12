@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 296 pytest cases because several MATLAB parity tests are
+collection expands to 297 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -109,7 +109,8 @@ Implemented from this scope:
 - PyFLAM-backed acceleration: `chunkerflam`, `chnk.flam` callback/proxy
   helpers, `ChunkerFLAMMatrix`, `chunkermat`/`chunkermatapply`
   `acceleration="flam"`, FLAM target evaluation/materialization, FLAM
-  interior classification, l2 scaling, and point-data callbacks.
+  interior classification, adaptive near-target correction, l2 scaling, and
+  point-data callbacks.
 
 Deferred implementation:
 
@@ -574,7 +575,8 @@ Laplace Green-identity target-evaluation workflow from
 fields, boundary densities, and close-corrected single/double-layer target
 evaluations through `forceadap`. Ground truth is MATLAB's direct outputs and
 diagnostic FMM equality. MATLAB FLAM diagnostics are not fixture-converted yet;
-focused Python FLAM target-evaluation tests cover the PyFLAM path separately.
+Python FLAM force-adaptive target evaluation is checked against the same direct
+MATLAB fixture values.
 
 `test_chunkerkernevalmat_greenlap_devtools_outputs_match_matlab` checks the
 matrix form of the same Laplace Green identity. The method builds target
@@ -724,6 +726,12 @@ evaluation for scalar and vector-opdim smooth kernels.
 rectangular FLAM proxy path for target evaluation. The method leaves
 `useproxy=True`, materializes the PyFLAM eval matrix, applies the same factor
 to a density, and compares both outputs with dense direct evaluation.
+
+`test_chunkerkerneval_flam_forceadap_matches_dense_adaptive_corrections`
+checks close-target corrections in the FLAM target-evaluation path. The method
+combines PyFLAM smooth evaluation with sparse adaptive correction blocks and
+compares both materialized matrices and applied values against the dense
+adaptive reference.
 
 `test_chunkerinterior_flam_matches_direct_classification` checks FLAM interior
 classification. The method evaluates inside, outside, and near-boundary sample

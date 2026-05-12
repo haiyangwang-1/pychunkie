@@ -413,12 +413,15 @@ def chunkerkerneval(
         opdims = getattr(kern, "opdims", (1, 1))[0]
         return vals.reshape(opdims, chnkr.npt, order="F")
     if acceleration == "flam":
+        targinfo = pointinfo(targobj)
         if bool(options.get("forceadap", False)):
-            targinfo = pointinfo(targobj)
-            mat = _target_adaptive_matrix(chnkr, kern, targinfo, options)
-            vals = mat @ np.asarray(dens).reshape(-1, order="F")
+            smooth_options = dict(options)
+            smooth_options.pop("forceadap", None)
+            vals = _chunkerkerneval_flam(chnkr, kern, dens, targinfo, smooth_options).reshape(-1, order="F")
+            correction = _target_adaptive_correction_matrix(chnkr, kern, targinfo, options)
+            vals = vals + correction @ np.asarray(dens).reshape(-1, order="F")
             return vals.reshape(-1, targinfo.r.shape[1], order="F")
-        return _chunkerkerneval_flam(chnkr, kern, dens, targobj, options)
+        return _chunkerkerneval_flam(chnkr, kern, dens, targinfo, options)
     use_fmm = acceleration == "fmm"
     if use_fmm:
         _require_fmm(kern)
@@ -462,7 +465,10 @@ def chunkerkernevalmat(
         if same_source_target and _uses_special_quadrature(kern, opts):
             return np.asarray(chunkermat(chnkr, kern, options))
         if bool(options.get("forceadap", False)):
-            return _target_adaptive_matrix(chnkr, kern, pointinfo(targobj), options)
+            targinfo = pointinfo(targobj)
+            smooth_options = dict(options)
+            smooth_options.pop("forceadap", None)
+            return _chunkerkernevalmat_flam(chnkr, kern, targinfo, smooth_options) + _target_adaptive_correction_matrix(chnkr, kern, targinfo, options).toarray()
         return _chunkerkernevalmat_flam(chnkr, kern, targobj, options)
     if acceleration == "fmm":
         raise NotImplementedError("chunkerkernevalmat does not support FMM acceleration; use chunkerkerneval instead")
@@ -789,6 +795,63 @@ def _special_correction_matrix(
         type=qtype,
         ilist=options.get("ilist", None),
         corrections=True,
+    )
+
+
+def _target_adaptive_correction_matrix(
+    chnkr: Chunker,
+    kern: Callable[[Any, Any], np.ndarray],
+    targinfo: PointInfo,
+    options: dict[str, Any],
+) -> spmatrix:
+    """Sparse adaptive correction replacing smooth near-target blocks."""
+
+    from .chnk import quadadap
+
+    op0, op1 = _kernel_opdims(chnkr, kern)
+    ntarget = targinfo.r.shape[1]
+    flags = chnkr.flagnear(targinfo.r, {"fac": float(options.get("fac", 1.0))})
+    if not np.any(flags):
+        return sparse.csr_matrix((op0 * ntarget, op1 * chnkr.npt))
+
+    rows_all: list[np.ndarray] = []
+    cols_all: list[np.ndarray] = []
+    vals_all: list[np.ndarray] = []
+    for src_chunk in range(chnkr.nch):
+        target_ids = np.flatnonzero(flags[:, src_chunk])
+        if target_ids.size == 0:
+            continue
+        subinfo = PointInfo(
+            r=targinfo.r[:, target_ids],
+            d=None if targinfo.d is None else targinfo.d[:, target_ids],
+            d2=None if targinfo.d2 is None else targinfo.d2[:, target_ids],
+            n=None if targinfo.n is None else targinfo.n[:, target_ids],
+            data=None if targinfo.data is None else targinfo.data[:, target_ids],
+        )
+        srcinfo = PointInfo(
+            r=chnkr.r[:, :, src_chunk],
+            d=chnkr.d[:, :, src_chunk],
+            d2=chnkr.d2[:, :, src_chunk],
+            n=chnkr.n[:, :, src_chunk],
+            data=chnkr.data[:, :, src_chunk] if chnkr.datadim else None,
+        )
+        smooth = _eval_kernel(kern, srcinfo, subinfo) * np.repeat(chnkr.wts[:, src_chunk], op1)[None, :]
+        adaptive = quadadap.adapgausswts(chnkr, src_chunk, subinfo, kern, (op0, op1), opts=options)[0]
+        delta = adaptive - smooth
+
+        global_rows = (target_ids[:, None] * op0 + np.arange(op0)[None, :]).reshape(-1)
+        col_start = src_chunk * chnkr.k * op1
+        global_cols = col_start + np.arange(chnkr.k * op1)
+        rr, cc = np.indices(delta.shape)
+        rows_all.append(global_rows[rr.reshape(-1)])
+        cols_all.append(global_cols[cc.reshape(-1)])
+        vals_all.append(delta.reshape(-1))
+
+    if not vals_all:
+        return sparse.csr_matrix((op0 * ntarget, op1 * chnkr.npt))
+    return sparse.csr_matrix(
+        (np.concatenate(vals_all), (np.concatenate(rows_all), np.concatenate(cols_all))),
+        shape=(op0 * ntarget, op1 * chnkr.npt),
     )
 
 

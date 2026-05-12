@@ -678,6 +678,10 @@ def test_chunkerkerneval_greenlap_devtools_outputs_match_matlab():
     Du_direct = chunkerkerneval(chnkr, lap_d, densu, fixture.targets, opts).reshape(-1, order="F")
     Sun_direct = chunkerkerneval(chnkr, lap_s, densun, fixture.targets, opts).reshape(-1, order="F")
     identity_direct = Sun_direct - Du_direct
+    flam_opts = {"acceleration": "flam", "forceadap": True, "occ": 32, "rank_or_tol": 1.0e-8, "useproxy": False}
+    Du_flam = chunkerkerneval(chnkr, lap_d, densu, fixture.targets, flam_opts).reshape(-1, order="F")
+    Sun_flam = chunkerkerneval(chnkr, lap_s, densun, fixture.targets, flam_opts).reshape(-1, order="F")
+    identity_flam = Sun_flam - Du_flam
 
     np.testing.assert_allclose(densu, fixture.densu, rtol=1e-12, atol=1e-13)
     np.testing.assert_allclose(densun, fixture.densun, rtol=1e-12, atol=1e-13)
@@ -688,10 +692,13 @@ def test_chunkerkerneval_greenlap_devtools_outputs_match_matlab():
     np.testing.assert_allclose(fixture.Du_fmm, fixture.Du_direct, rtol=1e-10, atol=1e-12)
     np.testing.assert_allclose(fixture.Sun_fmm, fixture.Sun_direct, rtol=1e-10, atol=1e-12)
     np.testing.assert_allclose(fixture.utarg_identity_fmm, fixture.utarg_identity_direct, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(Du_flam, fixture.Du_direct, rtol=1e-8, atol=5e-9)
+    np.testing.assert_allclose(Sun_flam, fixture.Sun_direct, rtol=1e-8, atol=5e-9)
+    np.testing.assert_allclose(identity_flam, fixture.utarg_identity_direct, rtol=1e-8, atol=5e-9)
     assert np.linalg.norm(utarg - identity_direct) / np.linalg.norm(utarg) < 1e-11
+    assert np.linalg.norm(utarg - identity_flam) / np.linalg.norm(utarg) < 1e-8
     assert float(fixture.relerr_direct) < 1e-11
     assert float(fixture.relerr_fmm) < 1e-11
-    assert bool(fixture.flam_deferred)
 
 
 def test_chunkerkernevalmat_greenlap_devtools_outputs_match_matlab():
