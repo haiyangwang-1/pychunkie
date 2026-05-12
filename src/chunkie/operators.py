@@ -679,7 +679,8 @@ def _chunkerkerneval_flam(
     if dens_vec.size != out_shape[1]:
         raise ValueError("density has incompatible size")
     vals = pyflam.ifmm_mv(factor, dens_vec, matfun)
-    return np.asarray(vals).reshape(-1, out_shape[0] // _kernel_opdims(chnkr, kern)[0], order="F")
+    ntarget = pointinfo(targobj).r.shape[1]
+    return np.asarray(vals).reshape(-1, ntarget, order="F")
 
 
 def _chunkerkernevalmat_flam(
@@ -704,7 +705,7 @@ def _chunkerkerneval_flam_factor(
     from .chnk import flam
 
     targinfo = pointinfo(targobj)
-    op0, op1 = _kernel_opdims(chnkr, kern)
+    op0, op1 = _kernel_opdims(chnkr, kern, targinfo)
     nrows = targinfo.r.shape[1] * op0
     ncols = chnkr.npt * op1
 
@@ -724,7 +725,7 @@ def _chunkerkerneval_flam_factor(
         "store": options.get("store", "n"),
     }
     pxyfun = None
-    if bool(options.get("useproxy", True)) and chnkr.datadim == 0:
+    if bool(options.get("useproxy", True)) and chnkr.datadim == 0 and targinfo.data is None:
         pxyfun = _chunkerkerneval_proxyfun(chnkr, kern, targinfo, (op0, op1), options)
     factor = pyflam.ifmm(matfun, rx, cx, occ, rank_or_tol, pxyfun, opts_ifmm)
     return factor, matfun, (nrows, ncols)
@@ -816,7 +817,7 @@ def _target_adaptive_correction_matrix(
 
     from .chnk import quadadap
 
-    op0, op1 = _kernel_opdims(chnkr, kern)
+    op0, op1 = _kernel_opdims(chnkr, kern, targinfo)
     ntarget = targinfo.r.shape[1]
     flags = chnkr.flagnear(targinfo.r, {"fac": float(options.get("fac", 1.0))})
     if not np.any(flags):
@@ -873,7 +874,7 @@ def _target_adaptive_matrix(
 
     from .chnk import quadadap
 
-    opdims = _kernel_opdims(chnkr, kern)
+    opdims = _kernel_opdims(chnkr, kern, targinfo)
     op0 = int(opdims[0])
     op1 = int(opdims[1])
     srcinfo = pointinfo(chnkr)
@@ -911,12 +912,16 @@ def _target_adaptive_matrix(
     return mat
 
 
-def _kernel_opdims(chnkr: Chunker, kern: Callable[[Any, Any], np.ndarray]) -> tuple[int, int]:
+def _kernel_opdims(
+    chnkr: Chunker,
+    kern: Callable[[Any, Any], np.ndarray],
+    targinfo: PointInfo | None = None,
+) -> tuple[int, int]:
     opdims = getattr(kern, "opdims", None)
     if opdims is not None and tuple(opdims) != (0, 0):
         return int(opdims[0]), int(opdims[1])
     src = _pointinfo_node(chnkr, 0)
-    targ = _pointinfo_node(chnkr, 1 if chnkr.npt > 1 else 0)
+    targ = _pointinfo_first(targinfo) if targinfo is not None else _pointinfo_node(chnkr, 1 if chnkr.npt > 1 else 0)
     mat = _eval_kernel(kern, src, targ)
     return int(mat.shape[0]), int(mat.shape[1])
 
@@ -933,12 +938,20 @@ def _operator_dtype(chnkr: Chunker, kern: Callable[[Any, Any], np.ndarray]) -> n
 def _pointinfo_node(chnkr: Chunker, inode: int) -> PointInfo:
     src = pointinfo(chnkr)
     idx = int(inode)
+    return _pointinfo_take(src, np.array([idx], dtype=np.int64))
+
+
+def _pointinfo_first(info: PointInfo) -> PointInfo:
+    return _pointinfo_take(info, np.array([0], dtype=np.int64))
+
+
+def _pointinfo_take(info: PointInfo, indices: np.ndarray) -> PointInfo:
     return PointInfo(
-        r=src.r[:, idx : idx + 1],
-        d=src.d[:, idx : idx + 1] if src.d is not None else None,
-        d2=src.d2[:, idx : idx + 1] if src.d2 is not None else None,
-        n=src.n[:, idx : idx + 1] if src.n is not None else None,
-        data=src.data[:, idx : idx + 1] if src.data is not None else None,
+        r=info.r[:, indices],
+        d=info.d[:, indices] if info.d is not None else None,
+        d2=info.d2[:, indices] if info.d2 is not None else None,
+        n=info.n[:, indices] if info.n is not None else None,
+        data=info.data[:, indices] if info.data is not None else None,
     )
 
 

@@ -52,6 +52,11 @@ def data_kernel(src: PointInfo, targ: PointInfo):
     return 1.0 + dx + 0.1 * src.data[0][None, :] + 0.2 * targ.data[0][:, None]
 
 
+def target_data_kernel(src: PointInfo, targ: PointInfo):
+    dx = targ.r[0, :, None] - src.r[0, None, :]
+    return 1.0 + dx + 0.2 * targ.data[0][:, None]
+
+
 def test_flam_kernbyindex_matches_dense_and_sparse_overwrites():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 6})
     dense = chunkermat(chnkr, smooth_kernel)
@@ -218,6 +223,23 @@ def test_chunkermatapply_flam_accepts_multiple_rhs():
 
     assert via_flam.shape == rhs.shape
     np.testing.assert_allclose(via_flam, dense @ rhs, rtol=1e-10, atol=1e-11)
+
+
+def test_chunkerkerneval_flam_preserves_target_data_without_proxy():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 6})
+    targets = PointInfo(
+        r=np.array([[0.0, 1.4, -0.25], [0.0, 0.2, 1.3]]),
+        data=np.array([[0.5, -0.25, 0.75]]),
+    )
+    dens = np.cos(chnkr.r[0].reshape(-1, order="F"))
+    opts = {"acceleration": "flam", "occ": 8, "rank_or_tol": 1e-10}
+
+    dense_mat = chunkerkernevalmat(chnkr, target_data_kernel, targets)
+    flam_mat = chunkerkernevalmat(chnkr, target_data_kernel, targets, opts)
+    flam_vals = chunkerkerneval(chnkr, target_data_kernel, dens, targets, opts).reshape(-1, order="F")
+
+    np.testing.assert_allclose(flam_mat, dense_mat, rtol=1e-10, atol=1e-11)
+    np.testing.assert_allclose(flam_vals, dense_mat @ dens, rtol=1e-10, atol=1e-11)
 
 
 def test_chunkerkerneval_flam_matches_eval_matrix_and_dense():
