@@ -353,6 +353,24 @@ def test_chunkerkerneval_flam_matches_eval_matrix_and_dense():
     np.testing.assert_allclose(flam_vec_vals, dense_vec_mat @ dens_vec, rtol=1e-10, atol=1e-11)
 
 
+def test_chunkerkerneval_flam_interleaved_block_kernel_matches_dense():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 6})
+    targets = np.array([[0.0, 1.4, -0.25], [0.0, 0.2, 1.3]])
+    pts = chnkr.r.reshape(2, chnkr.npt, order="F")
+    dens = np.vstack((np.cos(pts[0]), np.sin(pts[1]))).reshape(-1, order="F")
+    s = kernel(smooth_kernel)
+    z = kernel("zero")
+    mixed = kernel([[s, -s], [s, z]])
+    opts = {"acceleration": "flam", "occ": 8, "rank_or_tol": 1e-10, "useproxy": False}
+
+    dense_mat = chunkerkernevalmat(chnkr, mixed, targets)
+    flam_mat = chunkerkernevalmat(chnkr, mixed, targets, opts)
+    flam_vals = chunkerkerneval(chnkr, mixed, dens, targets, opts).reshape(-1, order="F")
+
+    np.testing.assert_allclose(flam_mat, dense_mat, rtol=1e-10, atol=1e-11)
+    np.testing.assert_allclose(flam_vals, dense_mat @ dens, rtol=1e-10, atol=1e-11)
+
+
 def test_chunkerkerneval_flam_default_proxy_matches_dense():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 6})
     targets = np.array([[0.0, 1.4, -0.25, 0.7], [0.0, 0.2, 1.3, -1.2]])

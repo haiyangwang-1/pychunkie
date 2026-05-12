@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 306 pytest cases because several MATLAB parity tests are
+collection expands to 307 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -110,11 +110,11 @@ Implemented from this scope:
   helpers, `ChunkerFLAMMatrix`, `chunkermat`/`chunkermatapply`
   `acceleration="flam"`, FLAM target evaluation/materialization, FLAM
   interior classification, adaptive near-target correction, explicit
-  chunker-sequence coercion, smooth interleaved block-kernel matrices,
-  shape-preserving single-column and multiple-RHS application, adjoint
-  application/solve helpers, l2 scaling, and source/target point-data
-  callbacks. Square, circular, and rectangular FLAM proxy geometry now also has
-  strict MATLAB fixture parity.
+  chunker-sequence coercion, smooth interleaved block-kernel matrix and target
+  evaluation paths, shape-preserving single-column and multiple-RHS
+  application, adjoint application/solve helpers, l2 scaling, and
+  source/target point-data callbacks. Square, circular, and rectangular FLAM
+  proxy geometry now also has strict MATLAB fixture parity.
 
 Deferred implementation:
 
@@ -771,6 +771,11 @@ both materialized and applied outputs against dense target evaluation.
 target FLAM evaluation. The method compares `chunkerkerneval` and
 `chunkerkernevalmat` with `acceleration="flam"` against dense target
 evaluation for scalar and vector-opdim smooth kernels.
+
+`test_chunkerkerneval_flam_interleaved_block_kernel_matches_dense` checks
+smooth 2-by-2 interleaved block-kernel FLAM target evaluation. The method
+materializes the rectangular PyFLAM eval matrix, applies it to a two-component
+density, and compares both outputs against dense target evaluation.
 
 `test_chunkerkerneval_flam_default_proxy_matches_dense` checks the integrated
 rectangular FLAM proxy path for target evaluation. The method leaves
