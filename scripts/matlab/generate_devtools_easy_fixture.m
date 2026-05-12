@@ -1209,6 +1209,92 @@ stok.grad_direct = g_direct(:);
 stok.grad_direct_relerr = norm(g_direct(:) - gex(:))/norm(gex(:));
 devtools_easy.chunkermat_stok2d = stok;
 
+% chunkermat_stok_tractiontest.m
+stoktr = [];
+rng(8675309);
+cparams = [];
+cparams.eps = 1.0e-10;
+cparams.nover = 1;
+pref = [];
+pref.k = 32;
+chnkr = chunkerfunc(@(t) starfish(t,3,0.25), cparams, pref);
+stoktr.chunker = fixture_pack_chunker(chnkr);
+stoktr.mu = 1.1;
+stoktr.coefs = [1,1];
+
+ns = 10;
+ts = 0.0 + 2*pi*rand(ns,1);
+sources = starfish(ts,3,0.25);
+sources = 3.0*sources;
+sources_n = rand(2,ns);
+strengths = randn(2*ns,1);
+
+nt = 600;
+ts = 0.0 + 2*pi*rand(nt,1);
+targets = starfish(ts,3,0.25);
+targets = targets.*repmat(rand(1,nt),2,1)*0.75;
+
+stoktr.sources = sources;
+stoktr.sources_n = sources_n;
+stoktr.strengths = strengths;
+stoktr.targets = targets;
+
+kerndt = kernel('stok', 'dtrac', stoktr.mu);
+kernd = kernel('stok', 'dvel', stoktr.mu);
+kerns = kernel('stok', 'svel', stoktr.mu);
+srcinfo = [];
+srcinfo.r = sources;
+srcinfo.n = sources_n;
+targinfo = [];
+targinfo.r = reshape(chnkr.r,2,chnkr.k*chnkr.nch);
+targinfo.n = chnkr.n(:,:);
+kernmats = kerndt.eval(srcinfo,targinfo);
+ubdry = kernmats*strengths;
+stoktr.ubdry = ubdry;
+
+targinfo = [];
+targinfo.r = targets;
+kernmatstarg = kernd.eval(srcinfo,targinfo);
+utarg = kernmatstarg*strengths;
+stoktr.utarg = utarg;
+
+fkern = kernel('stok', 'strac', stoktr.mu, stoktr.coefs);
+D = chunkermat(chnkr, fkern);
+sys = 0.5*eye(size(D,1)) + D;
+rhs = ubdry(:);
+[sol, flag, relres, iter, resvec] = gmres(sys,rhs,[],1e-14,100);
+stoktr.D = D;
+stoktr.sys = sys;
+stoktr.rhs = rhs;
+stoktr.sol = sol;
+stoktr.gmres_flag = flag;
+stoktr.gmres_relres = relres;
+stoktr.gmres_iter = iter;
+stoktr.gmres_resvec = resvec;
+
+opts = [];
+opts.usesmooth = false;
+opts.verb = false;
+opts.forcefmm = true;
+Dsol = chunkerkerneval(chnkr,kerns,sol,targets,opts);
+stoktr.Dsol = Dsol;
+
+tperp = zeros(2,nt);
+tperp(1,:) = targets(2,:);
+tperp(2,:) = -targets(1,:);
+tperp = tperp(:);
+A = [repmat(eye(2), [nt,1]), tperp];
+rbd = A \ (utarg(:) - Dsol(:));
+res = norm(A*rbd - (utarg(:) - Dsol(:)));
+Dsol2 = reshape(Dsol, [2,nt]);
+Dsol2(1,:) = Dsol2(1,:) + rbd(1) + rbd(3)*targets(2,:);
+Dsol2(2,:) = Dsol2(2,:) + rbd(2) - rbd(3)*targets(1,:);
+stoktr.rbd = rbd;
+stoktr.rbd_residual = res;
+stoktr.Dsol_corrected = Dsol2;
+stoktr.relerr = norm(utarg(:)-Dsol2(:),'fro')/(sqrt(chnkr.nch)*norm(utarg,'fro'));
+devtools_easy.chunkermat_stok_traction = stoktr;
+
 % elastickernelsTest.m direct kernel diagnostics
 elast = [];
 rng(1234,'twister');

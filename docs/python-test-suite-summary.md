@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 349 pytest cases because several MATLAB parity tests are
+collection expands to 350 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -78,7 +78,7 @@ Current test-backed coverage includes:
   special quadrature, and RCIP helper/compression workflows.
 - MATLAB golden parity for compact fixtures under `tests/golden`, including
   geometry, kernel/operator, quadrature, and RCIP fixtures.
-- MATLAB devtools parity for 52 focused comparisons in
+- MATLAB devtools parity for 53 focused comparisons in
   `tests/test_devtools_parity.py`, including Laplace, Helmholtz, and Stokes dense
   `chunkermat` solve/target-evaluation workflows.
 - Seven parity-stress tests in `tests/test_easy_parity_stress.py` that harden
@@ -722,6 +722,13 @@ compares the saved starfish geometry, source-driven boundary and target values,
 dense special-quadrature matrix, stabilized system, MATLAB GMRES density, FMM
 target velocity, single-layer evaluation matrix, velocity/traction/pressure
 selector evaluations, and combined pressure/gradient diagnostics.
+
+`test_chunkermat_stok_traction_devtools_solve_matches_matlab` checks the Stokes
+traction-system workflow from MATLAB `chunkermat_stok_tractiontest.m`. The
+method compares the saved double-layer traction boundary data, double-layer
+velocity targets, dense single-layer traction matrix with same-node limits,
+system residuals, FMM single-layer target velocity, MATLAB rigid-body
+correction, and corrected target error.
 
 `test_elastickernels_devtools_direct_diagnostics_match_matlab` checks the
 direct-kernel diagnostic portion of MATLAB `elastickernelsTest.m`. The method

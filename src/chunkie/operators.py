@@ -429,6 +429,7 @@ def chunkermat(
         raise ValueError("kernel column dimension is incompatible with chunker points")
     opdims_col = mat.shape[1] // chnkr.npt
     out = mat * np.repeat(wts, opdims_col)[None, :]
+    out = _apply_stokes_strac_self_limit(chnkr, kern, out)
     return _apply_l2scale_matrix(chnkr, out) if _option_bool(options.get("l2scale", False)) else out
 
 
@@ -950,6 +951,13 @@ def _is_laplace_sprime_kernel(kern: Callable[[Any, Any], np.ndarray]) -> bool:
     }
 
 
+def _is_stokes_strac_kernel(kern: Callable[[Any, Any], np.ndarray]) -> bool:
+    return str(getattr(kern, "name", "")).lower() in {"stokes", "stok"} and str(getattr(kern, "type", "")).lower() in {
+        "strac",
+        "straction",
+    }
+
+
 def _apply_laplace_double_self_limit(
     chnkr: Chunker,
     kern: Callable[[Any, Any], np.ndarray],
@@ -977,6 +985,26 @@ def _apply_laplace_sprime_self_limit(
     curvature = (chnkr.d[0] * chnkr.d2[1] - chnkr.d[1] * chnkr.d2[0]) / speed**3
     diag = scale * (-curvature.reshape(-1, order="F") / (4.0 * np.pi)) * chnkr.wts.reshape(-1, order="F")
     np.fill_diagonal(mat, diag)
+    return mat
+
+
+def _apply_stokes_strac_self_limit(
+    chnkr: Chunker,
+    kern: Callable[[Any, Any], np.ndarray],
+    mat: np.ndarray,
+) -> np.ndarray:
+    if not _is_stokes_strac_kernel(kern) or mat.shape != (2 * chnkr.npt, 2 * chnkr.npt):
+        return mat
+    scale = getattr(kern, "params", {}).get("_scale", 1.0)
+    d = chnkr.d.reshape(chnkr.dim, chnkr.npt, order="F")
+    speed = np.sqrt(np.sum(d**2, axis=0))
+    tangents = d / speed[None, :]
+    curvature = chnkr.signed_curvature().reshape(-1, order="F")
+    weights = chnkr.wts.reshape(-1, order="F")
+    for inode in range(chnkr.npt):
+        block = scale * (-curvature[inode] / (2.0 * np.pi)) * np.outer(tangents[:, inode], tangents[:, inode]) * weights[inode]
+        rows = slice(2 * inode, 2 * inode + 2)
+        mat[rows, rows] = block
     return mat
 
 

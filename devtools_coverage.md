@@ -32,8 +32,8 @@ The parity rule for this repo is:
 - Python snapshot generator: `scripts/generate_devtools_easy_python_fixture.py`
 - Python comparisons: `tests/test_devtools_parity.py`
 - Python verification: `uv run pytest tests/test_devtools_parity.py` on
-  2026-05-12 with the regenerated local fixture: `52 passed`
-- Current fixture scope: 52 pytest comparisons covering easy geometry/kernel
+  2026-05-12 with the regenerated local fixture: `53 passed`
+- Current fixture scope: 53 pytest comparisons covering easy geometry/kernel
   diagnostics, chunker/chunkgraph constructors and regions, near-flagging,
   dense/adaptive operator assembly, close-touching adaptive solves,
   Laplace, Helmholtz, and Stokes dense solves, scalar and vector-valued chunker plus
@@ -46,10 +46,10 @@ The parity rule for this repo is:
 
 | Status | Count | Meaning |
 | --- | ---: | --- |
-| ✅ 🧪 🎯 fully covered by devtools parity | 39 | MATLAB file has strict fixture comparison for the behavior tracked here. |
+| ✅ 🧪 🎯 fully covered by devtools parity | 40 | MATLAB file has strict fixture comparison for the behavior tracked here. |
 | ✅ 🧪 🎯 ⚠️ partial/diagnostic devtools parity | 7 | Fixture coverage exists, but the MATLAB file also exercises deferred solve, FLAM, pquad, or diagnostic-only paths. |
 | 🧩 🧭 helper/reference | 1 | Shared MATLAB helper, not standalone package behavior. |
-| 🚧 pending parity | 15 | Candidate future ports, excluding explicit non-goals. |
+| 🚧 pending parity | 14 | Candidate future ports, excluding explicit non-goals. |
 | 🚫 explicit non-goal | 11 | Trapper, quasiperiodic, axisymmetric, and flexural families. |
 
 ## Scope Triage For Remaining Work
@@ -137,7 +137,7 @@ Explicit non-goals:
 | 42 | `chunkermatTest.m` | ✅ 🧪 🎯 | Hard | Builds a Laplace Dirichlet dense system matrix on a starfish, solves it, evaluates at targets, and checks exterior solution accuracy. | Covered in `devtools_easy.mat`: compare saved starfish geometry, Laplace boundary/target truth, dense double-layer matrix with removable diagonal entries, Dirichlet system, RHS, GMRES/backslash solutions, adaptive target evaluation, and residual diagnostics against Python `chunkermat`/`chunkerkerneval`. |
 | 43 | `chunkermat_helm2dTest.m` | ✅ 🧪 🎯 | Hard | Builds and solves a Helmholtz combined-field Dirichlet system on a starfish and checks target accuracy below `1e-10`. | Covered in `devtools_easy.mat`: compare saved Helmholtz source/target truth, double-layer matrix, Dirichlet system, RHS, GMRES/backslash solutions, adaptive target evaluation, and residual diagnostics against Python `chunkermat`/`chunkerkerneval`. |
 | 44 | `chunkermat_stok2dTest.m` | ✅ 🧪 🎯 | Hard | Validates Stokes single/double/pressure/traction/gradient kernels, then builds and solves a Stokes boundary integral problem with target accuracy checks. | Covered in `devtools_easy.mat`: compare saved Stokes starfish geometry, source-driven boundary and target values, dense combined-velocity matrix, stabilized system, MATLAB GMRES density, FMM target velocity, single-layer evaluation matrix, velocity/traction/pressure selector evaluations, and combined pressure/gradient diagnostics. |
-| 45 | `chunkermat_stok_tractiontest.m` | ✅ 🚧 ⚠️ | Hard | Builds a Stokes traction system and compares target velocity/traction evaluation to analytic values. | Save traction matrix, RHS, solution, and target diagnostics; compare Python Stokes traction support. |
+| 45 | `chunkermat_stok_tractiontest.m` | ✅ 🧪 🎯 | Hard | Builds a Stokes traction system and compares target velocity/traction evaluation to analytic values. | Covered in `devtools_easy.mat`: compare saved double-layer traction boundary data, double-layer velocity targets, dense single-layer traction matrix with same-node limits, MATLAB GMRES residual, FMM single-layer target velocity, rigid-body correction, and corrected target error. |
 | 46 | `chunkermat_l2scaleTest.m` | ✅ 🧪 🎯 | Hard | Constructs a Helmholtz transmission matrix manually and with `chunkermat` `l2scale`, then compares scaled matrix and density solution. | Covered in `devtools_easy.mat`: compare MATLAB and Python manual l2-scaled Helmholtz transmission-style block matrices against `chunkermat(..., {"l2scale": "true"})` and verify the scaled/unscaled density solves agree to the diagnostic threshold. |
 | 47 | `chunkermatapplyTest.m` | ✅ 🧪 🎯 ⚠️ | Hard | Tests matrix-free `chunkermatapply` against dense matrices for scalar, vector-valued, multi-boundary, and block-kernel cases; includes solve comparisons. | Covered in `devtools_easy.mat` for scalar Laplace chunker apply/solve diagnostics, vector-valued Helmholtz-transmission chunker apply diagnostics, and scalar/vector chunkgraph apply diagnostics. Strict chunker paths compare reconstructed boundary data, dense products, matrix-free outputs, probes, dense solve, and MATLAB GMRES where present. Chunkgraph paths reconstruct MATLAB edge chunkers and verify MATLAB/Python internal dense-vs-apply agreement, with bounded cross-language matrix-value diagnostics because MATLAB graph `chunkermat` applies RCIP corrections not yet present in Python's scalar graph path. |
 | 48 | `chunkermat_quadadap_closetotouchingTest.m` | ✅ 🧪 🎯 ⚠️ | Hard | Solves an exterior Laplace Dirichlet problem on two nearly touching disks and demonstrates adaptive quadrature accuracy near close interactions. | Covered in `devtools_easy.mat`: compare the two-disk geometry, source/target truth, robust adaptive matrix probe products, original GGQ matrix probe products, adaptive/original solves, target evaluations, and MATLAB target-error diagnostics. Helsing-Ojala/product-quadrature diagnostics remain tracked with `pquadTest.m`. |
@@ -170,8 +170,8 @@ Explicit non-goals:
 
 ## Suggested Next Ports
 
-1. `chunkermat_stok_tractiontest.m`: add the traction-system matrix, RHS,
-   solution, velocity, and traction target diagnostics.
-2. Resolve strict chunkgraph matrix-value parity for `chunkermatapplyTest.m`
+1. Resolve strict chunkgraph matrix-value parity for `chunkermatapplyTest.m`
    by adding the missing graph RCIP correction path, then promote the graph
    diagnostics from partial to strict parity.
+2. `chunkermat_truepolygonTest.m`: save refined true-corner geometry, matrix,
+   RHS, solution, and targets after the Python true-corner solve path matures.

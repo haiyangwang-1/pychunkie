@@ -439,6 +439,30 @@ def build_snapshot() -> dict[str, np.ndarray]:
     )
     out["chunkermat_stok2d_Ssys"] = chunkerkernevalmat(stok_chunker, kernel("stok", "svel", stok_mu), stok_targets)
 
+    stoktr = fixture.chunkermat_stok_traction
+    stoktr_chunker = chunker_from_fields(stoktr.chunker)
+    stoktr_mu = float(stoktr.mu)
+    stoktr_coefs = np.asarray(stoktr.coefs).reshape(-1, order="F")
+    stoktr_sources = PointInfo(r=point_array(stoktr.sources), n=point_array(stoktr.sources_n))
+    stoktr_targets = point_array(stoktr.targets)
+    stoktr_strengths = np.asarray(stoktr.strengths).reshape(-1, order="F")
+    stoktr_strac = kernel("stok", "strac", stoktr_mu, stoktr_coefs)
+    stoktr_dtrac = kernel("stok", "dtrac", stoktr_mu)
+    stoktr_D = chunkermat(stoktr_chunker, stoktr_strac)
+    stoktr_sys = 0.5 * np.eye(stoktr_D.shape[0]) + stoktr_D
+    stoktr_rhs = (stoktr_dtrac(stoktr_sources, pointinfo_from_chunker(stoktr_chunker)) @ stoktr_strengths).reshape(-1, order="F")
+    stoktr_sol = np.linalg.solve(stoktr_sys, stoktr_rhs)
+    out["chunkermat_stok_traction_D"] = stoktr_D
+    out["chunkermat_stok_traction_sys"] = stoktr_sys
+    out["chunkermat_stok_traction_sol"] = stoktr_sol
+    out["chunkermat_stok_traction_Dsol"] = chunkerkerneval(
+        stoktr_chunker,
+        kernel("stok", "svel", stoktr_mu),
+        np.asarray(stoktr.sol).reshape(-1, order="F"),
+        stoktr_targets,
+        {"acceleration": "fmm", "eps": 1e-11},
+    )
+
     cqa = fixture.chunkermat_quadadap
     cqa_chunker = chunker_from_fields(cqa.chunker)
     cqa_kern = kernel("helm", "d", cqa.zk)
