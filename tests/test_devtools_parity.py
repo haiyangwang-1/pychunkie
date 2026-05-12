@@ -3,6 +3,7 @@ import warnings
 import numpy as np
 import pytest
 from scipy import sparse
+from scipy.special import hankel1
 
 from chunkie import (
     Chunker,
@@ -23,7 +24,7 @@ from chunkie import (
     lege,
     tochunkgraph,
 )
-from chunkie.chnk import arcparam, curves, elast2d, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, flam, helm2d, lap2d, quadadap, smoother, spcl
+from chunkie.chnk import arcparam, curves, elast2d, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, flam, helm1d, helm2d, lap2d, quadadap, smoother, spcl
 from chunkie.operators import PointInfo, pointinfo
 from _fixture_generation import load_generated_mat_fixture
 
@@ -1077,6 +1078,46 @@ def test_helm2d_green_devtools_output_matches_matlab():
     assert np.min(np.abs(fixture.errsf)) < 1e-10
     assert np.min(np.abs(fixture.errsfx)) < 1e-8
     assert np.min(np.abs(fixture.errsfy)) < 1e-8
+
+
+def test_helm1d_green_devtools_direct_outputs_match_matlab():
+    fixture = load_devtools_easy().helm1d_green
+    chnkr = chunker_from_fields(fixture.chunker)
+    kh = complex(fixture.kh)
+    source = np.asarray(fixture.source).reshape(-1)
+    xs = chnkr.r[0].reshape(-1, order="F")
+    ys = chnkr.r[1].reshape(-1, order="F")
+    rr = np.sqrt((xs - source[0]) ** 2 + (ys - source[1]) ** 2)
+    u_test = 0.25j * hankel1(0, kh * rr)
+    uu = -2.0 * float(fixture.m) * u_test[int(fixture.istart) - 1 : int(fixture.iend)]
+
+    np.testing.assert_allclose(chnkr.r, fixture.chunker.r, atol=1e-13)
+    np.testing.assert_allclose(u_test, np.asarray(fixture.u_test).reshape(-1, order="F"), rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(uu, np.asarray(fixture.uu).reshape(-1, order="F"), rtol=1e-12, atol=1e-12)
+    assert int(fixture.nchpad) > 0
+    assert int(fixture.istart) < int(fixture.iend)
+
+    src = pointinfo_from_mat(fixture.src)
+    targ = pointinfo_from_mat(fixture.targ)
+    val, grad, hess = helm1d.green(float(fixture.E), src.r, targ.r)
+    np.testing.assert_allclose(val, fixture.green_val, rtol=1e-13, atol=1e-13)
+    np.testing.assert_allclose(grad, fixture.green_grad, rtol=1e-13, atol=1e-13)
+    np.testing.assert_allclose(hess, fixture.green_hess, rtol=1e-13, atol=1e-13)
+    np.testing.assert_allclose(helm1d.kern(float(fixture.E), src, targ, "s"), fixture.kern_s, rtol=1e-13, atol=1e-13)
+    np.testing.assert_allclose(helm1d.kern(float(fixture.E), src, targ, "d"), fixture.kern_d, rtol=1e-13, atol=1e-13)
+    np.testing.assert_allclose(helm1d.kern(float(fixture.E), src, targ, "sp"), fixture.kern_sp, rtol=1e-13, atol=1e-13)
+    np.testing.assert_allclose(helm1d.kern(float(fixture.E), src, targ, "dp"), fixture.kern_dp, rtol=1e-13, atol=1e-13)
+    np.testing.assert_allclose(helm1d.kern(float(fixture.E), src, targ, "c2trans"), fixture.kern_c2trans, rtol=1e-13, atol=1e-13)
+    np.testing.assert_allclose(helm1d.kern(float(fixture.E), src, targ, "all", np.eye(2)), fixture.kern_all, rtol=1e-13, atol=1e-13)
+
+    sweep = helm1d.sweep(
+        np.asarray(fixture.uu).reshape(-1, order="F"),
+        np.asarray(fixture.inds, dtype=int).reshape(-1, order="F") - 1,
+        np.asarray(fixture.ts).reshape(-1, order="F"),
+        np.asarray(fixture.wts).reshape(-1, order="F"),
+        float(fixture.E),
+    )
+    np.testing.assert_allclose(sweep, np.asarray(fixture.sweep_uu).reshape(-1, order="F"), rtol=1e-12, atol=1e-12)
 
 
 def test_kernelop_devtools_outputs_match_matlab():

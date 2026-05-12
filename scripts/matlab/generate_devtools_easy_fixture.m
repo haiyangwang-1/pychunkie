@@ -957,6 +957,67 @@ h2g.errsfy = gradient_check(@(x) local_helm2d_green_grady(h2g.zk, h2g.src, x), .
     h2g.trg, h2g.start_eps, h2g.niter, false);
 devtools_easy.helm2d_green = h2g;
 
+% helm1d_greenTest.m direct Green/sweep diagnostics
+h1g = [];
+h1g.m = 2;
+h1g.E = 1;
+h1g.xmin = -60;
+h1g.xmax = 60;
+cparams = [];
+cparams.ta = h1g.xmin;
+cparams.tb = h1g.xmax;
+cparams.ifclosed = 0;
+cparams.nchmin = 24;
+pref = [];
+pref.nchmax = 100000;
+[chnkr, h1g.ab] = chunkerfunc(@(t) nonflatinterface(t,0,0,0,0), cparams, pref);
+chnkr = sort(chnkr);
+h1g.chunker = fixture_pack_chunker(chnkr);
+h1g.kh = 1i*sqrt(h1g.m^2 - h1g.E^2);
+h1g.source = [0, 2.5];
+xs = chnkr.r(1,:).';
+ys = chnkr.r(2,:).';
+rr = sqrt((xs-h1g.source(1)).^2 + (ys-h1g.source(2)).^2);
+h1g.u_test = (1i/4)*besselh(0,1,h1g.kh*rr);
+h1g.decay_per_c = h1g.m*(h1g.xmax-h1g.xmin)/chnkr.nch;
+h1g.nchpad = 2*ceil(-log(10^(-16))/abs(h1g.decay_per_c));
+h1g.ich1 = h1g.nchpad;
+h1g.ich2 = chnkr.nch-h1g.nchpad;
+h1g.istart = (h1g.ich1-1)*chnkr.k + 1;
+h1g.iend = (h1g.ich2-1)*chnkr.k;
+h1g.inds = h1g.istart:h1g.iend;
+h1g.uu = -2*h1g.m*h1g.u_test(h1g.istart:h1g.iend);
+
+t_coarse_1 = h1g.ab(1,:);
+t_coarse_2 = h1g.ab(2,:);
+chnklen = t_coarse_2 - t_coarse_1;
+[xlege,~] = lege.exps(chnkr.k);
+tvals = zeros(chnkr.k,chnkr.nch);
+for i = 1:chnkr.nch
+    tvals(:,i) = t_coarse_1(i)+chnklen(i)*(xlege+1)/2;
+end
+h1g.ts = tvals(:);
+h1g.wts = weights(chnkr);
+h1g.wts = h1g.wts(:);
+h1g.sweep_uu = chnk.helm1d.sweep(h1g.uu, h1g.inds, h1g.ts, h1g.wts, h1g.E);
+
+h1g.src = [];
+h1g.src.r = chnkr.r(:, [7, 31]);
+h1g.src.n = chnkr.n(:, [7, 31]);
+h1g.src.d = chnkr.d(:, [7, 31]);
+h1g.targ = [];
+h1g.targ.r = [0.25, 0.75; 0.5, 0.5];
+h1g.targ.n = [0, 0; 1, 1];
+h1g.targ.d = [1, 1; 0, 0];
+[h1g.green_val, h1g.green_grad, h1g.green_hess] = chnk.helm1d.green(h1g.E, h1g.src.r, h1g.targ.r);
+h1g.kern_s = chnk.helm1d.kern(h1g.E, h1g.src, h1g.targ, 's');
+h1g.kern_d = chnk.helm1d.kern(h1g.E, h1g.src, h1g.targ, 'd');
+h1g.kern_sp = chnk.helm1d.kern(h1g.E, h1g.src, h1g.targ, 'sp');
+h1g.kern_dp = chnk.helm1d.kern(h1g.E, h1g.src, h1g.targ, 'dp');
+h1g.kern_c2trans = chnk.helm1d.kern(h1g.E, h1g.src, h1g.targ, 'c2trans');
+h1g.kern_all = chnk.helm1d.kern(h1g.E, h1g.src, h1g.targ, 'all', eye(2));
+devtools_easy.helm1d_green = h1g;
+
 % kernelopTest.m
 kop = [];
 rng(8675309);

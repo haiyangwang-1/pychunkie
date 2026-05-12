@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 335 pytest cases because several MATLAB parity tests are
+collection expands to 336 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -146,6 +146,10 @@ Implemented from this scope:
   outputs, finite-difference PDE/divergence/traction/gradient residuals, and
   MATLAB threshold checks. The later elasticity boundary-integral solve stages
   remain pending until singular self-quadrature support is available.
+- Helmholtz 1D direct diagnostic parity from `helm1d_greenTest.m`, including
+  flat-interface geometry, incident Hankel data, direct `chnk.helm1d.green`
+  and selector matrices, and `chnk.helm1d.sweep`; the full interface
+  GMRES/FMM/Sommerfeld solve remains pending.
 - PyFLAM-backed acceleration: `chunkerflam`, `chnk.flam` callback/proxy
   helpers, `ChunkerFLAMMatrix`, `chunkermat`/`chunkermatapply`
   `acceleration="flam"`, FLAM target evaluation/materialization, FLAM
@@ -617,6 +621,13 @@ the two routes.
 Green's function `i H_0^(1)(k r) / 4`, its gradient, and Hessian. The method is
 direct `helm2d.green` evaluation. Ground truth is MATLAB's saved value,
 gradient, Hessian, and finite-difference error thresholds.
+
+`test_helm1d_green_devtools_direct_outputs_match_matlab` checks the direct
+Green/kernel/sweep subset of MATLAB `helm1d_greenTest.m`. The method compares
+flat-interface chunker geometry, incident Hankel values, trimmed right-hand
+side data, `chnk.helm1d.green`, selector matrices, and the sweep convolution
+helper against the MATLAB fixture. The full fast-solve wrapper and Sommerfeld
+integral target solve remain pending.
 
 `test_kernelop_devtools_outputs_match_matlab` checks kernel algebra and
 interleaving with deterministic source/target point-info. The equations are
