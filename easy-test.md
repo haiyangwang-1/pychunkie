@@ -79,6 +79,7 @@ moved here so active triage stays focused on unfinished work.
 | `tests/test_sortinfo.py::test_sort_reorders_two_open_segments_and_remaps_adjacency` | done | Checked restored adjacency and coordinates only. | Adds restored derivative, second-derivative, normal, and weight checks. |
 | `tests/test_arcparam.py` arclength derivative tests | done | Checked unit-speed and orthogonality identities without asserting actual arclength tangent/curvature vectors. | Adds explicit arclength first/second derivative formulas at original nodes and analytic radius-2 circle position/tangent/curvature checks. |
 | `tests/test_arcparam.py::test_arcresample_makes_panel_speed_constant` | done | Checked area, total length, and constant panel speed without pointwise geometry. | Adds radius, tangent orthogonality, normal, and curvature checks on the resampled circle. |
+| `tests/test_chunker.py::test_addchunk_resizes_storage_and_exposes_live_slices` | done | Proved only the coordinate live slice updated its backing storage. | Adds derivative, second-derivative, normal, and weight backing-storage checks. |
 
 ## Completed Full Test Ease Audit - 2026-05-12
 

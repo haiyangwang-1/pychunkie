@@ -41,7 +41,15 @@ def test_addchunk_resizes_storage_and_exposes_live_slices():
     assert chnkr.wts.shape == (4, 2)
 
     chnkr.r = np.ones((2, 4, 2))
+    chnkr.d = 2.0 * np.ones((2, 4, 2))
+    chnkr.d2 = 3.0 * np.ones((2, 4, 2))
+    chnkr.n = 4.0 * np.ones((2, 4, 2))
+    chnkr.wts = 5.0 * np.ones((4, 2))
     np.testing.assert_allclose(chnkr.rstor[:, :, :2], 1.0)
+    np.testing.assert_allclose(chnkr.dstor[:, :, :2], 2.0)
+    np.testing.assert_allclose(chnkr.d2stor[:, :, :2], 3.0)
+    np.testing.assert_allclose(chnkr.nstor[:, :, :2], 4.0)
+    np.testing.assert_allclose(chnkr.wtsstor[:, :2], 5.0)
 
 
 def test_resize_chunkends_min_max_and_cleardata_helpers():

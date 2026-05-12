@@ -210,8 +210,9 @@ small.
 `test_addchunk_resizes_storage_and_exposes_live_slices` checks allocation and
 storage-view behavior. The invariant is that adding chunks updates `nch`,
 resizes backing arrays, and exposes live slices so assigning through the public
-`r` property changes `rstor`. The method is direct chunk storage manipulation.
-Ground truth is array shape and equality of the public slice with the backing
+geometry properties changes the matching backing stores. The method is direct
+chunk storage manipulation. Ground truth is array shape and equality of the
+public slices with the backing coordinate, derivative, normal, and weight
 storage.
 
 `test_resize_chunkends_min_max_and_cleardata_helpers` checks helper methods on
