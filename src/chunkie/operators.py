@@ -744,12 +744,27 @@ def _chunkerkerneval_proxyfun(
     optsnpxy = {"rank_or_tol": float(rank_or_tol), "nsrc": int(options.get("occ", 200))}
     all_points = np.column_stack((np.real(targinfo.r), np.real(pointinfo(chnkr).r)))
     width = float(np.max(np.max(all_points, axis=1) - np.min(all_points, axis=1)))
-    npxy = flam.nproxy_square(kern, width, optsnpxy)
-    if npxy == -1:
-        return None
-    pr, ptau, pw, pin = flam.proxy_square_pts(npxy)
+    proxybylevel = bool(options.get("proxybylevel", False))
+    if not proxybylevel:
+        npxy = flam.nproxy_square(kern, width, optsnpxy)
+        if npxy == -1:
+            return None
+        pr, ptau, pw, pin = flam.proxy_square_pts(npxy)
+
+        def pxyfun(rc: str, rx: np.ndarray, cx: np.ndarray, slf: np.ndarray, nbr: np.ndarray, l: np.ndarray, ctr: np.ndarray):
+            return flam.proxyfunr(rc, rx, cx, slf, nbr, l, ctr, chnkr, kern, opdims, pr, ptau, pw, pin, targobj=targinfo)
+
+        return pxyfun
 
     def pxyfun(rc: str, rx: np.ndarray, cx: np.ndarray, slf: np.ndarray, nbr: np.ndarray, l: np.ndarray, ctr: np.ndarray):
+        level_width = float(np.max(np.asarray(l, dtype=float)))
+        npxy = flam.nproxy_square(kern, level_width, optsnpxy)
+        if npxy == -1:
+            slf_size = np.asarray(slf).size
+            if str(rc).lower() == "c":
+                return np.zeros((0, slf_size)), np.asarray(nbr, dtype=np.int64)
+            return np.zeros((slf_size, 0)), np.asarray(nbr, dtype=np.int64)
+        pr, ptau, pw, pin = flam.proxy_square_pts(npxy)
         return flam.proxyfunr(rc, rx, cx, slf, nbr, l, ctr, chnkr, kern, opdims, pr, ptau, pw, pin, targobj=targinfo)
 
     return pxyfun

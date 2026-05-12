@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 299 pytest cases because several MATLAB parity tests are
+collection expands to 300 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -116,8 +116,8 @@ Deferred implementation:
 
 - Remaining FLAM parity beyond the first PyFLAM-backed pass: strict MATLAB
   devtools FLAM fixtures beyond the converted Laplace Green-identity
-  diagnostic, full multi-chunker block-kernel workflows, and proxy-by-level
-  stress coverage.
+  diagnostic, full multi-chunker block-kernel workflows, and larger
+  proxy-by-level stress coverage.
 - Remaining `chunkerfit` modes beyond the implemented spline/open-line/circle
   paths.
 
@@ -738,6 +738,11 @@ evaluation for scalar and vector-opdim smooth kernels.
 rectangular FLAM proxy path for target evaluation. The method leaves
 `useproxy=True`, materializes the PyFLAM eval matrix, applies the same factor
 to a density, and compares both outputs with dense direct evaluation.
+
+`test_chunkerkerneval_flam_proxy_by_level_matches_dense` checks
+level-dependent rectangular FLAM proxy target evaluation. The method requests
+`proxybylevel=True`, materializes the PyFLAM eval matrix, applies the same
+factor to a density, and compares both outputs with dense direct evaluation.
 
 `test_chunkerkerneval_flam_forceadap_matches_dense_adaptive_corrections`
 checks close-target corrections in the FLAM target-evaluation path. The method
