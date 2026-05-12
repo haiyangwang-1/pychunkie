@@ -321,7 +321,8 @@ maximum input datadim, and the expected padded data arrays.
 collinear points with splits at the input points. The geometry equation is an
 open line from `x=0` to `x=3`, total length `3`, with `y=0`. The method is
 `chunkerfit(..., splitatpoints=True)` with `ifclosed=False`. Ground truth is
-three panels, free-ended adjacency, total length `3`, and zero y-coordinates.
+three panels, free-ended adjacency, total length `3`, and exact line-panel
+positions, derivatives, normals, and weights.
 
 `test_chunkerfit_closed_circle_spline_area` checks closed spline fitting of
 16 samples from the unit circle. The equations are circle area `pi`, perimeter

@@ -17,6 +17,14 @@ def test_chunkerfit_open_line_with_split_points():
     np.testing.assert_array_equal(chnkr.adj[:, -1], [2, -1])
     np.testing.assert_allclose(np.sum(chnkr.chunklen()), 3.0, atol=1e-13)
     np.testing.assert_allclose(chnkr.r[1], 0.0, atol=1e-14)
+    u = (chnkr.tstor + 1.0) / 2.0
+    for ich in range(chnkr.nch):
+        expected_x = ich + u
+        np.testing.assert_allclose(chnkr.r[:, :, ich], np.vstack((expected_x, np.zeros_like(u))), atol=1e-14)
+        np.testing.assert_allclose(chnkr.d[:, :, ich], np.repeat([[0.5], [0.0]], chnkr.k, axis=1))
+        np.testing.assert_allclose(chnkr.d2[:, :, ich], 0.0, atol=1e-13)
+        np.testing.assert_allclose(chnkr.n[:, :, ich], np.repeat([[0.0], [-1.0]], chnkr.k, axis=1))
+        np.testing.assert_allclose(chnkr.wts[:, ich], 0.5 * chnkr.wstor)
 
 
 def test_chunkerfit_closed_circle_spline_area():

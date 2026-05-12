@@ -66,6 +66,7 @@ moved here so active triage stays focused on unfinished work.
 | `tests/test_chunker.py::test_matrix_transform_updates_derivatives_normals_and_weights` | done | The test name covered normals and weights, but assertions only checked transformed coordinates, first derivatives, and area. | Adds transformed second derivatives plus recomputed normal and quadrature-weight assertions. |
 | `tests/test_chunkerfunc.py` circle/line construction smoke tests | done | Several constructor tests checked only panel counts, adjacency, area, or length, leaving pointwise geometry and derivative scaling unchecked. | Adds exact per-panel positions, derivatives, normals, and quadrature weights for analytic circle, uniform circle, and open line cases. |
 | `tests/test_chunkerfunc.py::test_basic_curve_helpers_match_expected_derivatives` | done | Checked the sine helper's x-coordinate derivatives and y-coordinate value, but not the y-derivatives. | Adds first and second y-derivative formula checks. |
+| `tests/test_chunkerfit.py::test_chunkerfit_open_line_with_split_points` | done | Checked split count, adjacency, total length, and zero y-coordinate, but not the fitted x-nodes or differential geometry. | Adds exact per-panel line positions, derivatives, normals, and quadrature weights. |
 
 ## Completed Full Test Ease Audit - 2026-05-12
 
