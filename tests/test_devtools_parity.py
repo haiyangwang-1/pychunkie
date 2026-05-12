@@ -23,7 +23,7 @@ from chunkie import (
     lege,
     tochunkgraph,
 )
-from chunkie.chnk import arcparam, curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, flam, helm2d, lap2d, quadadap, smoother, spcl
+from chunkie.chnk import arcparam, curves, elast2d, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, flam, helm2d, lap2d, quadadap, smoother, spcl
 from chunkie.operators import PointInfo, pointinfo
 from _fixture_generation import load_generated_mat_fixture
 
@@ -326,6 +326,78 @@ def assert_chunker_geometry_multiset_match(chnkr: Chunker, fields, atol: float =
             np.testing.assert_allclose(chnkr.wts[::-1, iactual], expected_wts[:, iexpected], atol=atol)
     np.testing.assert_allclose(np.sort(chnkr.chunklen()), np.sort(np.asarray(fields.chunklen).reshape(-1)), atol=atol)
     np.testing.assert_allclose(chnkr.area(), fields.area, atol=atol)
+
+
+def _elasticlet(lam: float, mu: float, src: PointInfo, targ: PointInfo, f: np.ndarray):
+    return (
+        elast2d.kern(lam, mu, src, targ, "s") @ f,
+        elast2d.kern(lam, mu, src, targ, "strac") @ f,
+        elast2d.kern(lam, mu, src, targ, "d") @ f,
+        elast2d.kern(lam, mu, src, targ, "dalt") @ f,
+        elast2d.kern(lam, mu, src, targ, "daltgrad") @ f,
+        elast2d.kern(lam, mu, src, targ, "dalttrac") @ f,
+        elast2d.kern(lam, mu, src, targ, "sgrad") @ f,
+    )
+
+
+def _shift_pointinfo(info: PointInfo, dx: float, dy: float) -> PointInfo:
+    return PointInfo(
+        r=info.r + np.array([[dx], [dy]]),
+        d=None if info.d is None else info.d.copy(),
+        n=None if info.n is None else info.n.copy(),
+        d2=None if info.d2 is None else info.d2.copy(),
+    )
+
+
+def _elastic_finite_difference_errors(lam: float, mu: float, src: PointInfo, targ: PointInfo, f: np.ndarray, niter: int):
+    u00, trac00, _, dalt00, dalt00grad, _, _ = _elasticlet(lam, mu, src, targ, f)
+    pde_errs = np.zeros(niter)
+    pdedalt_errs = np.zeros(niter)
+    div_errs = np.zeros(niter)
+    trac_errs = np.zeros(niter)
+    daltgrad_errs = np.zeros(niter)
+
+    for idx in range(niter):
+        hh = 0.1 ** (idx + 1)
+        u01, trac01, _, dalt01, _, _, _ = _elasticlet(lam, mu, src, _shift_pointinfo(targ, 0.0, hh), f)
+        u10, trac10, _, dalt10, _, _, _ = _elasticlet(lam, mu, src, _shift_pointinfo(targ, hh, 0.0), f)
+        u0m1, trac0m1, _, dalt0m1, _, _, _ = _elasticlet(lam, mu, src, _shift_pointinfo(targ, 0.0, -hh), f)
+        um10, tracm10, _, daltm10, _, _, _ = _elasticlet(lam, mu, src, _shift_pointinfo(targ, -hh, 0.0), f)
+        u11, _, _, dalt11, _, _, _ = _elasticlet(lam, mu, src, _shift_pointinfo(targ, hh, hh), f)
+        u1m1, _, _, dalt1m1, _, _, _ = _elasticlet(lam, mu, src, _shift_pointinfo(targ, hh, -hh), f)
+        um1m1, _, _, daltm1m1, _, _, _ = _elasticlet(lam, mu, src, _shift_pointinfo(targ, -hh, -hh), f)
+        um11, _, _, daltm11, _, _, _ = _elasticlet(lam, mu, src, _shift_pointinfo(targ, -hh, hh), f)
+
+        lapu = (u01 + u10 + u0m1 + um10 - 4.0 * u00) / hh**2
+        ux = (u10 - um10) / (2.0 * hh)
+        uy = (u01 - u0m1) / (2.0 * hh)
+        uxx = (u10 + um10 - 2.0 * u00) / hh**2
+        uyy = (u01 + u0m1 - 2.0 * u00) / hh**2
+        uxy = (u11 - um11 - u1m1 + um1m1) / (4.0 * hh**2)
+
+        lapdalt = (dalt01 + dalt10 + dalt0m1 + daltm10 - 4.0 * dalt00) / hh**2
+        daltx = (dalt10 - daltm10) / (2.0 * hh)
+        dalty = (dalt01 - dalt0m1) / (2.0 * hh)
+        daltxx = (dalt10 + daltm10 - 2.0 * dalt00) / hh**2
+        daltyy = (dalt01 + dalt0m1 - 2.0 * dalt00) / hh**2
+        daltxy = (dalt11 - daltm11 - dalt1m1 + daltm1m1) / (4.0 * hh**2)
+
+        pdeuh = mu * lapu + (lam + mu) * np.array([uxx[0] + uxy[1], uxy[0] + uyy[1]])
+        pdedalth = mu * lapdalt + (lam + mu) * np.array([daltxx[0] + daltxy[1], daltxy[0] + daltyy[1]])
+        pde_errs[idx] = np.linalg.norm(pdeuh) / np.linalg.norm(u00)
+        pdedalt_errs[idx] = np.linalg.norm(pdedalth) / np.linalg.norm(u00)
+        div_errs[idx] = abs((trac10[0] - tracm10[0]) / (2.0 * hh) + (trac01[1] - trac0m1[1]) / (2.0 * hh)) / np.linalg.norm(trac00)
+
+        jact = np.column_stack((ux, uy))
+        epsmat = 0.5 * (jact + jact.T)
+        normal = targ.n.reshape(2, 1)
+        tracuh = (lam * (ux[0] + uy[1]) * np.eye(2) + 2.0 * mu * epsmat) @ normal
+        trac_errs[idx] = np.linalg.norm(tracuh.reshape(-1) - trac00) / np.linalg.norm(trac00)
+        daltgrad_errs[idx] = (
+            np.linalg.norm(dalt00grad[0::2] - daltx) / np.linalg.norm(dalt00grad[0::2])
+            + np.linalg.norm(dalt00grad[1::2] - dalty) / np.linalg.norm(dalt00grad[1::2])
+        )
+    return pde_errs, pdedalt_errs, div_errs, trac_errs, daltgrad_errs
 
 
 def test_absconvgauss_devtools_outputs_match_matlab():
@@ -1144,6 +1216,68 @@ def test_stokes_dtrac_devtools_output_matches_matlab():
     np.testing.assert_allclose(reconstructed, fixture.reconstructed, rtol=1e-13, atol=1e-13)
     np.testing.assert_allclose(reconstructed, kt, rtol=1e-13, atol=1e-13)
     assert float(fixture.residual_norm) < 1e-13
+
+
+def test_elastickernels_devtools_direct_diagnostics_match_matlab():
+    fixture = load_devtools_easy().elastickernels
+    chnkr = chunker_from_fields(fixture.chunker)
+    lam = float(fixture.lam)
+    mu = float(fixture.mu)
+    strengths = np.asarray(fixture.f).reshape(-1, order="F")
+    src = pointinfo_from_mat(fixture.src)
+    targ = pointinfo_from_mat(fixture.targ)
+    diag = fixture.diagnostics
+
+    boundary = pointinfo(chnkr)
+    u, trac, *_ = _elasticlet(lam, mu, src, boundary, strengths)
+    utarg, tractarg, *_ = _elasticlet(lam, mu, src, targ, strengths)
+    wts2 = np.repeat(chnkr.wts.reshape(-1, order="F"), 2)
+    uint = elast2d.kern(lam, mu, boundary, targ, "s") @ (wts2 * trac)
+    uint -= elast2d.kern(lam, mu, boundary, targ, "d") @ (wts2 * u)
+    gid_err = np.linalg.norm(-np.ones_like(utarg) - uint / utarg)
+
+    np.testing.assert_allclose(u, np.asarray(diag.boundary_u).reshape(-1, order="F"), rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(trac, np.asarray(diag.boundary_trac).reshape(-1, order="F"), rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(utarg, np.asarray(diag.target_u).reshape(-1, order="F"), rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(tractarg, np.asarray(diag.target_trac).reshape(-1, order="F"), rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(uint, np.asarray(diag.green_uint).reshape(-1, order="F"), rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(gid_err, float(fixture.gid_err), rtol=1e-12, atol=1e-13)
+    assert gid_err < 1e-14
+
+    sample_src = pointinfo_from_mat(diag.sample_src)
+    sample_targ = pointinfo_from_mat(diag.sample_targ)
+    source_indices = np.asarray(diag.source_indices, dtype=int).reshape(-1) - 1
+    target_index = int(np.asarray(diag.target_index, dtype=int).reshape(-1)[0]) - 1
+    np.testing.assert_allclose(sample_src.r, boundary.r[:, source_indices], atol=1e-14)
+    np.testing.assert_allclose(sample_targ.r, boundary.r[:, [target_index]], atol=1e-14)
+    sample_values = _elasticlet(lam, mu, sample_src, sample_targ, strengths)
+    for actual, expected in zip(
+        sample_values,
+        (
+            diag.sample_u,
+            diag.sample_trac,
+            diag.sample_double,
+            diag.sample_dalt,
+            diag.sample_daltgrad,
+            diag.sample_dalttrac,
+            diag.sample_sgrad,
+        ),
+    ):
+        np.testing.assert_allclose(actual, np.asarray(expected).reshape(-1, order="F"), rtol=1e-12, atol=1e-12)
+
+    errors = _elastic_finite_difference_errors(lam, mu, sample_src, sample_targ, strengths, int(fixture.niter))
+    for actual, expected, rtol, atol in zip(
+        errors,
+        (fixture.pde_errs, fixture.pdedalt_errs, fixture.div_errs, fixture.trac_errs, fixture.daltgrad_errs),
+        (6e-2, 2e-2, 1e-4, 3e-2, 1e-2),
+        (1e-10, 1e-8, 1e-12, 1e-12, 1e-12),
+    ):
+        np.testing.assert_allclose(actual[:-1], np.asarray(expected).reshape(-1, order="F")[:-1], rtol=rtol, atol=atol)
+    assert np.min(errors[0]) < 1e-5
+    assert np.min(errors[1]) < 1e-5
+    assert np.min(errors[2]) < 1e-7
+    assert np.min(errors[3]) < 1e-7
+    assert np.min(errors[4]) < 1e-7
 
 
 def test_kernelclass_devtools_green_identity_matches_matlab():

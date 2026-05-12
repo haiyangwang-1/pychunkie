@@ -1029,6 +1029,31 @@ sdtr.reconstructed = f;
 sdtr.residual_norm = norm(f - sdtr.Kt);
 devtools_easy.stokes_dtrac = sdtr;
 
+% elastickernelsTest.m direct kernel diagnostics
+elast = [];
+rng(1234,'twister');
+elast.lam = 1.5;
+elast.mu = 2.1;
+cparams = [];
+cparams.eps = 1.0e-10;
+chnkr = chunkerfunc(@(t) starfish(t), cparams);
+chnkr = chnkr.sort();
+elast.chunker = fixture_pack_chunker(chnkr);
+elast.f = [-1.3; 2; 0.8; -1.2];
+src = [];
+src.r = [2 3.1; 1 -1.1];
+src.n = randn(2,2);
+targ = [];
+targ.r = 0.1*randn(2,4);
+targ.n = randn(2,4);
+elast.src = src;
+elast.targ = targ;
+elast.niter = 5;
+[elast.pde_errs, elast.pdedalt_errs, elast.div_errs, elast.trac_errs, ...
+    elast.gid_err, elast.daltgrad_errs, elast.diagnostics] = ...
+    local_elastic_test_kernels(chnkr, src, targ, elast.lam, elast.mu, elast.f, elast.niter);
+devtools_easy.elastickernels = elast;
+
 % kernelclassTest.m
 kcls = [];
 rng(8675309);
@@ -1603,6 +1628,138 @@ out.sgrad = chnk.lap2d.kern(out.src, out.targ, 'sgrad');
 out.dgrad = chnk.lap2d.kern(out.src, out.targ, 'dgrad');
 out.cgrad = chnk.lap2d.kern(out.src, out.targ, 'cgrad', out.coefs);
 out.dp_grad_dot = sum(reshape(out.targ.n, 2, 2) .* reshape(out.dgrad, 2, []), 1).';
+end
+
+function [pde_errs,pdedalt_errs,div_errs,trac_errs,gid_err,daltgrad_errs,diag] = ...
+    local_elastic_test_kernels(chnkr,s,targ,lam,mu,f,niter)
+t = [];
+t.r = chnkr.r(:,:);
+t.n = chnkr.n(:,:);
+t.d = chnkr.d(:,:);
+
+wts = chnkr.wts;
+wts = wts(:);
+wts2 = [wts(:).'; wts(:).'];
+wts2 = wts2(:);
+
+[u,trac] = local_elasticlet(lam,mu,s,t,f);
+[utarg,tractarg] = local_elasticlet(lam,mu,s,targ,f);
+smat = chnk.elast2d.kern(lam,mu,t,targ,'s');
+dmat = chnk.elast2d.kern(lam,mu,t,targ,'d');
+
+uint = smat*(wts2.*trac) - dmat*(wts2.*u);
+uint = reshape(uint,size(utarg));
+gid_err = norm(-ones(size(utarg))-uint./utarg,'fro');
+
+pde_errs = zeros(niter,1);
+pdedalt_errs = zeros(niter,1);
+div_errs = zeros(niter,1);
+trac_errs = zeros(niter,1);
+daltgrad_errs = zeros(niter,1);
+is = randi(chnkr.npt,numel(f)/2,1);
+s = [];
+s.r = chnkr.r(:,is);
+s.d = chnkr.d(:,is);
+s.n = chnkr.n(:,is);
+it = randi(chnkr.npt);
+t = [];
+t.r = chnkr.r(:,it);
+t.d = chnkr.d(:,it);
+t.n = chnkr.n(:,it);
+
+[u00,trac00,dub00,dalt00,dalt00grad,dalt00trac,u00grad] = local_elasticlet(lam,mu,s,t,f);
+
+for i = 1:niter
+    hh = 0.1^i;
+    h = hh*ones(1,length(it));
+    t01 = t; t10 = t; t0m1 = t; tm10=t;
+    t11 = t; t1m1 = t; tm1m1 = t; tm11=t;
+    t01.r(2,:) = t01.r(2,:)+h;
+    t10.r(1,:) = t10.r(1,:)+h;
+    t0m1.r(2,:) = t0m1.r(2,:)-h;
+    tm10.r(1,:) = tm10.r(1,:)-h;
+    t11.r = t11.r+h;
+    t1m1.r = t1m1.r+[h;-h];
+    tm1m1.r = tm1m1.r-h;
+    tm11.r = tm11.r+[-h;h];
+    [u01,trac01,dub01,dalt01] = local_elasticlet(lam,mu,s,t01,f);
+    [u10,trac10,dub10,dalt10] = local_elasticlet(lam,mu,s,t10,f);
+    [u0m1,trac0m1,dub0m1,dalt0m1] = local_elasticlet(lam,mu,s,t0m1,f);
+    [um10,tracm10,dubm10,daltm10] = local_elasticlet(lam,mu,s,tm10,f);
+    [u11,trac11,dub11,dalt11] = local_elasticlet(lam,mu,s,t11,f);
+    [u1m1,trac1m1,dub1m1,dalt1m1] = local_elasticlet(lam,mu,s,t1m1,f);
+    [um1m1,tracm1m1,dubm1m1,daltm1m1] = local_elasticlet(lam,mu,s,tm1m1,f);
+    [um11,tracm11,dubm11,daltm11] = local_elasticlet(lam,mu,s,tm11,f);
+
+    lapu = (u01+u10+u0m1+um10-4*u00)/hh^2;
+    ux = (u10-um10)/(2*hh);
+    uy = (u01-u0m1)/(2*hh);
+    uxx = (u10+um10-2*u00)/hh^2;
+    uyy = (u01+u0m1-2*u00)/hh^2;
+    uxy = (u11-um11-u1m1+um1m1)/(4*hh^2);
+    uyx = uxy;
+
+    lapdalt = (dalt01+dalt10+dalt0m1+daltm10-4*dalt00)/hh^2;
+    daltx = (dalt10-daltm10)/(2*hh);
+    dalty = (dalt01-dalt0m1)/(2*hh);
+    daltxx = (dalt10+daltm10-2*dalt00)/hh^2;
+    daltyy = (dalt01+dalt0m1-2*dalt00)/hh^2;
+    daltxy = (dalt11-daltm11-dalt1m1+daltm1m1)/(4*hh^2);
+    daltyx = daltxy;
+
+    tracx = (trac10-tracm10)/(2*hh);
+    tracy = (trac01-trac0m1)/(2*hh);
+
+    pdeuh = mu*lapu + (lam+mu)*[uxx(1)+uxy(2);uyx(1)+uyy(2)];
+    pdedalth = mu*lapdalt + (lam+mu)*[daltxx(1)+daltxy(2);daltyx(1)+daltyy(2)];
+    pdedalt_errs(i) = norm(pdedalth)/norm(u00);
+    pde_errs(i) = norm(pdeuh)/norm(u00);
+    divtrach = tracx(1)+tracy(2);
+    div_errs(i) = norm(divtrach)/norm(trac00);
+    jact = [ux uy];
+    epsmat = 0.5*(jact + jact.');
+    tracuh = (lam*(ux(1)+uy(2))*eye(2) + 2*mu*epsmat)*t.n;
+    trac_errs(i) = norm(tracuh-trac00)/norm(trac00);
+    daltgrad_errs(i) = ...
+        norm(dalt00grad(1:2:end)-daltx)/norm(dalt00grad(1:2:end)) ...
+        + norm(dalt00grad(2:2:end)-dalty)/norm(dalt00grad(2:2:end));
+end
+
+diag = [];
+diag.boundary_targ = targ;
+diag.boundary_u = u;
+diag.boundary_trac = trac;
+diag.target_u = utarg;
+diag.target_trac = tractarg;
+diag.green_uint = uint;
+diag.sample_src = s;
+diag.sample_targ = t;
+diag.sample_u = u00;
+diag.sample_trac = trac00;
+diag.sample_double = dub00;
+diag.sample_dalt = dalt00;
+diag.sample_daltgrad = dalt00grad;
+diag.sample_dalttrac = dalt00trac;
+diag.sample_sgrad = u00grad;
+diag.source_indices = is;
+diag.target_index = it;
+end
+
+function [u,trac,dub,dalt,daltgrad,dalttrac,ugrad] = local_elasticlet(lam,mu,s,t,f)
+mat = chnk.elast2d.kern(lam,mu,s,t,'s');
+mattrac = chnk.elast2d.kern(lam,mu,s,t,'strac');
+matdub = chnk.elast2d.kern(lam,mu,s,t,'d');
+matdalt = chnk.elast2d.kern(lam,mu,s,t,'dalt');
+matdaltgrad = chnk.elast2d.kern(lam,mu,s,t,'daltgrad');
+matdalttrac = chnk.elast2d.kern(lam,mu,s,t,'dalttrac');
+matgrad = chnk.elast2d.kern(lam,mu,s,t,'sgrad');
+u = mat*f;
+trac = mattrac*f;
+dub = matdub*f;
+dalt = matdalt*f;
+daltgrad = matdaltgrad*f;
+dalttrac = matdalttrac*f;
+ugrad = matgrad*f;
 end
 
 function [d, d2] = local_absconvgauss_der(x, a, b, h)

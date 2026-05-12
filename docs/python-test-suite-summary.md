@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 334 pytest cases because several MATLAB parity tests are
+collection expands to 335 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -141,6 +141,11 @@ Implemented from this scope:
   workflow, including Hilbert/cotangent source data through dense and PyFLAM
   matrix products plus directional-derivative target data through direct,
   `forceadap`, and PyFLAM target evaluation against a MATLAB-solved density.
+- Elasticity direct-kernel diagnostic parity from `elastickernelsTest.m`,
+  including Green's identity boundary/target values, sampled direct kernel
+  outputs, finite-difference PDE/divergence/traction/gradient residuals, and
+  MATLAB threshold checks. The later elasticity boundary-integral solve stages
+  remain pending until singular self-quadrature support is available.
 - PyFLAM-backed acceleration: `chunkerflam`, `chnk.flam` callback/proxy
   helpers, `ChunkerFLAMMatrix`, `chunkermat`/`chunkermatapply`
   `acceleration="flam"`, FLAM target evaluation/materialization, FLAM
@@ -736,6 +741,14 @@ stress identity `t = -p n + mu (grad u + grad u^T) n`, reconstructed from
 blocks through the generic `kernel` wrapper and contracts with saved
 strengths. Ground truth is MATLAB's `Kt`, `Kg`, `Kp`, reconstructed traction,
 and residual norm below `1e-13`.
+
+`test_elastickernels_devtools_direct_diagnostics_match_matlab` checks the
+direct-kernel diagnostic portion of MATLAB `elastickernelsTest.m`. The method
+recomputes the saved starfish Green-identity boundary/target values, sampled
+elasticity single/traction/double/alternate-double/gradient kernel outputs, and
+finite-difference PDE, divergence, traction, and alternate-gradient residuals.
+Ground truth is the MATLAB fixture plus the original devtools residual
+thresholds; the full boundary-integral solve stages remain pending.
 
 `test_kernelclass_devtools_green_identity_matches_matlab` checks the Laplace
 Green-identity portion of MATLAB `kernelclassTest.m` plus NaN-kernel

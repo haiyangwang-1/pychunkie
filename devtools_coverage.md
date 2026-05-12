@@ -32,7 +32,7 @@ The parity rule for this repo is:
 - Python snapshot generator: `scripts/generate_devtools_easy_python_fixture.py`
 - Python comparisons: `tests/test_devtools_parity.py`
 - Python verification: `uv run pytest tests/test_devtools_parity.py` on
-  2026-05-12 with the regenerated local fixture: `41 passed`
+  2026-05-12 with the regenerated local fixture: `42 passed`
 - Covered now: `absconvgaussTest.m`, `adapgausswtsTest.m`, `legeexpsunitTest.m`,
   `arclengthfunTest.m`, `chunker_diffintmatTest.m`,
   `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`,
@@ -46,16 +46,16 @@ The parity rule for this repo is:
   `KernDerInterleaveTest.m`, `kernelclassTest.m`, `chunkerkerneval_greenlapTest.m`,
   `chunkerkerneval_correctionsTest.m`, `chunkerkerneval_gaussidTest.m`, `chunkerkerneval_greenhelmTest.m`,
   `chunkerkernevalmat_greenlapTest.m`, `slicegraphTest.m`, `smootherTest.m`,
-  `stokes_dtracTest.m`, and `tochunkgraphTest.m`
+  `elastickernelsTest.m`, `stokes_dtracTest.m`, and `tochunkgraphTest.m`
 
 ## Status At A Glance
 
 | Status | Count | Tests |
 | --- | ---: | --- |
 | ✅ 🧪 🎯 fully covered by devtools parity | 33 | `absconvgaussTest.m`, `adapgausswtsTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `chunkerarcparamTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`, `chunkerfuncuniTest.m`, `chunkerfuncTest.m`, `chunkgraph_basicTest.m`, `chunkgraph_lastlengthTest.m`, `chunkgrphconstructTest.m`, `chunkgrphregionTest.m`, `chunkrgrphOpdimTest.m`, `chunkerintegralTest.m`, `chunkerinteriorTest.m`, `chunkerkerneval_correctionsTest.m`, `chunkerkerneval_gaussidTest.m`, `chunkerkerneval_greenhelmTest.m`, `chunkerkernevalmat_greenlapTest.m`, `chunkermat_l2scaleTest.m`, `chunkermat_quadadapTest.m`, `chunkerpolyTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `KernDerInterleaveTest.m`, `kernelopTest.m`, `stokes_dtracTest.m`, `tochunkgraphTest.m` |
-| ✅ 🧪 🎯 ⚠️ partial/diagnostic devtools parity | 6 | `chunkerkerneval_greenlapTest.m`, `datafieldTest.m`, `flamutilitiesTest.m`, `kernelclassTest.m`, `slicegraphTest.m`, `smootherTest.m` |
+| ✅ 🧪 🎯 ⚠️ partial/diagnostic devtools parity | 7 | `chunkerkerneval_greenlapTest.m`, `datafieldTest.m`, `elastickernelsTest.m`, `flamutilitiesTest.m`, `kernelclassTest.m`, `slicegraphTest.m`, `smootherTest.m` |
 | 🧩 🧭 helper/reference | 1 | `gradient_check.m` |
-| 🚧 should/pending parity not yet converted | 23 | Remaining ranked entries below, excluding explicit non-goals. |
+| 🚧 should/pending parity not yet converted | 22 | Remaining ranked entries below, excluding explicit non-goals. |
 | 🚫 explicit non-goal; do not port | 11 | `trappermatTest.m`, `quasiperiodicTest.m`, axisymmetric tests 63-68, and flexural tests 72-74. |
 
 ## Scope Triage For Remaining Work
@@ -187,7 +187,7 @@ Do not implement:
 | 29 | `chunkrgrphOpdimTest.m` | ✅ 🧪 🎯 | Medium | Smoke-tests operator dimensions for chunkgraph kernels and block kernels. The file is short and mainly validates dimension plumbing. | Covered in `devtools_easy.mat`: compare graph edge point counts, variable row/column opdim matrix shape, and representative off-diagonal blocks for Helmholtz transmission block kernels. |
 | 30 | `datafieldTest.m` | ✅ 🧪 🎯 ⚠️ | Medium-Hard | Tests chunker data fields used by custom kernels, including Hilbert/cotangent-style kernels, directional derivative single-layer kernels, FLAM comparison, and data propagation to target info. | Covered in `devtools_easy.mat` for Hilbert/cotangent source-data dense/FLAM products and the directional-derivative single-layer target-data slice: compare saved MATLAB density, direct/adaptive/FLAM target evaluations, and directional-gradient truth. Wider custom-kernel matrix stress cases remain pending. |
 | 31 | `kernelclassTest.m` | ✅ 🧪 🎯 ⚠️ | Medium-Hard | Tests `kernel` objects as carriers of FMM/singularity metadata through `chunkerkerneval`, verifies Green's identity, and checks NaN-kernel propagation. | Covered in `devtools_easy.mat`: compare saved sources, boundary densities, close-corrected Python `forceadap` Green identity, and NaN-kernel propagation. MATLAB direct/FMM equality is retained as fixture diagnostics; Python FMM close-target correction remains partial. |
-| 32 | `elastickernelsTest.m` | ✅ 🧪 🚧 | Medium-Hard | Validates elasticity kernels by checking PDE residuals, alternative double-layer residuals, divergence, traction, Green's identity, gradient consistency, and direct kernel values. | Existing point-kernel fixtures cover some elasticity blocks; add saved PDE residual arrays and boundary identity values. |
+| 32 | `elastickernelsTest.m` | ✅ 🧪 🎯 ⚠️ | Medium-Hard | Validates elasticity kernels by checking PDE residuals, alternative double-layer residuals, divergence, traction, Green's identity, gradient consistency, and direct kernel values. | Covered in `devtools_easy.mat` for direct-kernel diagnostics: compare saved starfish geometry, source/target data, Green-identity boundary/target values, sampled direct kernel outputs, finite-difference PDE/divergence/traction/gradient residuals, and MATLAB threshold checks. Boundary integral solve stages remain pending because elasticity singular self-quadrature is not yet implemented in Python. |
 | 33 | `helm1d_greenTest.m` | ✅ 🧪 🚧 ⚠️ | Medium-Hard | Tests 1D/interface Helmholtz Green functions and a fast solve wrapper for a layered/flat interface setup, ending with a relative error below `1e-5`. | Start with Green/sweep outputs before attempting the full GMRES/interface solve. |
 | 34 | `complexificationTest.m` | 🚧 | Medium-Hard | Compares Sommerfeld-density solve/evaluation to a complexification solution for a flat interface point-charge setup. | Requires Python Sommerfeld/complexification support; fixture should save interface parameters, densities, potential, and exact solution. |
 | 35 | `adapgausswtsTest.m` | ✅ 🧪 🎯 | Hard | Compares adaptive Gaussian quadrature weights for a near interaction against a GGQ-built reference matrix block on a starfish geometry. | Covered in `devtools_easy.mat`: compare the saved starfish geometry, Helmholtz double-layer kernel, source chunk, neighboring target chunk, MATLAB adaptive weights, recursion metadata, and GGQ reference block against Python `quadadap.adapgausswts`. |
@@ -236,5 +236,5 @@ Do not implement:
 1. `chunkermat_quadadap_closetotouchingTest.m`: lower-level robust close
    replacement is already covered in `quadggq.mat`; the remaining devtools
    work is the full two-disk solve/evaluation diagnostic.
-2. `elastickernelsTest.m`: add saved PDE residual arrays and boundary
-   identity values beyond the existing point-kernel fixture coverage.
+2. `helm1d_greenTest.m`: start with Green/sweep fixture coverage before
+   attempting the full GMRES/interface solve.
