@@ -42,7 +42,14 @@ def kern(
     kind: str,
     coefs: ArrayLike | None = None,
 ) -> np.ndarray:
-    """Evaluate standard Laplace layer kernels."""
+    """Evaluate standard Laplace layer kernels.
+
+    Selectors include single layer ``"s"``, double layer ``"d"``,
+    target-normal derivative ``"sp"``, tangential derivative ``"stau"``,
+    source-gradient rows ``"sgrad"``, double-layer gradient ``"dgrad"``,
+    hypersingular normal-normal derivative ``"dp"``, and combined forms
+    ``"c"``, ``"cp"``, and ``"cgrad"``.
+    """
 
     src = pointinfo(srcinfo)
     targ = pointinfo(targinfo)

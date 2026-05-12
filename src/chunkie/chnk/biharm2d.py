@@ -39,6 +39,8 @@ def kern(
     targinfo: PointInfo | dict | ArrayLike,
     kind: str,
 ) -> np.ndarray:
+    """Evaluate biharmonic single, double, derivative, gradient, or Hessian kernels."""
+
     src = pointinfo(srcinfo)
     targ = pointinfo(targinfo)
     typ = kind.lower()

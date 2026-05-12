@@ -1,4 +1,11 @@
-"""Small kernel wrapper compatible with dense direct operators."""
+"""Kernel wrappers for boundary-integral operator assembly.
+
+The :func:`kernel` factory returns callable :class:`Kernel` objects with
+operator dimensions, singularity metadata, and optional FMM evaluators. Kernel
+objects can be added, subtracted, scaled, conjugated, or interleaved into block
+systems; the metadata follows those algebraic operations so the operator layer
+can choose dense, FMM, special-quadrature, or FLAM paths.
+"""
 
 from __future__ import annotations
 
@@ -18,6 +25,16 @@ except Exception:  # pragma: no cover - keep source installs usable without FMM2
 
 @dataclass
 class Kernel:
+    """Callable PDE layer kernel with assembly metadata.
+
+    ``opdims=(m, n)`` means the kernel maps an ``n``-component source density
+    at each boundary node to an ``m``-component target value. ``sing`` records
+    the strongest source-target singularity used by special quadrature
+    dispatch: common values are ``"smooth"``, ``"log"``, ``"pv"``, and
+    ``"hs"``. ``fmm`` is a matrix-free evaluator accepting weighted source
+    densities; it is ``None`` when no accelerated path is available.
+    """
+
     name: str = "custom"
     type: str = "custom"
     eval: Callable[[Any, Any], np.ndarray] | None = None
@@ -128,7 +145,15 @@ class Kernel:
 
 
 def kernel(kern: str | Callable[[Any, Any], np.ndarray] | Kernel, *args: Any) -> Kernel:
-    """MATLAB-style kernel constructor."""
+    """MATLAB-style kernel constructor.
+
+    String families include ``"lap"``/``"laplace"``, ``"helm"``/``"helmholtz"``,
+    ``"helmdiff"``, ``"helm1d"``, ``"biharm"``, ``"stok"``/``"stokes"``,
+    ``"elast"``, ``"zero"``, and ``"nan"``. A callable is wrapped as a custom
+    dense kernel. A 2D list or object array of kernels is interleaved into a
+    block kernel whose density and value components are stored node-by-node in
+    Fortran order.
+    """
 
     if isinstance(kern, Kernel):
         return kern
@@ -162,6 +187,8 @@ def kernel(kern: str | Callable[[Any, Any], np.ndarray] | Kernel, *args: Any) ->
 
 
 def lap2d_kernel(kind: str, coefs: Any | None = None) -> Kernel:
+    """Build a 2D Laplace layer kernel."""
+
     typ = kind.lower()
     if typ in {"c", "combined"}:
         c = np.ones(2) if coefs is None else np.asarray(coefs)
@@ -201,6 +228,8 @@ def lap2d_kernel(kind: str, coefs: Any | None = None) -> Kernel:
 
 
 def helm2d_kernel(kind: str, zk: complex, coefs: Any | None = None) -> Kernel:
+    """Build a 2D Helmholtz layer kernel for wavenumber ``zk``."""
+
     typ = kind.lower()
     if typ in {"all", "trans_sys", "ts", "trans_rep_grad", "trep_g", "trans_rep_g"}:
         opdims = (2, 2)
@@ -232,6 +261,8 @@ def helm2d_kernel(kind: str, zk: complex, coefs: Any | None = None) -> Kernel:
 
 
 def helm2ddiff_kernel(kind: str, zks: Any, coefs: Any | None = None) -> Kernel:
+    """Build a Helmholtz-difference kernel with the Laplace singularity removed."""
+
     typ = kind.lower()
     z = np.asarray(zks).reshape(-1)
     if z.size != 2:
@@ -283,6 +314,8 @@ def _helmdiff_default_coefs(typ: str) -> np.ndarray:
 
 
 def helm1d_kernel(kind: str, zk: complex, coefs: Any | None = None) -> Kernel:
+    """Build a 1D Helmholtz layer kernel for line-like point data."""
+
     typ = kind.lower()
     return Kernel(
         name="helmholtz1d",
@@ -296,6 +329,8 @@ def helm1d_kernel(kind: str, zk: complex, coefs: Any | None = None) -> Kernel:
 
 
 def biharm2d_kernel(kind: str) -> Kernel:
+    """Build a 2D biharmonic Green-layer kernel."""
+
     typ = kind.lower()
     opdims = (2, 1) if typ in {"sgrad", "sg"} else (3, 1) if typ in {"shess", "hess"} else (1, 1)
     return Kernel(
@@ -309,6 +344,8 @@ def biharm2d_kernel(kind: str) -> Kernel:
 
 
 def stok2d_kernel(kind: str, mu: float = 1.0, coefs: Any | None = None) -> Kernel:
+    """Build a 2D Stokes velocity, pressure, traction, or gradient kernel."""
+
     typ = kind.lower()
     opdims = (1, 2) if typ in {"spres", "spressure", "dpres", "dpressure", "cpres", "cpressure"} else (4, 2) if typ in {"sg", "sgrad", "dg", "dgrad", "cg", "cgrad"} else (2, 2)
     sing = {
@@ -355,6 +392,8 @@ def stok2d_kernel(kind: str, mu: float = 1.0, coefs: Any | None = None) -> Kerne
 
 
 def elast2d_kernel(kind: str, lam: float, mu: float) -> Kernel:
+    """Build a 2D linear-elasticity kernel for Lame parameters ``lam`` and ``mu``."""
+
     typ = kind.lower()
     opdims = (4, 2) if typ in {"sgrad", "sg", "daltgrad", "daltg"} else (2, 2)
     sing = {
@@ -384,6 +423,8 @@ def elast2d_kernel(kind: str, lam: float, mu: float) -> Kernel:
 
 
 def zeros(m: int = 1, n: int | None = None) -> Kernel:
+    """Return an ``m`` by ``n`` zero block kernel."""
+
     n = m if n is None else n
 
     def eval_(srcinfo: Any, targinfo: Any) -> np.ndarray:
@@ -405,6 +446,8 @@ def zeros(m: int = 1, n: int | None = None) -> Kernel:
 
 
 def nans(m: int = 1, n: int | None = None) -> Kernel:
+    """Return an ``m`` by ``n`` NaN block kernel for diagnostics/composition."""
+
     n = m if n is None else n
 
     def eval_(srcinfo: Any, targinfo: Any) -> np.ndarray:
@@ -426,6 +469,13 @@ def nans(m: int = 1, n: int | None = None) -> Kernel:
 
 
 def interleave(kerns: Any) -> Kernel:
+    """Interleave a rectangular array of kernels into one block kernel.
+
+    The resulting kernel stores block rows and columns node-interleaved:
+    ``[u1(node1), u2(node1), u1(node2), ...]``. This matches the density layout
+    expected by vector PDE kernels and chunkgraph edge-by-edge block systems.
+    """
+
     arr = np.asarray(kerns, dtype=object)
     if arr.ndim == 0:
         return kernel(arr.item())

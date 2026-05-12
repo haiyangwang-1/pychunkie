@@ -31,3 +31,16 @@ MATLAB parity fixtures under `tests/golden` are generated on demand by tests,
 are ignored by Git, and require `external/chunkie-matlab` when regenerated.
 The runtime `fmm2dpy` package is pinned separately in `pyproject.toml` through
 uv's source table and built from the upstream FMM2D repository during install.
+
+## Documentation And Demos
+
+- [docs/bie-overview.md](docs/bie-overview.md) describes the core BIE API,
+  kernel families, chunkgraphs, and dense/FMM/FLAM workflows.
+- `examples/smooth_laplace_bvp.py` solves smooth interior/exterior Laplace
+  Dirichlet and Neumann model problems.
+- `examples/nonsmooth_laplace_polygon.py` solves the same manufactured
+  interior problem on a dyadically refined square.
+- `examples/chunkgraph_multiregion_bvp.py` demonstrates a multiply connected
+  chunkgraph BVP and region classification.
+- `examples/accelerated_physics_kernels.py` compares FMM and FLAM accelerated
+  paths for Laplace, Helmholtz, Stokes, and biharmonic kernels.

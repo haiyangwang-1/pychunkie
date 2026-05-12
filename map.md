@@ -508,8 +508,15 @@ external/
 └── fmm2d/  # submodule flatironinstitute/fmm2d @ 550dae5b77b1e006c8ffae37fc832f8c2b536871
 
 docs/
+├── bie-overview.md
 ├── matlab-reference-setup.md
 └── special-quadrature.md
+
+examples/
+├── accelerated_physics_kernels.py
+├── chunkgraph_multiregion_bvp.py
+├── nonsmooth_laplace_polygon.py
+└── smooth_laplace_bvp.py
 
 scripts/
 ├── clean_test_data.py
@@ -582,8 +589,10 @@ Support file roles:
 - 🧭 `external/chunkie-matlab`: MATLAB `chunkIE` reference checkout used by fixture-generation scripts.
 - 🧭 `external/FLAM`: MATLAB FLAM reference checkout for parity work; runtime Python FLAM acceleration uses the `pyflam` git dependency pinned in `pyproject.toml` / `uv.lock`.
 - 🧭 `external/fmm2d`: Flatiron FMM2D checkout pinned for MATLAB-side FMM2D reference and MEX parity setup; the runtime `fmm2dpy` package is pinned separately through `pyproject.toml` / `uv.lock`.
+- 🧭 `docs/bie-overview.md`: high-level guide to the chunker/chunkgraph/kernel/operator API, BIE workflows, supported physics kernels, and dense/FMM/FLAM acceleration options.
 - 🧭 `docs/matlab-reference-setup.md`: local MATLAB checkout / fixture setup notes.
 - 🧭 `docs/special-quadrature.md`: special quadrature implementation notes.
+- 🧭 `examples/*.py`: runnable documentation demos for smooth Laplace interior/exterior Dirichlet and Neumann systems, dyadically refined non-smooth polygon solves, chunkgraph multi-region workflows, and accelerated Laplace/Helmholtz/Stokes/biharmonic kernel evaluation.
 - 🧭 `src/chunkie/data/quadggq/*.npz`: packaged NumPy copies of upstream MATLAB GGQ near, log self, PV support, and HS support tables used at runtime.
 - 🧭 `scripts/clean_test_data.py`: removes local generated `.mat`/`.npz` parity fixture files under `tests/golden`.
 - 🧭 `scripts/generate_quadggq_package_data.py`: converts upstream MATLAB `+chnk/+quadggq` table files into the package `.npz` data assets.

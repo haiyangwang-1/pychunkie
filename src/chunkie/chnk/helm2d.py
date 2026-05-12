@@ -50,7 +50,14 @@ def kern(
     kind: str,
     coefs: ArrayLike | None = None,
 ) -> np.ndarray:
-    """Evaluate standard Helmholtz layer kernels."""
+    """Evaluate standard Helmholtz layer and transmission kernels.
+
+    The scalar selector surface mirrors Laplace where applicable:
+    ``"s"``, ``"d"``, ``"sp"``, ``"stau"``, ``"sgrad"``, ``"dgrad"``,
+    ``"dp"``, and combined forms. Transmission-style selectors such as
+    ``"c2trans"``, ``"all"``, and ``"trans_rep"`` return interleaved block
+    rows/columns for coupled representation systems.
+    """
 
     src = pointinfo(srcinfo)
     targ = pointinfo(targinfo)

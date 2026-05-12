@@ -15,6 +15,13 @@ def kern(
     kind: str,
     coefs: ArrayLike | None = None,
 ) -> np.ndarray:
+    """Evaluate 2D Stokes velocity, pressure, traction, or gradient kernels.
+
+    Vector densities and vector values are interleaved by node. For example,
+    a velocity single-layer matrix has shape ``(2*ntarget, 2*nsource)`` with
+    ``x`` and ``y`` components alternating in both rows and columns.
+    """
+
     src = pointinfo(srcinfo)
     targ = pointinfo(targinfo)
     typ = kind.lower()

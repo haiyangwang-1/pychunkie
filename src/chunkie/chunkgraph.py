@@ -16,6 +16,8 @@ from .chnk.curves import linefunc
 
 @dataclass
 class SourceInfo:
+    """Flattened source fields for graph-wide operator evaluation."""
+
     r: np.ndarray
     n: np.ndarray
     d: np.ndarray
@@ -24,7 +26,15 @@ class SourceInfo:
 
 
 class ChunkGraph:
-    """A graph whose edges are chunkers and whose vertices mark corners."""
+    """Region-aware collection of chunker edges joined at vertices.
+
+    ``ChunkGraph`` is the preferred geometry container for multi-region or
+    multiply connected BVPs. Each edge is a ``Chunker``; vertices encode corner
+    incidence and orientation; ``regions`` records the signed edge loops found
+    by graph traversal. Scalar kernels operate on the merged geometry, while
+    edge-by-edge block kernel matrices can express coupled interface systems
+    with different physics or operator dimensions on each edge.
+    """
 
     __array_priority__ = 1000
 
@@ -309,6 +319,8 @@ class ChunkGraph:
 
 
 def chunkgraph(*args: Any, **kwargs: Any) -> ChunkGraph:
+    """MATLAB-style constructor alias for :class:`ChunkGraph`."""
+
     return ChunkGraph(*args, **kwargs)
 
 
@@ -332,6 +344,8 @@ def find_edge_regions(cg: ChunkGraph) -> np.ndarray:
 
 
 def tochunkgraph(chnkr: Chunker) -> ChunkGraph:
+    """Convert sorted open/closed chunker components into graph edges."""
+
     sorted_chnkr, info = chnkr.sort()
     verts: list[np.ndarray] = []
     edges: list[tuple[int, int]] = []
@@ -354,6 +368,8 @@ def tochunkgraph(chnkr: Chunker) -> ChunkGraph:
 
 
 def chunkgraphinregion(cg: ChunkGraph, ptsobj: ArrayLike | tuple[ArrayLike, ArrayLike] | list[ArrayLike]) -> np.ndarray:
+    """Return one-based MATLAB-style region ids for target points."""
+
     grid_shape = None
     if isinstance(ptsobj, (tuple, list)) and len(ptsobj) == 2:
         x = np.asarray(ptsobj[0], dtype=float)

@@ -15,7 +15,13 @@ from . import lege
 
 @dataclass
 class ChunkerPref:
-    """Preferences for constructing a :class:`Chunker`."""
+    """Preferences for constructing a :class:`Chunker`.
+
+    ``k`` is the Gauss-Legendre order per chunk, ``dim`` is the ambient
+    coordinate dimension, and ``nchmax``/``nchstor`` control maximum and initial
+    chunk storage. ``verttol`` is used by topology helpers that compare chunk
+    endpoints.
+    """
 
     nchmax: int = 10000
     k: int = 16
@@ -39,8 +45,19 @@ class ChunkerPref:
 class Chunker:
     """Curve divided into Legendre-discretized chunks.
 
-    Arrays follow the MATLAB layout ``dim x k x nch``. The class starts with
-    zero chunks; call :meth:`addchunk` and then fill ``r``, ``d``, and ``d2``.
+    Arrays follow the MATLAB layout ``dim x k x nch``:
+
+    - ``r`` stores node positions.
+    - ``d`` and ``d2`` store first and second derivatives with respect to the
+      local panel parameter.
+    - ``n`` and ``wts`` store outward normals and physical quadrature weights.
+    - ``adj`` stores one-based MATLAB-style neighboring chunk labels, with
+      nonpositive entries denoting open ends.
+
+    User code usually calls :func:`chunkerfunc`, :func:`chunkerpoly`,
+    :func:`chunkerfit`, or :func:`chunkerpoints` instead of filling this storage
+    manually. Matrix assembly flattens nodes in Fortran order, matching MATLAB
+    chunk-contiguous ordering.
     """
 
     __array_priority__ = 1000
@@ -242,10 +259,14 @@ class Chunker:
         return self
 
     def weights(self) -> np.ndarray:
+        """Return physical Gauss weights ``|dr/dt| * w`` for every node."""
+
         speed = np.sqrt(np.sum(np.abs(self.d) ** 2, axis=0))
         return speed * self.wstor[:, None]
 
     def normals(self) -> np.ndarray:
+        """Return outward 2D normals from the stored panel derivatives."""
+
         if self.dim != 2:
             raise ValueError("normals only implemented for dim=2")
         speed = np.sqrt(self.dstor[0, :, : self.nch] ** 2 + self.dstor[1, :, : self.nch] ** 2)
@@ -255,6 +276,8 @@ class Chunker:
         return out
 
     def tangents(self) -> np.ndarray:
+        """Return unit tangent vectors at all panel nodes."""
+
         speed = np.sqrt(np.sum(np.abs(self.d) ** 2, axis=0))
         return self.d / speed[None, :, :]
 
@@ -282,6 +305,8 @@ class Chunker:
         return s + starts[None, :]
 
     def chunklen(self, ich: ArrayLike | None = None) -> np.ndarray:
+        """Return arclengths for selected chunks or for all chunks."""
+
         if ich is None:
             return np.sum(self.wts, axis=0)
         indices = np.asarray(ich, dtype=int)
@@ -302,6 +327,8 @@ class Chunker:
         return rend, tauend
 
     def area(self) -> float:
+        """Return the signed area enclosed by a closed 2D chunker."""
+
         if self.dim != 2:
             raise ValueError("area only well-defined for 2d chunkers")
         if np.any(self.adj == 0):
@@ -715,6 +742,14 @@ class Chunker:
         return self
 
     def refine(self, opts: dict[str, Any] | None = None) -> "Chunker":
+        """Return a refined copy after selected splits and length balancing.
+
+        Recognized options include ``splitchunks`` for explicit zero-based chunk
+        ids, ``maxchunklen`` for arclength-based splitting, ``lvlr``/``lvlrfac``
+        for level restriction, ``nover`` for uniform oversampling, and ``stype``
+        for arclength versus parameter-space splitting.
+        """
+
         opts = {} if opts is None else dict(opts)
         out = self.copy()
         nchmax = int(opts.get("nchmax", out.nchmax))
@@ -965,6 +1000,12 @@ def chunkerfunc(
     The implementation follows MATLAB ``chunkerfunc``: initial parameter
     intervals are adaptively split until the curve and speed are spectrally
     resolved, then optional level restriction and oversampling are applied.
+
+    ``fcurve(t)`` must return at least positions with shape ``(dim, len(t))``;
+    first and second derivatives may also be returned. Common ``cparams`` are
+    ``ta``/``tb`` for the parameter interval, ``ifclosed`` for topology,
+    ``eps`` for resolution, ``nchmin`` for a minimum panel count, ``tsplits``
+    for forced breakpoints, and ``maxchunklen`` for arclength control.
     """
 
     cparams = {} if cparams is None else dict(cparams)
@@ -1430,9 +1471,13 @@ def chunkerpoly(
 ) -> Chunker:
     """Create a chunker for a true polygon or open polyline.
 
-    Rounded corners use trimmed edges and quadratic corner panels. The
-    full MATLAB Gaussian smoothing refinement is still richer, but this
-    preserves the same high-level workflow and edge-data propagation.
+    By default each polygon edge is one straight chunk. With
+    ``cparams={"dyadic": True, "depth": ...}``, edges are refined
+    geometrically near corners for non-smooth boundary-integral workflows. With
+    ``cparams={"rounded": True}``, corners are trimmed and replaced by
+    lightweight quadratic panels. The full MATLAB Gaussian smoother is richer,
+    but the Python paths preserve the same high-level workflow and edge-data
+    propagation.
     """
 
     cparams = {} if cparams is None else dict(cparams)
@@ -1795,7 +1840,13 @@ def merge(
     chnkrs: ArrayLike | list[Chunker] | tuple[Chunker, ...],
     pref: ChunkerPref | dict[str, Any] | None = None,
 ) -> Chunker:
-    """Combine chunkers of the same dimension and order."""
+    """Combine chunkers of the same dimension and order.
+
+    The merged chunker keeps each input component's local adjacency, shifting
+    positive neighbor labels by the accumulated chunk offset. This is the
+    geometry path used when scalar kernels are applied to a ``ChunkGraph`` or
+    to an explicit list of chunkers.
+    """
 
     if isinstance(chnkrs, Chunker):
         items = [chnkrs]
