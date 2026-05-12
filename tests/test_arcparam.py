@@ -63,3 +63,7 @@ def test_arcresample_makes_panel_speed_constant():
     speed = resampled.arclengthdens()
     expected = np.ones((resampled.k, 1)) @ (resampled.chunklen()[None, :] / 2.0)
     np.testing.assert_allclose(speed, expected, atol=1e-10)
+    np.testing.assert_allclose(np.sqrt(np.sum(resampled.r**2, axis=0)), 1.5, atol=1e-10)
+    np.testing.assert_allclose(np.sum(resampled.r * resampled.d, axis=0), 0.0, atol=1e-10)
+    np.testing.assert_allclose(resampled.n, resampled.r / 1.5, atol=1e-10)
+    np.testing.assert_allclose(resampled.signed_curvature(), 1.0 / 1.5, atol=1e-9)

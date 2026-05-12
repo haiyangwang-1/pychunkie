@@ -171,7 +171,8 @@ reparameterizes panels by arclength. The invariant is that each panel has
 constant speed density `chunklen / 2` on the reference interval `[-1,1]`.
 The method is arclength resampling of a Legendre chunker. Ground truth is
 preservation of area and total length, nonnegative reported error, and constant
-panel speed after resampling.
+panel speed after resampling, plus preserved circle radius, tangent/radius
+orthogonality, normals, and curvature.
 
 ## `tests/test_biharm2d.py`
 

@@ -78,6 +78,7 @@ moved here so active triage stays focused on unfinished work.
 | `tests/test_chunkgraph.py::test_chunkgraph_slice_and_edgeids_match_selected_edges` | done | Checked selected coordinate lookup but not exact edge IDs or subgraph differential fields. | Adds exact global ID, subgraph coordinate, derivative, and weight assertions. |
 | `tests/test_sortinfo.py::test_sort_reorders_two_open_segments_and_remaps_adjacency` | done | Checked restored adjacency and coordinates only. | Adds restored derivative, second-derivative, normal, and weight checks. |
 | `tests/test_arcparam.py` arclength derivative tests | done | Checked unit-speed and orthogonality identities without asserting actual arclength tangent/curvature vectors. | Adds explicit arclength first/second derivative formulas at original nodes and analytic radius-2 circle position/tangent/curvature checks. |
+| `tests/test_arcparam.py::test_arcresample_makes_panel_speed_constant` | done | Checked area, total length, and constant panel speed without pointwise geometry. | Adds radius, tangent orthogonality, normal, and curvature checks on the resampled circle. |
 
 ## Completed Full Test Ease Audit - 2026-05-12
 
