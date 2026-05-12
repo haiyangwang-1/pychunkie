@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 344 pytest cases because several MATLAB parity tests are
+collection expands to 345 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -628,6 +628,12 @@ Python boundary/target truth, robust adaptive and original GGQ matrix probe
 products, adaptive/original dense solves, and close-corrected target
 evaluations. Ground truth is MATLAB's saved solve/evaluation diagnostics, with
 Helsing-Ojala product-quadrature output deferred to the pquad track.
+
+`test_chunkermatapply_scalar_devtools_outputs_match_matlab` checks the scalar
+chunker path from `chunkermatapplyTest.m`. The method compares MATLAB and
+Python Laplace single-layer boundary density, dense system product,
+matrix-free apply output, first-column probe, dense solve, and MATLAB GMRES
+solve for the same deterministic starfish system.
 
 `test_chunkermat_laplace_solve_devtools_outputs_match_matlab` checks the
 Laplace dense-system solve workflow from `chunkermatTest.m`. The method

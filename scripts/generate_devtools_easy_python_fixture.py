@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 from scipy.io import loadmat
 
-from chunkie import Chunker, chunkerfit, chunkerfunc, chunkerfuncuni, chunkerintegral, chunkerinterior, chunkermat, chunkerpoly, chunkgraph, kernel, lege, tochunkgraph
+from chunkie import Chunker, chunkerfit, chunkerfunc, chunkerfuncuni, chunkerintegral, chunkerinterior, chunkermat, chunkermatapply, chunkerpoly, chunkgraph, kernel, lege, tochunkgraph
 from chunkie.chnk import arcparam, curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, quadadap, smoother, spcl
 from chunkie.operators import PointInfo
 
@@ -363,6 +363,14 @@ def build_snapshot() -> dict[str, np.ndarray]:
     out["chunkermat_quadadap_closetouching_mato_probe"] = (
         chunkermat(cqac_chunker, cqac_kern)
         @ np.asarray(cqac.sysa_probe_rhs)
+    )
+    cma = fixture.chunkermatapply_scalar
+    cma_chunker = chunker_from_fields(cma.chunker)
+    cma_kern = kernel("lap", "d")
+    out["chunkermatapply_scalar_apply"] = chunkermatapply(
+        cma_chunker,
+        cma_kern,
+        np.asarray(cma.dens).reshape(-1, order="F"),
     )
     sk = fixture.singularkernel
     sk_chunker = chunker_from_fields(sk.chunker)

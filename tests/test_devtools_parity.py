@@ -16,6 +16,7 @@ from chunkie import (
     chunkerkerneval,
     chunkerkernevalmat,
     chunkermat,
+    chunkermatapply,
     chunkerpoly,
     chunkgraph,
     chunkgraphinregion,
@@ -1580,6 +1581,33 @@ def test_chunkermat_quadadap_closetotouching_devtools_solve_matches_matlab():
     assert max(relerr2_adap, float(fixture.relerr2_adap)) < 1e-10
     np.testing.assert_allclose(relerr_original, float(fixture.relerr_original), rtol=5e-8, atol=5e-10)
     np.testing.assert_allclose(relerr2_original, float(fixture.relerr2_original), rtol=5e-8, atol=5e-10)
+
+
+def test_chunkermatapply_scalar_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().chunkermatapply_scalar
+    chnkr = chunker_from_fields(fixture.chunker)
+    src = PointInfo(r=point_array(fixture.sources))
+    lap_s = kernel("lap", "s")
+    lap_d = kernel("lap", "d")
+    dens = (lap_s(src, pointinfo(chnkr)) * float(fixture.strengths)).reshape(-1, order="F")
+    sysmat = chunkermat(chnkr, lap_d)
+    sys = -0.5 * np.eye(chnkr.npt) + sysmat
+    udense = sys @ dens
+    u_apply = -0.5 * dens + chunkermatapply(chnkr, lap_d, dens)
+    e1 = np.zeros(chnkr.npt)
+    e1[0] = 1.0
+    sys11 = -0.5 * e1 + chunkermatapply(chnkr, lap_d, e1)
+    sol_dense = np.linalg.solve(sys, dens)
+    apply_relerr = np.linalg.norm(udense - u_apply) / np.linalg.norm(udense)
+
+    np.testing.assert_allclose(dens, np.asarray(fixture.dens).reshape(-1, order="F"), rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(udense, np.asarray(fixture.udense).reshape(-1, order="F"), rtol=5e-5, atol=5e-6)
+    np.testing.assert_allclose(u_apply, np.asarray(fixture.u_apply).reshape(-1, order="F"), rtol=5e-5, atol=5e-6)
+    np.testing.assert_allclose(sys11, np.asarray(fixture.sys11).reshape(-1, order="F"), rtol=1e-7, atol=1e-10)
+    np.testing.assert_allclose(sol_dense, np.asarray(fixture.sol_dense).reshape(-1, order="F"), rtol=5e-5, atol=2e-5)
+    np.testing.assert_allclose(sol_dense, np.asarray(fixture.sol_gmres).reshape(-1, order="F"), rtol=5e-5, atol=2e-5)
+    assert max(apply_relerr, float(fixture.apply_relerr)) < 1e-13
+    assert float(fixture.solve_relerr) < 1e-13
 
 
 def test_chunkermat_laplace_solve_devtools_outputs_match_matlab():

@@ -1507,6 +1507,42 @@ cqac.relerr_original = norm(cqac.utarg-cqac.layersolo,'fro')/(sqrt(chnkr.nch)*no
 cqac.relerr2_original = norm(cqac.utarg-cqac.layersolo,'inf')/dot(abs(cqac.solo(:)),wchnkr(:));
 devtools_easy.chunkermat_quadadap_closetotouching = cqac;
 
+% chunkermatapplyTest.m scalar chunker slice
+cma = [];
+rng(8675309);
+cparams = [];
+cparams.eps = 1.0e-4;
+cma.narms = 5;
+cma.amp = 0.5;
+chnkr = chunkerfunc(@(t) starfish(t,cma.narms,cma.amp),cparams);
+cma.chunker = fixture_pack_chunker(chnkr);
+fkern = kernel('lap','d');
+sysmat = chunkermat(chnkr,fkern);
+sys = -0.5*eye(chnkr.npt) + sysmat;
+fkernsrc = kernel('lap','s');
+cma.sources = [1;1];
+cma.strengths = 1;
+srcinfo = [];
+srcinfo.r = cma.sources;
+targinfo = [];
+targinfo.r = chnkr.r(:,:);
+targinfo.d = chnkr.d(:,:);
+cma.dens = fkernsrc.eval(srcinfo,targinfo)*cma.strengths;
+cma.udense = sys*cma.dens;
+cormat = chunkermat(chnkr,fkern,struct("corrections",true));
+opts = [];
+opts.accel = false;
+cma.u_apply = -0.5*cma.dens + chunkermatapply(chnkr,fkern,cma.dens,cormat,opts);
+e1 = zeros(chnkr.npt,1);
+e1(1) = 1;
+cma.sys11 = -0.5*e1 + chunkermatapply(chnkr,fkern,e1,cormat,opts);
+cma.sol_dense = sys\cma.dens;
+sysapply = @(sigma) -0.5*sigma + chunkermatapply(chnkr,fkern,sigma,cormat,opts);
+cma.sol_gmres = gmres(sysapply, cma.dens, [], 1e-14, 100);
+cma.apply_relerr = norm(cma.udense-cma.u_apply)/norm(cma.udense);
+cma.solve_relerr = norm(cma.sol_dense-cma.sol_gmres)/norm(cma.sol_dense);
+devtools_easy.chunkermatapply_scalar = cma;
+
 % chunkermatTest.m
 cmt = [];
 rng(8675309);
