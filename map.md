@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-12 with Python 3.11.9 collected 328 tests: `328 passed`. Full MATLAB parity runs generate ignored `tests/golden/*.mat` files on demand and require a populated `external/chunkie-matlab` checkout.
+Verification snapshot: `uv run pytest` on 2026-05-12 with Python 3.11.9 collected 329 tests: `329 passed`. Full MATLAB parity runs generate ignored `tests/golden/*.mat` files on demand and require a populated `external/chunkie-matlab` checkout.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -367,8 +367,8 @@ their matching `@kernel` factories.
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
-| `chunkermat` | ⚠️ 🧪 🎯 | `chunkermat.m` | Default `acceleration="dense"` native/special matrix path parity-tested, including a custom data-bearing Hilbert/cotangent PV kernel; `acceleration="fmm"` returns `ChunkerFMMMatrix` with MATLAB forced-FMM matvec parity; `acceleration="flam"` returns `ChunkerFLAMMatrix` backed by PyFLAM with sparse special-quadrature overwrites and MATLAB FLAM matvec/solve parity. |
-| private helpers | 🧩 ✅ | Internal Python helpers | Chunker/chunker-sequence coercion, weighted density flattening, kernel evaluation, special-quadrature dispatch, and canonical `opts["acceleration"]` parsing with MATLAB-style boolean aliases intentionally ignored. |
+| `chunkermat` | ⚠️ 🧪 🎯 | `chunkermat.m` | Default `acceleration="dense"` native/special matrix path parity-tested, including dense l2 scaling and a custom data-bearing Hilbert/cotangent PV kernel; `acceleration="fmm"` returns `ChunkerFMMMatrix` with MATLAB forced-FMM matvec parity; `acceleration="flam"` returns `ChunkerFLAMMatrix` backed by PyFLAM with sparse special-quadrature overwrites and MATLAB FLAM matvec/solve parity. |
+| private helpers | 🧩 ✅ | Internal Python helpers | Chunker/chunker-sequence coercion, weighted density flattening, kernel evaluation, special-quadrature dispatch, dense l2 matrix scaling, and canonical `opts["acceleration"]` parsing with MATLAB-style boolean aliases intentionally ignored. |
 | `PointInfo` | ✅ 🧪 🎯 | MATLAB `srcinfo`/`targinfo` structs | Python dataclass for point info; chunker-flattened fields are fixture-tested. |
 | `ChunkerFMMMatrix` | ✅ 🧪 🎯 | `chunkermatapply.m`, `+chnk/chunkerkerneval_smooth.m` FMM concepts | Matrix-free `scipy.sparse.linalg.LinearOperator` returned by `chunkermat(..., {"acceleration": "fmm"})`; caches sparse special-quadrature corrections, supports vector/multiple-RHS products, and has deterministic RHS matvec parity against MATLAB forced-FMM output. |
 | `ChunkerFLAMMatrix` | ⚠️ ✅ 🧪 🎯 | `chunkerflam.m`, `+chnk/+flam/*` concepts | Matrix-free `LinearOperator` returned by `chunkermat(..., {"acceleration": "flam"})`; supports vector, multiple-RHS, and adjoint products, exposes `.factor`, `.solve(rhs, trans="n")` including adjoint solves, `.logdet()`, and dense materialization helpers when backed by PyFLAM `rskelf`; Laplace `rskelf` matvec/solve are fixture-tested against MATLAB FLAM on a deterministic random RHS. Full multi-chunker block-kernel parity remains pending. |
@@ -588,7 +588,7 @@ Support file roles:
 - 🧭 `scripts/generate_quadggq_package_data.py`: converts upstream MATLAB `+chnk/+quadggq` table files into the package `.npz` data assets.
 - 🧭 `scripts/matlab/*.m`: MATLAB fixture-generation scripts; these are the source of the `.mat` golden data used for 🎯 flags.
 - 🧪 `tests/_fixture_generation.py`: ensures missing MATLAB parity fixture files are generated on demand before tests load them; generation failure is a test failure.
-- 🧪 `tests/golden/*.mat`: ignored MATLAB-generated parity fixture files created on demand by tests. `devtools_easy.mat` covers the low/mid devtools track through adaptive `chunkerfunc`, `chunkerarcparam`, chunkgraph constructor/basic region/last-length refinement parity, partial `slicegraph`, direct `adapgausswts`, `chunkermat_quadadap`, Laplace/Helmholtz Green-identity and Gauss-identity target-evaluation parity, and converted `datafieldTest.m` Hilbert/cotangent plus target-data directional-derivative slices. `geometry_core.mat` covers compact I GEOMETRY parity excluding `chunkerfit` and smoother workflows. `quadggq.mat` covers Section III native, GGQ, and adaptive quadrature behavior; `rcip.mat` covers Section III RCIP helpers, Schur updates, chunkgraph driver metadata, and recursive compression.
+- 🧪 `tests/golden/*.mat`: ignored MATLAB-generated parity fixture files created on demand by tests. `devtools_easy.mat` covers the low/mid devtools track through adaptive `chunkerfunc`, `chunkerarcparam`, chunkgraph constructor/basic region/last-length refinement parity, partial `slicegraph`, direct `adapgausswts`, `chunkermat_l2scale`, `chunkermat_quadadap`, Laplace/Helmholtz Green-identity and Gauss-identity target-evaluation parity, and converted `datafieldTest.m` Hilbert/cotangent plus target-data directional-derivative slices. `geometry_core.mat` covers compact I GEOMETRY parity excluding `chunkerfit` and smoother workflows. `quadggq.mat` covers Section III native, GGQ, and adaptive quadrature behavior; `rcip.mat` covers Section III RCIP helpers, Schur updates, chunkgraph driver metadata, and recursive compression.
 - 🧪 `tests/test_matlab_parity.py`: main exact-behavior comparison suite against golden data.
 - 🧪 `tests/test_geometry_parity.py`: focused I GEOMETRY comparison suite against `geometry_core.mat`.
 - 🧪 `tests/test_matlab_fixtures.py`: basic fixture comparison suite.
@@ -620,7 +620,7 @@ Do not implement:
 
 ## Recommended Next Flags To Upgrade
 
-- Promote more optional devtools parity into generated fixtures where runtime cost allows; current generated coverage includes `chunkerfunc`, `chunkerarcparam`, chunkgraph constructor/basic region/last-length refinement parity, `slicegraph`, direct `adapgausswts`, `chunkermat_quadadap`, and Laplace/Helmholtz Green-identity plus Gauss-identity target-evaluation paths.
+- Promote more optional devtools parity into generated fixtures where runtime cost allows; current generated coverage includes `chunkerfunc`, `chunkerarcparam`, chunkgraph constructor/basic region/last-length refinement parity, `slicegraph`, direct `adapgausswts`, `chunkermat_l2scale`, `chunkermat_quadadap`, and Laplace/Helmholtz Green-identity plus Gauss-identity target-evaluation paths.
 - Add focused tests for remaining implemented but currently lightly tested methods that are outside the compact I GEOMETRY and devtools fixtures.
 - Add stricter MATLAB fixtures for full devtools solve/evaluation workflows around adaptive close quadrature; `smoother.py` remains a lightweight rounded-polygon path and full MATLAB smoothing/Newton behavior is a non-goal.
 - Add stricter MATLAB fixtures for FMM-heavy solve/evaluation workflows and implemented selector families, especially direct/FMM layer-potential Green identity paths.

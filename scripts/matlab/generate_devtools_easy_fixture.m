@@ -1234,6 +1234,74 @@ cqa.mat_adap = chnk.quadadap.buildmat(chnkr, fkern, [1 1], 'log', opts);
 cqa.relerr = norm(cqa.mat_ggq - cqa.mat_adap, 'fro') / norm(cqa.mat_ggq, 'fro');
 devtools_easy.chunkermat_quadadap = cqa;
 
+% chunkermat_l2scaleTest.m
+cml2 = [];
+cml2.zk0 = 2.0;
+cml2.zk1 = 3.0;
+cml2.modes = 1;
+cml2.nch = 20;
+cparams = [];
+cparams.nover = 0;
+cparams.ifclosed = 1;
+cparams.eps = 1.0e-10;
+chnkr = chunkerfuncuni(@(t) chnk.curves.bymode(t, cml2.modes, [0,0], [1.2,1]), cml2.nch, cparams);
+chnkr = sort(chnkr);
+cml2.npt = chnkr.npt;
+srcinfo0 = [];
+srcinfo0.r = [0; 0];
+srcinfo1 = [];
+srcinfo1.r = [-10; 5];
+u0bdr = chnk.helm2d.kern(cml2.zk0, srcinfo0, chnkr, 's');
+u0nbdr = chnk.helm2d.kern(cml2.zk0, srcinfo0, chnkr, 'sprime');
+u1bdr = chnk.helm2d.kern(cml2.zk1, srcinfo1, chnkr, 's');
+u1nbdr = chnk.helm2d.kern(cml2.zk1, srcinfo1, chnkr, 'sprime');
+wts = chnkr.wts;
+wts = wts(:);
+swts = sqrt(wts);
+nn = 2*chnkr.npt;
+rhs = complex(zeros(nn,1));
+u_inc = -u0bdr + u1bdr;
+un_inc = -u0nbdr + u1nbdr;
+rhs(1:2:nn) = -u_inc.*swts;
+rhs(2:2:nn) = -un_inc.*swts/(1i*cml2.zk0 + 1i*cml2.zk1)*2;
+fkern_d_diff = @(s,t) chnk.helm2d.kern(cml2.zk0, s, t, 'D') ...
+                    - chnk.helm2d.kern(cml2.zk1, s, t, 'D');
+fkern_s_diff = @(s,t) -1i*cml2.zk0*chnk.helm2d.kern(cml2.zk0, s, t, 'S') ...
+                    + 1i*cml2.zk1*chnk.helm2d.kern(cml2.zk1, s, t, 'S');
+fkern_dprime_diff = @(s,t) chnk.helm2d.kern(cml2.zk0, s, t, 'dprime') ...
+                         - chnk.helm2d.kern(cml2.zk1, s, t, 'dprime');
+kern_sprime_diff = @(s,t) -1i*cml2.zk0*chnk.helm2d.kern(cml2.zk0, s, t, 'sprime') ...
+                        + 1i*cml2.zk1*chnk.helm2d.kern(cml2.zk1, s, t, 'sprime');
+A = zeros(nn, 'like', 1i);
+A11 = chunkermat(chnkr, fkern_d_diff) + eye(chnkr.npt);
+A12 = chunkermat(chnkr, fkern_s_diff);
+A21 = chunkermat(chnkr, fkern_dprime_diff)/(1i*cml2.zk0 + 1i*cml2.zk1)*2;
+A22 = chunkermat(chnkr, kern_sprime_diff)/(1i*cml2.zk0 + 1i*cml2.zk1)*2 + eye(chnkr.npt);
+dd = diag(swts);
+ddinv = diag(1.0./swts);
+A(1:2:nn, 1:2:nn) = dd*A11*ddinv;
+A(1:2:nn, 2:2:nn) = dd*A12*ddinv;
+A(2:2:nn, 1:2:nn) = dd*A21*ddinv;
+A(2:2:nn, 2:2:nn) = dd*A22*ddinv;
+opts = [];
+opts.l2scale = 'true';
+Ac = zeros(nn, 'like', 1i);
+A11 = chunkermat(chnkr, fkern_d_diff, opts) + eye(chnkr.npt);
+A12 = chunkermat(chnkr, fkern_s_diff, opts);
+A21 = chunkermat(chnkr, fkern_dprime_diff, opts)/(1i*cml2.zk0 + 1i*cml2.zk1)*2;
+A22 = chunkermat(chnkr, kern_sprime_diff, opts)/(1i*cml2.zk0 + 1i*cml2.zk1)*2 + eye(chnkr.npt);
+Ac(1:2:nn, 1:2:nn) = A11;
+Ac(1:2:nn, 2:2:nn) = A12;
+Ac(2:2:nn, 1:2:nn) = A21;
+Ac(2:2:nn, 2:2:nn) = A22;
+x = A\rhs;
+x2 = Ac\rhs;
+cml2.err_matrix = norm(A - Ac, 'fro');
+cml2.err_density = norm(x - x2);
+cml2.mat_norm = norm(A, 'fro');
+cml2.rhs_norm = norm(rhs);
+devtools_easy.chunkermat_l2scale = cml2;
+
 % datafieldTest.m data-field slices
 df = [];
 df.hilbert = [];

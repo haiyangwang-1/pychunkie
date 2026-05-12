@@ -1169,6 +1169,63 @@ def test_chunkermat_quadadap_devtools_outputs_match_matlab():
     assert np.linalg.norm(ggq - adap, "fro") / np.linalg.norm(ggq, "fro") < 1e-9
 
 
+def test_chunkermat_l2scale_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().chunkermat_l2scale
+    zk0 = float(fixture.zk0)
+    zk1 = float(fixture.zk1)
+    modes = np.array([float(fixture.modes)])
+    chnkr = chunkerfuncuni(
+        lambda t: curves.bymode(t, modes, [0.0, 0.0], [1.2, 1.0]),
+        int(fixture.nch),
+        {"nover": 0, "ifclosed": True, "eps": 1.0e-10},
+    ).sort()[0]
+    assert chnkr.npt == int(fixture.npt)
+
+    srcinfo0 = {"r": np.array([[0.0], [0.0]])}
+    srcinfo1 = {"r": np.array([[-10.0], [5.0]])}
+    tinfo = pointinfo(chnkr)
+    u0bdr = helm2d.kern(zk0, srcinfo0, tinfo, "s").reshape(-1)
+    u0nbdr = helm2d.kern(zk0, srcinfo0, tinfo, "sprime").reshape(-1)
+    u1bdr = helm2d.kern(zk1, srcinfo1, tinfo, "s").reshape(-1)
+    u1nbdr = helm2d.kern(zk1, srcinfo1, tinfo, "sprime").reshape(-1)
+    weights = chnkr.wts.reshape(-1, order="F")
+    sqrt_weights = np.sqrt(weights)
+    npt = chnkr.npt
+    nn = 2 * npt
+    rhs = np.zeros(nn, dtype=complex)
+    rhs[0::2] = -(-u0bdr + u1bdr) * sqrt_weights
+    rhs[1::2] = -(-u0nbdr + u1nbdr) * sqrt_weights / (1j * zk0 + 1j * zk1) * 2
+
+    kd = kernel("helmdiff", "d", [zk0, zk1], [1, 1])
+    ks = kernel("helmdiff", "s", [zk0, zk1], [-1j * zk0, -1j * zk1])
+    kdp = kernel("helmdiff", "dprime", [zk0, zk1], [1, 1])
+    ksp = kernel("helmdiff", "sprime", [zk0, zk1], [-1j * zk0, -1j * zk1])
+
+    manual = np.zeros((nn, nn), dtype=complex)
+    dd = np.diag(sqrt_weights)
+    ddinv = np.diag(1.0 / sqrt_weights)
+    manual[0::2, 0::2] = dd @ (chunkermat(chnkr, kd) + np.eye(npt)) @ ddinv
+    manual[0::2, 1::2] = dd @ chunkermat(chnkr, ks) @ ddinv
+    manual[1::2, 0::2] = dd @ (chunkermat(chnkr, kdp) / (1j * zk0 + 1j * zk1) * 2) @ ddinv
+    manual[1::2, 1::2] = dd @ (chunkermat(chnkr, ksp) / (1j * zk0 + 1j * zk1) * 2 + np.eye(npt)) @ ddinv
+
+    opts = {"l2scale": "true"}
+    scaled = np.zeros_like(manual)
+    scaled[0::2, 0::2] = chunkermat(chnkr, kd, opts) + np.eye(npt)
+    scaled[0::2, 1::2] = chunkermat(chnkr, ks, opts)
+    scaled[1::2, 0::2] = chunkermat(chnkr, kdp, opts) / (1j * zk0 + 1j * zk1) * 2
+    scaled[1::2, 1::2] = chunkermat(chnkr, ksp, opts) / (1j * zk0 + 1j * zk1) * 2 + np.eye(npt)
+
+    err_matrix = np.linalg.norm(manual - scaled, "fro")
+    err_density = np.linalg.norm(np.linalg.solve(manual, rhs) - np.linalg.solve(scaled, rhs))
+    assert err_matrix < 1e-10
+    assert err_density < 1e-11
+    assert float(fixture.err_matrix) < 1e-10
+    assert float(fixture.err_density) < 1e-11
+    assert err_matrix <= max(1e-10, 10 * float(fixture.err_matrix))
+    assert err_density <= max(1e-11, 10 * float(fixture.err_density))
+
+
 def test_datafield_devtools_target_data_flam_matches_matlab():
     fixture = load_devtools_easy().datafield
     chnkr = chunker_from_fields(fixture.chunker)

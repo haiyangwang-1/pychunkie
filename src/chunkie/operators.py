@@ -283,17 +283,20 @@ def chunkermat(
     if _uses_special_quadrature(kern, options):
         from .chnk import quadggq
 
-        return quadggq.buildmat(chnkr, kern, getattr(kern, "opdims", None), getattr(kern, "sing", "log"))
+        mat = quadggq.buildmat(chnkr, kern, getattr(kern, "opdims", None), getattr(kern, "sing", "log"))
+        return _apply_l2scale_matrix(chnkr, mat) if _option_bool(options.get("l2scale", False)) else mat
 
     srcinfo = pointinfo(chnkr)
     mat = _eval_kernel(kern, srcinfo, srcinfo)
     wts = chnkr.wts.reshape(-1, order="F")
     if mat.shape[1] == chnkr.npt:
-        return mat * wts[None, :]
+        out = mat * wts[None, :]
+        return _apply_l2scale_matrix(chnkr, out) if _option_bool(options.get("l2scale", False)) else out
     if mat.shape[1] % chnkr.npt != 0:
         raise ValueError("kernel column dimension is incompatible with chunker points")
     opdims_col = mat.shape[1] // chnkr.npt
-    return mat * np.repeat(wts, opdims_col)[None, :]
+    out = mat * np.repeat(wts, opdims_col)[None, :]
+    return _apply_l2scale_matrix(chnkr, out) if _option_bool(options.get("l2scale", False)) else out
 
 
 def chunkermatapply(
@@ -626,13 +629,29 @@ def _special_overwrite_matrix(
         ilist=options.get("ilist", None),
         corrections=False,
     )
-    if bool(options.get("l2scale", False)):
-        op0, op1 = _kernel_opdims(chnkr, kern)
-        weights = chnkr.wts.reshape(-1, order="F")
-        row_scale = np.sqrt(np.repeat(weights, op0))
-        col_scale = 1.0 / np.sqrt(np.repeat(weights, op1))
-        spmat = sparse.diags(row_scale, format="csr") @ spmat @ sparse.diags(col_scale, format="csr")
+    if _option_bool(options.get("l2scale", False)):
+        spmat = _apply_l2scale_matrix(chnkr, spmat)
     return spmat
+
+
+def _option_bool(value: Any) -> bool:
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "t", "yes", "y", "on"}
+    return bool(value)
+
+
+def _apply_l2scale_matrix(chnkr: Chunker, mat: np.ndarray | spmatrix) -> np.ndarray | spmatrix:
+    npt = chnkr.npt
+    if mat.shape[0] % npt != 0 or mat.shape[1] % npt != 0:
+        raise ValueError("l2scale matrix dimensions must be multiples of chunker.npt")
+    op0 = mat.shape[0] // npt
+    op1 = mat.shape[1] // npt
+    weights = chnkr.wts.reshape(-1, order="F")
+    row_scale = np.sqrt(np.repeat(weights, op0))
+    col_scale = 1.0 / np.sqrt(np.repeat(weights, op1))
+    if sparse.issparse(mat):
+        return sparse.diags(row_scale, format="csr") @ mat @ sparse.diags(col_scale, format="csr")
+    return row_scale[:, None] * np.asarray(mat) * col_scale[None, :]
 
 
 def _add_diagonal_shift(out: np.ndarray, rows: np.ndarray, cols: np.ndarray, dval: np.ndarray) -> np.ndarray:

@@ -32,7 +32,7 @@ The parity rule for this repo is:
 - Python snapshot generator: `scripts/generate_devtools_easy_python_fixture.py`
 - Python comparisons: `tests/test_devtools_parity.py`
 - Python verification: `uv run pytest tests/test_devtools_parity.py` on
-  2026-05-12 with the regenerated local fixture: `37 passed`
+  2026-05-12 with the regenerated local fixture: `38 passed`
 - Covered now: `absconvgaussTest.m`, `adapgausswtsTest.m`, `legeexpsunitTest.m`,
   `arclengthfunTest.m`, `chunker_diffintmatTest.m`,
   `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`,
@@ -40,7 +40,7 @@ The parity rule for this repo is:
   `chunkgraph_lastlengthTest.m`, `chunkgrphconstructTest.m`,
   `chunkerintegralTest.m`,
   `chunkerinteriorTest.m`, `chunkerpolyTest.m`, `chunkerarcparamTest.m`,
-  `chunkermat_quadadapTest.m`, `flagrectTest.m`, `flagselfTest.m`,
+  `chunkermat_l2scaleTest.m`, `chunkermat_quadadapTest.m`, `flagrectTest.m`, `flagselfTest.m`,
   `flagnearTest.m`, `flamutilitiesTest.m`, `helm2d_greenTest.m`, `kernelopTest.m`,
   `KernDerInterleaveTest.m`, `kernelclassTest.m`, `chunkerkerneval_greenlapTest.m`,
   `chunkerkerneval_gaussidTest.m`, `chunkerkerneval_greenhelmTest.m`,
@@ -51,10 +51,10 @@ The parity rule for this repo is:
 
 | Status | Count | Tests |
 | --- | ---: | --- |
-| ✅ 🧪 🎯 fully covered by devtools parity | 26 | `absconvgaussTest.m`, `adapgausswtsTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`, `chunkerfuncuniTest.m`, `chunkgraph_basicTest.m`, `chunkgraph_lastlengthTest.m`, `chunkgrphconstructTest.m`, `chunkerintegralTest.m`, `chunkerinteriorTest.m`, `chunkerkerneval_gaussidTest.m`, `chunkerkerneval_greenhelmTest.m`, `chunkerkernevalmat_greenlapTest.m`, `chunkermat_quadadapTest.m`, `chunkerpolyTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `KernDerInterleaveTest.m`, `kernelopTest.m`, `tochunkgraphTest.m` |
+| ✅ 🧪 🎯 fully covered by devtools parity | 27 | `absconvgaussTest.m`, `adapgausswtsTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`, `chunkerfuncuniTest.m`, `chunkgraph_basicTest.m`, `chunkgraph_lastlengthTest.m`, `chunkgrphconstructTest.m`, `chunkerintegralTest.m`, `chunkerinteriorTest.m`, `chunkerkerneval_gaussidTest.m`, `chunkerkerneval_greenhelmTest.m`, `chunkerkernevalmat_greenlapTest.m`, `chunkermat_l2scaleTest.m`, `chunkermat_quadadapTest.m`, `chunkerpolyTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `KernDerInterleaveTest.m`, `kernelopTest.m`, `tochunkgraphTest.m` |
 | ✅ 🧪 🎯 ⚠️ partial/diagnostic devtools parity | 9 | `chunkerarcparamTest.m`, `chunkerfuncTest.m`, `chunkerkerneval_greenlapTest.m`, `datafieldTest.m`, `flamutilitiesTest.m`, `kernelclassTest.m`, `slicegraphTest.m`, `smootherTest.m`, `stokes_dtracTest.m` |
 | 🧩 🧭 helper/reference | 1 | `gradient_check.m` |
-| 🚧 should/pending parity not yet converted | 27 | Remaining ranked entries below, excluding explicit non-goals. |
+| 🚧 should/pending parity not yet converted | 26 | Remaining ranked entries below, excluding explicit non-goals. |
 | 🚫 explicit non-goal; do not port | 11 | `trappermatTest.m`, `quasiperiodicTest.m`, axisymmetric tests 63-68, and flexural tests 72-74. |
 
 ## Scope Triage For Remaining Work
@@ -189,7 +189,7 @@ Do not implement:
 | 43 | `chunkermat_helm2dTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Builds and solves a Helmholtz combined-field Dirichlet system on a starfish and checks target accuracy below `1e-10`. | Save system matrix, RHS, solution, target values, and compare Python `chunkermat`/`chunkerkerneval`. |
 | 44 | `chunkermat_stok2dTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Validates Stokes single/double/pressure/traction/gradient kernels, then builds and solves a Stokes boundary integral problem with target accuracy checks. | Existing point-kernel fixtures cover Stokes blocks; add full Stokes matrix/solve fixture later. |
 | 45 | `chunkermat_stok_tractiontest.m` | ✅ 🚧 ⚠️ | Hard | Builds a Stokes traction system and compares target velocity/traction evaluation to analytic values. | Save traction matrix, RHS, solution, and target diagnostics; compare Python Stokes traction support. |
-| 46 | `chunkermat_l2scaleTest.m` | 🚧 | Hard | Constructs a Helmholtz transmission matrix manually and with `chunkermat` `l2scale`, then compares scaled matrix and density solution. | Save manual/scaled matrices, right-hand side, and solution; compare Python l2 scaling once implemented. |
+| 46 | `chunkermat_l2scaleTest.m` | ✅ 🧪 🎯 | Hard | Constructs a Helmholtz transmission matrix manually and with `chunkermat` `l2scale`, then compares scaled matrix and density solution. | Covered in `devtools_easy.mat`: compare MATLAB and Python manual l2-scaled Helmholtz transmission-style block matrices against `chunkermat(..., {"l2scale": "true"})` and verify the scaled/unscaled density solves agree to the diagnostic threshold. |
 | 47 | `chunkermatapplyTest.m` | ✅ 🧪 🚧 | Hard | Tests matrix-free `chunkermatapply` against dense matrices for scalar, vector-valued, multi-boundary, and block-kernel cases; includes solve comparisons. | Python covers dense products, explicit `chunkermat` FMM LinearOperator products, and FMM-accelerated special-corrected application; save dense/matrix-free outputs by case for strict MATLAB parity. |
 | 48 | `chunkermat_quadadap_closetotouchingTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Solves an exterior Laplace Dirichlet problem on two nearly touching disks and demonstrates adaptive quadrature accuracy near close interactions. | Compact non-devtools `quadggq.mat` now covers robust close matrix replacement on two disks; still save the full solve, targets, and adaptive/smooth diagnostics for devtools parity. |
 | 49 | `chunkermat_truepolygonTest.m` | ✅ 🚧 ⚠️ | Hard | Solves a true-corner polygon Neumann problem using adaptive refinement/RCIP-style machinery and checks target accuracy. | Save refined polygon graph/chunker, system, RHS, solution, and targets; compare after Python true-corner support matures. |
