@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 320 pytest cases because several MATLAB parity tests are
+collection expands to 321 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -93,7 +93,8 @@ Implemented from this scope:
   replacement are now covered by compact MATLAB fixtures.
 - `chunkermat(..., acceleration="fmm")` matrix-free FMM operators and
   `chunkermatapply` FMM acceleration with sparse special-quadrature
-  corrections for singular kernels.
+  corrections for singular kernels, including deterministic RHS matvec parity
+  against MATLAB forced-FMM output.
 - `chunkerinterior` FMM and FLAM classification with direct close-boundary
   correction.
 - Advanced RCIP chunkgraph workflows: selected vertices, ignored vertices, and
@@ -119,7 +120,9 @@ Implemented from this scope:
   application, adjoint application/solve helpers, l2 scaling, and
   source/target point-data callbacks. Square, circular, and rectangular FLAM
   proxy geometry, plus Hilbert/cotangent and target-data directional-derivative
-  devtools datafield slices, now also have strict MATLAB fixture parity.
+  devtools datafield slices, now also have strict MATLAB fixture parity; a
+  Laplace `rskelf` matrix product and solve are compared against MATLAB FLAM on
+  a deterministic random RHS.
 
 Deferred implementation:
 
@@ -1276,6 +1279,15 @@ equation is `M_ij = K(x_i,y_j) w_j`; application is `M sigma`. The method uses
 `chunkerinterior`, `chunkerkernevalmat`, `chunkerkerneval`, and
 `quadnative.buildmat`. Ground truth is `tests/golden/operator_parity.mat`,
 including matrices, applied values, integrals, and classifications.
+
+`test_accelerated_operator_paths_match_matlab_fixture` checks accelerated
+operator parity for a Laplace single-layer boundary matrix. The method compares
+Python `ChunkerFMMMatrix` and `chunkermatapply(..., {"acceleration": "fmm"})`
+products against MATLAB forced-FMM output, then compares Python
+`ChunkerFLAMMatrix` matvec and `.solve()` results against MATLAB
+`chunkerflam`/`rskelf_mv`/`rskelf_sv` output on the same deterministic random
+right-hand side. Ground truth is `tests/golden/operator_parity.mat`, including
+the dense special-quadrature matrix, FMM product, FLAM product, and FLAM solve.
 
 `test_section_iii_quadratures_match_matlab_fixture` checks Section III
 quadrature parity. The method compares native quadrature, log/removable/PV/HS

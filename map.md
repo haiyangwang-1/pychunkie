@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-12 with Python 3.11.9 collected 320 tests: `320 passed`. Full MATLAB parity runs generate ignored `tests/golden/*.mat` files on demand and require a populated `external/chunkie-matlab` checkout.
+Verification snapshot: `uv run pytest` on 2026-05-12 with Python 3.11.9 collected 321 tests: `321 passed`. Full MATLAB parity runs generate ignored `tests/golden/*.mat` files on demand and require a populated `external/chunkie-matlab` checkout.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -366,13 +366,13 @@ their matching `@kernel` factories.
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
-| `chunkermat` | ⚠️ 🧪 🎯 | `chunkermat.m` | Default `acceleration="dense"` native/special matrix path parity-tested, including a custom data-bearing Hilbert/cotangent PV kernel; `acceleration="fmm"` returns `ChunkerFMMMatrix`; `acceleration="flam"` returns `ChunkerFLAMMatrix` backed by PyFLAM with sparse special-quadrature overwrites. |
+| `chunkermat` | ⚠️ 🧪 🎯 | `chunkermat.m` | Default `acceleration="dense"` native/special matrix path parity-tested, including a custom data-bearing Hilbert/cotangent PV kernel; `acceleration="fmm"` returns `ChunkerFMMMatrix` with MATLAB forced-FMM matvec parity; `acceleration="flam"` returns `ChunkerFLAMMatrix` backed by PyFLAM with sparse special-quadrature overwrites and MATLAB FLAM matvec/solve parity. |
 | private helpers | 🧩 ✅ | Internal Python helpers | Chunker/chunker-sequence coercion, weighted density flattening, kernel evaluation, special-quadrature dispatch, and canonical `opts["acceleration"]` parsing with MATLAB-style boolean aliases intentionally ignored. |
 | `PointInfo` | ✅ 🧪 🎯 | MATLAB `srcinfo`/`targinfo` structs | Python dataclass for point info; chunker-flattened fields are fixture-tested. |
-| `ChunkerFMMMatrix` | ✅ 🧪 | `chunkermatapply.m`, `+chnk/chunkerkerneval_smooth.m` FMM concepts | Matrix-free `scipy.sparse.linalg.LinearOperator` returned by `chunkermat(..., {"acceleration": "fmm"})`; caches sparse special-quadrature corrections and supports vector/multiple-RHS products. |
-| `ChunkerFLAMMatrix` | ⚠️ ✅ 🧪 | `chunkerflam.m`, `+chnk/+flam/*` concepts | Matrix-free `LinearOperator` returned by `chunkermat(..., {"acceleration": "flam"})`; supports vector, multiple-RHS, and adjoint products, exposes `.factor`, `.solve(rhs, trans="n")` including adjoint solves, `.logdet()`, and dense materialization helpers when backed by PyFLAM `rskelf`. Full multi-chunker block-kernel parity remains pending. |
+| `ChunkerFMMMatrix` | ✅ 🧪 🎯 | `chunkermatapply.m`, `+chnk/chunkerkerneval_smooth.m` FMM concepts | Matrix-free `scipy.sparse.linalg.LinearOperator` returned by `chunkermat(..., {"acceleration": "fmm"})`; caches sparse special-quadrature corrections, supports vector/multiple-RHS products, and has deterministic RHS matvec parity against MATLAB forced-FMM output. |
+| `ChunkerFLAMMatrix` | ⚠️ ✅ 🧪 🎯 | `chunkerflam.m`, `+chnk/+flam/*` concepts | Matrix-free `LinearOperator` returned by `chunkermat(..., {"acceleration": "flam"})`; supports vector, multiple-RHS, and adjoint products, exposes `.factor`, `.solve(rhs, trans="n")` including adjoint solves, `.logdet()`, and dense materialization helpers when backed by PyFLAM `rskelf`; Laplace `rskelf` matvec/solve are fixture-tested against MATLAB FLAM on a deterministic random RHS. Full multi-chunker block-kernel parity remains pending. |
 | `pointinfo` | ✅ 🧪 🎯 | MATLAB point-info structs | Converts chunkers/dicts/arrays; chunker flattening is fixture-tested. |
-| `chunkerflam` | ⚠️ ✅ 🧪 | `chunkerflam.m` | Builds PyFLAM `rskelf`/`rskel` factors using 0-based matrix callbacks and optional proxy compression for both factor types; scalar and vector-opdim explicit chunker sequences, smooth interleaved block-kernel matrix/evaluation, proxy-enabled, smooth/special l2scale, point-data, and real/complex smooth diagonal-shift paths are Python-tested. |
+| `chunkerflam` | ⚠️ ✅ 🧪 🎯 | `chunkerflam.m` | Builds PyFLAM `rskelf`/`rskel` factors using 0-based matrix callbacks and optional proxy compression for both factor types; scalar and vector-opdim explicit chunker sequences, smooth interleaved block-kernel matrix/evaluation, proxy-enabled, smooth/special l2scale, point-data, real/complex smooth diagonal-shift paths, and MATLAB FLAM `rskelf` matvec/solve parity are tested. |
 | `chunkermatapply` | ✅ 🧪 🎯 | `chunkermatapply.m` | Smooth dense application is MATLAB-fixture tested; FMM/FLAM acceleration, shape-preserving single-column and multiple-RHS products, and sparse special-quadrature corrections remain Python-tested. |
 | `chunkerintegral` | ✅ 🧪 🎯 | `chunkerintegral.m` | Smooth value and callable integration routes are MATLAB-fixture tested. |
 | `chunkerinterior` | ✅ 🧪 🎯 | `chunkerinterior.m` | Direct point/grid classification is MATLAB-fixture tested; optional Laplace double-layer FMM and FLAM classification use direct close-boundary correction and are Python/devtools-tested. |

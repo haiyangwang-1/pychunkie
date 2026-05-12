@@ -4,6 +4,8 @@ from scipy import sparse
 
 from chunkie import (
     Chunker,
+    ChunkerFLAMMatrix,
+    ChunkerFMMMatrix,
     chunkerinterior,
     chunkerintegral,
     chunkerkerneval,
@@ -484,6 +486,41 @@ def test_dense_native_operator_paths_match_matlab_fixture():
         chunkerinterior(chnkr, (fixture.interior_grid_x, fixture.interior_grid_y)).reshape(-1, order="F"),
         np.asarray(fixture.interior_grid_flags, dtype=bool).reshape(-1, order="F"),
     )
+
+
+def test_accelerated_operator_paths_match_matlab_fixture():
+    fixture = load_fixture("operator_parity.mat")["operator_parity"]
+    chnkr = chunker_from_fields(fixture.chunker)
+    rhs = np.asarray(fixture.compressed_rhs).reshape(-1, order="F")
+    lap_s = kernel("lap", "s")
+
+    dense = chunkermat(chnkr, lap_s)
+    np.testing.assert_allclose(dense, fixture.lap_s_mat, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(dense @ rhs, fixture.lap_s_apply, rtol=1e-12, atol=1e-13)
+
+    fmm_opts = {"acceleration": "fmm", "eps": 1e-12}
+    fmm_op = chunkermat(chnkr, lap_s, fmm_opts)
+    fmm_apply = chunkermatapply(chnkr, lap_s, rhs, fmm_opts)
+    assert isinstance(fmm_op, ChunkerFMMMatrix)
+    np.testing.assert_allclose(fmm_op @ rhs, fixture.lap_s_fmm_apply, rtol=5e-10, atol=5e-11)
+    np.testing.assert_allclose(fmm_apply, fixture.lap_s_fmm_apply, rtol=5e-10, atol=5e-11)
+    np.testing.assert_allclose(fmm_op @ rhs, fixture.lap_s_apply, rtol=5e-10, atol=5e-11)
+
+    flam_opts = {
+        "acceleration": "flam",
+        "dval": 1.0,
+        "occ": 8,
+        "rank_or_tol": 1e-10,
+        "useproxy": False,
+    }
+    flam_op = chunkermat(chnkr, lap_s, flam_opts)
+    shifted = dense + np.eye(chnkr.npt)
+    assert isinstance(flam_op, ChunkerFLAMMatrix)
+    np.testing.assert_allclose(flam_op @ rhs, fixture.lap_s_flam_apply, rtol=2e-8, atol=2e-10)
+    np.testing.assert_allclose(flam_op @ rhs, shifted @ rhs, rtol=2e-8, atol=2e-10)
+    sol = flam_op.solve(rhs)
+    np.testing.assert_allclose(sol, fixture.lap_s_flam_solve, rtol=2e-8, atol=2e-10)
+    np.testing.assert_allclose(shifted @ sol, rhs, rtol=2e-8, atol=2e-10)
 
 
 def test_section_iii_quadratures_match_matlab_fixture():
