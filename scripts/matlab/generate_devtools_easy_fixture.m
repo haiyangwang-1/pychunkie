@@ -588,6 +588,52 @@ cgr.edge_regions = find_edge_regions(cg_region);
 cgr.region_count = numel(cg_region.regions);
 devtools_easy.chunkgrphregion = cgr;
 
+% chunkrgrphOpdimTest.m
+cop = [];
+cop.verts = [-3 1; 3 1; 3 5; -3 5;
+             -3 -5; 3 -5; 3 -1; -3 -1].';
+cop.edge2verts = [
+    -1, 1, 0, 0, 0, 0, 0, 0;
+    0, -1, 1, 0, 0, 0, 0, 0;
+    0, 0, -1, 1, 0, 0, 0, 0;
+    1, 0, 0, -1, 0, 0, 0, 0;
+    0, 0, 0, 0, -1, 1, 0, 0;
+    0, 0, 0, 0, 0, -1, 1, 0;
+    0, 0, 0, 0, 0, 0, -1, 1;
+    0, 0, 0, 0, 1, 0, 0, -1];
+cop.maxchunklen = 0.5;
+fchnks = {};
+cgrph_opdim = chunkgraph(cop.verts, sparse(cop.edge2verts), fchnks, struct('maxchunklen',cop.maxchunklen));
+cop.zk0 = 1;
+cop.zk1 = 3;
+cop.coef = [1 -1j*real(cop.zk0)];
+cop.cc = [1 1; 1 1];
+fkern11 = @(s,t) chnk.helm2d.kern(cop.zk0,s,t,'all',cop.cc) - chnk.helm2d.kern(cop.zk1,s,t,'all',cop.cc);
+fkern12 = @(s,t) chnk.helm2d.kern(cop.zk0,s,t,'c2trans',cop.coef);
+fkern21 = @(s,t) chnk.helm2d.kern(cop.zk0,s,t,'trans_rep');
+fkern22 = @(s,t) chnk.helm2d.kern(cop.zk0,s,t,'c',[1,1i]);
+cop.trans_flag = [1 1 1 1 0 0 0 0];
+fkerns = {};
+for it=1:8
+    for is=1:8
+        kern_type = [cop.trans_flag(it) cop.trans_flag(is)];
+        if all(kern_type==[1 1]), fkerns{it,is} = fkern11; end
+        if all(kern_type==[1 0]), fkerns{it,is} = fkern12; end
+        if all(kern_type==[0 1]), fkerns{it,is} = fkern21; end
+        if all(kern_type==[0 0]), fkerns{it,is} = fkern22; end
+    end
+end
+sysmat = chunkermat(cgrph_opdim, fkerns, struct('nonsmoothonly',false, 'rcip',true));
+cop.edge_npts = [cgrph_opdim.echnks.npt];
+cop.rowdims = cop.trans_flag + 1;
+cop.coldims = cop.trans_flag + 1;
+cop.sysmat_shape = size(sysmat);
+cop.row_starts = [1, 1+cumsum(cop.edge_npts.*cop.rowdims)];
+cop.col_starts = [1, 1+cumsum(cop.edge_npts.*cop.coldims)];
+cop.block_1_5 = full(sysmat(cop.row_starts(1):cop.row_starts(2)-1, cop.col_starts(5):cop.col_starts(6)-1));
+cop.block_5_1 = full(sysmat(cop.row_starts(5):cop.row_starts(6)-1, cop.col_starts(1):cop.col_starts(2)-1));
+devtools_easy.chunkrgrph_opdim = cop;
+
 % chunkgraph_lastlengthTest.m
 cll = [];
 cll.ncircedge = 6;

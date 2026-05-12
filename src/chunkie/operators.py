@@ -272,8 +272,11 @@ def chunkermat(
 ) -> np.ndarray | ChunkerFMMMatrix | ChunkerFLAMMatrix:
     """Build a native quadrature matrix, or an FMM-backed operator when requested."""
 
-    chnkr = _require_chunker(chnkr)
     options = {} if opts is None else dict(opts)
+    if _is_block_kernel_matrix(kern):
+        return _chunkgraph_block_mat(chnkr, kern, options)
+
+    chnkr = _require_chunker(chnkr)
     acceleration = _acceleration(options)
     if acceleration == "flam":
         return ChunkerFLAMMatrix(chnkr, kern, options.get("dval", 0.0), options)
@@ -539,6 +542,125 @@ def _require_chunker(obj: Any) -> Chunker:
     if out is None:
         raise TypeError("expected a chunker or chunkgraph-like object")
     return out
+
+
+def _is_block_kernel_matrix(kern: Any) -> bool:
+    if callable(kern):
+        return False
+    try:
+        arr = np.asarray(kern, dtype=object)
+    except Exception:
+        return False
+    return arr.ndim == 2 and arr.size > 0 and all(callable(item) for item in arr.flat)
+
+
+def _chunkgraph_block_mat(obj: Any, kerns: Any, opts: dict[str, Any]) -> np.ndarray:
+    edges = getattr(obj, "echnks", None)
+    if edges is None:
+        raise TypeError("block kernel matrices require a chunkgraph-like object with edge chunkers")
+    edge_chunkers = list(edges)
+    nedge = len(edge_chunkers)
+    kernels = np.asarray(kerns, dtype=object)
+    if kernels.shape != (nedge, nedge):
+        raise ValueError("block kernel matrix shape must match the number of graph edges")
+    if _acceleration(opts) != "dense":
+        raise NotImplementedError("chunkgraph block-kernel matrices currently support dense assembly only")
+
+    rowdims = np.zeros(nedge, dtype=int)
+    coldims = np.zeros(nedge, dtype=int)
+    block_opdims: dict[tuple[int, int], tuple[int, int]] = {}
+    dtype = np.dtype(float)
+    for itarg, targ in enumerate(edge_chunkers):
+        for isrc, src in enumerate(edge_chunkers):
+            op0, op1 = _kernel_opdims_between(src, targ, kernels[itarg, isrc])
+            block_opdims[(itarg, isrc)] = (op0, op1)
+            if rowdims[itarg] == 0:
+                rowdims[itarg] = op0
+            elif rowdims[itarg] != op0:
+                raise ValueError("block kernel row operator dimensions are inconsistent")
+            if coldims[isrc] == 0:
+                coldims[isrc] = op1
+            elif coldims[isrc] != op1:
+                raise ValueError("block kernel column operator dimensions are inconsistent")
+            dtype = np.result_type(dtype, _operator_dtype_between(src, targ, kernels[itarg, isrc]))
+
+    row_offsets = np.concatenate(
+        ([0], np.cumsum([edge.npt * dim for edge, dim in zip(edge_chunkers, rowdims)]))
+    )
+    col_offsets = np.concatenate(
+        ([0], np.cumsum([edge.npt * dim for edge, dim in zip(edge_chunkers, coldims)]))
+    )
+    out = np.zeros((int(row_offsets[-1]), int(col_offsets[-1])), dtype=dtype)
+
+    for kern in _unique_kernel_objects(kernels):
+        pairs = [(itarg, isrc) for itarg in range(nedge) for isrc in range(nedge) if kernels[itarg, isrc] is kern]
+        target_edges = sorted({itarg for itarg, _ in pairs})
+        source_edges = sorted({isrc for _, isrc in pairs})
+        targ_merged = merge([edge_chunkers[idx] for idx in target_edges])
+        src_merged = merge([edge_chunkers[idx] for idx in source_edges])
+        mat = _eval_kernel(kern, pointinfo(src_merged), pointinfo(targ_merged))
+        sample_op1 = block_opdims[pairs[0]][1]
+        src_weights = src_merged.wts.reshape(-1, order="F")
+        if mat.shape[1] == src_merged.npt:
+            weighted = mat * src_weights[None, :]
+        elif mat.shape[1] == src_merged.npt * sample_op1:
+            weighted = mat * np.repeat(src_weights, sample_op1)[None, :]
+        else:
+            raise ValueError("block kernel column dimension is incompatible with source edge points")
+        local_rows = _block_offsets_for_edges(edge_chunkers, rowdims, target_edges)
+        local_cols = _block_offsets_for_edges(edge_chunkers, coldims, source_edges)
+        target_lookup = {edge: idx for idx, edge in enumerate(target_edges)}
+        source_lookup = {edge: idx for idx, edge in enumerate(source_edges)}
+        for itarg, isrc in pairs:
+            rows = slice(int(row_offsets[itarg]), int(row_offsets[itarg + 1]))
+            cols = slice(int(col_offsets[isrc]), int(col_offsets[isrc + 1]))
+            local_i = target_lookup[itarg]
+            local_j = source_lookup[isrc]
+            src_rows = slice(int(local_rows[local_i]), int(local_rows[local_i + 1]))
+            src_cols = slice(int(local_cols[local_j]), int(local_cols[local_j + 1]))
+            out[rows, cols] = weighted[src_rows, src_cols]
+    if _option_bool(opts.get("l2scale", False)):
+        return _apply_chunkgraph_l2scale(edge_chunkers, rowdims, coldims, out)
+    return out
+
+
+def _unique_kernel_objects(kernels: np.ndarray) -> list[Callable[[Any, Any], np.ndarray]]:
+    unique: list[Callable[[Any, Any], np.ndarray]] = []
+    for item in kernels.flat:
+        if not any(item is existing for existing in unique):
+            unique.append(item)
+    return unique
+
+
+def _block_offsets_for_edges(edge_chunkers: list[Chunker], dims: np.ndarray, indices: list[int]) -> np.ndarray:
+    return np.concatenate(
+        ([0], np.cumsum([edge_chunkers[idx].npt * int(dims[idx]) for idx in indices]))
+    )
+
+
+def _kernel_opdims_between(src: Chunker, targ: Chunker, kern: Callable[[Any, Any], np.ndarray]) -> tuple[int, int]:
+    opdims = getattr(kern, "opdims", None)
+    if opdims is not None and tuple(opdims) != (0, 0):
+        return int(opdims[0]), int(opdims[1])
+    mat = _eval_kernel(kern, _pointinfo_node(src, 0), _pointinfo_node(targ, 0))
+    return int(mat.shape[0]), int(mat.shape[1])
+
+
+def _operator_dtype_between(src: Chunker, targ: Chunker, kern: Callable[[Any, Any], np.ndarray]) -> np.dtype:
+    try:
+        return np.asarray(_eval_kernel(kern, _pointinfo_node(src, 0), _pointinfo_node(targ, 0))).dtype
+    except Exception:
+        return np.dtype(float)
+
+
+def _apply_chunkgraph_l2scale(edge_chunkers: list[Chunker], rowdims: np.ndarray, coldims: np.ndarray, mat: np.ndarray) -> np.ndarray:
+    row_scales = np.concatenate(
+        [np.repeat(np.sqrt(edge.wts.reshape(-1, order="F")), int(dim)) for edge, dim in zip(edge_chunkers, rowdims)]
+    )
+    col_scales = np.concatenate(
+        [np.repeat(1.0 / np.sqrt(edge.wts.reshape(-1, order="F")), int(dim)) for edge, dim in zip(edge_chunkers, coldims)]
+    )
+    return row_scales[:, None] * mat * col_scales[None, :]
 
 
 def _weighted_density(chnkr: Chunker, dens: ArrayLike) -> np.ndarray:

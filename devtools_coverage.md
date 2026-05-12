@@ -32,13 +32,13 @@ The parity rule for this repo is:
 - Python snapshot generator: `scripts/generate_devtools_easy_python_fixture.py`
 - Python comparisons: `tests/test_devtools_parity.py`
 - Python verification: `uv run pytest tests/test_devtools_parity.py` on
-  2026-05-12 with the regenerated local fixture: `39 passed`
+  2026-05-12 with the regenerated local fixture: `40 passed`
 - Covered now: `absconvgaussTest.m`, `adapgausswtsTest.m`, `legeexpsunitTest.m`,
   `arclengthfunTest.m`, `chunker_diffintmatTest.m`,
   `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`,
   `chunkerfuncuniTest.m`, `chunkerfuncTest.m`, `chunkgraph_basicTest.m`,
   `chunkgraph_lastlengthTest.m`, `chunkgrphconstructTest.m`,
-  `chunkgrphregionTest.m`,
+  `chunkgrphregionTest.m`, `chunkrgrphOpdimTest.m`,
   `chunkerintegralTest.m`,
   `chunkerinteriorTest.m`, `chunkerpolyTest.m`, `chunkerarcparamTest.m`,
   `chunkermat_l2scaleTest.m`, `chunkermat_quadadapTest.m`, `flagrectTest.m`, `flagselfTest.m`,
@@ -52,10 +52,10 @@ The parity rule for this repo is:
 
 | Status | Count | Tests |
 | --- | ---: | --- |
-| ✅ 🧪 🎯 fully covered by devtools parity | 29 | `absconvgaussTest.m`, `adapgausswtsTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`, `chunkerfuncuniTest.m`, `chunkerfuncTest.m`, `chunkgraph_basicTest.m`, `chunkgraph_lastlengthTest.m`, `chunkgrphconstructTest.m`, `chunkgrphregionTest.m`, `chunkerintegralTest.m`, `chunkerinteriorTest.m`, `chunkerkerneval_gaussidTest.m`, `chunkerkerneval_greenhelmTest.m`, `chunkerkernevalmat_greenlapTest.m`, `chunkermat_l2scaleTest.m`, `chunkermat_quadadapTest.m`, `chunkerpolyTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `KernDerInterleaveTest.m`, `kernelopTest.m`, `tochunkgraphTest.m` |
+| ✅ 🧪 🎯 fully covered by devtools parity | 30 | `absconvgaussTest.m`, `adapgausswtsTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`, `chunkerfuncuniTest.m`, `chunkerfuncTest.m`, `chunkgraph_basicTest.m`, `chunkgraph_lastlengthTest.m`, `chunkgrphconstructTest.m`, `chunkgrphregionTest.m`, `chunkrgrphOpdimTest.m`, `chunkerintegralTest.m`, `chunkerinteriorTest.m`, `chunkerkerneval_gaussidTest.m`, `chunkerkerneval_greenhelmTest.m`, `chunkerkernevalmat_greenlapTest.m`, `chunkermat_l2scaleTest.m`, `chunkermat_quadadapTest.m`, `chunkerpolyTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `KernDerInterleaveTest.m`, `kernelopTest.m`, `tochunkgraphTest.m` |
 | ✅ 🧪 🎯 ⚠️ partial/diagnostic devtools parity | 8 | `chunkerarcparamTest.m`, `chunkerkerneval_greenlapTest.m`, `datafieldTest.m`, `flamutilitiesTest.m`, `kernelclassTest.m`, `slicegraphTest.m`, `smootherTest.m`, `stokes_dtracTest.m` |
 | 🧩 🧭 helper/reference | 1 | `gradient_check.m` |
-| 🚧 should/pending parity not yet converted | 25 | Remaining ranked entries below, excluding explicit non-goals. |
+| 🚧 should/pending parity not yet converted | 24 | Remaining ranked entries below, excluding explicit non-goals. |
 | 🚫 explicit non-goal; do not port | 11 | `trappermatTest.m`, `quasiperiodicTest.m`, axisymmetric tests 63-68, and flexural tests 72-74. |
 
 ## Scope Triage For Remaining Work
@@ -95,6 +95,10 @@ Implemented from this scope:
 - `chunkgrphregionTest.m`: full signed region construction now saves MATLAB's
   manually specified nested/disjoint region loops plus `find_edge_regions`
   side maps and compares them against Python's zero-based signed loops.
+- `chunkrgrphOpdimTest.m`: chunkgraph edge-by-edge block kernels now assemble
+  dense matrices with variable row/column operator dimensions; the fixture
+  compares MATLAB shape, per-edge point counts, and representative off-diagonal
+  blocks.
 - `chunkermat(..., acceleration="fmm")` matrix-free FMM operators and
   `chunkermatapply` FMM acceleration with sparse special-quadrature
   corrections for singular kernels.
@@ -176,7 +180,7 @@ Do not implement:
 | 26 | `chunkgraph_lastlengthTest.m` | ✅ 🧪 🎯 | Medium | Checks chunkgraph refinement near vertices so all adjacent edge arclengths agree and are negative powers of two times `last_len`. | Covered in `devtools_easy.mat`: compare MATLAB selected-edge refinement, per-edge split-chunk routing, `NaN` closed-edge construction, graph balancing counts, and `last_len` endpoint-panel arclengths/degrees against Python `ChunkGraph.refine`. |
 | 27 | `chunkgrphconstructTest.m` | ✅ 🧪 🎯 | Medium | Builds a pentagonal chunkgraph from circular/sine arcs and compares legacy connectivity construction against newer `edgesendverts` construction. | Covered in `devtools_easy.mat`: compare MATLAB balanced vertices, incidence matrices, endpoint indices, and first-edge sine-arc chunker geometry against Python legacy-incidence and `edgesendverts` construction. |
 | 28 | `chunkgrphregionTest.m` | ✅ 🧪 🎯 | Medium | Builds several graph regions, checks region edge orientation, edge-to-region map, and region numbering against manually specified truth. | Covered in `devtools_easy.mat`: compare MATLAB signed region loops, Python zero-based signed region conversion, region count, and `find_edge_regions` side maps. |
-| 29 | `chunkrgrphOpdimTest.m` | ✅ 🚧 | Medium | Smoke-tests operator dimensions for chunkgraph kernels and block kernels. The file is short and mainly validates dimension plumbing. | Save kernel/operator dimension metadata and assembled shape outputs; compare Python once chunkgraph operator dimensions are supported. |
+| 29 | `chunkrgrphOpdimTest.m` | ✅ 🧪 🎯 | Medium | Smoke-tests operator dimensions for chunkgraph kernels and block kernels. The file is short and mainly validates dimension plumbing. | Covered in `devtools_easy.mat`: compare graph edge point counts, variable row/column opdim matrix shape, and representative off-diagonal blocks for Helmholtz transmission block kernels. |
 | 30 | `datafieldTest.m` | ✅ 🧪 🎯 ⚠️ | Medium-Hard | Tests chunker data fields used by custom kernels, including Hilbert/cotangent-style kernels, directional derivative single-layer kernels, FLAM comparison, and data propagation to target info. | Covered in `devtools_easy.mat` for Hilbert/cotangent source-data dense/FLAM products and the directional-derivative single-layer target-data slice: compare saved MATLAB density, direct/adaptive/FLAM target evaluations, and directional-gradient truth. Wider custom-kernel matrix stress cases remain pending. |
 | 31 | `kernelclassTest.m` | ✅ 🧪 🎯 ⚠️ | Medium-Hard | Tests `kernel` objects as carriers of FMM/singularity metadata through `chunkerkerneval`, verifies Green's identity, and checks NaN-kernel propagation. | Covered in `devtools_easy.mat`: compare saved sources, boundary densities, close-corrected Python `forceadap` Green identity, and NaN-kernel propagation. MATLAB direct/FMM equality is retained as fixture diagnostics; Python FMM close-target correction remains partial. |
 | 32 | `elastickernelsTest.m` | ✅ 🧪 🚧 | Medium-Hard | Validates elasticity kernels by checking PDE residuals, alternative double-layer residuals, divergence, traction, Green's identity, gradient consistency, and direct kernel values. | Existing point-kernel fixtures cover some elasticity blocks; add saved PDE residual arrays and boundary identity values. |

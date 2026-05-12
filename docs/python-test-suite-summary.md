@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 330 pytest cases because several MATLAB parity tests are
+collection expands to 331 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -117,6 +117,9 @@ Implemented from this scope:
 - Chunkgraph signed-region devtools parity now covers the manual
   `chunkgrphregionTest.m` nested/disjoint region ordering and edge-side
   region maps through `findregions` and `find_edge_regions`.
+- Chunkgraph operator-dimension devtools parity now covers dense assembly of
+  edge-by-edge block kernels with variable row/column dimensions from
+  `chunkrgrphOpdimTest.m`.
 - Chunkgraph refinement parity now includes graph-level selected-edge
   refinement, per-edge split-chunk routing, vertex endpoint balancing,
   MATLAB-style `NaN` closed-edge construction, and `last_len` endpoint-panel
@@ -657,6 +660,13 @@ signed-region workflow from `chunkgrphregionTest.m`. The method reconstructs
 the nested/disjoint graph with a closed starfish edge, converts MATLAB's
 one-based signed region loops to Python's zero-based signed convention, and
 compares region ordering plus `find_edge_regions` side maps.
+
+`test_chunkrgrph_opdim_devtools_outputs_match_matlab` checks the chunkgraph
+block-kernel operator-dimension workflow from `chunkrgrphOpdimTest.m`. The
+method assembles a dense edge-by-edge Helmholtz transmission block matrix with
+mixed one- and two-component row/column dimensions. Ground truth is MATLAB's
+edge point counts, global matrix shape, and two representative off-diagonal
+blocks.
 
 `test_chunkgraph_lastlength_devtools_outputs_match_matlab` checks graph-level
 refinement behavior from `chunkgraph_lastlengthTest.m`. The method compares

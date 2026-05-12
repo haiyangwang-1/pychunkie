@@ -233,6 +233,39 @@ def packed_matlab_regions_to_python(fixture) -> list[list[list[int]]]:
     return regions
 
 
+def chunkgraph_opdim_graph(fixture):
+    return chunkgraph(fixture.verts, dense_int_array(fixture.edge2verts), None, {"maxchunklen": float(fixture.maxchunklen)})
+
+
+def chunkgraph_opdim_kernels(fixture):
+    zk0 = complex(fixture.zk0)
+    zk1 = complex(fixture.zk1)
+    coef = np.asarray(fixture.coef).reshape(-1, order="F")
+    cc = np.asarray(fixture.cc)
+
+    def fkern11(src, targ):
+        return helm2d.kern(zk0, src, targ, "all", cc) - helm2d.kern(zk1, src, targ, "all", cc)
+
+    def fkern12(src, targ):
+        return helm2d.kern(zk0, src, targ, "c2trans", coef)
+
+    def fkern21(src, targ):
+        return helm2d.kern(zk0, src, targ, "trans_rep", [1, 1])
+
+    def fkern22(src, targ):
+        return helm2d.kern(zk0, src, targ, "c", [1, 1j])
+
+    flags = np.asarray(fixture.trans_flag, dtype=int).reshape(-1)
+    kernels = []
+    for itarg in range(flags.size):
+        row = []
+        for isrc in range(flags.size):
+            kind = (int(flags[itarg]), int(flags[isrc]))
+            row.append(fkern11 if kind == (1, 1) else fkern12 if kind == (1, 0) else fkern21 if kind == (0, 1) else fkern22)
+        kernels.append(row)
+    return kernels
+
+
 def graph_vertex_endpoint_arcs(cg, nverts: int, width: int) -> tuple[np.ndarray, np.ndarray]:
     arcs = np.full((nverts, width), np.nan)
     degrees = np.zeros(nverts, dtype=int)
@@ -692,6 +725,30 @@ def test_chunkgrphregion_devtools_outputs_match_matlab():
     np.testing.assert_array_equal(find_edge_regions(graph), np.asarray(fixture.edge_regions, dtype=int))
     assert int(np.min(fixture.edge_regions)) == 1
     assert int(np.max(fixture.edge_regions)) == len(expected_regions)
+
+
+def test_chunkrgrph_opdim_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().chunkrgrph_opdim
+    graph = chunkgraph_opdim_graph(fixture)
+    kernels = chunkgraph_opdim_kernels(fixture)
+    mat = chunkermat(graph, kernels, {"nonsmoothonly": False, "rcip": True})
+
+    np.testing.assert_array_equal([edge.npt for edge in graph.echnks], np.asarray(fixture.edge_npts, dtype=int).reshape(-1))
+    np.testing.assert_array_equal(mat.shape, np.asarray(fixture.sysmat_shape, dtype=int).reshape(-1))
+    row_starts = np.asarray(fixture.row_starts, dtype=int).reshape(-1) - 1
+    col_starts = np.asarray(fixture.col_starts, dtype=int).reshape(-1) - 1
+    np.testing.assert_allclose(
+        mat[row_starts[0] : row_starts[1], col_starts[4] : col_starts[5]],
+        np.asarray(fixture.block_1_5),
+        rtol=1e-11,
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        mat[row_starts[4] : row_starts[5], col_starts[0] : col_starts[1]],
+        np.asarray(fixture.block_5_1),
+        rtol=1e-11,
+        atol=1e-12,
+    )
 
 
 def test_chunkgraph_lastlength_devtools_outputs_match_matlab():
