@@ -209,13 +209,23 @@ def test_centroids_and_adjacency_info():
 
 
 def test_upsample_preserves_circle_geometry_and_density_values():
-    chnkr = circle_chunker(8)
+    chnkr = circle_chunker(16)
     sigma = (1.0 + chnkr.tstor - 2.0 * chnkr.tstor**3).reshape(1, chnkr.k, chnkr.nch)
 
-    up, sigmaup = chnkr.upsample(16, sigma)
+    up, sigmaup = chnkr.upsample(24, sigma)
 
-    assert up.k == 16
+    assert up.k == 24
     assert up.nch == chnkr.nch
+    theta = np.pi * (up.tstor + 1.0)
+    expected_r = np.stack([np.cos(theta), np.sin(theta)], axis=0)[:, :, None]
+    expected_d = np.pi * np.stack([-np.sin(theta), np.cos(theta)], axis=0)[:, :, None]
+    expected_d2 = np.pi**2 * np.stack([-np.cos(theta), -np.sin(theta)], axis=0)[:, :, None]
+
+    np.testing.assert_allclose(up.r, expected_r, atol=1e-9)
+    np.testing.assert_allclose(up.d, expected_d, atol=1e-9)
+    np.testing.assert_allclose(up.d2, expected_d2, atol=2e-9)
+    np.testing.assert_allclose(up.n, expected_r, atol=1e-10)
+    np.testing.assert_allclose(up.wts, np.pi * up.wstor[:, None], atol=5e-11)
     np.testing.assert_allclose(up.area(), chnkr.area(), atol=1e-13)
     np.testing.assert_allclose(sigmaup[0, :, 0], 1.0 + up.tstor - 2.0 * up.tstor**3, atol=1e-12)
 

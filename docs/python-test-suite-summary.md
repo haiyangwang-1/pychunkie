@@ -278,11 +278,12 @@ stored adjacency, no adjacency errors, and centroid coordinates equal to
 weighted panel means.
 
 `test_upsample_preserves_circle_geometry_and_density_values` checks spectral
-upsampling from `k=8` to `k=16`. The scalar data equation is
+upsampling from `k=16` to `k=24`. The scalar data equation is
 `sigma(t) = 1 + t - 2 t^3`, a polynomial exactly representable by the panel
 basis. The method is `Chunker.upsample` for geometry and attached density.
-Ground truth is preserved area and exact polynomial values at the upsampled
-Legendre nodes.
+Ground truth is analytic circle positions, first and second derivatives,
+normals, quadrature weights, preserved area, and exact polynomial values at
+the upsampled Legendre nodes.
 
 `test_refine_oversamples_by_splitting_chunks` checks chunk refinement by panel
 splitting. The invariant is that one circle panel split with `nover=1` becomes
