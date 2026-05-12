@@ -891,3 +891,8 @@ def test_flam_proxy_geometry_helpers_match_matlab_fixture():
     np.testing.assert_allclose(rpr, fixture.rect_pr, rtol=1e-14, atol=1e-14)
     np.testing.assert_allclose(rptau, fixture.rect_ptau, rtol=1e-14, atol=1e-14)
     np.testing.assert_allclose(rpw, np.asarray(fixture.rect_pw).reshape(-1), rtol=1e-14, atol=1e-14)
+    assert flam.nproxy_square(
+        kernel("lap", "s"),
+        float(fixture.nproxy_lap_s_width),
+        {"nsrc": int(fixture.nproxy_lap_s_nsrc), "rank_or_tol": float(fixture.nproxy_lap_s_tol)},
+    ) == int(fixture.nproxy_lap_s)

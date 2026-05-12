@@ -1027,6 +1027,14 @@ flamh = [];
 flamh.square64_inside = square_pin([0.0, 2.0, -1.49, 1.51; 0.0, 0.0, 1.49, 0.0]);
 [flamh.circle16_proxy, flamh.circle16_pnorm, flamh.circle16_pw] = chnk.flam.proxy_circ_pts(16);
 [flamh.rect_pr, flamh.rect_ptau, flamh.rect_pw] = chnk.flam.proxy_rect_pts([2.0, 3.0], [4, 6]);
+flamh.nproxy_lap_s_width = 1.0;
+flamh.nproxy_lap_s_nsrc = 30;
+flamh.nproxy_lap_s_tol = 1.0e-8;
+nproxy_opts = [];
+nproxy_opts.nsrc = flamh.nproxy_lap_s_nsrc;
+nproxy_opts.rank_or_tol = flamh.nproxy_lap_s_tol;
+rng(8675309);
+flamh.nproxy_lap_s = chnk.flam.nproxy_square(kernel('lap', 's'), flamh.nproxy_lap_s_width, nproxy_opts);
 devtools_easy.flam_helpers = flamh;
 
 save(fullfile(outdir, 'devtools_easy.mat'), 'devtools_easy', '-v7');

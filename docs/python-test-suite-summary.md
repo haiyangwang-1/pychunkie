@@ -616,7 +616,9 @@ compares against MATLAB's dense and FLAM products.
 FLAM helper geometry against the MATLAB fixture. The method compares
 `proxy_square_pts(64)` points, tangents, weights, and inside predicate samples,
 `proxy_circ_pts(16)` points, normals, and weights, and
-`proxy_rect_pts([2, 3], [4, 6])` points, tangents, and weights.
+`proxy_rect_pts([2, 3], [4, 6])` points, tangents, and weights. It also
+compares deterministic Laplace `nproxy_square` proxy-order selection against
+the MATLAB fixture.
 
 `test_stokes_dtrac_devtools_output_matches_matlab` checks the Stokes double
 layer traction relation against MATLAB. The continuum equation is the traction
