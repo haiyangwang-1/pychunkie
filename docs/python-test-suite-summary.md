@@ -342,19 +342,22 @@ construction from an analytic radius-2.5 circle function. The equations are
 `area = pi R^2`, `length = 2 pi R`, and four uniform parameter intervals of
 length `pi/2`. The method is `chunkerfunc` with `nchmin=4` and Legendre order
 16. Ground truth is four chunks, closed adjacency, expected interval endpoints,
-and exact circle area and length.
+exact circle area and length, and pointwise radius-scaled positions,
+derivatives, normals, and quadrature weights on every panel.
 
 `test_chunkerfunc_open_curve_marks_free_ends` checks open-curve construction
 for a line segment from `(0,0)` to `(2,0)`. The equation is total length `2`.
 The method is `chunkerfunc` on `curves.linefunc` with `ifclosed=False` and two
 chunks. Ground truth is free-ended adjacency at both ends, the first interval
-`[0, 0.5]`, and total length `2`.
+`[0, 0.5]`, total length `2`, and exact straight-line positions,
+derivatives, normals, and quadrature weights on each panel.
 
 `test_chunkerfuncuni_builds_requested_uniform_panel_count` checks uniform
 panel construction independent of adaptivity. The equation is area
 `pi * 1.5^2` for a radius-1.5 circle. The method is `chunkerfuncuni` with six
 panels and Legendre order 10. Ground truth is exactly six chunks, `k=10`, and
-the analytic area.
+the analytic area plus pointwise uniform-panel circle positions, derivatives,
+normals, and weights.
 
 `test_chunkerfunc_can_spectrally_differentiate_position_only_curve` checks that
 the constructor can infer derivatives when a curve callback returns only

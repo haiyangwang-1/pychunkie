@@ -12,6 +12,21 @@ def circle(t, radius=1.0, center=(0.0, 0.0)):
     return r, d, d2
 
 
+def assert_circle_panels(chnkr, ab, radius, center=(0.0, 0.0), atol=1e-12):
+    center_arr = np.asarray(center, dtype=float)
+    for ich, (a, b) in enumerate(ab.T):
+        theta = a + (b - a) * (chnkr.tstor + 1.0) / 2.0
+        h = (b - a) / 2.0
+        expected_r, global_d, global_d2 = circle(theta, radius, center)
+        expected_n = (expected_r - center_arr[:, None]) / radius
+
+        np.testing.assert_allclose(chnkr.r[:, :, ich], expected_r, atol=atol)
+        np.testing.assert_allclose(chnkr.d[:, :, ich], h * global_d, atol=atol)
+        np.testing.assert_allclose(chnkr.d2[:, :, ich], h * h * global_d2, atol=atol)
+        np.testing.assert_allclose(chnkr.n[:, :, ich], expected_n, atol=atol)
+        np.testing.assert_allclose(chnkr.wts[:, ich], radius * h * chnkr.wstor, atol=atol)
+
+
 def test_chunkerfunc_builds_closed_circle_with_area_and_adjacency():
     chnkr, ab = chunkerfunc(lambda t: circle(t, radius=2.5), {"nchmin": 4}, {"k": 16})
 
@@ -21,6 +36,7 @@ def test_chunkerfunc_builds_closed_circle_with_area_and_adjacency():
     np.testing.assert_array_equal(chnkr.adj[:, -1], [3, 1])
     np.testing.assert_allclose(chnkr.area(), np.pi * 2.5**2, atol=1e-12)
     np.testing.assert_allclose(np.sum(chnkr.chunklen()), 2 * np.pi * 2.5, atol=1e-12)
+    assert_circle_panels(chnkr, ab, 2.5)
 
 
 def test_chunkerfunc_open_curve_marks_free_ends():
@@ -35,14 +51,25 @@ def test_chunkerfunc_open_curve_marks_free_ends():
     np.testing.assert_array_equal(chnkr.adj[:, 0], [-1, 2])
     np.testing.assert_array_equal(chnkr.adj[:, 1], [1, -1])
     np.testing.assert_allclose(np.sum(chnkr.chunklen()), 2.0, atol=1e-13)
+    for ich, (a, b) in enumerate(ab.T):
+        t = a + (b - a) * (chnkr.tstor + 1.0) / 2.0
+        h = (b - a) / 2.0
+        np.testing.assert_allclose(chnkr.r[:, :, ich], np.vstack((2.0 * t, np.zeros_like(t))), atol=1e-15)
+        np.testing.assert_allclose(chnkr.d[:, :, ich], np.repeat([[2.0 * h], [0.0]], chnkr.k, axis=1))
+        np.testing.assert_allclose(chnkr.d2[:, :, ich], 0.0, atol=1e-15)
+        np.testing.assert_allclose(chnkr.n[:, :, ich], np.repeat([[0.0], [-1.0]], chnkr.k, axis=1))
+        np.testing.assert_allclose(chnkr.wts[:, ich], 2.0 * h * chnkr.wstor)
 
 
 def test_chunkerfuncuni_builds_requested_uniform_panel_count():
     chnkr = chunkerfuncuni(lambda t: circle(t, radius=1.5), 6, pref={"k": 10})
+    breaks = np.linspace(0.0, 2.0 * np.pi, 7)
+    ab = np.vstack((breaks[:-1], breaks[1:]))
 
     assert chnkr.nch == 6
     assert chnkr.k == 10
     np.testing.assert_allclose(chnkr.area(), np.pi * 1.5**2, atol=1e-12)
+    assert_circle_panels(chnkr, ab, 1.5, atol=1e-10)
 
 
 def test_chunkerfunc_can_spectrally_differentiate_position_only_curve():

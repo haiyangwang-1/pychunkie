@@ -64,6 +64,7 @@ moved here so active triage stays focused on unfinished work.
 | `tests/test_spcl.py::test_absconvgauss_derivatives_match_finite_differences` | done | Checked derivative consistency but left the smoothed value as a shape-only assertion. | Compares value, first derivative, and second derivative to the closed-form Gaussian-convolution formulas while retaining finite-difference checks. |
 | `tests/test_chunkgraph.py::test_chunkgraph_constructs_edges_and_vertex_incidence` | done | Checked incidence, counts, source-info shape, and a loose region count without proving the graph retained the expected edge geometry. | Adds straight-edge node, derivative, normal, weight, source-info flattening, vertex-structure, and exact region-loop assertions. |
 | `tests/test_chunker.py::test_matrix_transform_updates_derivatives_normals_and_weights` | done | The test name covered normals and weights, but assertions only checked transformed coordinates, first derivatives, and area. | Adds transformed second derivatives plus recomputed normal and quadrature-weight assertions. |
+| `tests/test_chunkerfunc.py` circle/line construction smoke tests | done | Several constructor tests checked only panel counts, adjacency, area, or length, leaving pointwise geometry and derivative scaling unchecked. | Adds exact per-panel positions, derivatives, normals, and quadrature weights for analytic circle, uniform circle, and open line cases. |
 
 ## Completed Full Test Ease Audit - 2026-05-12
 
