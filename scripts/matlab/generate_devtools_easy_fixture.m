@@ -975,6 +975,7 @@ flamh = [];
 [flamh.square64_pr, flamh.square64_ptau, flamh.square64_pw, square_pin] = chnk.flam.proxy_square_pts(64);
 flamh.square64_inside = square_pin([0.0, 2.0, -1.49, 1.51; 0.0, 0.0, 1.49, 0.0]);
 [flamh.circle16_proxy, flamh.circle16_pnorm, flamh.circle16_pw] = chnk.flam.proxy_circ_pts(16);
+[flamh.rect_pr, flamh.rect_ptau, flamh.rect_pw] = chnk.flam.proxy_rect_pts([2.0, 3.0], [4, 6]);
 devtools_easy.flam_helpers = flamh;
 
 save(fullfile(outdir, 'devtools_easy.mat'), 'devtools_easy', '-v7');

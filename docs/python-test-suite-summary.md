@@ -112,8 +112,8 @@ Implemented from this scope:
   interior classification, adaptive near-target correction, explicit
   chunker-sequence coercion, shape-preserving single-column and multiple-RHS
   application, adjoint application/solve helpers, l2 scaling, and
-  source/target point-data callbacks. Square and circular FLAM proxy geometry
-  now also has strict MATLAB fixture parity.
+  source/target point-data callbacks. Square, circular, and rectangular FLAM
+  proxy geometry now also has strict MATLAB fixture parity.
 
 Deferred implementation:
 
@@ -560,7 +560,8 @@ matrices and verifies both routes agree to the devtools Frobenius threshold.
 `test_flam_proxy_geometry_helpers_match_matlab_fixture` checks deterministic
 FLAM helper geometry against the MATLAB fixture. The method compares
 `proxy_square_pts(64)` points, tangents, weights, and inside predicate samples,
-plus `proxy_circ_pts(16)` points, normals, and weights.
+`proxy_circ_pts(16)` points, normals, and weights, and
+`proxy_rect_pts([2, 3], [4, 6])` points, tangents, and weights.
 
 `test_stokes_dtrac_devtools_output_matches_matlab` checks the Stokes double
 layer traction relation against MATLAB. The continuum equation is the traction

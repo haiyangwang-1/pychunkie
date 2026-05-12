@@ -781,3 +781,8 @@ def test_flam_proxy_geometry_helpers_match_matlab_fixture():
     np.testing.assert_allclose(proxy, fixture.circle16_proxy, rtol=1e-14, atol=1e-14)
     np.testing.assert_allclose(pnorm, fixture.circle16_pnorm, rtol=1e-14, atol=1e-14)
     np.testing.assert_allclose(cpw, np.asarray(fixture.circle16_pw).reshape(-1), rtol=1e-14, atol=1e-14)
+
+    rpr, rptau, rpw, _ = flam.proxy_rect_pts([2.0, 3.0], [4, 6])
+    np.testing.assert_allclose(rpr, fixture.rect_pr, rtol=1e-14, atol=1e-14)
+    np.testing.assert_allclose(rptau, fixture.rect_ptau, rtol=1e-14, atol=1e-14)
+    np.testing.assert_allclose(rpw, np.asarray(fixture.rect_pw).reshape(-1), rtol=1e-14, atol=1e-14)
