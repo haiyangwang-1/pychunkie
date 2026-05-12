@@ -125,7 +125,7 @@ class ChunkerFLAMMatrix(LinearOperator):
             return np.empty((self.shape[1], 0), dtype=np.result_type(self.dtype, x.dtype))
         return self._apply(x, trans="c")
 
-    def solve(self, rhs: ArrayLike) -> np.ndarray:
+    def solve(self, rhs: ArrayLike, trans: str = "n") -> np.ndarray:
         """Apply the FLAM approximate inverse to one or more right-hand sides."""
 
         if self.flamtype != "rskelf":
@@ -137,7 +137,7 @@ class ChunkerFLAMMatrix(LinearOperator):
             arr = arr.reshape(-1, 1)
         if arr.shape[0] != self.shape[0]:
             raise ValueError("right-hand side has incompatible row count")
-        out = pyflam.rskelf_partial_sv(self.factor, arr)
+        out = pyflam.rskelf_partial_sv(self.factor, arr, trans=trans)
         return out[:, 0] if one_dim else out
 
     def logdet(self):

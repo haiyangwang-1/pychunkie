@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-12 with Python 3.11.9 collected 301 tests: `301 passed`. Full MATLAB parity runs generate ignored `tests/golden/*.mat` files on demand and require a populated `external/chunkie-matlab` checkout.
+Verification snapshot: `uv run pytest` on 2026-05-12 with Python 3.11.9 collected 302 tests: `302 passed`. Full MATLAB parity runs generate ignored `tests/golden/*.mat` files on demand and require a populated `external/chunkie-matlab` checkout.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -370,7 +370,7 @@ their matching `@kernel` factories.
 | private helpers | 🧩 ✅ | Internal Python helpers | Chunker coercion, weighted density flattening, kernel evaluation, special-quadrature dispatch. |
 | `PointInfo` | ✅ 🧪 🎯 | MATLAB `srcinfo`/`targinfo` structs | Python dataclass for point info; chunker-flattened fields are fixture-tested. |
 | `ChunkerFMMMatrix` | ✅ 🧪 | `chunkermatapply.m`, `+chnk/chunkerkerneval_smooth.m` FMM concepts | Matrix-free `scipy.sparse.linalg.LinearOperator` returned by `chunkermat(..., {"acceleration": "fmm"})`; caches sparse special-quadrature corrections and supports vector/multiple-RHS products. |
-| `ChunkerFLAMMatrix` | ⚠️ ✅ 🧪 | `chunkerflam.m`, `+chnk/+flam/*` concepts | Matrix-free `LinearOperator` returned by `chunkermat(..., {"acceleration": "flam"})`; supports vector, multiple-RHS, and adjoint products, exposes `.factor`, `.solve(rhs)`, `.logdet()`, and dense materialization helpers when backed by PyFLAM `rskelf`. Full multi-chunker block-kernel parity remains pending. |
+| `ChunkerFLAMMatrix` | ⚠️ ✅ 🧪 | `chunkerflam.m`, `+chnk/+flam/*` concepts | Matrix-free `LinearOperator` returned by `chunkermat(..., {"acceleration": "flam"})`; supports vector, multiple-RHS, and adjoint products, exposes `.factor`, `.solve(rhs, trans="n")` including adjoint solves, `.logdet()`, and dense materialization helpers when backed by PyFLAM `rskelf`. Full multi-chunker block-kernel parity remains pending. |
 | `pointinfo` | ✅ 🧪 🎯 | MATLAB point-info structs | Converts chunkers/dicts/arrays; chunker flattening is fixture-tested. |
 | `chunkerflam` | ⚠️ ✅ 🧪 | `chunkerflam.m` | Builds PyFLAM `rskelf`/`rskel` factors using 0-based matrix callbacks and optional proxy compression for both factor types; scalar, vector-opdim, proxy-enabled, smooth/special l2scale, point-data, and real/complex smooth diagonal-shift paths are Python-tested. |
 | `chunkermatapply` | ✅ 🧪 🎯 | `chunkermatapply.m` | Smooth dense application is MATLAB-fixture tested; FMM/FLAM acceleration, multiple-RHS products, and sparse special-quadrature corrections remain Python-tested. |
