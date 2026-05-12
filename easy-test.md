@@ -68,6 +68,7 @@ moved here so active triage stays focused on unfinished work.
 | `tests/test_chunkerfunc.py::test_basic_curve_helpers_match_expected_derivatives` | done | Checked the sine helper's x-coordinate derivatives and y-coordinate value, but not the y-derivatives. | Adds first and second y-derivative formula checks. |
 | `tests/test_chunkerfit.py::test_chunkerfit_open_line_with_split_points` | done | Checked split count, adjacency, total length, and zero y-coordinate, but not the fitted x-nodes or differential geometry. | Adds exact per-panel line positions, derivatives, normals, and quadrature weights. |
 | `tests/test_chunkerpoly.py` unrounded polygon and transform checks | done | Plain polygon tests relied on area, length, adjacency, and data checks without pointwise geometry; reverse/move only checked area. | Adds straight-edge positions, derivatives, normals, weights, plus reversed and moved storage assertions. |
+| `tests/test_chunker.py` translation/scaling/rotation/reflection checks | done | Transform tests did not cover all stored derivative, normal, and weight fields. | Adds translated, scaled, rotated, and reflected storage assertions across coordinates, derivatives, normals, and weights. |
 
 ## Completed Full Test Ease Audit - 2026-05-12
 

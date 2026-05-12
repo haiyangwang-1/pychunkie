@@ -231,7 +231,8 @@ truth is exact circle geometry and tangent-normal orthogonality.
 operator overloads for translation and scalar scaling. The equations are
 `center(r + a) = center(r) + a`, `area(alpha r) = alpha^2 area(r)`, and
 `length(alpha r) = alpha length(r)`. The method uses `__radd__` and scalar
-`__mul__`. Ground truth is the weighted center shift plus exact area and length
+`__mul__`. Ground truth is the weighted center shift, exact translated and
+scaled coordinate/derivative/normal/weight storage, and exact area and length
 scaling.
 
 `test_matrix_transform_updates_derivatives_normals_and_weights` checks affine
@@ -247,7 +248,8 @@ reflection helpers with source and destination centers. The equations are
 `r_new = R(theta)(r-r0)+r1` for rotation and the standard reflection matrix
 with angle `angle` for reflection. The method is `rotate` and `reflect`, which
 transform coordinates, derivatives, and normals. Ground truth is explicit
-matrix application to each stored field.
+matrix application to position, first and second derivatives, normals, and
+unchanged quadrature weights.
 
 `test_chunker_spectral_helpers_on_circle` checks the spectral expansion,
 arclength, differentiation, and differentiation-matrix helpers. The equation is

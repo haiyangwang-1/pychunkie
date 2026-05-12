@@ -81,8 +81,18 @@ def test_translation_and_scaling_match_matlab_style_operations():
     moved = np.array([1.0, -2.0]) + chnkr
     moved_center = moved.r.reshape(2, -1) @ moved.wts.ravel() / np.sum(moved.wts)
     np.testing.assert_allclose(moved_center - center, [1.0, -2.0], atol=1e-14)
+    np.testing.assert_allclose(moved.r, chnkr.r + np.array([1.0, -2.0])[:, None, None])
+    np.testing.assert_allclose(moved.d, chnkr.d)
+    np.testing.assert_allclose(moved.d2, chnkr.d2)
+    np.testing.assert_allclose(moved.n, chnkr.n)
+    np.testing.assert_allclose(moved.wts, chnkr.wts)
 
     scaled = chnkr * 2.0
+    np.testing.assert_allclose(scaled.r, 2.0 * chnkr.r)
+    np.testing.assert_allclose(scaled.d, 2.0 * chnkr.d)
+    np.testing.assert_allclose(scaled.d2, 2.0 * chnkr.d2)
+    np.testing.assert_allclose(scaled.n, chnkr.n)
+    np.testing.assert_allclose(scaled.wts, 2.0 * chnkr.wts)
     np.testing.assert_allclose(scaled.area(), 4.0 * chnkr.area(), atol=1e-13)
     np.testing.assert_allclose(scaled.chunklen(), 2.0 * chnkr.chunklen(), atol=1e-13)
 
@@ -122,7 +132,9 @@ def test_rotate_and_reflect_match_matlab_transform_formulas():
         np.einsum("ij,jkl->ikl", rot, chnkr.r - r0[:, None, None]) + r1[:, None, None],
     )
     np.testing.assert_allclose(rotated.d, np.einsum("ij,jkl->ikl", rot, chnkr.d))
+    np.testing.assert_allclose(rotated.d2, np.einsum("ij,jkl->ikl", rot, chnkr.d2))
     np.testing.assert_allclose(rotated.n, np.einsum("ij,jkl->ikl", rot, chnkr.n))
+    np.testing.assert_allclose(rotated.wts, chnkr.wts)
 
     angle = np.pi / 4.0
     refmat = np.array(
@@ -134,7 +146,9 @@ def test_rotate_and_reflect_match_matlab_transform_formulas():
         np.einsum("ij,jkl->ikl", refmat, chnkr.r - r0[:, None, None]) + r1[:, None, None],
     )
     np.testing.assert_allclose(reflected.d, np.einsum("ij,jkl->ikl", refmat, chnkr.d))
+    np.testing.assert_allclose(reflected.d2, np.einsum("ij,jkl->ikl", refmat, chnkr.d2))
     np.testing.assert_allclose(reflected.n, np.einsum("ij,jkl->ikl", refmat, chnkr.n))
+    np.testing.assert_allclose(reflected.wts, chnkr.wts)
 
 
 def test_chunker_spectral_helpers_on_circle():
