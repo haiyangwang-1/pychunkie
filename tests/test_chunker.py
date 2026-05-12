@@ -92,9 +92,17 @@ def test_matrix_transform_updates_derivatives_normals_and_weights():
     mat = np.array([[1.0, 2.0], [2.0, 3.0]])
 
     transformed = mat @ chnkr
+    expected_r = np.einsum("ij,jkl->ikl", mat, chnkr.r)
+    expected_d = np.einsum("ij,jkl->ikl", mat, chnkr.d)
+    expected_d2 = np.einsum("ij,jkl->ikl", mat, chnkr.d2)
+    expected_speed = np.sqrt(np.sum(expected_d**2, axis=0))
+    expected_n = np.stack((expected_d[1] / expected_speed, -expected_d[0] / expected_speed), axis=0)
 
-    np.testing.assert_allclose(transformed.r, np.einsum("ij,jkl->ikl", mat, chnkr.r))
-    np.testing.assert_allclose(transformed.d, np.einsum("ij,jkl->ikl", mat, chnkr.d))
+    np.testing.assert_allclose(transformed.r, expected_r)
+    np.testing.assert_allclose(transformed.d, expected_d)
+    np.testing.assert_allclose(transformed.d2, expected_d2)
+    np.testing.assert_allclose(transformed.n, expected_n)
+    np.testing.assert_allclose(transformed.wts, expected_speed * chnkr.wstor[:, None])
     np.testing.assert_allclose(transformed.area(), np.linalg.det(mat) * chnkr.area(), atol=1e-13)
 
     with pytest.raises(TypeError):

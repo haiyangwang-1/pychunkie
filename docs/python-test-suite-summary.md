@@ -235,11 +235,12 @@ operator overloads for translation and scalar scaling. The equations are
 scaling.
 
 `test_matrix_transform_updates_derivatives_normals_and_weights` checks affine
-matrix transforms. The equations are `r_new = A r`, `d_new = A d`, and
-`area_new = det(A) area`. The method uses matrix multiplication
-`A @ chnkr`, recomputing normals and weights. Ground truth is `np.einsum`
-application of the matrix and determinant-based area scaling; multiplication
-by a matrix with `chnkr * A` is expected to raise `TypeError`.
+matrix transforms. The equations are `r_new = A r`, `d_new = A d`,
+`d2_new = A d2`, `n_new = (dy,-dx)/|d_new|`, `w_new = |d_new| w_leg`, and
+`area_new = det(A) area`. The method uses matrix multiplication `A @ chnkr`,
+recomputing normals and weights. Ground truth is explicit matrix application,
+recomputed normals and weights, determinant-based area scaling, and
+`TypeError` for matrix right-multiplication with `chnkr * A`.
 
 `test_rotate_and_reflect_match_matlab_transform_formulas` checks rotation and
 reflection helpers with source and destination centers. The equations are
