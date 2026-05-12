@@ -217,15 +217,17 @@ def chunkerflam(
         spmat = _special_overwrite_matrix(chnkr, kern, options)
     else:
         spmat = spmat.tocsr() if sparse.issparse(spmat) else sparse.csr_matrix(spmat)
-    if np.any(dval_vec != 0):
-        spmat = spmat + sparse.diags(dval_vec, offsets=0, shape=(nrows, nrows), format="csr")
+    has_dval = bool(np.any(dval_vec != 0))
 
     from .chnk import flam
 
     l2scale = bool(options.get("l2scale", False))
 
     def matfun(rows: np.ndarray, cols: np.ndarray) -> np.ndarray:
-        return flam.kernbyindex(rows, cols, chnkr, kern, (op0, op1), spmat, l2scale)
+        out = flam.kernbyindex(rows, cols, chnkr, kern, (op0, op1), spmat, l2scale)
+        if has_dval:
+            out = _add_diagonal_shift(out, rows, cols, dval_vec)
+        return out
 
     srcinfo = pointinfo(chnkr)
     xflam = np.repeat(np.real(srcinfo.r), op1, axis=1)
@@ -582,6 +584,27 @@ def _special_overwrite_matrix(
         ilist=options.get("ilist", None),
         corrections=False,
     )
+
+
+def _add_diagonal_shift(out: np.ndarray, rows: np.ndarray, cols: np.ndarray, dval: np.ndarray) -> np.ndarray:
+    rows_arr = np.asarray(rows, dtype=np.int64).reshape(-1)
+    cols_arr = np.asarray(cols, dtype=np.int64).reshape(-1)
+    if rows_arr.size == 0 or cols_arr.size == 0:
+        return out
+    col_positions: dict[int, list[int]] = {}
+    for pos, col in enumerate(cols_arr):
+        col_positions.setdefault(int(col), []).append(pos)
+    touched = False
+    shifted = out
+    for row_pos, row in enumerate(rows_arr):
+        positions = col_positions.get(int(row))
+        if positions is None:
+            continue
+        if not touched:
+            shifted = np.array(out, copy=True)
+            touched = True
+        shifted[row_pos, positions] += dval[int(row)]
+    return shifted
 
 
 def _chunkerflam_proxyfun(

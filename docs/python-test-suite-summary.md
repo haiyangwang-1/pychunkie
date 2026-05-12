@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 289 pytest cases because several MATLAB parity tests are
+collection expands to 293 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -672,16 +672,35 @@ FLAM matrix callbacks. The method requests selected row/column DOFs from
 `chnk.flam.kernbyindex`, compares them to the dense weighted matrix, and
 verifies sparse special-quadrature entries overwrite smooth entries.
 
+`test_flam_kernbyindexr_matches_dense_and_sparse_overwrites` checks the
+rectangular target/source FLAM callback. The method selects off-boundary target
+rows and boundary source columns, compares to `chunkerkernevalmat`, and
+verifies sparse target-evaluation entries have overwrite precedence.
+
 `test_flam_proxy_square_geometry_and_proxyfun_shapes` checks proxy helper
 geometry and callback behavior. The method validates square proxy weights,
 interior flags, and `proxyfun` output/neighbor shapes for a small circle
 chunker. Ground truth is stable geometry and 0-based callback sizing.
+
+`test_flam_proxyfunr_column_and_row_shapes` checks rectangular proxy callbacks
+for both column and row compression sides. The method verifies 0-based
+neighbor filtering and output shapes for off-boundary target evaluation.
 
 `test_chunkermat_flam_applies_solves_and_logdet_against_dense` checks the
 PyFLAM-backed boundary matrix wrapper. The method builds
 `chunkermat(..., {"acceleration": "flam"})`, compares matrix-vector products
 against the dense special matrix, solves a shifted Laplace system, and compares
 `logdet()` to NumPy's dense determinant calculation.
+
+`test_chunkermat_flam_proxy_paths_match_dense_application` checks the default
+proxy-enabled and level-dependent proxy paths. The method applies both FLAM
+operators to a shifted Laplace single-layer system and compares against the
+dense special matrix product.
+
+`test_chunkermat_flam_adds_dval_without_replacing_smooth_diagonal` checks
+diagonal shifts for smooth kernels. The method compares scalar and vector-opdim
+smooth FLAM applications with `dval` against dense matrices with an additive
+diagonal, ensuring the shift does not overwrite the native smooth diagonal.
 
 `test_chunkerkerneval_flam_matches_eval_matrix_and_dense` checks off-boundary
 target FLAM evaluation. The method compares `chunkerkerneval` and
