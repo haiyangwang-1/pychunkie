@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 322 pytest cases because several MATLAB parity tests are
+collection expands to 323 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -104,7 +104,8 @@ Implemented from this scope:
   global block-kernel subselection for local corner compression.
 - Section II kernel/operator parity: MATLAB `@kernel` factory metadata and
   direct evaluations, kernel algebra/interleave, Green helpers, biharmonic
-  `bhgreen`-derived selectors, and smooth dense operator helper routes.
+  `bhgreen`-derived selectors, Helmholtz-difference interleave identities, and
+  smooth dense operator helper routes.
 - Laplace and Helmholtz Green-identity target-evaluation parity for the devtools
   `kernelclass`, `chunkerkerneval_greenlap`, and
   `chunkerkerneval_greenhelm`, and `chunkerkernevalmat_greenlap` paths,
@@ -300,6 +301,8 @@ unchanged area, and unchanged summed chunk lengths.
 of an existing uneven chunker. The method builds an open line with two short
 panels followed by a long panel, calls `Chunker.refine` with `lvlr="a"`, and
 verifies every adjacent chunk-length ratio is within the requested factor.
+Ground truth also includes straight-line coordinates, derivatives, normals,
+second derivatives, and weights after refinement.
 
 `test_chunkerpoints_builds_from_nodes_and_optional_derivatives` checks
 reconstruction of a chunker from node positions alone and from explicit
@@ -590,6 +593,12 @@ subtraction, conjugation, and block interleave preserve the underlying kernel
 values. The method uses Laplace single layer, Helmholtz double layer, and the
 generic `kernel` wrapper. Ground truth is the MATLAB fixture for each algebraic
 combination.
+
+`test_kernderinterleave_devtools_outputs_match_matlab` checks the exact
+`KernDerInterleaveTest.m` source/target/coefficient cases. The equations are
+combined-kernel assembly, transmission blocks, `all` interleaving, gradients,
+and target-normal derivatives as gradient-dot-normal contractions for Laplace,
+Helmholtz, and Helmholtz-difference kernels. Ground truth is the MATLAB fixture.
 
 `test_chunkerfunc_devtools_outputs_match_matlab` checks adaptive
 `chunkerfunc` cases from the MATLAB devtools test: starfish construction,
@@ -1294,9 +1303,10 @@ linear combinations. The method is direct point-kernel evaluation through
 `s`, `d`, `sp`, `stau`, `sgrad`, `dgrad`, `dp`, `c`, `cp`, `cgrad`,
 `c2trans`, `all`, `trans_rep`, `trans_rep_prime`, and `trans_rep_grad`. The
 equations are the 2D Helmholtz Green's function and the same normal, tangent,
-gradient, combined, and transmission-representation blocks. The method is
+gradient, combined, and transmission-representation blocks; devtools parity
+also covers the corresponding Helmholtz-difference identities. The method is
 direct `helm2d.kern` with saved wavenumber and coefficient data. Ground truth
-is the MATLAB point-kernel fixture.
+is the MATLAB point-kernel fixture and `devtools_easy.mat`.
 
 `test_helmholtz_1d_point_kernels_match_matlab_fixture` is parametrized over
 `s`, `d`, `sp`, `stau`, `dp`, `c`, `cp`, `c2trans`, `all`, `trans_rep`,

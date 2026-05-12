@@ -275,6 +275,12 @@ def test_refine_enforces_arc_length_level_restriction():
     lengths = refined.chunklen()
 
     assert refined.nch > chnkr.nch
+    np.testing.assert_allclose(refined.r[1], 0.0, atol=1e-14)
+    np.testing.assert_allclose(refined.d[1], 0.0, atol=1e-14)
+    np.testing.assert_allclose(refined.d2, 0.0, atol=1e-14)
+    expected_n = np.repeat(np.repeat([[[0.0]], [[-1.0]]], refined.k, axis=1), refined.nch, axis=2)
+    np.testing.assert_allclose(refined.n, expected_n, atol=1e-14)
+    np.testing.assert_allclose(refined.wts, refined.d[0] * refined.wstor[:, None], atol=1e-14)
     for idx, length in enumerate(lengths):
         left, right = refined.adj[:, idx]
         left_len = lengths[left - 1] if left > 0 else length
