@@ -148,6 +148,49 @@ def helmholtz_green_identity_quantities(fixture):
     return chnkr, helm_s, helm_d, densu, densun, utarg
 
 
+def transmission_all_kernel_from_fixture(fixture) -> Kernel:
+    ks = np.asarray(fixture.ks).reshape(-1, order="F")
+    cs = np.asarray(fixture.cs, dtype=int).reshape(2, -1, order="F")
+    coefs = np.asarray(fixture.coefs).reshape(-1, order="F")
+    d1 = int(cs[0, 0]) - 1
+    d2 = int(cs[1, 0]) - 1
+    c1 = coefs[d1]
+    c2 = coefs[d2]
+    alpha1 = 2.0 / (c1 + c2)
+    alpha2 = 2.0 / (1.0 / c1 + 1.0 / c2)
+    cc1 = np.array([[-alpha1 * c1, -alpha1], [alpha2, alpha2 / c1]], dtype=complex)
+    cc2 = np.array([[-alpha1 * c2, -alpha1], [alpha2, alpha2 / c2]], dtype=complex)
+    cc_use = np.stack((-cc1, -cc2), axis=2)
+    return kernel("helmdiff", "all", [ks[d1], ks[d2]], cc_use)
+
+
+def transmission_point_source_boundary_data(chnkr: Chunker, fixture) -> np.ndarray:
+    ks = np.asarray(fixture.ks).reshape(-1, order="F")
+    cs = np.asarray(fixture.cs, dtype=int).reshape(2, -1, order="F")
+    coefs = np.asarray(fixture.coefs).reshape(-1, order="F")
+    sources = np.asarray(fixture.sources)
+    charges = np.asarray(fixture.charges).reshape(-1, order="F")
+    d1 = int(cs[0, 0]) - 1
+    d2 = int(cs[1, 0]) - 1
+    c1 = coefs[d1]
+    c2 = coefs[d2]
+    alpha1 = 2.0 / (c1 + c2)
+    alpha2 = 2.0 / (1.0 / c1 + 1.0 / c2)
+    targ = pointinfo(chnkr)
+
+    val1, grad1, _ = helm2d.green(ks[d1], sources[:, d1 : d1 + 1], targ.r)
+    val2, grad2, _ = helm2d.green(ks[d2], sources[:, d2 : d2 + 1], targ.r)
+    u1 = val1 @ charges[d1 : d1 + 1]
+    u2 = val2 @ charges[d2 : d2 + 1]
+    dudn1 = (grad1[:, :, 0] @ charges[d1 : d1 + 1]) * targ.n[0] + (grad1[:, :, 1] @ charges[d1 : d1 + 1]) * targ.n[1]
+    dudn2 = (grad2[:, :, 0] @ charges[d2 : d2 + 1]) * targ.n[0] + (grad2[:, :, 1] @ charges[d2 : d2 + 1]) * targ.n[1]
+
+    out = np.zeros(2 * chnkr.npt, dtype=complex)
+    out[0::2] = alpha1 * (u1 - u2)
+    out[1::2] = -alpha2 * (dudn1 / c1 - dudn2 / c2)
+    return out
+
+
 def sorted_pairs(pairs: np.ndarray) -> np.ndarray:
     arr = np.asarray(pairs, dtype=int)
     if arr.size == 0:
@@ -1608,6 +1651,32 @@ def test_chunkermatapply_scalar_devtools_outputs_match_matlab():
     np.testing.assert_allclose(sol_dense, np.asarray(fixture.sol_gmres).reshape(-1, order="F"), rtol=5e-5, atol=2e-5)
     assert max(apply_relerr, float(fixture.apply_relerr)) < 1e-13
     assert float(fixture.solve_relerr) < 1e-13
+
+
+def test_chunkermatapply_vector_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().chunkermatapply_vector
+    chnkr = chunker_from_fields(fixture.chunker)
+    kern = transmission_all_kernel_from_fixture(fixture)
+    bdry_data = transmission_point_source_boundary_data(chnkr, fixture)
+    sysmat = chunkermat(chnkr, kern)
+    sys = np.eye(sysmat.shape[0], dtype=complex) + sysmat
+    udense = sys @ bdry_data
+    u_apply = bdry_data + chunkermatapply(chnkr, kern, bdry_data)
+    probe = np.asarray(fixture.probe)
+    sys_probe = sys @ probe
+    apply_relerr = np.linalg.norm(udense - u_apply) / np.linalg.norm(udense)
+    matlab_udense = np.asarray(fixture.udense).reshape(-1, order="F")
+    matlab_u_apply = np.asarray(fixture.u_apply).reshape(-1, order="F")
+    matlab_sys_probe = np.asarray(fixture.sys_probe)
+
+    np.testing.assert_allclose(bdry_data, np.asarray(fixture.bdry_data).reshape(-1, order="F"), rtol=1e-12, atol=1e-11)
+    assert np.linalg.norm(udense - matlab_udense) / np.linalg.norm(matlab_udense) < 1e-5
+    assert np.max(np.abs(udense - matlab_udense)) < 2e-3
+    assert np.linalg.norm(u_apply - matlab_u_apply) / np.linalg.norm(matlab_u_apply) < 1e-5
+    assert np.max(np.abs(u_apply - matlab_u_apply)) < 2e-3
+    assert np.linalg.norm(sys_probe - matlab_sys_probe) / np.linalg.norm(matlab_sys_probe) < 3e-5
+    assert np.max(np.abs(sys_probe - matlab_sys_probe)) < 1e-2
+    assert max(apply_relerr, float(fixture.apply_relerr)) < 1e-13
 
 
 def test_chunkermat_laplace_solve_devtools_outputs_match_matlab():

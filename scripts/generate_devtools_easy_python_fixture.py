@@ -58,6 +58,55 @@ def point_array(value) -> np.ndarray:
     return arr
 
 
+def pointinfo_from_chunker(chnkr: Chunker) -> PointInfo:
+    return PointInfo(
+        r=chnkr.r.reshape(chnkr.dim, chnkr.npt, order="F"),
+        d=chnkr.d.reshape(chnkr.dim, chnkr.npt, order="F"),
+        d2=chnkr.d2.reshape(chnkr.dim, chnkr.npt, order="F"),
+        n=chnkr.n.reshape(chnkr.dim, chnkr.npt, order="F"),
+    )
+
+
+def transmission_all_kernel_from_fixture(fixture):
+    ks = np.asarray(fixture.ks).reshape(-1, order="F")
+    cs = np.asarray(fixture.cs, dtype=int).reshape(2, -1, order="F")
+    coefs = np.asarray(fixture.coefs).reshape(-1, order="F")
+    d1 = int(cs[0, 0]) - 1
+    d2 = int(cs[1, 0]) - 1
+    c1 = coefs[d1]
+    c2 = coefs[d2]
+    alpha1 = 2.0 / (c1 + c2)
+    alpha2 = 2.0 / (1.0 / c1 + 1.0 / c2)
+    cc1 = np.array([[-alpha1 * c1, -alpha1], [alpha2, alpha2 / c1]], dtype=complex)
+    cc2 = np.array([[-alpha1 * c2, -alpha1], [alpha2, alpha2 / c2]], dtype=complex)
+    return kernel("helmdiff", "all", [ks[d1], ks[d2]], np.stack((-cc1, -cc2), axis=2))
+
+
+def transmission_point_source_boundary_data(chnkr: Chunker, fixture) -> np.ndarray:
+    ks = np.asarray(fixture.ks).reshape(-1, order="F")
+    cs = np.asarray(fixture.cs, dtype=int).reshape(2, -1, order="F")
+    coefs = np.asarray(fixture.coefs).reshape(-1, order="F")
+    sources = np.asarray(fixture.sources)
+    charges = np.asarray(fixture.charges).reshape(-1, order="F")
+    d1 = int(cs[0, 0]) - 1
+    d2 = int(cs[1, 0]) - 1
+    c1 = coefs[d1]
+    c2 = coefs[d2]
+    alpha1 = 2.0 / (c1 + c2)
+    alpha2 = 2.0 / (1.0 / c1 + 1.0 / c2)
+    targ = pointinfo_from_chunker(chnkr)
+    val1, grad1, _ = helm2d.green(ks[d1], sources[:, d1 : d1 + 1], targ.r)
+    val2, grad2, _ = helm2d.green(ks[d2], sources[:, d2 : d2 + 1], targ.r)
+    u1 = val1 @ charges[d1 : d1 + 1]
+    u2 = val2 @ charges[d2 : d2 + 1]
+    dudn1 = (grad1[:, :, 0] @ charges[d1 : d1 + 1]) * targ.n[0] + (grad1[:, :, 1] @ charges[d1 : d1 + 1]) * targ.n[1]
+    dudn2 = (grad2[:, :, 0] @ charges[d2 : d2 + 1]) * targ.n[0] + (grad2[:, :, 1] @ charges[d2 : d2 + 1]) * targ.n[1]
+    out = np.zeros(2 * chnkr.npt, dtype=complex)
+    out[0::2] = alpha1 * (u1 - u2)
+    out[1::2] = -alpha2 * (dudn1 / c1 - dudn2 / c2)
+    return out
+
+
 def build_snapshot() -> dict[str, np.ndarray]:
     fixture = loadmat(MATLAB_FIXTURE, squeeze_me=True, struct_as_record=False)["devtools_easy"]
     out: dict[str, np.ndarray] = {}
@@ -372,6 +421,14 @@ def build_snapshot() -> dict[str, np.ndarray]:
         cma_kern,
         np.asarray(cma.dens).reshape(-1, order="F"),
     )
+    cmav = fixture.chunkermatapply_vector
+    cmav_chunker = chunker_from_fields(cmav.chunker)
+    cmav_kern = transmission_all_kernel_from_fixture(cmav)
+    cmav_bdry_data = transmission_point_source_boundary_data(cmav_chunker, cmav)
+    cmav_sysmat = chunkermat(cmav_chunker, cmav_kern)
+    out["chunkermatapply_vector_bdry_data"] = cmav_bdry_data
+    out["chunkermatapply_vector_apply"] = chunkermatapply(cmav_chunker, cmav_kern, cmav_bdry_data)
+    out["chunkermatapply_vector_probe"] = (np.eye(cmav_sysmat.shape[0], dtype=complex) + cmav_sysmat) @ np.asarray(cmav.probe)
     sk = fixture.singularkernel
     sk_chunker = chunker_from_fields(sk.chunker)
     sk_probe = np.asarray(sk.probe)

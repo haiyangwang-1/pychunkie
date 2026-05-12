@@ -32,14 +32,14 @@ The parity rule for this repo is:
 - Python snapshot generator: `scripts/generate_devtools_easy_python_fixture.py`
 - Python comparisons: `tests/test_devtools_parity.py`
 - Python verification: `uv run pytest tests/test_devtools_parity.py` on
-  2026-05-12 with the regenerated local fixture: `45 passed`
-- Current fixture scope: 48 pytest comparisons covering easy geometry/kernel
+  2026-05-12 with the regenerated local fixture: `49 passed`
+- Current fixture scope: 49 pytest comparisons covering easy geometry/kernel
   diagnostics, chunker/chunkgraph constructors and regions, near-flagging,
   dense/adaptive operator assembly, close-touching adaptive solves,
-  Laplace and Helmholtz dense solves, scalar matrix-free apply diagnostics,
-  singular PV/HS diagnostics, Green-identity target evaluation, selected
-  data-field/FLAM diagnostics, and direct Stokes/elasticity/Helmholtz-1D
-  diagnostics.
+  Laplace and Helmholtz dense solves, scalar and vector-valued matrix-free
+  apply diagnostics, singular PV/HS diagnostics, Green-identity target
+  evaluation, selected data-field/FLAM diagnostics, and direct
+  Stokes/elasticity/Helmholtz-1D diagnostics.
 - The ranked inventory below remains the authoritative per-MATLAB-file list.
 
 ## Status At A Glance
@@ -139,7 +139,7 @@ Explicit non-goals:
 | 44 | `chunkermat_stok2dTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Validates Stokes single/double/pressure/traction/gradient kernels, then builds and solves a Stokes boundary integral problem with target accuracy checks. | Existing point-kernel fixtures cover Stokes blocks; add full Stokes matrix/solve fixture later. |
 | 45 | `chunkermat_stok_tractiontest.m` | ✅ 🚧 ⚠️ | Hard | Builds a Stokes traction system and compares target velocity/traction evaluation to analytic values. | Save traction matrix, RHS, solution, and target diagnostics; compare Python Stokes traction support. |
 | 46 | `chunkermat_l2scaleTest.m` | ✅ 🧪 🎯 | Hard | Constructs a Helmholtz transmission matrix manually and with `chunkermat` `l2scale`, then compares scaled matrix and density solution. | Covered in `devtools_easy.mat`: compare MATLAB and Python manual l2-scaled Helmholtz transmission-style block matrices against `chunkermat(..., {"l2scale": "true"})` and verify the scaled/unscaled density solves agree to the diagnostic threshold. |
-| 47 | `chunkermatapplyTest.m` | ✅ 🧪 🎯 ⚠️ | Hard | Tests matrix-free `chunkermatapply` against dense matrices for scalar, vector-valued, multi-boundary, and block-kernel cases; includes solve comparisons. | Covered in `devtools_easy.mat` for the scalar chunker Laplace double-layer path: compare boundary density, dense system product, matrix-free apply output, first-column probe, dense solve, and MATLAB GMRES solve. Python also covers explicit scalar/block FMM products, FMM l2-scaled block products, FMM target-evaluation matrix materialization, and FMM-accelerated special-corrected application. Remaining strict MATLAB fixture work: vector-valued transmission, multi-boundary/chunkgraph, and block-kernel cases. |
+| 47 | `chunkermatapplyTest.m` | ✅ 🧪 🎯 ⚠️ | Hard | Tests matrix-free `chunkermatapply` against dense matrices for scalar, vector-valued, multi-boundary, and block-kernel cases; includes solve comparisons. | Covered in `devtools_easy.mat` for scalar Laplace chunker apply/solve diagnostics and vector-valued Helmholtz-transmission chunker apply diagnostics: compare reconstructed boundary data, dense system products, matrix-free apply outputs, first-column/random probes, dense solve, and MATLAB GMRES where the MATLAB test performs it. Python also covers explicit scalar/block FMM products, FMM l2-scaled block products, FMM target-evaluation matrix materialization, and FMM-accelerated special-corrected application. Remaining strict MATLAB fixture work: multi-boundary/chunkgraph and block-kernel cases. |
 | 48 | `chunkermat_quadadap_closetotouchingTest.m` | ✅ 🧪 🎯 ⚠️ | Hard | Solves an exterior Laplace Dirichlet problem on two nearly touching disks and demonstrates adaptive quadrature accuracy near close interactions. | Covered in `devtools_easy.mat`: compare the two-disk geometry, source/target truth, robust adaptive matrix probe products, original GGQ matrix probe products, adaptive/original solves, target evaluations, and MATLAB target-error diagnostics. Helsing-Ojala/product-quadrature diagnostics remain tracked with `pquadTest.m`. |
 | 49 | `chunkermat_truepolygonTest.m` | ✅ 🚧 ⚠️ | Hard | Solves a true-corner polygon Neumann problem using adaptive refinement/RCIP-style machinery and checks target accuracy. | Save refined polygon graph/chunker, system, RHS, solution, and targets; compare after Python true-corner support matures. |
 | 50 | `pquadTest.m` | 🚧 | Hard | Tests product quadrature for an interior Helmholtz problem by comparing product-quadrature layer-potential values to a reference solution. | Save product-quadrature matrices/values and compare Python pquad implementation when available. |
@@ -170,7 +170,7 @@ Explicit non-goals:
 
 ## Suggested Next Ports
 
-1. `chunkermatapplyTest.m`: extend the new scalar fixture to vector-valued,
-   multi-boundary, and block-kernel cases.
+1. `chunkermatapplyTest.m`: extend the scalar/vector chunker fixtures to
+   multi-boundary and block-kernel cases.
 2. `chunkermat_stok2dTest.m`: extend existing point-kernel diagnostics with
    the full Stokes boundary-integral solve and target checks.

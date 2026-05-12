@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 345 pytest cases because several MATLAB parity tests are
+collection expands to 346 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -78,7 +78,7 @@ Current test-backed coverage includes:
   special quadrature, and RCIP helper/compression workflows.
 - MATLAB golden parity for compact fixtures under `tests/golden`, including
   geometry, kernel/operator, quadrature, and RCIP fixtures.
-- MATLAB devtools parity for 45 focused comparisons in
+- MATLAB devtools parity for 49 focused comparisons in
   `tests/test_devtools_parity.py`, including Laplace and Helmholtz dense
   `chunkermat` solve/target-evaluation workflows.
 - Seven parity-stress tests in `tests/test_easy_parity_stress.py` that harden
@@ -634,6 +634,13 @@ chunker path from `chunkermatapplyTest.m`. The method compares MATLAB and
 Python Laplace single-layer boundary density, dense system product,
 matrix-free apply output, first-column probe, dense solve, and MATLAB GMRES
 solve for the same deterministic starfish system.
+
+`test_chunkermatapply_vector_devtools_outputs_match_matlab` checks the
+vector-valued chunker path from `chunkermatapplyTest.m`. The method
+reconstructs Helmholtz transmission boundary data from saved point sources,
+builds the same `helmdiff all` operator, and compares dense products,
+matrix-free apply output, and deterministic random probe products to MATLAB
+fixture outputs.
 
 `test_chunkermat_laplace_solve_devtools_outputs_match_matlab` checks the
 Laplace dense-system solve workflow from `chunkermatTest.m`. The method

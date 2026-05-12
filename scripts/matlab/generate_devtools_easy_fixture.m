@@ -1543,6 +1543,38 @@ cma.apply_relerr = norm(cma.udense-cma.u_apply)/norm(cma.udense);
 cma.solve_relerr = norm(cma.sol_dense-cma.sol_gmres)/norm(cma.sol_dense);
 devtools_easy.chunkermatapply_scalar = cma;
 
+% chunkermatapplyTest.m vector-valued chunker slice
+cmav = [];
+cmav.chunker = fixture_pack_chunker(chnkr);
+cmav.ks = [1.1;2.1]*30;
+cmav.coefs = [1.0;1.0];
+cmav.cs = [1;2];
+opts = [];
+opts.bdry_data_type = 'point sources';
+cmav.sources = [0.0, 3.0; 0.1, -3.2];
+cmav.charges = [(1.2+1i)*10; (1+0i)*10];
+sources = cell(1,2);
+sources{1} = cmav.sources(:,1);
+sources{2} = cmav.sources(:,2);
+charges = cell(1,2);
+charges{1} = cmav.charges(1);
+charges{2} = cmav.charges(2);
+opts.sources = sources;
+opts.charges = charges;
+[kerns, cmav.bdry_data] = chnk.helm2d.transmission_helper(chnkr, cmav.ks, cmav.cs, cmav.coefs, opts);
+sysmat = chunkermat(chnkr,kerns);
+sys = eye(2*chnkr.npt) + sysmat;
+cmav.udense = sys*cmav.bdry_data;
+cormat = chunkermat(chnkr,kerns,struct("corrections",true));
+opts_apply = [];
+opts_apply.accel = false;
+cmav.u_apply = cmav.bdry_data + chunkermatapply(chnkr,kerns,cmav.bdry_data,cormat,opts_apply);
+rng(13579);
+cmav.probe = randn(2*chnkr.npt,2) + 1i*randn(2*chnkr.npt,2);
+cmav.sys_probe = sys*cmav.probe;
+cmav.apply_relerr = norm(cmav.udense-cmav.u_apply)/norm(cmav.udense);
+devtools_easy.chunkermatapply_vector = cmav;
+
 % chunkermatTest.m
 cmt = [];
 rng(8675309);
