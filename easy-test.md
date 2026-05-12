@@ -77,6 +77,7 @@ moved here so active triage stays focused on unfinished work.
 | `tests/test_chunkgraph.py::test_chunkgraph_accepts_incidence_matrix_edges` | done | Checked only endpoint conversion from incidence-matrix input. | Adds incidence preservation, vertex-structure, and exact region-loop assertions. |
 | `tests/test_chunkgraph.py::test_chunkgraph_slice_and_edgeids_match_selected_edges` | done | Checked selected coordinate lookup but not exact edge IDs or subgraph differential fields. | Adds exact global ID, subgraph coordinate, derivative, and weight assertions. |
 | `tests/test_sortinfo.py::test_sort_reorders_two_open_segments_and_remaps_adjacency` | done | Checked restored adjacency and coordinates only. | Adds restored derivative, second-derivative, normal, and weight checks. |
+| `tests/test_arcparam.py` arclength derivative tests | done | Checked unit-speed and orthogonality identities without asserting actual arclength tangent/curvature vectors. | Adds explicit arclength first/second derivative formulas at original nodes and analytic radius-2 circle position/tangent/curvature checks. |
 
 ## Completed Full Test Ease Audit - 2026-05-12
 

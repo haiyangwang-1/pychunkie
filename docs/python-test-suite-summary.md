@@ -155,15 +155,16 @@ parameterization on a merged geometry made from two circles. The equation is
 `s = integral |dr/dt| dt`, with the second component's arclength shifted by the
 first component length. The method is `arcparam.init` followed by
 `arcparam.eval`, using Legendre-panel interpolation in arclength. Ground truth
-is the original chunker node coordinates, unit-speed derivatives
-`|dr/ds| = 1`, and orthogonality `dr/ds dot d2r/ds2 = 0`.
+is the original chunker node coordinates, explicit arclength first and second
+derivatives transformed from the source parameterization, unit-speed
+derivatives `|dr/ds| = 1`, and orthogonality `dr/ds dot d2r/ds2 = 0`.
 
 `test_arcparam_derivatives_are_consistent_on_circle` checks the same
 arclength evaluator away from the original nodes on a radius-2 circle. The
 circle equations imply `r dot dr/ds = 0`, `|dr/ds| = 1`, and
 `dr/ds dot d2r/ds2 = 0`. The method is spectral interpolation from the chunker
-arclength data. Ground truth is the analytic circle geometry and arclength
-differential identities.
+arclength data. Ground truth is the analytic circle position, tangent,
+curvature vector, and arclength differential identities.
 
 `test_arcresample_makes_panel_speed_constant` checks that `Chunker.arcresample`
 reparameterizes panels by arclength. The invariant is that each panel has
