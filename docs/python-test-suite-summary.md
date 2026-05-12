@@ -386,13 +386,15 @@ derivative formulas.
 `test_chunkerpoly_closed_square_area_length_and_adjacency` checks a closed,
 unrounded square polygon. The equations are area `1` and perimeter `4`. The
 method is `chunkerpoly` with one straight Legendre panel per edge. Ground truth
-is four chunks, closed cyclic adjacency, exact area, and exact summed length.
+is four chunks, closed cyclic adjacency, exact area, exact summed length, and
+straight-edge positions, derivatives, normals, and weights.
 
 `test_chunkerpoly_open_polyline_and_edge_data` checks an open two-edge
 polyline with per-edge data. The equation is total length `2 + 3 = 5`. The
 method is `chunkerpoly(..., ifclosed=False)` with `edgevals`. Ground truth is
 open adjacency, two data rows, constant data on each corresponding edge, and
-the exact total length.
+the exact total length plus straight-edge positions, derivatives, normals, and
+weights.
 
 `test_chunkerpoly_rounded_builds_trimmed_edges_and_corner_panels` checks
 rounded-polygon construction for a square. The method trims the straight edges
@@ -413,7 +415,9 @@ between the adjacent edge values.
 and rigid/scale movement on a square. The equations are `area(reverse) = -area`
 and `area(scale * r) = scale^2 area`, with scale `3`. The method is
 `reverse` and `move` with translation, rotation, and scaling. Ground truth is
-area `-1` after reversal and area `9` after scaling by `3`.
+reversed coordinate/derivative/normal/weight storage, area `-1` after
+reversal, transformed coordinate/derivative/normal/weight storage, and area
+`9` after scaling by `3`.
 
 ## `tests/test_chunkgraph.py`
 
