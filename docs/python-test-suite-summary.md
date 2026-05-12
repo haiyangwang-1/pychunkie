@@ -1496,9 +1496,11 @@ multi-chunker block-kernel system. The method compares Python
 products against MATLAB forced-FMM output, then compares Python
 `ChunkerFLAMMatrix` matvec and `.solve()` results against MATLAB
 `chunkerflam`/`rskelf_mv`/`rskelf_sv` output on deterministic random
-right-hand sides for both scalar and block-kernel systems. Ground truth is
-`tests/golden/operator_parity.mat`, including the dense special-quadrature
-matrix, FMM product, scalar FLAM product/solve, block dense matrix, and block
+right-hand sides for scalar, level-dependent proxy, and block-kernel systems.
+It also compares compact FLAM proxy-by-level target evaluation against MATLAB
+ifmm output. Ground truth is `tests/golden/operator_parity.mat`, including the
+dense special-quadrature matrix, FMM product, scalar FLAM product/solve,
+proxy-by-level FLAM product/solve/evaluation, block dense matrix, and block
 FLAM product/solve.
 
 `test_section_iii_quadratures_match_matlab_fixture` checks Section III

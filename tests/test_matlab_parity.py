@@ -654,6 +654,34 @@ def test_accelerated_operator_paths_match_matlab_fixture():
     np.testing.assert_allclose(sol, fixture.lap_s_flam_solve, rtol=2e-8, atol=2e-10)
     np.testing.assert_allclose(shifted @ sol, rhs, rtol=2e-8, atol=2e-10)
 
+    flam_proxy_opts = {
+        "acceleration": "flam",
+        "dval": 1.0,
+        "occ": 8,
+        "rank_or_tol": 1e-10,
+        "proxybylevel": True,
+    }
+    flam_proxy_op = chunkermat(chnkr, lap_s, flam_proxy_opts)
+    assert isinstance(flam_proxy_op, ChunkerFLAMMatrix)
+    np.testing.assert_allclose(flam_proxy_op @ rhs, fixture.lap_s_flam_proxy_apply, rtol=2e-8, atol=2e-10)
+    np.testing.assert_allclose(flam_proxy_op @ rhs, shifted @ rhs, rtol=2e-8, atol=2e-10)
+    proxy_sol = flam_proxy_op.solve(rhs)
+    np.testing.assert_allclose(proxy_sol, fixture.lap_s_flam_proxy_solve, rtol=2e-8, atol=2e-10)
+    np.testing.assert_allclose(shifted @ proxy_sol, rhs, rtol=2e-8, atol=2e-10)
+    proxy_eval = chunkerkerneval(
+        chnkr,
+        lap_s,
+        np.asarray(fixture.density_scalar).reshape(-1, order="F"),
+        fixture.targets,
+        {"acceleration": "flam", "rank_or_tol": 1e-10, "proxybylevel": True},
+    )
+    np.testing.assert_allclose(
+        np.asarray(proxy_eval).reshape(-1, order="F"),
+        np.asarray(fixture.lap_s_flam_proxy_eval).reshape(-1, order="F"),
+        rtol=5e-6,
+        atol=2e-8,
+    )
+
     block_chunkers = [chunker_from_fields(fixture.block_chunker1), chunker_from_fields(fixture.block_chunker2)]
     block_kernels = [
         [block_22_kernel, block_21_kernel],
