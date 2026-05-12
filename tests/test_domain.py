@@ -49,10 +49,20 @@ def test_checkcurveparam_validates_dimension_and_output_shapes():
 def test_nonflatinterface_derivatives_and_redblue_colormap():
     t = np.array([-0.3, 0.1, 0.4])
     r, d, d2 = nonflatinterface(t, 0.7, 2.0, -0.4, 1.3)
+    expfac = np.exp(-0.7 * t**2 / 2.0)
+    phase = 2.0 * t - 0.4
+    expected_y = 1.3 * expfac * np.sin(phase)
+    expected_dy = 1.3 * expfac * (2.0 * np.cos(phase) - 0.7 * t * np.sin(phase))
+    expected_d2y = 1.3 * expfac * (
+        -2.0 * 0.7 * 2.0 * t * np.cos(phase) + (0.7 * 0.7 * t**2 - 0.7 - 2.0 * 2.0) * np.sin(phase)
+    )
 
     np.testing.assert_allclose(r[0], t)
+    np.testing.assert_allclose(r[1], expected_y)
     np.testing.assert_allclose(d[0], 1.0)
+    np.testing.assert_allclose(d[1], expected_dy)
     np.testing.assert_allclose(d2[0], 0.0)
+    np.testing.assert_allclose(d2[1], expected_d2y)
 
     eps = 1e-6
     rp, _, _ = nonflatinterface(t + eps, 0.7, 2.0, -0.4, 1.3)

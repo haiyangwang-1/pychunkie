@@ -73,6 +73,7 @@ moved here so active triage stays focused on unfinished work.
 | `tests/test_chunker.py::test_chunker_spectral_helpers_on_circle` | done | Verified expansion output shapes without proving the coefficients reconstructed the stored geometry. | Reconstructs position, derivative, and second-derivative arrays from the Legendre coefficients. |
 | `tests/test_chunker.py::test_merge_combines_chunkers_and_pads_data_rows` | done | Checked merged coordinates and data padding, but not derivative, normal, or weight fields. | Adds per-chunk derivative, second-derivative, normal, and weight preservation checks. |
 | `tests/test_chunker.py::test_refine_oversamples_by_splitting_chunks` | done | Checked split count, adjacency, area, and length, but not the geometry of the split panels. | Adds analytic half-circle position, derivative, normal, and weight checks for both refined panels. |
+| `tests/test_domain.py::test_nonflatinterface_derivatives_and_redblue_colormap` | done | Used finite differences for the y-derivative but did not check the closed-form y-coordinate or second derivative. | Adds analytic y-coordinate, first-derivative, and second-derivative assertions. |
 
 ## Completed Full Test Ease Audit - 2026-05-12
 

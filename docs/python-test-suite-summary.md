@@ -484,9 +484,10 @@ output dimension. Ground truth is the returned ambient dimension and
 `ValueError` for invalid outputs.
 
 `test_nonflatinterface_derivatives_and_redblue_colormap` checks the perturbed
-interface helper and the red-white-blue colormap. The method finite-differences
-the interface y-coordinate and samples a five-color map. Ground truth is the
-analytic first derivative and blue/white/red endpoint colors.
+interface helper and the red-white-blue colormap. The method compares the
+interface against the closed-form y-coordinate plus first and second
+derivatives, finite-differences the y-coordinate, and samples a five-color
+map. Ground truth is the analytic formulas and blue/white/red endpoint colors.
 
 `test_hypoct_uni_builds_zero_based_uniform_tree` checks the top-level
 hyperoctree helper on four quadrant points. The method builds `hypoct_uni`
