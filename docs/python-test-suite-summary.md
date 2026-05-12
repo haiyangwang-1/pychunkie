@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 333 pytest cases because several MATLAB parity tests are
+collection expands to 334 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -127,8 +127,10 @@ Implemented from this scope:
 - Laplace and Helmholtz Green-identity target-evaluation parity for the devtools
   `kernelclass`, `chunkerkerneval_greenlap`, and
   `chunkerkerneval_greenhelm`, `chunkerkerneval_gaussid`, and
-  `chunkerkernevalmat_greenlap` paths, including Python `forceadap`
-  close-target replacement in `chunkerkerneval` and `chunkerkernevalmat`.
+  `chunkerkernevalmat_greenlap` paths, plus Helmholtz near-target correction
+  parity for `chunkerkerneval_corrections`; this includes Python `forceadap`
+  close-target replacement in `chunkerkerneval` and `chunkerkernevalmat` and
+  MATLAB-style correction matrix application through `opts["cormat"]`.
 - Dense `chunkermat` l2 scaling now has devtools parity for the Helmholtz
   transmission-style matrix relation from `chunkermat_l2scaleTest.m`,
   including MATLAB-style string truth parsing for `opts.l2scale`.
@@ -761,6 +763,15 @@ method uses the saved complex wave number, source strengths, boundary
 densities, and targets, then evaluates single and double Helmholtz layers with
 `chunkerkerneval(..., forceadap=True)`. Ground truth is MATLAB's layer
 potentials and relative identity residual.
+
+`test_chunkerkerneval_corrections_devtools_outputs_match_matlab` checks
+MATLAB's explicit near-target correction matrix workflow from
+`chunkerkerneval_correctionsTest.m`. The method solves the saved Helmholtz
+double-layer boundary system, builds
+`chunkerkernevalmat(..., {"corrections": True})`, applies it through
+`chunkerkerneval(..., {"forcesmooth": True, "cormat": cormat})`, and verifies
+that corrected evaluation matches the point-source truth while uncorrected
+smooth evaluation remains measurably wrong.
 
 `test_chunkerkerneval_gaussid_devtools_outputs_match_matlab` checks the
 adaptive assertion from `chunkerkerneval_gaussidTest.m`. The method uses the

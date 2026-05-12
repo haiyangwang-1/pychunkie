@@ -529,6 +529,14 @@ def chunkerkerneval(
 
     srcinfo = pointinfo(chnkr)
     targinfo = pointinfo(targobj)
+    cormat = options.get("cormat", None)
+    if cormat is not None:
+        mat = _eval_kernel(kern, srcinfo, targinfo)
+        weighted = _weighted_density(chnkr, dens)
+        dens_vec = np.asarray(dens).reshape(-1, order="F")
+        corr_vals = cormat @ dens_vec if sparse.issparse(cormat) else np.asarray(cormat) @ dens_vec
+        vals = mat @ weighted + corr_vals
+        return vals.reshape(-1, targinfo.r.shape[1], order="F")
     if bool(options.get("forceadap", False)):
         eval_options = dict(options)
         eval_options["recompute_source_normals"] = True
@@ -560,6 +568,8 @@ def chunkerkernevalmat(
     same_source_target = targobj is chnkr
     chnkr = _require_chunker(chnkr)
     options = {} if opts is None else dict(opts)
+    if bool(options.get("corrections", False)):
+        return _target_adaptive_correction_matrix(chnkr, kern, pointinfo(targobj), options).toarray()
     acceleration = _acceleration(options)
     if acceleration == "flam":
         if same_source_target and _uses_special_quadrature(kern, opts):

@@ -1223,6 +1223,38 @@ def test_chunkerkerneval_greenhelm_devtools_outputs_match_matlab():
     assert float(fixture.relerr) < 1e-11
 
 
+def test_chunkerkerneval_corrections_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().chunkerkerneval_corrections
+    chnkr = chunker_from_fields(fixture.chunker)
+    srcinfo = PointInfo(r=point_array(fixture.sources))
+    targets = point_array(fixture.targets)
+    strengths = np.asarray(fixture.strengths).reshape(-1, order="F")
+    zk = complex(fixture.zk)
+    helm_s = kernel("helm", "s", zk)
+    helm_d = kernel("helm", "d", zk)
+
+    rhs = helm_s(srcinfo, pointinfo(chnkr)) @ strengths
+    sys = -0.5 * np.eye(chnkr.npt) + chunkermat(chnkr, helm_d)
+    sol = np.linalg.solve(sys, rhs)
+    utrue = helm_s(srcinfo, PointInfo(r=targets)) @ strengths
+    cormat = chunkerkernevalmat(chnkr, helm_d, targets, {"corrections": True})
+    u_eval_cor = chunkerkerneval(chnkr, helm_d, sol, targets, {"forcesmooth": True, "cormat": cormat}).reshape(-1, order="F")
+    u_eval = chunkerkerneval(chnkr, helm_d, sol, targets, {"forcesmooth": True}).reshape(-1, order="F")
+
+    np.testing.assert_allclose(rhs, np.asarray(fixture.rhs).reshape(-1, order="F"), rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(sys, np.asarray(fixture.sys), rtol=1e-8, atol=5e-9)
+    np.testing.assert_allclose(sol, np.asarray(fixture.sol).reshape(-1, order="F"), rtol=1e-8, atol=2e-9)
+    np.testing.assert_allclose(utrue, np.asarray(fixture.utrue).reshape(-1, order="F"), rtol=1e-12, atol=1e-13)
+    fixture_cormat = fixture.cormat.toarray() if sparse.issparse(fixture.cormat) else np.asarray(fixture.cormat)
+    np.testing.assert_allclose(cormat, fixture_cormat, rtol=1e-9, atol=1e-11)
+    np.testing.assert_allclose(u_eval_cor, np.asarray(fixture.u_eval_cor).reshape(-1, order="F"), rtol=1e-9, atol=1e-11)
+    np.testing.assert_allclose(u_eval, np.asarray(fixture.u_eval).reshape(-1, order="F"), rtol=1e-9, atol=1e-11)
+    assert np.linalg.norm(utrue - u_eval_cor, ord=np.inf) < 1e-11
+    assert np.linalg.norm(utrue - u_eval, ord=np.inf) > 1e-10
+    assert float(fixture.err_cor) < 1e-11
+    assert float(fixture.err_smooth) > 1e-10
+
+
 def test_chunkerkerneval_gaussid_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().chunkerkerneval_gaussid
     chnkr = chunker_from_fields(fixture.chunker)
