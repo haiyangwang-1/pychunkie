@@ -719,9 +719,10 @@ thresholds; the full boundary-integral solve stages remain pending.
 Green-identity portion of MATLAB `kernelclassTest.m` plus NaN-kernel
 propagation. The method reconstructs the saved starfish chunker, recomputes
 boundary `u` and normal-derivative densities from exterior point sources, then
-uses `chunkerkerneval(..., forceadap=True)` for close-corrected target layer
-evaluation. Ground truth is MATLAB's boundary data, target truth, layer
-potentials, Green-identity residual, and NaN-kernel diagnostics.
+uses direct and FMM `chunkerkerneval(..., forceadap=True)` for close-corrected
+target layer evaluation. Ground truth is MATLAB's boundary data, target truth,
+layer potentials, FMM equality diagnostics, Green-identity residual, and
+NaN-kernel diagnostics.
 
 `test_chunkerkerneval_greenlap_devtools_outputs_match_matlab` checks the
 Laplace Green-identity target-evaluation workflow from

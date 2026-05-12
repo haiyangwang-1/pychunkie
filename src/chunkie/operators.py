@@ -601,6 +601,18 @@ def chunkerkerneval(
         corr_vals = cormat @ dens_vec if sparse.issparse(cormat) else np.asarray(cormat) @ dens_vec
         vals = mat @ weighted + corr_vals
         return vals.reshape(-1, targinfo.r.shape[1], order="F")
+    if bool(options.get("forceadap", False)) and use_fmm:
+        weighted = _weighted_density(chnkr, dens)
+        vals = kern.fmm(float(options.get("eps", options.get("tol", 1e-12))), srcinfo, targinfo, weighted)
+        if isinstance(vals, tuple):
+            vals = vals[0]
+        vals = np.asarray(vals).reshape(-1, order="F")
+        correction_options = dict(options)
+        correction_options["recompute_source_normals"] = True
+        correction_options.setdefault("transinv", False)
+        correction = _target_adaptive_correction_matrix(chnkr, kern, targinfo, correction_options)
+        vals = vals + correction @ np.asarray(dens).reshape(-1, order="F")
+        return vals.reshape(-1, targinfo.r.shape[1], order="F")
     if bool(options.get("forceadap", False)):
         eval_options = dict(options)
         eval_options["recompute_source_normals"] = True
