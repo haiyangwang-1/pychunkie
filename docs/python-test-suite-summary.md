@@ -281,14 +281,15 @@ collinear points with splits at the input points. The geometry equation is an
 open line from `x=0` to `x=3`, total length `3`, with `y=0`. The method is
 `chunkerfit(..., splitatpoints=True)` with `ifclosed=False`. Ground truth is
 three panels, free-ended adjacency, total length `3`, and exact line-panel
-positions, derivatives, normals, and weights.
+positions, derivatives, zero second derivatives, normals, and weights.
 
 `test_chunkerfit_closed_circle_spline_area` checks closed spline fitting of
 16 samples from the unit circle. The equations are circle area `pi`, perimeter
 `2 pi`, unit node radius, and radial/tangent orthogonality. The method is
 `chunkerfit` with a closed periodic fit and split points. Ground truth is one
 panel per input interval, closed adjacency, circle geometry, and length/area
-within spline tolerances.
+within spline tolerances; the returned second derivative is kept at zero to
+match MATLAB `chunkerfit`.
 
 `test_chunkerfit_rejects_unsupported_methods` checks API validation. There is
 no numerical equation; the invariant is that unsupported fit methods are
@@ -508,8 +509,8 @@ parameter, chunk index, and angle-error fixture.
 `test_chunkerfit_devtools_outputs_match_matlab` checks the saved
 `chunkerfitTest.m` closed and open curve fits. The method rebuilds the same
 random-mode sample points in Python, fits closed and open chunkers, and
-compares geometry fields, normals, weights, adjacency, chunk lengths, and area
-against the MATLAB devtools fixture.
+compares position, first and second derivatives, normals, weights, adjacency,
+chunk lengths, and area against the MATLAB devtools fixture.
 
 `test_flagself_devtools_output_matches_matlab` checks source-target duplicate
 pair detection. There is no PDE equation; the invariant is exact coordinate

@@ -1460,6 +1460,9 @@ def chunkerfit(xy: ArrayLike, opts: dict[str, Any] | None = None) -> Chunker:
     if bool(options.get("splitatpoints", False)):
         cparams["tsplits"] = t[1:-1]
     chnkr, _ = chunkerfunc(splinefunc, cparams, options.get("pref", None))
+    # MATLAB chunkerfit's local ppdiff helper leaves fitted second derivatives
+    # zero in the returned chunker; keep that observable behavior for parity.
+    chnkr.d2 = np.zeros_like(chnkr.d2)
     return chnkr
 
 

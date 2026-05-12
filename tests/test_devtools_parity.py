@@ -795,6 +795,7 @@ def test_chunkerfit_devtools_outputs_match_matlab():
     for actual, expected in ((closed, fixture.closed), (open_chnkr, fixture.open)):
         np.testing.assert_allclose(actual.r, expected.r, atol=1e-12)
         np.testing.assert_allclose(actual.d, expected.d, atol=1e-12)
+        np.testing.assert_allclose(actual.d2, expected.d2, atol=1e-10)
         np.testing.assert_allclose(actual.n, expected.n, atol=1e-12)
         np.testing.assert_allclose(actual.wts, expected.wts, atol=1e-12)
         np.testing.assert_array_equal(actual.adj, np.asarray(expected.adj, dtype=int))

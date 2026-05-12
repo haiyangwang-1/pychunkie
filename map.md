@@ -180,7 +180,7 @@ src/
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
-| `chunkerfit` | ⚠️ 🧪 🎯 | `chunkerfit.m` | Spline/open-line/circle paths tested; devtools parity compares closed/open fitted fields, adjacency, chunk lengths, and area against MATLAB. Second-derivative fixture parity and remaining MATLAB fitting modes are deferred. |
+| `chunkerfit` | ⚠️ 🧪 🎯 | `chunkerfit.m` | Spline/open-line/circle paths tested; devtools parity compares closed/open fitted fields including `r`, `d`, MATLAB-compatible zero `d2`, normals, weights, adjacency, chunk lengths, and area against MATLAB. Remaining MATLAB fitting modes are deferred. |
 | `ChunkerPref` | ✅ 🧪 🎯 | `@chunkerpref/chunkerpref.m` | Python dataclass-like preference holder; MATLAB fixture checks explicit preference fields. |
 | `ChunkerPref.from_any` | ✅ 🧪 🎯 | `@chunkerpref/chunkerpref.m` | Python adapter for dict/None/preference inputs; covered through the `chunkerpref` wrapper fixture. |
 | `_curve_outputs`, `_remap_adjacency` | 🧩 ✅ | Internal Python helpers | No direct MATLAB file. |
