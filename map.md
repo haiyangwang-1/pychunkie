@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-12 with Python 3.11.9 collected 321 tests: `321 passed`. Full MATLAB parity runs generate ignored `tests/golden/*.mat` files on demand and require a populated `external/chunkie-matlab` checkout.
+Verification snapshot: `uv run pytest` on 2026-05-12 with Python 3.11.9 collected 322 tests: `322 passed`. Full MATLAB parity runs generate ignored `tests/golden/*.mat` files on demand and require a populated `external/chunkie-matlab` checkout.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -183,16 +183,16 @@ src/
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
 | `chunkerfit` | ⚠️ 🧪 | `chunkerfit.m` | Spline/open-line/circle paths tested; remaining MATLAB fitting modes are deferred. |
-| `ChunkerPref` | ✅ | `@chunkerpref/chunkerpref.m` | Python dataclass-like preference holder. |
-| `ChunkerPref.from_any` | ✅ | `@chunkerpref/chunkerpref.m` | Python adapter for dict/None/preference inputs. |
+| `ChunkerPref` | ✅ 🧪 🎯 | `@chunkerpref/chunkerpref.m` | Python dataclass-like preference holder; MATLAB fixture checks explicit preference fields. |
+| `ChunkerPref.from_any` | ✅ 🧪 🎯 | `@chunkerpref/chunkerpref.m` | Python adapter for dict/None/preference inputs; covered through the `chunkerpref` wrapper fixture. |
 | `_curve_outputs`, `_remap_adjacency` | 🧩 ✅ | Internal Python helpers | No direct MATLAB file. |
-| `copy` | ✅ 🧪 | MATLAB value-copy behavior | Python explicit copy helper. |
-| `resize` | ✅ 🧪 | `@chunker/chunker.m` storage behavior | Focused storage-growth test covers live storage preservation. |
-| `makedatarows` | ✅ 🧪 | `@chunker/makedatarows.m` | Tested for data row allocation. |
-| `cleardata` | ✅ 🧪 | `@chunker/makedatarows.m` / data field behavior | Tested for data-row reset behavior. |
-| `checkadjinfo` | ✅ 🧪 | `@chunker/checkadjinfo.m` | Python tested through adjacency checks. |
-| `sort` | ✅ 🧪 | `@chunker/sort.m` | Python tested on open segments. |
-| `chunkerpref` | ✅ 🧪 | `@chunkerpref/chunkerpref.m` | Python preference wrapper. |
+| `copy` | ✅ 🧪 🎯 | MATLAB value-copy behavior | Python explicit copy helper mirrors MATLAB value-object copy behavior under mutation. |
+| `resize` | ✅ 🧪 🎯 | `@chunker/chunker.m` storage behavior | Storage growth and preserved live data are MATLAB-fixture tested. |
+| `makedatarows` | ✅ 🧪 🎯 | `@chunker/makedatarows.m` | Data row allocation and preservation across expansion are MATLAB-fixture tested. |
+| `cleardata` | ✅ 🧪 🎯 | `@chunker/chunker.m` data field behavior | Data-row reset behavior is MATLAB-fixture tested. |
+| `checkadjinfo` | ✅ 🧪 🎯 | `@chunker/checkadjinfo.m` | Python tested through adjacency checks and MATLAB fixture parity. |
+| `sort` | ✅ 🧪 🎯 | `@chunker/sort.m` | Python tested on open segments; strict geometry fixture compares sorted chunker fields. |
+| `chunkerpref` | ✅ 🧪 🎯 | `@chunkerpref/chunkerpref.m` | Python preference wrapper has MATLAB fixture coverage for explicit field overrides. |
 | `chunkerpoly` | ✅ 🧪 | `chunkerpoly.m`, `+chnk/+smoother/*` workflows | Straight-edge and rounded-corner polygon paths are implemented and tested. |
 | `_rounded_chunkerpoly`, `_polygon_widths`, `_fill_line_chunk`, `_fill_quadratic_chunk` | 🧩 ✅ 🧪 | `chunkerpoly.m`, `+chnk/+smoother/*` concepts | Internal rounded polygon construction helpers. |
 | `flagnear` | ✅ 🧪 🎯 | `@chunker/flagnear.m`, `+chnk/flagnear*` helpers | Python tested against brute-force distances and MATLAB fixture flags. |

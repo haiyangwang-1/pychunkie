@@ -12,6 +12,7 @@ from chunkie import (
     chunkerkernevalmat,
     chunkermat,
     chunkermatapply,
+    chunkerpref,
     kernel,
     lege,
     pointinfo,
@@ -194,6 +195,67 @@ def test_chunker_geometry_and_transforms_match_matlab_fixture():
     np.testing.assert_allclose(base.onesmat(), ops.onesmat, atol=1e-13)
     np.testing.assert_allclose(base.normonesmat(), ops.normonesmat, atol=1e-13)
     np.testing.assert_allclose(base.centroids(), ops.centroids, atol=1e-13)
+
+
+def test_chunker_storage_and_data_helpers_match_matlab_fixture():
+    ops = load_fixture("chunker_ops.mat")["chunker_ops"]
+    pref = chunkerpref(
+        {
+            "k": int(ops.pref.k),
+            "dim": int(ops.pref.dim),
+            "nchmax": int(ops.pref.nchmax),
+            "nchstor": int(ops.pref.nchstor),
+            "verttol": float(ops.pref.verttol),
+        }
+    )
+    assert pref.k == int(ops.pref.k)
+    assert pref.dim == int(ops.pref.dim)
+    assert pref.nchmax == int(ops.pref.nchmax)
+    assert pref.nchstor == int(ops.pref.nchstor)
+    assert pref.verttol == float(ops.pref.verttol)
+
+    storage = ops.storage
+    chnkr = Chunker(
+        {
+            "k": int(storage.k),
+            "dim": int(storage.dim),
+            "nchmax": int(storage.nchmax),
+            "nchstor": int(storage.nchstor_initial),
+        }
+    )
+    chnkr.addchunk(int(storage.nchadd))
+    chnkr.r = storage.r_input
+    chnkr.d = storage.d_input
+    chnkr.d2 = storage.d2_input
+    chnkr.n = storage.n_input
+    chnkr.wts = storage.wts_input
+    chnkr.adj = np.asarray(storage.adj_input, dtype=int)
+    assert chnkr.checkadjinfo() == int(storage.checkadjinfo)
+
+    chnkr.resize(int(storage.nchstor_resized))
+    np.testing.assert_allclose(chnkr.rstor, storage.rstor_resized, atol=0.0)
+    np.testing.assert_allclose(chnkr.dstor, storage.dstor_resized, atol=0.0)
+    np.testing.assert_allclose(chnkr.d2stor, storage.d2stor_resized, atol=0.0)
+    np.testing.assert_allclose(chnkr.nstor, storage.nstor_resized, atol=0.0)
+    np.testing.assert_allclose(chnkr.wtsstor, storage.wtsstor_resized, atol=0.0)
+    np.testing.assert_array_equal(chnkr.adjstor, np.asarray(storage.adjstor_resized, dtype=int))
+
+    chnkr.makedatarows(2)
+    assert chnkr.datadim == int(storage.datadim_after_make)
+    chnkr.data = storage.data_input
+    chnkr.makedatarows(1)
+    assert chnkr.datadim == int(storage.datadim_after_expand)
+    np.testing.assert_allclose(chnkr.data, storage.data_after_expand, atol=0.0)
+    np.testing.assert_allclose(chnkr.datastor, storage.datastor_after_expand, atol=0.0)
+    chnkr.cleardata()
+    assert chnkr.datadim == int(storage.datadim_after_clear)
+    assert chnkr.data.size == int(storage.data_numel_after_clear)
+
+    base = chunker_from_fields(ops.base)
+    copied = base.copy()
+    copied.rstor[0, 0, 0] += float(ops.copy_delta)
+    np.testing.assert_allclose(base.rstor[0, 0, 0], ops.copy_source_first, atol=0.0)
+    np.testing.assert_allclose(copied.rstor[0, 0, 0], ops.copy_mutated_first, atol=0.0)
 
 
 @pytest.mark.parametrize(

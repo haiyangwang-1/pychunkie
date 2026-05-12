@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 321 pytest cases because several MATLAB parity tests are
+collection expands to 322 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -79,6 +79,9 @@ Implemented from this scope:
   `hypoct_uni`, `mergeregions`, `nonflatinterface`, `pointinregion`, `redblue`,
   `regioninside`, and `starfish`; these now have compact MATLAB fixture parity
   in `tests/golden/geometry_core.mat`.
+- Chunker preference, storage-growth, data-row allocation/reset, explicit copy,
+  `checkadjinfo`, and sorted-field behavior now have compact MATLAB fixture
+  parity in `tests/golden/chunker_ops.mat` / `geometry_core.mat`.
 - Helmholtz double-gradient FMM selector wiring.
 - Stokes traction FMM selector wiring.
 - FMM integration across the implemented 2D kernel selector surface, including
@@ -1208,6 +1211,12 @@ scaling, spectral differentiation, cumulative integration, scalar/vector ones
 matrices, and centroids. The method reconstructs a MATLAB-saved chunker,
 applies Python transforms, and compares helper matrices. Ground truth is
 `tests/golden/chunker_ops.mat`, generated on demand when missing.
+
+`test_chunker_storage_and_data_helpers_match_matlab_fixture` checks MATLAB
+parity for `chunkerpref`, storage resizing, data-row allocation and clearing,
+`checkadjinfo`, and explicit `Chunker.copy()` value behavior. The method
+replays the same storage/data operations in Python and compares full backing
+arrays where MATLAB exposes them. Ground truth is `tests/golden/chunker_ops.mat`.
 
 `test_laplace_point_kernels_match_matlab_fixture` is parametrized over
 `s`, `d`, `sp`, `stau`, `hilb`, `sgrad`, `dgrad`, `dp`, `c`, `cp`, and
