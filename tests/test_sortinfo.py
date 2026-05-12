@@ -19,3 +19,7 @@ def test_sort_reorders_two_open_segments_and_remaps_adjacency():
     assert info["ier"] == 0
     np.testing.assert_array_equal(sorted_chnkr.adj, chnkr.adj)
     np.testing.assert_allclose(sorted_chnkr.r, chnkr.r)
+    np.testing.assert_allclose(sorted_chnkr.d, chnkr.d)
+    np.testing.assert_allclose(sorted_chnkr.d2, chnkr.d2)
+    np.testing.assert_allclose(sorted_chnkr.n, chnkr.n)
+    np.testing.assert_allclose(sorted_chnkr.wts, chnkr.wts)

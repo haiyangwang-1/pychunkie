@@ -1626,7 +1626,8 @@ unit normals, positive chunk lengths, and area between `0.9` and `1.0`.
 open chunks after their storage order has been manually reversed. The invariant
 is that sorting restores geometric order and remaps adjacency consistently.
 The method is `Chunker.sort`. Ground truth is success code `ier=0`, adjacency
-equal to the original chunker, and restored coordinates.
+equal to the original chunker, and restored coordinate, derivative, normal, and
+weight storage.
 
 ## `tests/test_spcl.py`
 
