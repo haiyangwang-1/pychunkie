@@ -364,7 +364,7 @@ def chunkermat(
     if _uses_special_quadrature(kern, options):
         from .chnk import quadggq
 
-        mat = quadggq.buildmat(chnkr, kern, getattr(kern, "opdims", None), getattr(kern, "sing", "log"))
+        mat = quadggq.buildmat(chnkr, kern, getattr(kern, "opdims", None), _special_quadrature_type(kern, options))
         return _apply_l2scale_matrix(chnkr, mat) if _option_bool(options.get("l2scale", False)) else mat
 
     srcinfo = pointinfo(chnkr)
@@ -372,6 +372,7 @@ def chunkermat(
     wts = chnkr.wts.reshape(-1, order="F")
     if mat.shape[1] == chnkr.npt:
         out = mat * wts[None, :]
+        out = _apply_laplace_double_self_limit(chnkr, kern, out)
         return _apply_l2scale_matrix(chnkr, out) if _option_bool(options.get("l2scale", False)) else out
     if mat.shape[1] % chnkr.npt != 0:
         raise ValueError("kernel column dimension is incompatible with chunker points")
@@ -815,6 +816,33 @@ def _uses_special_quadrature(kern: Callable[[Any, Any], np.ndarray], opts: dict[
     return getattr(kern, "sing", "") in {"log", "pv", "hs"}
 
 
+def _special_quadrature_type(kern: Callable[[Any, Any], np.ndarray], options: dict[str, Any]) -> str:
+    qtype = str(options.get("sing", getattr(kern, "sing", "log") or "log")).lower()
+    return "log" if qtype == "smooth" else qtype
+
+
+def _is_laplace_double_kernel(kern: Callable[[Any, Any], np.ndarray]) -> bool:
+    return str(getattr(kern, "name", "")).lower() == "laplace" and str(getattr(kern, "type", "")).lower() in {
+        "d",
+        "double",
+    }
+
+
+def _apply_laplace_double_self_limit(
+    chnkr: Chunker,
+    kern: Callable[[Any, Any], np.ndarray],
+    mat: np.ndarray,
+) -> np.ndarray:
+    if not _is_laplace_double_kernel(kern) or mat.shape != (chnkr.npt, chnkr.npt):
+        return mat
+    scale = getattr(kern, "params", {}).get("_scale", 1.0)
+    speed = np.sqrt(np.sum(chnkr.d**2, axis=0))
+    curvature = (chnkr.d[0] * chnkr.d2[1] - chnkr.d[1] * chnkr.d2[0]) / speed**3
+    diag = scale * (-curvature.reshape(-1, order="F") / (4.0 * np.pi)) * chnkr.wts.reshape(-1, order="F")
+    np.fill_diagonal(mat, diag)
+    return mat
+
+
 def _acceleration(options: dict[str, Any]) -> str:
     value = options.get("acceleration", "dense")
     if value is None:
@@ -858,7 +886,7 @@ def _special_overwrite_matrix(
         return sparse.csr_matrix((chnkr.npt * int(opdims[0]), chnkr.npt * int(opdims[1])))
     from .chnk import quadggq
 
-    qtype = str(options.get("sing", getattr(kern, "sing", "log") or "log")).lower()
+    qtype = _special_quadrature_type(kern, options)
     spmat = quadggq.buildmattd(
         chnkr,
         kern,
@@ -1121,7 +1149,7 @@ def _special_correction_matrix(
 ) -> spmatrix:
     from .chnk import quadggq
 
-    qtype = str(options.get("sing", getattr(kern, "sing", "log") or "log")).lower()
+    qtype = _special_quadrature_type(kern, options)
     return quadggq.buildmattd(
         chnkr,
         kern,

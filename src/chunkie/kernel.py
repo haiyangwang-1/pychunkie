@@ -73,6 +73,8 @@ class Kernel:
             raise TypeError("kernel multiplication only supports scalars")
         if np.isnan(scalar):
             return nans(*self.opdims)
+        params = self.params.copy()
+        params["_scale"] = params.get("_scale", 1.0) * scalar
         return Kernel(
             name=self.name,
             type=self.type,
@@ -80,7 +82,7 @@ class Kernel:
             fmm=None if self.fmm is None else lambda eps, s, t, sigma: _scale_fmm(self.fmm(eps, s, t, sigma), scalar),
             opdims=self.opdims,
             sing=self.sing,
-            params=self.params.copy(),
+            params=params,
             isnan=self.isnan,
             iszero=bool(self.iszero or scalar == 0),
         )
@@ -98,6 +100,9 @@ class Kernel:
         return self * (1.0 / scalar)
 
     def conj(self) -> "Kernel":
+        params = self.params.copy()
+        if "_scale" in params:
+            params["_scale"] = np.conj(params["_scale"])
         return Kernel(
             name=self.name,
             type=self.type,
@@ -105,7 +110,7 @@ class Kernel:
             fmm=None if self.fmm is None else lambda eps, s, t, sigma: _conj_fmm(self.fmm(eps, s, t, sigma)),
             opdims=self.opdims,
             sing=self.sing,
-            params=self.params.copy(),
+            params=params,
             isnan=self.isnan,
             iszero=self.iszero,
         )

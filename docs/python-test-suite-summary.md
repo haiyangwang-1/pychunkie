@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 336 pytest cases because several MATLAB parity tests are
+collection expands to 337 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -137,6 +137,10 @@ Implemented from this scope:
 - Dense `chunkermat` l2 scaling now has devtools parity for the Helmholtz
   transmission-style matrix relation from `chunkermat_l2scaleTest.m`,
   including MATLAB-style string truth parsing for `opts.l2scale`.
+- Dense Laplace `chunkermat` solve parity now covers the devtools
+  `chunkermatTest.m` starfish Dirichlet workflow, including the double-layer
+  matrix removable diagonal, RHS, GMRES/backslash solutions, adaptive target
+  evaluation, and target-accuracy diagnostics.
 - Data-field parity for converted slices of the devtools `datafieldTest.m`
   workflow, including Hilbert/cotangent source data through dense and PyFLAM
   matrix products plus directional-derivative target data through direct,
@@ -708,6 +712,12 @@ MATLAB fixture stores finite special entries.
 adaptive-neighbor matrix comparison from `chunkermat_quadadapTest.m`. The
 method compares MATLAB and Python Helmholtz double-layer GGQ and adaptive
 matrices and verifies both routes agree to the devtools Frobenius threshold.
+
+`test_chunkermat_laplace_solve_devtools_outputs_match_matlab` checks the
+Laplace dense-system solve workflow from `chunkermatTest.m`. The method
+compares the saved boundary/target truth, double-layer matrix, Dirichlet
+system, RHS, GMRES/backslash solutions, and adaptive target evaluation against
+MATLAB, then enforces the devtools target-accuracy threshold.
 
 `test_chunkermat_l2scale_devtools_outputs_match_matlab` checks the
 transmission-style Helmholtz l2-scaling relation from

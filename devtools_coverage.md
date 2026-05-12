@@ -32,7 +32,7 @@ The parity rule for this repo is:
 - Python snapshot generator: `scripts/generate_devtools_easy_python_fixture.py`
 - Python comparisons: `tests/test_devtools_parity.py`
 - Python verification: `uv run pytest tests/test_devtools_parity.py` on
-  2026-05-12 with the regenerated local fixture: `43 passed`
+  2026-05-12 with the regenerated local fixture: `44 passed`
 - Covered now: `absconvgaussTest.m`, `adapgausswtsTest.m`, `legeexpsunitTest.m`,
   `arclengthfunTest.m`, `chunker_diffintmatTest.m`,
   `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`,
@@ -41,7 +41,7 @@ The parity rule for this repo is:
   `chunkgrphregionTest.m`, `chunkrgrphOpdimTest.m`,
   `chunkerintegralTest.m`,
   `chunkerinteriorTest.m`, `chunkerpolyTest.m`, `chunkerarcparamTest.m`,
-  `chunkermat_l2scaleTest.m`, `chunkermat_quadadapTest.m`, `flagrectTest.m`, `flagselfTest.m`,
+  `chunkermatTest.m`, `chunkermat_l2scaleTest.m`, `chunkermat_quadadapTest.m`, `flagrectTest.m`, `flagselfTest.m`,
   `flagnearTest.m`, `flamutilitiesTest.m`, `helm2d_greenTest.m`, `kernelopTest.m`,
   `KernDerInterleaveTest.m`, `kernelclassTest.m`, `chunkerkerneval_greenlapTest.m`,
   `chunkerkerneval_correctionsTest.m`, `chunkerkerneval_gaussidTest.m`, `chunkerkerneval_greenhelmTest.m`,
@@ -53,10 +53,10 @@ The parity rule for this repo is:
 
 | Status | Count | Tests |
 | --- | ---: | --- |
-| ✅ 🧪 🎯 fully covered by devtools parity | 33 | `absconvgaussTest.m`, `adapgausswtsTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `chunkerarcparamTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`, `chunkerfuncuniTest.m`, `chunkerfuncTest.m`, `chunkgraph_basicTest.m`, `chunkgraph_lastlengthTest.m`, `chunkgrphconstructTest.m`, `chunkgrphregionTest.m`, `chunkrgrphOpdimTest.m`, `chunkerintegralTest.m`, `chunkerinteriorTest.m`, `chunkerkerneval_correctionsTest.m`, `chunkerkerneval_gaussidTest.m`, `chunkerkerneval_greenhelmTest.m`, `chunkerkernevalmat_greenlapTest.m`, `chunkermat_l2scaleTest.m`, `chunkermat_quadadapTest.m`, `chunkerpolyTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `KernDerInterleaveTest.m`, `kernelopTest.m`, `stokes_dtracTest.m`, `tochunkgraphTest.m` |
+| ✅ 🧪 🎯 fully covered by devtools parity | 34 | `absconvgaussTest.m`, `adapgausswtsTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `chunkerarcparamTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`, `chunkerfuncuniTest.m`, `chunkerfuncTest.m`, `chunkgraph_basicTest.m`, `chunkgraph_lastlengthTest.m`, `chunkgrphconstructTest.m`, `chunkgrphregionTest.m`, `chunkrgrphOpdimTest.m`, `chunkerintegralTest.m`, `chunkerinteriorTest.m`, `chunkerkerneval_correctionsTest.m`, `chunkerkerneval_gaussidTest.m`, `chunkerkerneval_greenhelmTest.m`, `chunkerkernevalmat_greenlapTest.m`, `chunkermatTest.m`, `chunkermat_l2scaleTest.m`, `chunkermat_quadadapTest.m`, `chunkerpolyTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `KernDerInterleaveTest.m`, `kernelopTest.m`, `stokes_dtracTest.m`, `tochunkgraphTest.m` |
 | ✅ 🧪 🎯 ⚠️ partial/diagnostic devtools parity | 8 | `chunkerkerneval_greenlapTest.m`, `datafieldTest.m`, `elastickernelsTest.m`, `flamutilitiesTest.m`, `helm1d_greenTest.m`, `kernelclassTest.m`, `slicegraphTest.m`, `smootherTest.m` |
 | 🧩 🧭 helper/reference | 1 | `gradient_check.m` |
-| 🚧 should/pending parity not yet converted | 21 | Remaining ranked entries below, excluding explicit non-goals. |
+| 🚧 should/pending parity not yet converted | 20 | Remaining ranked entries below, excluding explicit non-goals. |
 | 🚫 explicit non-goal; do not port | 11 | `trappermatTest.m`, `quasiperiodicTest.m`, axisymmetric tests 63-68, and flexural tests 72-74. |
 
 ## Scope Triage For Remaining Work
@@ -93,6 +93,10 @@ Implemented from this scope:
 - Optional devtools parity fixtures for adaptive `chunkerfunc`,
   `chunkgrphconstruct`, `slicegraph`, and the starfish
   `chunkermat_quadadap` matrix comparison.
+- `chunkermatTest.m`: the fixture saves the starfish Laplace double-layer
+  dense matrix, Dirichlet system, RHS, GMRES/backslash solutions, target
+  evaluation, and residual diagnostics; Python compares the same matrix/solve
+  workflow against MATLAB and enforces the devtools target-accuracy threshold.
 - `chunkerarcparamTest.m`: `chnk.arcparam.init/eval` and both
   `arcresample(..., mv_bdries=0)` and boundary-moving
   `arcresample(..., mv_bdries=1)` paths are covered against MATLAB diagnostics.
@@ -198,7 +202,7 @@ Do not implement:
 | 39 | `chunkerkerneval_greenlapTest.m` | ✅ 🧪 🎯 ⚠️ | Hard | Tests Laplace Green's identity using direct, FMM, and FLAM/smooth-work paths for layer potential evaluation at targets. | Covered in `devtools_easy.mat`: compare saved source strengths, boundary densities, target truth, close-corrected Python `forceadap` layer evaluations, and PyFLAM force-adaptive layer evaluations against direct and MATLAB FLAM values. MATLAB direct/FMM/FLAM equality is retained as fixture diagnostics. |
 | 40 | `chunkerkerneval_greenhelmTest.m` | ✅ 🧪 🎯 | Hard | Tests Helmholtz Green's identity for a starfish geometry by comparing layer-potential evaluation to known field values at targets. | Covered in `devtools_easy.mat`: compare saved Helmholtz wave number, sources, boundary densities, targets, close-corrected Python `forceadap` layer evaluations, and Green-identity target values. |
 | 41 | `chunkerkernevalmat_greenlapTest.m` | ✅ 🧪 🎯 | Hard | Builds Laplace target-evaluation matrices and checks applying them reproduces Green's identity target values. | Covered in `devtools_easy.mat`: compare saved sources, densities, targets, single-layer eval matrix, adaptive double-layer eval matrix, and the Green-identity target values against Python `chunkerkernevalmat(..., forceadap=True)`. |
-| 42 | `chunkermatTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Builds a Laplace Dirichlet dense system matrix on a starfish, solves it, evaluates at targets, and checks exterior solution accuracy. | Existing operator parity covers smaller dense paths; add full starfish solve fixture when native/special quadrature is ready. |
+| 42 | `chunkermatTest.m` | ✅ 🧪 🎯 | Hard | Builds a Laplace Dirichlet dense system matrix on a starfish, solves it, evaluates at targets, and checks exterior solution accuracy. | Covered in `devtools_easy.mat`: compare saved starfish geometry, Laplace boundary/target truth, dense double-layer matrix with removable diagonal entries, Dirichlet system, RHS, GMRES/backslash solutions, adaptive target evaluation, and residual diagnostics against Python `chunkermat`/`chunkerkerneval`. |
 | 43 | `chunkermat_helm2dTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Builds and solves a Helmholtz combined-field Dirichlet system on a starfish and checks target accuracy below `1e-10`. | Save system matrix, RHS, solution, target values, and compare Python `chunkermat`/`chunkerkerneval`. |
 | 44 | `chunkermat_stok2dTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Validates Stokes single/double/pressure/traction/gradient kernels, then builds and solves a Stokes boundary integral problem with target accuracy checks. | Existing point-kernel fixtures cover Stokes blocks; add full Stokes matrix/solve fixture later. |
 | 45 | `chunkermat_stok_tractiontest.m` | ✅ 🚧 ⚠️ | Hard | Builds a Stokes traction system and compares target velocity/traction evaluation to analytic values. | Save traction matrix, RHS, solution, and target diagnostics; compare Python Stokes traction support. |

@@ -1540,6 +1540,38 @@ def test_chunkermat_quadadap_devtools_outputs_match_matlab():
     assert np.linalg.norm(ggq - adap, "fro") / np.linalg.norm(ggq, "fro") < 1e-9
 
 
+def test_chunkermat_laplace_solve_devtools_outputs_match_matlab():
+    fixture = load_devtools_easy().chunkermat_laplace
+    chnkr = chunker_from_fields(fixture.chunker)
+    src = PointInfo(r=point_array(fixture.sources))
+    targets = point_array(fixture.targets)
+    strengths = np.asarray(fixture.strengths).reshape(-1, order="F")
+    lap_s = kernel("lap", "s")
+    lap_d = kernel("lap", "d")
+
+    ubdry = lap_s(src, pointinfo(chnkr)) @ strengths
+    utarg = lap_s(src, PointInfo(r=targets)) @ strengths
+    dmat = chunkermat(chnkr, lap_d)
+    sys = -0.5 * np.eye(chnkr.npt) + dmat
+    rhs = ubdry.reshape(-1, order="F")
+    sol = np.linalg.solve(sys, rhs)
+    dsol = chunkerkerneval(chnkr, lap_d, sol, targets, {"forceadap": True}).reshape(-1, order="F")
+    relerr = np.linalg.norm(utarg - dsol) / (np.sqrt(chnkr.nch) * np.linalg.norm(utarg))
+    relerr2 = np.linalg.norm(utarg - dsol, ord=np.inf) / np.dot(np.abs(sol), chnkr.wts.reshape(-1, order="F"))
+
+    np.testing.assert_allclose(ubdry, np.asarray(fixture.ubdry).reshape(-1, order="F"), rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(utarg, np.asarray(fixture.utarg).reshape(-1, order="F"), rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(dmat, np.asarray(fixture.D), rtol=1e-8, atol=3e-9)
+    np.testing.assert_allclose(sys, np.asarray(fixture.sys), rtol=1e-8, atol=3e-9)
+    np.testing.assert_allclose(rhs, np.asarray(fixture.rhs).reshape(-1, order="F"), rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(sol, np.asarray(fixture.sol_backslash).reshape(-1, order="F"), rtol=5e-9, atol=3e-9)
+    np.testing.assert_allclose(sol, np.asarray(fixture.sol_gmres).reshape(-1, order="F"), rtol=5e-9, atol=3e-9)
+    np.testing.assert_allclose(dsol, np.asarray(fixture.Dsol).reshape(-1, order="F"), rtol=1e-9, atol=1e-11)
+    assert max(relerr, float(fixture.relerr)) < 1e-10
+    assert max(relerr2, float(fixture.relerr2)) < 1e-10
+    assert float(fixture.solve_relerr) < 1e-12
+
+
 def test_chunkermat_l2scale_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().chunkermat_l2scale
     zk0 = float(fixture.zk0)
