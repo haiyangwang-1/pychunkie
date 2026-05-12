@@ -79,8 +79,10 @@ def test_pointinfo_uses_matlab_chunk_contiguous_ordering():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 3}, {"k": 5})
     info = pointinfo(chnkr)
 
-    np.testing.assert_allclose(info.r[:, : chnkr.k], chnkr.r[:, :, 0])
-    np.testing.assert_allclose(info.r[:, chnkr.k : 2 * chnkr.k], chnkr.r[:, :, 1])
+    np.testing.assert_allclose(info.r, chnkr.r.reshape(chnkr.dim, -1, order="F"))
+    np.testing.assert_allclose(info.d, chnkr.d.reshape(chnkr.dim, -1, order="F"))
+    np.testing.assert_allclose(info.d2, chnkr.d2.reshape(chnkr.dim, -1, order="F"))
+    np.testing.assert_allclose(info.n, chnkr.n.reshape(chnkr.dim, -1, order="F"))
 
 
 def test_chunkerkernevalmat_matches_direct_target_evaluation():

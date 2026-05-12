@@ -1379,8 +1379,8 @@ corrections are applied.
 `test_pointinfo_uses_matlab_chunk_contiguous_ordering` checks point ordering
 when flattening chunker fields. The invariant is MATLAB/Fortran chunk-contiguous
 ordering: all nodes of chunk 0, then all nodes of chunk 1, and so on. The
-method is `pointinfo(chnkr)`. Ground truth is equality of the first two blocks
-with the original chunk arrays.
+method is `pointinfo(chnkr)`. Ground truth is equality of the full flattened
+`r`, `d`, `d2`, and normal arrays with the original chunk arrays.
 
 `test_chunkerkernevalmat_matches_direct_target_evaluation` checks target
 evaluation matrix assembly. The equation is `values = EvalMat sigma` for the
