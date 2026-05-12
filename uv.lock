@@ -148,7 +148,7 @@ test = [
 requires-dist = [
     { name = "fmm2dpy", git = "https://github.com/flatironinstitute/fmm2d.git?rev=550dae5b77b1e006c8ffae37fc832f8c2b536871" },
     { name = "numpy", specifier = ">=2.4.4" },
-    { name = "pyflam", git = "https://github.com/haiyangwang-1/pyflam.git?rev=7501bef4ec8a773064309ab2e3f04e6ca7ac98e9" },
+    { name = "pyflam", git = "https://github.com/haiyangwang-1/pyflam.git?rev=d60f74672a43c200dcb2d6cc381b393a56746a93" },
     { name = "scipy", specifier = ">=1.17.1" },
 ]
 
@@ -158,8 +158,8 @@ test = [{ name = "pytest", specifier = ">=9.0.3" }]
 
 [[package]]
 name = "pyflam"
-version = "0.0.1"
-source = { git = "https://github.com/haiyangwang-1/pyflam.git?rev=7501bef4ec8a773064309ab2e3f04e6ca7ac98e9#7501bef4ec8a773064309ab2e3f04e6ca7ac98e9" }
+version = "0.1.0"
+source = { git = "https://github.com/haiyangwang-1/pyflam.git?rev=d60f74672a43c200dcb2d6cc381b393a56746a93#d60f74672a43c200dcb2d6cc381b393a56746a93" }
 dependencies = [
     { name = "numpy" },
     { name = "scipy" },
