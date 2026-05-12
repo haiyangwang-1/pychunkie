@@ -25,7 +25,8 @@ from chunkie import (
     lege,
     tochunkgraph,
 )
-from chunkie.chnk import curves, elast2d, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, flam, helm1d, helm2d, lap2d
+from chunkie.chnk import elast2d, flam, helm1d, helm2d, lap2d
+from chunkie.geometry import curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself
 from chunkie.numerics import arcparam, smoother, special
 from chunkie.quadrature import adaptive as quadadap
 from chunkie.operators import PointInfo, pointinfo

@@ -21,7 +21,7 @@ from chunkie import (
     tochunkgraph,
 )
 from chunkie import lege
-from chunkie.chnk import (
+from chunkie.geometry import (
     chunk_nearparam,
     curvature2d,
     curves,
@@ -119,7 +119,7 @@ def test_top_level_domain_helpers_match_matlab_fixture():
         )
 
 
-def test_chnk_curve_helpers_match_matlab_fixture():
+def test_geometry_curve_helpers_match_matlab_fixture():
     fixture = load_geometry_core().curves
 
     for actual, expected in zip(
@@ -280,7 +280,7 @@ def test_chunker_refinement_and_reconstruction_helpers_match_matlab_fixture():
     np.testing.assert_allclose(merged.data, fixture.merged_circles_data, atol=1e-14)
 
 
-def test_chnk_geometry_helpers_match_matlab_fixture():
+def test_geometry_predicate_helpers_match_matlab_fixture():
     root = load_geometry_core()
     fixture = root.geometry
     base = chunker_from_fields(root.chunker.base)

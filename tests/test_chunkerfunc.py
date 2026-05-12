@@ -1,7 +1,7 @@
 import numpy as np
 
 from chunkie import chunkerfunc, chunkerfuncuni
-from chunkie.chnk import curves
+from chunkie.geometry import curves
 
 
 def circle(t, radius=1.0, center=(0.0, 0.0)):

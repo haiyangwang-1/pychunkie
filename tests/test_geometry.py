@@ -1,7 +1,7 @@
 import numpy as np
 
 from chunkie import chunkerfunc, chunkerpoly, tochunkgraph
-from chunkie.chnk import (
+from chunkie.geometry import (
     chunk_nearparam,
     curvature2d,
     flagnear,

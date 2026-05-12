@@ -61,30 +61,50 @@ def test_chnk_public_exports_are_stable_and_lazy():
 
     chnk = importlib.import_module("chunkie.chnk")
     expected = {
-        "chunk_nearparam",
         "biharm2d",
-        "curvature2d",
-        "curves",
         "elast2d",
         "flam",
-        "flagnear",
-        "flagnear_rectangle",
-        "flagnear_rectangle_grid",
-        "flagself",
-        "geometry",
         "helm1d",
         "helm2d",
         "lap2d",
-        "normal2d",
-        "perp",
         "stok2d",
     }
     assert set(chnk.__all__) == expected
     assert "chunkie.chnk.flam" not in sys.modules
 
-    from chunkie.chnk import flagnear, lap2d
+    from chunkie.chnk import lap2d
 
     assert lap2d.__name__ == "chunkie.chnk.lap2d"
+
+
+def test_geometry_public_exports_are_stable_and_lazy():
+    for name in [
+        "chunkie.geometry.curves",
+        "chunkie.geometry.predicates",
+    ]:
+        sys.modules.pop(name, None)
+    sys.modules.pop("chunkie.geometry", None)
+
+    geometry = importlib.import_module("chunkie.geometry")
+    expected = {
+        "chunk_nearparam",
+        "curvature2d",
+        "curves",
+        "flagnear",
+        "flagnear_rectangle",
+        "flagnear_rectangle_grid",
+        "flagself",
+        "normal2d",
+        "perp",
+        "predicates",
+    }
+    assert set(geometry.__all__) == expected
+    assert "chunkie.geometry.curves" not in sys.modules
+    assert "chunkie.geometry.predicates" not in sys.modules
+
+    from chunkie.geometry import curves, flagnear
+
+    assert curves.__name__ == "chunkie.geometry.curves"
     assert callable(flagnear)
 
 

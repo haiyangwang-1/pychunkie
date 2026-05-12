@@ -11,7 +11,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from .chunker import Chunker, ChunkerPref, chunkerfunc, chunkerpoints, merge
-from .chnk.curves import linefunc
+from .geometry.curves import linefunc
 
 
 @dataclass

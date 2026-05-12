@@ -95,9 +95,6 @@ src/
     │   └── private helpers
     ├── chnk/
     │   ├── __init__.py
-    │   ├── curves.py
-    │   │   ├── linefunc, fpara, fsine, bymode
-    │   │   └── _pack
     │   ├── flam.py
     │   │   ├── kernbyindex, kernbyindexr
     │   │   ├── proxy_square_pts, proxy_circ_pts, proxy_rect_pts, nproxy_square
@@ -108,11 +105,6 @@ src/
     │   ├── elast2d.py
     │   │   ├── kern
     │   │   └── private helpers
-    │   ├── geometry.py
-    │   │   ├── perp, normal2d, curvature2d
-    │   │   ├── flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself
-    │   │   ├── chunk_nearparam
-    │   │   └── _ptinfo_field
     │   ├── helm1d.py
     │   │   ├── green, kern, sweep
     │   │   └── private helpers
@@ -125,6 +117,16 @@ src/
     │   └── stok2d.py
     │       ├── kern
     │       └── private helpers
+    ├── geometry/
+    │   ├── __init__.py
+    │   ├── curves.py
+    │   │   ├── linefunc, fpara, fsine, bymode
+    │   │   └── _pack
+    │   └── predicates.py
+    │       ├── perp, normal2d, curvature2d
+    │       ├── flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself
+    │       ├── chunk_nearparam
+    │       └── _ptinfo_field
     ├── numerics/
     │   ├── __init__.py
     │   ├── arcparam.py
@@ -181,7 +183,8 @@ src/
 
 - ✅ [src/chunkie/__init__.py](src/chunkie/__init__.py) exports the public Python API. MATLAB has no direct single-file equivalent; it is a Python package facade over MATLAB class folders and package folders.
 - ✅ 🧪 [src/chunkie/domain.py](src/chunkie/domain.py) implements top-level MATLAB geometry/domain helpers exported from the Python package facade.
-- ✅ [src/chunkie/chnk/__init__.py](src/chunkie/chnk/__init__.py) currently mirrors remaining MATLAB `+chnk` package exports while the Python package is being reorganized; quadrature and RCIP helpers have moved out.
+- ✅ [src/chunkie/chnk/__init__.py](src/chunkie/chnk/__init__.py) currently mirrors remaining MATLAB `+chnk` package exports while the Python package is being reorganized; geometry, numerics, quadrature, and RCIP helpers have moved out.
+- ✅ 🧪 [src/chunkie/geometry/__init__.py](src/chunkie/geometry/__init__.py) exposes curve constructors and low-level geometric predicates.
 - ✅ 🧪 [src/chunkie/numerics/__init__.py](src/chunkie/numerics/__init__.py) exposes arclength parametrization, lightweight smoother, and special scalar helper modules.
 - ✅ 🧪 [src/chunkie/quadrature/__init__.py](src/chunkie/quadrature/__init__.py) exposes Python-native quadrature modules for native, GGQ, adaptive, panel-product, and RCIP workflows.
 - ✅ [src/chunkie/lege/__init__.py](src/chunkie/lege/__init__.py) mirrors MATLAB `+lege` package exports.
@@ -295,7 +298,7 @@ src/
 | private helpers | 🧩 ✅ | Internal Python helpers | Edge decoding, polygon tests, hyperoctree neighbor construction. |
 | `checkcurveparam` | ✅ 🧪 🎯 | `checkcurveparam.m` | Validates callback output dimensions and input-size compatibility. |
 | `ellipse` | ✅ 🧪 🎯 | `ellipse.m` | Ellipse position, first derivative, and second derivative helper. |
-| `starfish` | ✅ 🧪 🎯 | `starfish.m` | Top-level export matching the existing `chnk.curves.starfish` implementation. |
+| `starfish` | ✅ 🧪 🎯 | `starfish.m` | Top-level export matching the existing `geometry.curves.starfish` implementation. |
 | `nonflatinterface` | ✅ 🧪 🎯 | `nonflatinterface.m` | Perturbed interface graph with analytic first and second derivatives. |
 | `redblue` | ✅ 🧪 🎯 | `redblue.m` | MATLAB-style red-white-blue colormap. |
 | `HypOctNode`, `HypOctTree`, `hypoct_uni` | ✅ 🧪 🎯 | `hypoct_uni.m` | Zero-based Python hyperoctree dataclasses and uniform tree builder. |
@@ -312,7 +315,7 @@ src/
 | `init` | ✅ 🧪 🎯 | `+chnk/+arcparam/init.m` | Full and selected-panel initialization parity-tested. |
 | `eval` | ✅ 🧪 🎯 | `+chnk/+arcparam/eval.m` | Original-node and sample arclength evaluation parity-tested. |
 
-#### `chnk/curves.py`
+#### `geometry/curves.py`
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
@@ -330,7 +333,7 @@ src/
 | `proxy_square_pts`, `proxy_circ_pts`, `proxy_rect_pts`, `nproxy_square` | ✅ 🧪 🎯 | `+chnk/+flam/proxy_square_pts.m`, `proxy_circ_pts.m`, `proxy_rect_pts.m`, `nproxy_square.m` | Proxy geometry, normals, the square inside predicate, and deterministic Laplace adaptive proxy-order selection are Python-tested and MATLAB-fixture tested. |
 | `proxyfun`, `proxyfunr` | ✅ 🧪 🎯 | `+chnk/+flam/proxyfun.m`, `proxyfunr.m` | 0-based callback helpers for PyFLAM compression; Python tests cover neighbor filtering, callback shapes, and integrated default/level-dependent rectangular proxy target evaluation, while MATLAB fixture parity covers Laplace proxy matrices and filtered neighbor indices. |
 
-#### `chnk/geometry.py`
+#### `geometry/predicates.py`
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |

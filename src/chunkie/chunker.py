@@ -582,7 +582,7 @@ class Chunker:
         following the rest of the Python port.
         """
 
-        from .chnk.geometry import chunk_nearparam
+        from .geometry.predicates import chunk_nearparam
 
         points = np.asarray(ref, dtype=self.rstor.dtype).reshape(self.dim, -1)
         nref = points.shape[1]

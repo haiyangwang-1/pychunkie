@@ -431,7 +431,7 @@ coordinates.
 `test_ellipse_and_starfish_helpers_match_expected_formulas` checks top-level
 curve helpers. The method evaluates `ellipse` and `starfish`; ground truth is
 the analytic ellipse formula and equality with the existing
-`chnk.curves.starfish` implementation for a shifted/scaled starfish.
+`geometry.curves.starfish` implementation for a shifted/scaled starfish.
 
 `test_checkcurveparam_validates_dimension_and_output_shapes` checks the
 MATLAB-style curve callback validator. The method calls `checkcurveparam` on a
@@ -1107,7 +1107,7 @@ excludes `chunkerfit` and smoother workflows.
 MATLAB outputs, including validation failure cases for bad callback shapes and
 inconsistent dimensions.
 
-`test_chnk_curve_helpers_match_matlab_fixture` checks `chnk.curves.linefunc`,
+`test_geometry_curve_helpers_match_matlab_fixture` checks `geometry.curves.linefunc`,
 `fpara`, `fsine`, and `bymode`, including center and anisotropic scaling for
 the Fourier-mode curve helper.
 
@@ -1122,7 +1122,7 @@ arclength density, curvature, arclength coordinates and derivatives,
 endpoints, extrema, `sortinfo`, `sort`, and `datares`.
 
 `test_chunker_flag_nearest_translate_and_uniform_helpers_match_matlab_fixture`
-checks chunker and `chnk.geometry` near-flag wrappers, rectangle/grid near
+checks chunker and `geometry.predicates` near-flag wrappers, rectangle/grid near
 flags, vectorized nearest-point results against MATLAB scalar-reference calls,
 geometry cache recomputation, left/right translation operators, and
 `chunkerfuncuni` uniform geometry including MATLAB-compatible spectral second
@@ -1134,7 +1134,7 @@ checks `split`, `refine`, `upsample`, `arcresample`, `rotate`, `reflect`,
 MATLAB geometry after recomputing normals and weights so Python's live geometry
 caches are compared to the same state.
 
-`test_chnk_geometry_helpers_match_matlab_fixture` checks `perp`, `normal2d`,
+`test_geometry_predicate_helpers_match_matlab_fixture` checks `perp`, `normal2d`,
 `curvature2d`, `chunk_nearparam`, and `flagself` against MATLAB outputs, with
 one-based MATLAB pair indices converted at assertion time.
 

@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from chunkie import Chunker, chunker, chunkerfunc, chunkerpoints, chunkerpoly, chunkerpref, lege, merge
-from chunkie.chnk import curves
+from chunkie.geometry import curves
 
 
 def circle_chunker(k=16):

@@ -13,7 +13,7 @@ from chunkie import (
     regioninside,
     starfish,
 )
-from chunkie.chnk import curves
+from chunkie.geometry import curves
 
 
 def test_ellipse_and_starfish_helpers_match_expected_formulas():
