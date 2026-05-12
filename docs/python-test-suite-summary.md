@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 308 pytest cases because several MATLAB parity tests are
+collection expands to 309 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -106,9 +106,10 @@ Implemented from this scope:
   `chunkerkerneval_greenhelm`, and `chunkerkernevalmat_greenlap` paths,
   including Python `forceadap` close-target replacement in `chunkerkerneval`
   and `chunkerkernevalmat`.
-- Directional-derivative target-data parity for the devtools
-  `datafieldTest.m` workflow, including direct, `forceadap`, and PyFLAM target
-  evaluation against a MATLAB-solved density.
+- Data-field parity for converted slices of the devtools `datafieldTest.m`
+  workflow, including Hilbert/cotangent source data through dense and PyFLAM
+  matrix products plus directional-derivative target data through direct,
+  `forceadap`, and PyFLAM target evaluation against a MATLAB-solved density.
 - PyFLAM-backed acceleration: `chunkerflam`, `chnk.flam` callback/proxy
   helpers, `ChunkerFLAMMatrix`, `chunkermat`/`chunkermatapply`
   `acceleration="flam"`, FLAM target evaluation/materialization, FLAM
@@ -117,13 +118,13 @@ Implemented from this scope:
   evaluation paths, shape-preserving single-column and multiple-RHS
   application, adjoint application/solve helpers, l2 scaling, and
   source/target point-data callbacks. Square, circular, and rectangular FLAM
-  proxy geometry, plus a target-data directional-derivative devtools slice, now
-  also have strict MATLAB fixture parity.
+  proxy geometry, plus Hilbert/cotangent and target-data directional-derivative
+  devtools datafield slices, now also have strict MATLAB fixture parity.
 
 Deferred implementation:
 
 - Remaining FLAM parity beyond the first PyFLAM-backed pass: strict MATLAB
-  devtools FLAM fixtures beyond the converted Green-identity and target-data
+  devtools FLAM fixtures beyond the converted Green-identity and datafield
   diagnostics, full block-kernel multi-chunker workflows, and larger
   proxy-by-level stress coverage.
 - Remaining `chunkerfit` modes beyond the implemented spline/open-line/circle
@@ -568,6 +569,12 @@ directional-derivative single-layer target-data slice from MATLAB
 the custom target-data kernel through direct, `forceadap`, and
 `acceleration="flam"` paths, and compares against MATLAB direct/adaptive/FLAM
 outputs plus the saved single-layer-gradient directional truth.
+
+`test_datafield_devtools_hilbert_data_flam_matches_matlab` checks the
+Hilbert/cotangent source-data slice from the same MATLAB datafield test. The
+method rebuilds the saved data-bearing starfish chunker, evaluates the custom
+PV cotangent kernel through dense special quadrature and PyFLAM application, and
+compares against MATLAB's dense and FLAM products.
 
 `test_flam_proxy_geometry_helpers_match_matlab_fixture` checks deterministic
 FLAM helper geometry against the MATLAB fixture. The method compares

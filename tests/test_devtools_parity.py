@@ -811,6 +811,43 @@ def test_datafield_devtools_target_data_flam_matches_matlab():
     assert float(fixture.err_flam) < 1e-10
 
 
+def test_datafield_devtools_hilbert_data_flam_matches_matlab():
+    fixture = load_devtools_easy().datafield.hilbert
+    chnkr = chunker_from_fields(fixture.chunker)
+    data = np.asarray(fixture.data).reshape(1, chnkr.npt, order="F")
+    chnkr.makedatarows(data.shape[0])
+    chnkr.data = data.reshape(data.shape[0], chnkr.k, chnkr.nch, order="F")
+    length = float(fixture.L)
+
+    def cotangent_kernel(src, targ):
+        theta = targ.data.reshape(-1, order="F")[:, None] - src.data.reshape(-1, order="F")[None, :]
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return 1.0 / np.tan(theta / 2.0)
+
+    hkern = Kernel(
+        name="cotan",
+        type="cot",
+        eval=cotangent_kernel,
+        opdims=(1, 1),
+        sing="pv",
+    )
+
+    f1 = np.asarray(fixture.f1).reshape(-1, order="F")
+    f2 = (chunkermat(chnkr, hkern) / length) @ f1
+    f2_flam = chunkermat(
+        chnkr,
+        hkern,
+        {"acceleration": "flam", "occ": 64, "rank_or_tol": 1.0e-10, "useproxy": False},
+    ) @ f1 / length
+
+    np.testing.assert_allclose(f2, np.asarray(fixture.f2).reshape(-1, order="F"), rtol=2e-6, atol=1e-8)
+    np.testing.assert_allclose(f2_flam, np.asarray(fixture.f2_flam).reshape(-1, order="F") / length, rtol=2e-6, atol=1e-8)
+    assert np.linalg.norm(f1**2 + f2**2 - 1.0) / np.linalg.norm(f1**2) < 1e-8
+    assert np.linalg.norm(f2 - f2_flam) / np.linalg.norm(f2) < 1e-8
+    assert float(fixture.err_circle) < 1e-8
+    assert float(fixture.err_flam) < 1e-10
+
+
 def test_flam_proxy_geometry_helpers_match_matlab_fixture():
     fixture = load_devtools_easy().flam_helpers
 

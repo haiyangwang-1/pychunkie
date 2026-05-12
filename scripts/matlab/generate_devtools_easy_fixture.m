@@ -970,8 +970,27 @@ cqa.mat_adap = chnk.quadadap.buildmat(chnkr, fkern, [1 1], 'log', opts);
 cqa.relerr = norm(cqa.mat_ggq - cqa.mat_adap, 'fro') / norm(cqa.mat_ggq, 'fro');
 devtools_easy.chunkermat_quadadap = cqa;
 
-% datafieldTest.m directional derivative target-data slice
+% datafieldTest.m data-field slices
 df = [];
+df.hilbert = [];
+df.hilbert.kfreq = 5;
+cparams = [];
+cparams.nover = 2;
+chnkr = chunkerfunc(@(t) starfish(t),cparams);
+chnkr = chnkr.makedatarows(1);
+df.hilbert.L = sum(sum(chnkr.wts));
+data_tmp = arclengthfun(chnkr)/df.hilbert.L;
+chnkr.data(:) = data_tmp(:)*2*pi;
+df.hilbert.chunker = fixture_pack_chunker(chnkr);
+df.hilbert.data = chnkr.data(:,:);
+hkern = local_H_kernel();
+df.hilbert.f1 = sin(2*df.hilbert.kfreq*chnkr.data(:));
+H_mat = chunkermat(chnkr,hkern)/df.hilbert.L;
+df.hilbert.f2 = H_mat*df.hilbert.f1;
+F = chunkerflam(chnkr,hkern,0);
+df.hilbert.f2_flam = rskelf_mv(F,df.hilbert.f1);
+df.hilbert.err_circle = norm(df.hilbert.f1.^2 + df.hilbert.f2.^2 - 1)/norm(df.hilbert.f1.^2);
+df.hilbert.err_flam = norm(df.hilbert.f2-df.hilbert.f2_flam/df.hilbert.L)/norm(df.hilbert.f2);
 rng(8675309);
 df.nt = 10;
 df.srcinfo = [];
@@ -1044,6 +1063,20 @@ function submat = local_directional_der_S(s,t)
 v = t.data(:,:);
 [~,grad] = chnk.lap2d.green(s.r,t.r);
 submat = grad(:,:,1).*(v(1,:).') + grad(:,:,2).*(v(2,:).');
+end
+
+function kern = local_H_kernel()
+kern = kernel();
+kern.name = "cotan";
+kern.type = "cot";
+kern.eval = @(s,t) local_cot_func(s,t);
+kern.opdims = [1,1];
+kern.sing = 'pv';
+end
+
+function val = local_cot_func(s,t)
+theta = (t.data(:)) - (s.data(:).');
+val = cot(theta/2);
 end
 
 function [r, d, d2] = local_cos_func(t, per, amp)
