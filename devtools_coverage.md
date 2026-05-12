@@ -94,8 +94,8 @@ Implemented from this scope:
 - First-pass PyFLAM integration: `chunkerflam`, `chnk.flam` helper callbacks,
   `ChunkerFLAMMatrix`, FLAM-backed `chunkermat`/`chunkermatapply`, target
   evaluation/materialization, and `chunkerinterior` FLAM classification. These
-  are covered by focused Python tests; strict MATLAB devtools FLAM fixtures are
-  still pending.
+  are covered by focused Python tests; the Green-identity target-evaluation
+  devtools fixture now also saves MATLAB FLAM diagnostics.
 - Advanced RCIP chunkgraph workflows: selected vertices, ignored vertices, and
   global block-kernel subselection for local corner compression.
 - Laplace and Helmholtz Green-identity devtools target-evaluation fixtures:
@@ -103,16 +103,17 @@ Implemented from this scope:
   `chunkerkernevalmat_greenlap` now compare saved sources, boundary densities,
   target truth, adaptive close-target evaluation outputs, eval matrices, and
   NaN-kernel diagnostics. Python `forceadap` covers close-target corrections;
-  Python FLAM force-adaptive target evaluation is checked against the same
-  direct MATLAB fixture values. MATLAB FMM values are retained as fixture
-  diagnostics where the original devtools test used them; MATLAB FLAM
-  diagnostics remain pending fixture work.
+  Python FLAM force-adaptive target evaluation is checked against saved direct
+  and MATLAB FLAM fixture values for the Laplace Green-identity workflow.
+  MATLAB FMM values are retained as fixture diagnostics where the original
+  devtools test used them.
 
 Deferred implementation:
 
 - Remaining FLAM parity beyond the first PyFLAM-backed pass: strict MATLAB
-  devtools fixtures, full multi-chunker block-kernel workflows, and
-  proxy-by-level stress coverage.
+  devtools fixtures beyond the converted Green-identity target-evaluation
+  diagnostic, full multi-chunker block-kernel workflows, and proxy-by-level
+  stress coverage.
 - Remaining `chunkerfit` modes beyond the implemented spline/open-line/circle
   paths.
 
@@ -170,7 +171,7 @@ Do not implement:
 | 36 | `chunkermat_quadadapTest.m` | ✅ 🧪 🎯 | Hard | Builds dense matrices with standard and adaptive quadrature for a starfish near-interaction case and asserts relative Frobenius agreement below `1e-9`. | Covered in `devtools_easy.mat`: compare saved starfish geometry, Helmholtz double-layer GGQ matrix, adaptive-neighbor matrix, and MATLAB/Python GGQ-vs-adaptive Frobenius agreement. |
 | 37 | `chunkerkerneval_correctionsTest.m` | ✅ 🚧 ⚠️ | Hard | Checks special near-target correction in `chunkerkerneval`: corrected evaluation matches truth while uncorrected smooth evaluation is measurably wrong. | Save source geometry, targets, density, corrected/unfixed values, and compare Python near-correction behavior. |
 | 38 | `chunkerkerneval_gaussidTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Uses Gauss' identity for the Laplace double-layer potential over grids and checks values are near `0` or `-1` depending on inside/outside classification. | Save grid/targets, classifications, and double-layer values; compare Python evaluation and interior classification. |
-| 39 | `chunkerkerneval_greenlapTest.m` | ✅ 🧪 🎯 ⚠️ | Hard | Tests Laplace Green's identity using direct, FMM, and FLAM/smooth-work paths for layer potential evaluation at targets. | Covered in `devtools_easy.mat`: compare saved source strengths, boundary densities, target truth, close-corrected Python `forceadap` layer evaluations, and PyFLAM force-adaptive layer evaluations against direct MATLAB values. MATLAB direct/FMM equality is retained as fixture diagnostics; MATLAB FLAM diagnostics are still pending fixture conversion. |
+| 39 | `chunkerkerneval_greenlapTest.m` | ✅ 🧪 🎯 ⚠️ | Hard | Tests Laplace Green's identity using direct, FMM, and FLAM/smooth-work paths for layer potential evaluation at targets. | Covered in `devtools_easy.mat`: compare saved source strengths, boundary densities, target truth, close-corrected Python `forceadap` layer evaluations, and PyFLAM force-adaptive layer evaluations against direct and MATLAB FLAM values. MATLAB direct/FMM/FLAM equality is retained as fixture diagnostics. |
 | 40 | `chunkerkerneval_greenhelmTest.m` | ✅ 🧪 🎯 | Hard | Tests Helmholtz Green's identity for a starfish geometry by comparing layer-potential evaluation to known field values at targets. | Covered in `devtools_easy.mat`: compare saved Helmholtz wave number, sources, boundary densities, targets, close-corrected Python `forceadap` layer evaluations, and Green-identity target values. |
 | 41 | `chunkerkernevalmat_greenlapTest.m` | ✅ 🧪 🎯 | Hard | Builds Laplace target-evaluation matrices and checks applying them reproduces Green's identity target values. | Covered in `devtools_easy.mat`: compare saved sources, densities, targets, single-layer eval matrix, adaptive double-layer eval matrix, and the Green-identity target values against Python `chunkerkernevalmat(..., forceadap=True)`. |
 | 42 | `chunkermatTest.m` | ✅ 🧪 🚧 ⚠️ | Hard | Builds a Laplace Dirichlet dense system matrix on a starfish, solves it, evaluates at targets, and checks exterior solution accuracy. | Existing operator parity covers smaller dense paths; add full starfish solve fixture when native/special quadrature is ready. |

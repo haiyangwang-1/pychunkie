@@ -851,7 +851,13 @@ ckgl.Du_fmm = chunkerkerneval(chnkr, kernd, ckgl.densu, ckgl.targets, opts);
 ckgl.Sun_fmm = chunkerkerneval(chnkr, kerns, ckgl.densun, ckgl.targets, opts);
 ckgl.utarg_identity_fmm = ckgl.Sun_fmm - ckgl.Du_fmm;
 ckgl.relerr_fmm = norm(ckgl.utarg - ckgl.utarg_identity_fmm, 'fro')/norm(ckgl.utarg, 'fro');
-ckgl.flam_deferred = true;
+opts = [];
+opts.flam = true;
+ckgl.Du_flam = chunkerkerneval(chnkr, kernd, ckgl.densu, ckgl.targets, opts);
+ckgl.Sun_flam = chunkerkerneval(chnkr, kerns, ckgl.densun, ckgl.targets, opts);
+ckgl.utarg_identity_flam = ckgl.Sun_flam - ckgl.Du_flam;
+ckgl.relerr_flam = norm(ckgl.utarg - ckgl.utarg_identity_flam, 'fro')/norm(ckgl.utarg, 'fro');
+ckgl.flam_deferred = false;
 devtools_easy.chunkerkerneval_greenlap = ckgl;
 
 % chunkerkernevalmat_greenlapTest.m

@@ -115,8 +115,9 @@ Implemented from this scope:
 Deferred implementation:
 
 - Remaining FLAM parity beyond the first PyFLAM-backed pass: strict MATLAB
-  devtools FLAM fixtures, full multi-chunker block-kernel workflows, and
-  proxy-by-level stress coverage.
+  devtools FLAM fixtures beyond the converted Laplace Green-identity
+  diagnostic, full multi-chunker block-kernel workflows, and proxy-by-level
+  stress coverage.
 - Remaining `chunkerfit` modes beyond the implemented spline/open-line/circle
   paths.
 
@@ -574,9 +575,9 @@ Laplace Green-identity target-evaluation workflow from
 `chunkerkerneval_greenlapTest.m`. The method compares saved point-source
 fields, boundary densities, and close-corrected single/double-layer target
 evaluations through `forceadap`. Ground truth is MATLAB's direct outputs and
-diagnostic FMM equality. MATLAB FLAM diagnostics are not fixture-converted yet;
-Python FLAM force-adaptive target evaluation is checked against the same direct
-MATLAB fixture values.
+diagnostic FMM equality plus saved MATLAB FLAM outputs. Python FLAM
+force-adaptive target evaluation is checked against both direct and MATLAB
+FLAM fixture values.
 
 `test_chunkerkernevalmat_greenlap_devtools_outputs_match_matlab` checks the
 matrix form of the same Laplace Green identity. The method builds target

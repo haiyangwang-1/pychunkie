@@ -605,7 +605,7 @@ Should implement:
 
 Deferred implementation:
 
-- ⚠️ Remaining FLAM parity beyond the first PyFLAM-backed pass: strict MATLAB devtools FLAM fixtures, full multi-chunker block-kernel workflows, and proxy-by-level stress coverage.
+- ⚠️ Remaining FLAM parity beyond the first PyFLAM-backed pass: strict MATLAB devtools FLAM fixtures beyond the converted Laplace Green-identity diagnostic, full multi-chunker block-kernel workflows, and proxy-by-level stress coverage.
 - ⚠️ Remaining `chunkerfit` modes beyond the implemented spline/open-line/circle paths.
 
 Do not implement:

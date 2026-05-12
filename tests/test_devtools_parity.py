@@ -692,13 +692,20 @@ def test_chunkerkerneval_greenlap_devtools_outputs_match_matlab():
     np.testing.assert_allclose(fixture.Du_fmm, fixture.Du_direct, rtol=1e-10, atol=1e-12)
     np.testing.assert_allclose(fixture.Sun_fmm, fixture.Sun_direct, rtol=1e-10, atol=1e-12)
     np.testing.assert_allclose(fixture.utarg_identity_fmm, fixture.utarg_identity_direct, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(fixture.Du_flam, fixture.Du_direct, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(fixture.Sun_flam, fixture.Sun_direct, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(fixture.utarg_identity_flam, fixture.utarg_identity_direct, rtol=1e-10, atol=1e-12)
     np.testing.assert_allclose(Du_flam, fixture.Du_direct, rtol=1e-8, atol=5e-9)
     np.testing.assert_allclose(Sun_flam, fixture.Sun_direct, rtol=1e-8, atol=5e-9)
     np.testing.assert_allclose(identity_flam, fixture.utarg_identity_direct, rtol=1e-8, atol=5e-9)
+    np.testing.assert_allclose(Du_flam, fixture.Du_flam, rtol=1e-8, atol=5e-9)
+    np.testing.assert_allclose(Sun_flam, fixture.Sun_flam, rtol=1e-8, atol=5e-9)
     assert np.linalg.norm(utarg - identity_direct) / np.linalg.norm(utarg) < 1e-11
     assert np.linalg.norm(utarg - identity_flam) / np.linalg.norm(utarg) < 1e-8
     assert float(fixture.relerr_direct) < 1e-11
     assert float(fixture.relerr_fmm) < 1e-11
+    assert float(fixture.relerr_flam) < 1e-11
+    assert not bool(fixture.flam_deferred)
 
 
 def test_chunkerkernevalmat_greenlap_devtools_outputs_match_matlab():
