@@ -46,6 +46,15 @@ moved here so active triage stays focused on unfinished work.
 | FMM parity-style tests in `tests/test_kernel.py` and `tests/test_operators.py` | done | Mostly compared FMM paths to Python dense/direct paths on simple circle geometries. | Added `tests/test_easy_parity_stress.py::test_interleaved_fmm_stress_matches_direct_on_wobbly_curve` with a wobbly source curve, off-boundary targets, complex/vector densities, and interleaved Laplace/Helmholtz kernel blocks. |
 | Smoother devtools parity | done | The check was diagnostic: error thresholds and output shapes, not MATLAB geometry equivalence. | Added `tests/test_easy_parity_stress.py::test_smoother_stress_returns_valid_rounded_asymmetric_polygon` with asymmetric widths and polygon geometry, area, adjacency, normals, chunk lengths, and per-node error checks for the supported lightweight smoother. |
 
+## Completed Follow-up Quality Pass - 2026-05-12
+
+| Test | Status | Previous weak assertion pattern | Completed hardening |
+| --- | --- | --- | --- |
+| `tests/test_operators.py::test_chunkermat_matches_chunkerkerneval_on_boundary_for_smooth_kernel` | done | Compared two public direct routes without an independent weighted-kernel value. | Adds an explicit raw smooth-kernel matrix-vector reference using source quadrature weights. |
+| `tests/test_operators.py::test_chunkerkernevalmat_matches_direct_target_evaluation` | done | Compared evaluation matrix application to direct evaluation without checking matrix entries. | Compares the evaluation matrix to the raw target/source kernel block weighted by source quadrature weights. |
+| `tests/test_operators.py::test_quadnative_buildmat_matches_dense_chunkermat` | done | Compared lower-level and public dense assembly paths only. | Compares native assembly to the explicit raw smooth-kernel matrix weighted by source quadrature weights. |
+| `tests/test_operators.py::test_chunkerinterior_fmm_matches_direct_with_close_correction` | done | Verified FMM/direct agreement without asserting the expected inside/outside truth. | Asserts exact circle membership for inside, outside, just-inside, and just-outside targets before comparing the FMM route. |
+
 ## Completed Full Test Ease Audit - 2026-05-12
 
 Scope: project-owned `tests/test_*.py` files only. Vendored tests under

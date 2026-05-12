@@ -1352,7 +1352,8 @@ that dense boundary matrix application matches direct kernel evaluation at the
 same boundary nodes for a smooth kernel. The equation is the weighted discrete
 sum with `K = 1 + dx^2 + 0.5 dy^2`. The method compares `chunkermatapply` with
 `chunkerkerneval(..., targ=chnkr)` for smooth non-singular data. Ground truth
-is equality between the two direct routes.
+is the raw kernel matrix applied to the density after source quadrature
+weighting, plus equality between the two direct routes.
 
 `test_chunkermatapply_fmm_matches_special_matrix_application` checks FMM
 matrix application for a singular boundary operator. The method applies a
@@ -1378,7 +1379,8 @@ with the original chunk arrays.
 `test_chunkerkernevalmat_matches_direct_target_evaluation` checks target
 evaluation matrix assembly. The equation is `values = EvalMat sigma` for the
 same smooth polynomial kernel. The method compares `chunkerkernevalmat @ dens`
-to `chunkerkerneval`. Ground truth is direct evaluation equality.
+to `chunkerkerneval`. Ground truth is the explicit target/source kernel block
+weighted by source quadrature weights, plus direct evaluation equality.
 
 `test_chunkermat_accepts_kernel_objects` checks that `chunkermat` accepts a
 `Kernel` object, not only callables. The method uses `kernel("zero")`.
@@ -1388,7 +1390,8 @@ Ground truth is an `npt x npt` zero matrix.
 native quadrature builder agrees with the public dense matrix builder for a
 smooth scalar kernel. The equation is the same weighted direct matrix
 `K w`. The method compares `quadnative.buildmat` to `chunkermat`. Ground truth
-is equality of the two dense matrices.
+is the explicit raw smooth kernel matrix multiplied by source weights, plus
+equality of the two dense matrices.
 
 `test_chunkerintegral_accepts_values_and_callables` checks scalar integration
 over a circle. The equations are `integral_0^(2pi) 1 ds = 2 pi` and
@@ -1406,7 +1409,9 @@ sample targets.
 accelerated interior classifier. The method monkeypatches `chunkerkerneval` to
 verify the FMM path is used, evaluates points inside, outside, and very close
 to a circle boundary, and compares against the direct classifier. Ground truth
-is exact direct/FMM classification agreement after close-boundary correction.
+is the exact expected circle membership `[inside, outside, just-inside,
+just-outside]` plus direct/FMM classification agreement after close-boundary
+correction.
 
 ## `tests/test_quadggq.py`
 

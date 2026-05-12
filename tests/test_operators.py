@@ -36,10 +36,14 @@ def smooth_kernel(src: PointInfo, targ: PointInfo):
 def test_chunkermat_matches_chunkerkerneval_on_boundary_for_smooth_kernel():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
     dens = np.cos(chnkr.r[0].reshape(-1, order="F"))
+    info = pointinfo(chnkr)
+    weights = chnkr.wts.reshape(-1, order="F")
+    expected = smooth_kernel(info, info) @ (dens * weights)
 
     mat_vals = chunkermatapply(chnkr, smooth_kernel, dens)
     eval_vals = chunkerkerneval(chnkr, smooth_kernel, dens, chnkr).reshape(-1)
 
+    np.testing.assert_allclose(mat_vals, expected)
     np.testing.assert_allclose(mat_vals, eval_vals)
 
 
@@ -83,10 +87,13 @@ def test_chunkerkernevalmat_matches_direct_target_evaluation():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
     dens = np.sin(chnkr.r[1].reshape(-1, order="F"))
     targets = np.array([[0.0, 2.0], [0.0, -0.25]])
+    weights = chnkr.wts.reshape(-1, order="F")
+    expected_mat = smooth_kernel(pointinfo(chnkr), PointInfo(r=targets)) * weights[None, :]
 
     mat = chunkerkernevalmat(chnkr, smooth_kernel, targets)
     vals = chunkerkerneval(chnkr, smooth_kernel, dens, targets).reshape(-1)
 
+    np.testing.assert_allclose(mat, expected_mat)
     np.testing.assert_allclose(mat @ dens, vals, atol=1e-14)
 
 
@@ -101,10 +108,13 @@ def test_chunkermat_accepts_kernel_objects():
 
 def test_quadnative_buildmat_matches_dense_chunkermat():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 3}, {"k": 8})
+    weights = chnkr.wts.reshape(-1, order="F")
+    expected = smooth_kernel(pointinfo(chnkr), pointinfo(chnkr)) * weights[None, :]
 
     native = quadnative.buildmat(chnkr, smooth_kernel, (1, 1))
     dense = chunkermat(chnkr, smooth_kernel)
 
+    np.testing.assert_allclose(native, expected)
     np.testing.assert_allclose(native, dense)
 
 
@@ -136,6 +146,7 @@ def test_chunkerinterior_classifies_points_and_grids():
 def test_chunkerinterior_fmm_matches_direct_with_close_correction(monkeypatch):
     chnkr, _ = chunkerfunc(circle, {"nchmin": 8}, {"k": 8})
     pts = np.array([[0.0, 1.25, 0.999999, 1.000001], [0.0, 0.0, 0.0, 0.0]])
+    expected = np.array([True, False, True, False])
     calls = []
     original = operators_mod.chunkerkerneval
 
@@ -149,4 +160,5 @@ def test_chunkerinterior_fmm_matches_direct_with_close_correction(monkeypatch):
     via_fmm = operators_mod.chunkerinterior(chnkr, pts, {"acceleration": "fmm", "near_fac": 0.25})
 
     assert calls and calls[0]["acceleration"] == "fmm"
+    np.testing.assert_array_equal(direct, expected)
     np.testing.assert_array_equal(via_fmm, direct)
