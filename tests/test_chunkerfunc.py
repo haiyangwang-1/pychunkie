@@ -87,7 +87,12 @@ def test_chunkerfunc_adaptively_refines_unresolved_curve():
     assert refined.nch > coarse.nch
     np.testing.assert_allclose(ab[0, 0], 0.0)
     np.testing.assert_allclose(ab[1, -1], 1.0)
+    np.testing.assert_allclose(ab[1, :-1], ab[0, 1:])
     np.testing.assert_allclose(np.sum(refined.chunklen()), np.sum(refined.wts), atol=1e-14)
+    xg, wg = np.polynomial.legendre.leggauss(2000)
+    tg = (xg + 1.0) / 2.0
+    reference_length = 0.5 * np.sum(wg * np.sqrt(1.0 + (0.05 * freq * np.cos(freq * tg)) ** 2))
+    np.testing.assert_allclose(np.sum(refined.chunklen()), reference_length, rtol=1e-10, atol=1e-11)
 
 
 def test_basic_curve_helpers_match_expected_derivatives():

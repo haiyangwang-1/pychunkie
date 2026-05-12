@@ -54,6 +54,7 @@ moved here so active triage stays focused on unfinished work.
 | `tests/test_operators.py::test_chunkerkernevalmat_matches_direct_target_evaluation` | done | Compared evaluation matrix application to direct evaluation without checking matrix entries. | Compares the evaluation matrix to the raw target/source kernel block weighted by source quadrature weights. |
 | `tests/test_operators.py::test_quadnative_buildmat_matches_dense_chunkermat` | done | Compared lower-level and public dense assembly paths only. | Compares native assembly to the explicit raw smooth-kernel matrix weighted by source quadrature weights. |
 | `tests/test_operators.py::test_chunkerinterior_fmm_matches_direct_with_close_correction` | done | Verified FMM/direct agreement without asserting the expected inside/outside truth. | Asserts exact circle membership for inside, outside, just-inside, and just-outside targets before comparing the FMM route. |
+| `tests/test_chunkerfunc.py::test_chunkerfunc_adaptively_refines_unresolved_curve` | done | Checked that refinement happened and endpoints survived, but not that the refined geometry was numerically accurate. | Adds contiguous interval checks and compares refined arclength to a high-order independent Gauss-Legendre reference. |
 
 ## Completed Full Test Ease Audit - 2026-05-12
 

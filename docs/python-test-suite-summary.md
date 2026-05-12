@@ -366,7 +366,9 @@ derivative inference.
 parameter-interval refinement. The method constructs a high-frequency open
 curve once with `ifrefine=False` and once with adaptive refinement enabled.
 Ground truth is that the unresolved one-panel curve is split into multiple
-panels while preserving interval coverage from `0` to `1`.
+contiguous panels preserving interval coverage from `0` to `1`, and that the
+refined arclength matches an independent high-order Gauss-Legendre reference
+for `sqrt(1 + y'(t)^2)`.
 
 `test_basic_curve_helpers_match_expected_derivatives` checks the canned
 `curves.fsine` helper. The equations are `x(t)=t`, `x'(t)=1`, `x''(t)=0`, and
