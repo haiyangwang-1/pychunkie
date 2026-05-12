@@ -129,4 +129,16 @@ def test_tochunkgraph_preserves_closed_and_open_components():
 
     assert closed_graph.edgesendverts.shape == (2, 1)
     assert closed_graph.edgesendverts[0, 0] == closed_graph.edgesendverts[1, 0]
+    assert closed_graph.npt == closed.npt
+    np.testing.assert_allclose(closed_graph.r, closed.r)
+    np.testing.assert_allclose(closed_graph.wts, closed.wts)
+    np.testing.assert_allclose(closed_graph.echnks[0].r, closed.r)
+    np.testing.assert_allclose(closed_graph.echnks[0].wts, closed.wts)
+    np.testing.assert_allclose(closed_graph.verts[:, 0], [0.0, 0.0], atol=1e-14)
     np.testing.assert_array_equal(line_graph.edgesendverts, np.array([[0], [1]]))
+    assert line_graph.npt == open_line.npt
+    np.testing.assert_allclose(line_graph.r, open_line.r)
+    np.testing.assert_allclose(line_graph.wts, open_line.wts)
+    np.testing.assert_allclose(line_graph.echnks[0].r, open_line.r)
+    np.testing.assert_allclose(line_graph.echnks[0].wts, open_line.wts)
+    np.testing.assert_allclose(line_graph.verts, np.array([[2.0, 3.0], [0.0, 0.0]]), atol=1e-14)

@@ -448,7 +448,9 @@ ordinary chunkers to graph form. The invariant is that a closed component
 becomes a loop edge whose start and end vertex are the same, while an open line
 becomes an edge between distinct vertices. The method is `tochunkgraph`.
 Ground truth is the loop endpoint condition for the closed square and
-`[[0],[1]]` endpoints for the open line.
+`[[0],[1]]` endpoints for the open line, plus preservation of merged graph
+coordinates, weights, edge chunker storage, point counts, and vertex
+coordinates.
 
 ## `tests/test_domain.py`
 
