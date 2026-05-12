@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 297 pytest cases because several MATLAB parity tests are
+collection expands to 298 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -109,8 +109,8 @@ Implemented from this scope:
 - PyFLAM-backed acceleration: `chunkerflam`, `chnk.flam` callback/proxy
   helpers, `ChunkerFLAMMatrix`, `chunkermat`/`chunkermatapply`
   `acceleration="flam"`, FLAM target evaluation/materialization, FLAM
-  interior classification, adaptive near-target correction, l2 scaling, and
-  point-data callbacks.
+  interior classification, adaptive near-target correction, multiple-RHS
+  application, l2 scaling, and point-data callbacks.
 
 Deferred implementation:
 
@@ -716,6 +716,11 @@ data fields are passed through FLAM matrix callbacks. The method allocates a
 chunker data row, evaluates a custom data-dependent kernel, and compares the
 PyFLAM operator with the dense matrix. Ground truth is dense evaluation with
 the proxy path disabled automatically for data-bearing chunkers.
+
+`test_chunkermatapply_flam_accepts_multiple_rhs` checks direct
+`chunkermatapply(..., {"acceleration": "flam"})` application on multiple
+right-hand sides. The method applies the PyFLAM-backed path to two density
+columns and compares the result to dense special-quadrature matrix products.
 
 `test_chunkerkerneval_flam_matches_eval_matrix_and_dense` checks off-boundary
 target FLAM evaluation. The method compares `chunkerkerneval` and

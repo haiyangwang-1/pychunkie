@@ -294,14 +294,12 @@ def chunkermatapply(
 
     chnkr = _require_chunker(chnkr)
     options = {} if opts is None else dict(opts)
-    dens_vec = np.asarray(dens).reshape(-1, order="F")
     acceleration = _acceleration(options)
-    if acceleration == "flam":
-        return chunkermat(chnkr, kern, options) @ dens_vec
     if acceleration == "fmm":
         _require_fmm(kern)
-        return _chunkermatapply_fmm(chnkr, kern, dens_vec, options)
-    return chunkermat(chnkr, kern, opts) @ dens_vec
+    op = chunkermat(chnkr, kern, options)
+    dens_arg = _density_matmul_arg(op.shape[1], dens)
+    return op @ dens_arg
 
 
 def chunkerintegral(
@@ -523,6 +521,16 @@ def _weighted_density(chnkr: Chunker, dens: ArrayLike) -> np.ndarray:
         raise ValueError("density has incompatible size")
     opdims_col = weighted.size // chnkr.npt
     return weighted * np.repeat(chnkr.wts.reshape(-1, order="F"), opdims_col)
+
+
+def _density_matmul_arg(ncols: int, dens: ArrayLike) -> np.ndarray:
+    arr = np.asarray(dens)
+    if arr.ndim == 2 and arr.shape[0] == ncols and arr.size != ncols:
+        return arr
+    vec = arr.reshape(-1, order="F")
+    if vec.size != ncols:
+        raise ValueError("density has incompatible size")
+    return vec
 
 
 def _eval_kernel(kern: Callable[[Any, Any], np.ndarray], srcinfo: PointInfo, targinfo: PointInfo) -> np.ndarray:

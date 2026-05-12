@@ -10,6 +10,7 @@ from chunkie import (
     chunkerkerneval,
     chunkerkernevalmat,
     chunkermat,
+    chunkermatapply,
     kernel,
 )
 from chunkie.chnk import flam
@@ -199,6 +200,24 @@ def test_chunkermat_flam_preserves_point_data_without_proxy():
     flam_mat = chunkermat(chnkr, data_kernel, {"acceleration": "flam", "dval": 0.5, "occ": 16, "rank_or_tol": 1e-10})
 
     np.testing.assert_allclose(flam_mat @ rhs, dense @ rhs, rtol=1e-10, atol=1e-11)
+
+
+def test_chunkermatapply_flam_accepts_multiple_rhs():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 6})
+    lap_s = kernel("lap", "s")
+    pts = chnkr.r.reshape(2, chnkr.npt, order="F")
+    rhs = np.column_stack((np.cos(pts[0]), np.sin(pts[1])))
+    dense = chunkermat(chnkr, lap_s)
+
+    via_flam = chunkermatapply(
+        chnkr,
+        lap_s,
+        rhs,
+        {"acceleration": "flam", "occ": 8, "rank_or_tol": 1e-10, "useproxy": False},
+    )
+
+    assert via_flam.shape == rhs.shape
+    np.testing.assert_allclose(via_flam, dense @ rhs, rtol=1e-10, atol=1e-11)
 
 
 def test_chunkerkerneval_flam_matches_eval_matrix_and_dense():
