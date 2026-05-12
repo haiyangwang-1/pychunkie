@@ -107,6 +107,30 @@ def transmission_point_source_boundary_data(chnkr: Chunker, fixture) -> np.ndarr
     return out
 
 
+def kernel_interleave_helmholtz_kernels(fixture):
+    zk = complex(fixture.zk)
+    alpha = complex(fixture.alpha)
+    c1 = complex(fixture.c1)
+    c2 = complex(fixture.c2)
+    c3 = complex(fixture.c3)
+    sik = kernel("helm", "s", 1j * zk)
+    sikp = kernel("helm", "sprime", 1j * zk)
+    skp = kernel("helm", "sprime", zk)
+    sk = kernel("helm", "s", zk)
+    dk = kernel("helm", "d", zk)
+    dkdiff = kernel("helmdiff", "dprime", [zk, 1j * zk])
+    zero = kernel("zero")
+    system = kernel(
+        [
+            [c1 * skp, c2 * dkdiff, c2 * sikp],
+            [c3 * sik, zero, zero],
+            [c3 * sikp, zero, zero],
+        ]
+    )
+    eval_kernel = c1 * kernel([[sk, 1j * alpha * dk, zero]])
+    return system, eval_kernel, skp, sk
+
+
 def sinearc(t, amp: float, frq: float):
     flat = np.asarray(t, dtype=float).reshape(-1)
     r = np.vstack((flat, amp * np.sin(frq * flat)))
@@ -396,6 +420,34 @@ def build_snapshot() -> dict[str, np.ndarray]:
     out["kernelop_ckern1"] = (skern + dkern)(src, targ)
     out["kernelop_ckern2"] = (skern - dkern)(src, targ)
     out["kernelop_conj_dkern"] = dkern.conj()(src, targ)
+
+    kil = fixture.kernel_interleave
+    kil_chunker = chunker_from_fields(kil.chunker)
+    kil_system, kil_eval, kil_skp, kil_sk = kernel_interleave_helmholtz_kernels(kil)
+    kil_src = PointInfo(r=point_array(kil.sources))
+    kil_targets = point_array(kil.targets)
+    kil_strengths = np.asarray(kil.strengths).reshape(-1, order="F")
+    kil_weights = kil_chunker.wts.reshape(-1, order="F")
+    kil_rowdim = kil_system.opdims[0]
+    kil_rhs = np.zeros(kil_rowdim * kil_chunker.npt, dtype=complex)
+    kil_ubdry = kil_skp(kil_src, pointinfo_from_chunker(kil_chunker)) @ kil_strengths
+    kil_rhs[0::kil_rowdim] = kil_ubdry * np.sqrt(kil_weights)
+    kil_sys = np.asarray(chunkermat(kil_chunker, kil_system, {"l2scale": bool(kil.l2scale)})) + np.eye(kil_rhs.size)
+    kil_sol_scaled = np.linalg.solve(kil_sys, kil_rhs)
+    kil_sol = kil_sol_scaled / np.repeat(np.sqrt(kil_weights), kil_rowdim)
+    out["kernel_interleave_ubdry"] = kil_ubdry
+    out["kernel_interleave_rhs"] = kil_rhs
+    out["kernel_interleave_sys_probe"] = kil_sys @ np.asarray(kil.probe)
+    out["kernel_interleave_sys_entries"] = kil_sys[
+        np.ix_(
+            np.asarray(kil.entry_rows, dtype=int).reshape(-1, order="F") - 1,
+            np.asarray(kil.entry_cols, dtype=int).reshape(-1, order="F") - 1,
+        )
+    ]
+    out["kernel_interleave_sol_scaled"] = kil_sol_scaled
+    out["kernel_interleave_sol"] = kil_sol
+    out["kernel_interleave_utarg"] = kil_sk(kil_src, PointInfo(r=kil_targets)) @ kil_strengths
+    out["kernel_interleave_Dsol"] = chunkerkerneval(kil_chunker, kil_eval, kil_sol, kil_targets, {"forceadap": True})
 
     sdtr = fixture.stokes_dtrac
     src = pointinfo_from_mat(sdtr.srcinfo)

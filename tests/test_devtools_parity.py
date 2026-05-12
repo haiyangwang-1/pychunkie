@@ -191,6 +191,30 @@ def transmission_point_source_boundary_data(chnkr: Chunker, fixture) -> np.ndarr
     return out
 
 
+def kernel_interleave_helmholtz_kernels(fixture):
+    zk = complex(fixture.zk)
+    alpha = complex(fixture.alpha)
+    c1 = complex(fixture.c1)
+    c2 = complex(fixture.c2)
+    c3 = complex(fixture.c3)
+    sik = kernel("helm", "s", 1j * zk)
+    sikp = kernel("helm", "sprime", 1j * zk)
+    skp = kernel("helm", "sprime", zk)
+    sk = kernel("helm", "s", zk)
+    dk = kernel("helm", "d", zk)
+    dkdiff = kernel("helmdiff", "dprime", [zk, 1j * zk])
+    zero = kernel("zero")
+    system = kernel(
+        [
+            [c1 * skp, c2 * dkdiff, c2 * sikp],
+            [c3 * sik, zero, zero],
+            [c3 * sikp, zero, zero],
+        ]
+    )
+    eval_kernel = c1 * kernel([[sk, 1j * alpha * dk, zero]])
+    return system, eval_kernel, skp, sk
+
+
 def sorted_pairs(pairs: np.ndarray) -> np.ndarray:
     arr = np.asarray(pairs, dtype=int)
     if arr.size == 0:
@@ -1287,6 +1311,55 @@ def test_kernderinterleave_devtools_outputs_match_matlab():
     np.testing.assert_allclose(lap_coefs[0] * lap_dp + lap_coefs[1] * lap_sp, lap_cp, rtol=1e-12, atol=1e-13)
     np.testing.assert_allclose(lap_coefs[0] * lap_dgrad + lap_coefs[1] * lap_sgrad, lap_cgrad, rtol=1e-12, atol=1e-13)
     np.testing.assert_allclose(lap_dp.reshape(-1, order="F"), np.asarray(lap.dp_grad_dot).reshape(-1), rtol=1e-12, atol=1e-13)
+
+
+def test_kernel_interleave_devtools_dense_solve_matches_matlab():
+    fixture = load_devtools_easy().kernel_interleave
+    assert bool(np.asarray(fixture.invalid_didfail).item())
+    with pytest.raises(ValueError, match="nan kernels"):
+        kernel([[kernel("lap", "d"), kernel("nan")]])
+
+    chnkr = chunker_from_fields(fixture.chunker)
+    system, eval_kernel, skp, sk = kernel_interleave_helmholtz_kernels(fixture)
+    np.testing.assert_array_equal(np.asarray(fixture.K_opdims, dtype=int).reshape(-1, order="F"), np.asarray(system.opdims))
+
+    src = PointInfo(r=point_array(fixture.sources))
+    targets = point_array(fixture.targets)
+    strengths = np.asarray(fixture.strengths).reshape(-1, order="F")
+    weights = chnkr.wts.reshape(-1, order="F")
+    sqrt_weights = np.sqrt(weights)
+    rowdim = system.opdims[0]
+    nsys = rowdim * chnkr.npt
+
+    ubdry = skp(src, pointinfo(chnkr)) @ strengths
+    rhs = np.zeros(nsys, dtype=complex)
+    rhs[0::rowdim] = ubdry * sqrt_weights
+    sys = np.asarray(chunkermat(chnkr, system, {"l2scale": bool(fixture.l2scale)})) + np.eye(nsys)
+    sol_scaled = np.linalg.solve(sys, rhs)
+    sol = sol_scaled / np.repeat(sqrt_weights, rowdim)
+    utarg = sk(src, PointInfo(r=targets)) @ strengths
+    dsol = chunkerkerneval(chnkr, eval_kernel, sol, targets, {"forceadap": True}).reshape(-1, order="F")
+    relerr = np.linalg.norm(utarg - dsol) / (np.sqrt(chnkr.nch) * np.linalg.norm(utarg))
+    relerr2 = np.linalg.norm(utarg - dsol, ord=np.inf) / np.dot(np.abs(sol), np.repeat(weights, rowdim))
+
+    rows = np.asarray(fixture.entry_rows, dtype=int).reshape(-1, order="F") - 1
+    cols = np.asarray(fixture.entry_cols, dtype=int).reshape(-1, order="F") - 1
+    probe = np.asarray(fixture.probe)
+
+    np.testing.assert_allclose(ubdry, np.asarray(fixture.ubdry).reshape(-1, order="F"), rtol=1e-10, atol=1e-11)
+    np.testing.assert_allclose(rhs, np.asarray(fixture.rhs).reshape(-1, order="F"), rtol=1e-10, atol=1e-11)
+    np.testing.assert_allclose(sys[np.ix_(rows, cols)], np.asarray(fixture.sys_entries), rtol=5e-8, atol=5e-8)
+    np.testing.assert_allclose(sys @ probe, np.asarray(fixture.sys_probe), rtol=5e-8, atol=1e-7)
+    np.testing.assert_allclose(sol_scaled, np.asarray(fixture.sol_backslash_scaled).reshape(-1, order="F"), rtol=2e-7, atol=2e-8)
+    np.testing.assert_allclose(sol, np.asarray(fixture.sol).reshape(-1, order="F"), rtol=2e-7, atol=2e-8)
+    np.testing.assert_allclose(utarg, np.asarray(fixture.utarg).reshape(-1, order="F"), rtol=1e-10, atol=1e-11)
+    np.testing.assert_allclose(dsol, np.asarray(fixture.Dsol).reshape(-1, order="F"), rtol=2e-7, atol=5e-8)
+    np.testing.assert_allclose(relerr, float(fixture.relerr), rtol=2e-7, atol=1e-12)
+    np.testing.assert_allclose(relerr2, float(fixture.relerr2), rtol=2e-7, atol=1e-12)
+    assert max(relerr, float(fixture.relerr)) < 1e-4
+    assert max(relerr2, float(fixture.relerr2)) < 1e-3
+    assert int(fixture.gmres_flag) == 0
+    assert float(fixture.gmres_solve_relerr) < 1e-11
 
 
 def test_stokes_dtrac_devtools_output_matches_matlab():

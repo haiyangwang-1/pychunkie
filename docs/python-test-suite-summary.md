@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 350 pytest cases because several MATLAB parity tests are
+collection expands to 351 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -78,9 +78,10 @@ Current test-backed coverage includes:
   special quadrature, and RCIP helper/compression workflows.
 - MATLAB golden parity for compact fixtures under `tests/golden`, including
   geometry, kernel/operator, quadrature, and RCIP fixtures.
-- MATLAB devtools parity for 53 focused comparisons in
+- MATLAB devtools parity for 54 focused comparisons in
   `tests/test_devtools_parity.py`, including Laplace, Helmholtz, and Stokes dense
-  `chunkermat` solve/target-evaluation workflows.
+  `chunkermat` solve/target-evaluation workflows and interleaved Helmholtz
+  block-system diagnostics.
 - Seven parity-stress tests in `tests/test_easy_parity_stress.py` that harden
   previously shape-only or fixture-narrow areas.
 
@@ -553,6 +554,14 @@ combination.
 combined-kernel assembly, transmission blocks, `all` interleaving, gradients,
 and target-normal derivatives as gradient-dot-normal contractions for Laplace,
 Helmholtz, and Helmholtz-difference kernels. Ground truth is the MATLAB fixture.
+
+`test_kernel_interleave_devtools_dense_solve_matches_matlab` checks the dense
+portion of MATLAB `kernel_interleaveTest.m`. The method verifies invalid
+NaN-kernel interleave rejection, reconstructs the three-by-three interleaved
+Helmholtz/Helmholtz-difference system, compares selected l2-scaled matrix
+entries and probe products, solves the dense system, unscales the density, and
+compares adaptive target evaluation against the MATLAB fixture. The fast-direct
+FLAM stage from the MATLAB file remains tracked in `devtools_coverage.md`.
 
 `test_chunkerfunc_devtools_outputs_match_matlab` checks adaptive
 `chunkerfunc` cases from the MATLAB devtools test: starfish construction,

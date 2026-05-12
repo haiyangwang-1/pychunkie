@@ -1057,6 +1057,102 @@ kdi.hdiff = local_kernder_hdiff_case();
 kdi.lap = local_kernder_lap_case();
 devtools_easy.kernderinterleave = kdi;
 
+% kernel_interleaveTest.m dense interleaved Helmholtz slice
+kil = [];
+rng(8675309);
+K0 = [kernel.lap2d('d'), kernel.nans()];
+kil.invalid_didfail = false;
+try
+    K0 = interleave(K0);
+catch
+    kil.invalid_didfail = true;
+end
+
+kil.zk = 1.1;
+kil.alpha = 1.0;
+cparams = [];
+cparams.eps = 1.0e-8;
+cparams.nover = 1;
+pref = [];
+pref.k = 16;
+kil.narms = 3;
+kil.amp = 0.25;
+chnkr = chunkerfunc(@(t) starfish(t, kil.narms, kil.amp), cparams, pref);
+chnkr = sort(chnkr);
+kil.chunker = fixture_pack_chunker(chnkr);
+kil.l2scale = true;
+
+kil.ns = 10;
+ts = 2*pi*rand(kil.ns, 1);
+kil.sources = 0.5*starfish(ts, kil.narms, kil.amp);
+kil.strengths = randn(kil.ns, 1);
+
+kil.nt = 80;
+ts = 2*pi*rand(kil.nt, 1);
+kil.targets = starfish(ts, kil.narms, kil.amp);
+kil.targets = kil.targets.*(1 + 3*repmat(rand(1, kil.nt), 2, 1));
+
+kil.c1 = -1/(0.5 + 1i*kil.alpha*0.25);
+kil.c2 = -1i*kil.alpha/(0.5 + 1i*kil.alpha*0.25);
+kil.c3 = -1;
+Sik = kernel('helm', 's', 1i*kil.zk);
+Sikp = kernel('helm', 'sprime', 1i*kil.zk);
+Skp = kernel('helm', 'sprime', kil.zk);
+Sk = kernel('helm', 's', kil.zk);
+Dk = kernel('helm', 'd', kil.zk);
+Dkdiff = kernel('helmdiff', 'dprime', [kil.zk 1i*kil.zk]);
+Z = kernel.zeros();
+K = [ kil.c1*Skp  kil.c2*Dkdiff kil.c2*Sikp ;
+      kil.c3*Sik  Z               Z            ;
+      kil.c3*Sikp Z               Z            ];
+K = kernel(K);
+kil.K_opdims = K.opdims;
+
+srcinfo = [];
+srcinfo.r = kil.sources;
+targinfo = [];
+targinfo.r = chnkr.r(:,:);
+targinfo.n = chnkr.n(:,:);
+kil.ubdry = Skp.eval(srcinfo, targinfo)*kil.strengths;
+
+wts = chnkr.wts;
+wts = wts(:);
+nsys = K.opdims(1)*chnkr.npt;
+kil.rhs = complex(zeros(nsys, 1));
+kil.rhs(1:K.opdims(1):end) = kil.ubdry.*sqrt(wts);
+
+opts = [];
+opts.l2scale = kil.l2scale;
+A = chunkermat(chnkr, K, opts) + eye(nsys);
+kil.sol_backslash_scaled = A\kil.rhs;
+[kil.sol_gmres_scaled, kil.gmres_flag, kil.gmres_relres, kil.gmres_iter, kil.gmres_resvec] = gmres(A, kil.rhs, [], 1e-13, 100);
+kil.gmres_solve_relerr = norm(kil.sol_gmres_scaled - kil.sol_backslash_scaled)/norm(kil.sol_backslash_scaled);
+
+rng(314159);
+kil.probe = randn(nsys, 2) + 1i*randn(nsys, 2);
+kil.sys_probe = A*kil.probe;
+kil.entry_rows = unique([1:9, round(linspace(1, nsys, 12))]);
+kil.entry_cols = unique([1:9, round(linspace(2, nsys - 1, 10)), nsys]);
+kil.sys_entries = A(kil.entry_rows, kil.entry_cols);
+
+wts_rep = repmat(wts(:).', K.opdims(1), 1);
+wts_rep = wts_rep(:);
+kil.sol = kil.sol_backslash_scaled./sqrt(wts_rep);
+
+targinfo = [];
+targinfo.r = kil.targets;
+kil.utarg = Sk.eval(srcinfo, targinfo)*kil.strengths;
+Keval = kil.c1*kernel([Sk 1i*kil.alpha*Dk Z]);
+opts = [];
+opts.usesmooth = false;
+opts.verb = false;
+opts.quadkgparams = {'RelTol', 1e-16, 'AbsTol', 1.0e-16};
+kil.Dsol = chunkerkerneval(chnkr, Keval, kil.sol, kil.targets, opts);
+wchnkr = repmat(wts(:).', K.opdims(1), 1);
+kil.relerr = norm(kil.utarg - kil.Dsol, 'fro')/(sqrt(chnkr.nch)*norm(kil.utarg, 'fro'));
+kil.relerr2 = norm(kil.utarg - kil.Dsol, 'inf')/dot(abs(kil.sol(:)), wchnkr(:));
+devtools_easy.kernel_interleave = kil;
+
 % stokes_dtracTest.m
 sdtr = [];
 rng(8675309);

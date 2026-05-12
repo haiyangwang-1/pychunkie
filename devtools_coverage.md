@@ -32,14 +32,15 @@ The parity rule for this repo is:
 - Python snapshot generator: `scripts/generate_devtools_easy_python_fixture.py`
 - Python comparisons: `tests/test_devtools_parity.py`
 - Python verification: `uv run pytest tests/test_devtools_parity.py` on
-  2026-05-12 with the regenerated local fixture: `53 passed`
-- Current fixture scope: 53 pytest comparisons covering easy geometry/kernel
+  2026-05-12 with the regenerated local fixture: `54 passed`
+- Current fixture scope: 54 pytest comparisons covering easy geometry/kernel
   diagnostics, chunker/chunkgraph constructors and regions, near-flagging,
   dense/adaptive operator assembly, close-touching adaptive solves,
   Laplace, Helmholtz, and Stokes dense solves, scalar and vector-valued chunker plus
-  chunkgraph matrix-free apply diagnostics, singular PV/HS diagnostics,
-  Green-identity target evaluation, selected data-field/FLAM diagnostics, and direct
-  Stokes/elasticity/Helmholtz-1D diagnostics.
+  chunkgraph matrix-free apply diagnostics, interleaved Helmholtz block-system
+  diagnostics, singular PV/HS diagnostics, Green-identity target evaluation,
+  selected data-field/FLAM diagnostics, and direct Stokes/elasticity/Helmholtz-1D
+  diagnostics.
 - The ranked inventory below remains the authoritative per-MATLAB-file list.
 
 ## Status At A Glance
@@ -47,9 +48,9 @@ The parity rule for this repo is:
 | Status | Count | Meaning |
 | --- | ---: | --- |
 | ✅ 🧪 🎯 fully covered by devtools parity | 40 | MATLAB file has strict fixture comparison for the behavior tracked here. |
-| ✅ 🧪 🎯 ⚠️ partial/diagnostic devtools parity | 7 | Fixture coverage exists, but the MATLAB file also exercises deferred solve, FLAM, pquad, or diagnostic-only paths. |
+| ✅ 🧪 🎯 ⚠️ partial/diagnostic devtools parity | 8 | Fixture coverage exists, but the MATLAB file also exercises deferred solve, FLAM, pquad, or diagnostic-only paths. |
 | 🧩 🧭 helper/reference | 1 | Shared MATLAB helper, not standalone package behavior. |
-| 🚧 pending parity | 14 | Candidate future ports, excluding explicit non-goals. |
+| 🚧 pending parity | 13 | Candidate future ports, excluding explicit non-goals. |
 | 🚫 explicit non-goal | 11 | Trapper, quasiperiodic, axisymmetric, and flexural families. |
 
 ## Scope Triage For Remaining Work
@@ -150,7 +151,7 @@ Explicit non-goals:
 | 55 | `chunkgrphrcipTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Builds pentagonal chunkgraphs and solves an interior Helmholtz Dirichlet problem with RCIP refinement. | Python now has a chunkgraph-level RCIP compression driver; save graph, RCIP setup, system, RHS, solution, targets for full solve parity. |
 | 56 | `chunkgrphrcipTransmissionTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Solves a Helmholtz transmission problem on a chunkgraph with RCIP refinement and block kernels. | Python now subselects global edge-by-edge block kernels for local RCIP compression; save block system, material parameters, graph, densities, and interior/exterior target values for full solve parity. |
 | 57 | `mixedbcTest.m` | ✅ 🚧 ⚠️ | Very Hard | Tests mixed boundary conditions: Dirichlet/Neumann and Dirichlet/transmission, variable operator dimensions, RCIP scaling, target evaluation, and correction matrices. | Save the two mixed systems separately; port block dimensions and direct evaluation before RCIP-corrected solve parity. |
-| 58 | `kernel_interleaveTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Tests invalid interleave detection, then solves an exterior Neumann problem with a block interleaved Helmholtz representation and fast-direct interfaces. | Python now covers smooth interleaved block-kernel FLAM matrix and target-evaluation application against dense products. Port remaining stages: invalid interleave fixture, Helmholtz block matrix entries, dense solve, FMM paths where applicable, and full fast-direct solve parity. |
+| 58 | `kernel_interleaveTest.m` | ✅ 🧪 🎯 ⚠️ | Very Hard | Tests invalid interleave detection, then solves an exterior Neumann problem with a block interleaved Helmholtz representation and fast-direct interfaces. | Covered in `devtools_easy.mat` for invalid NaN interleave rejection and a compact dense Helmholtz interleave solve: selected l2-scaled matrix entries, probe products, backslash/GMRES density diagnostics, unscaled density, and adaptive target evaluation are compared against MATLAB. Python also covers smooth interleaved block-kernel FLAM matrix and target-evaluation application against dense products. Remaining stages are FMM paths where applicable and full fast-direct solve parity for this exact devtools system. |
 | 59 | `quasiperiodicTest.m` | 🚫 | Very Hard | Tests quasi-periodic Helmholtz kernels, shifted phase relations, combined/transmission/all/gradient kernels, and an integral-equation solve for a periodic scattering setup. | Do not port; quasiperiodic kernels are explicit non-goals. |
 | 60 | `flamutilitiesTest.m` | ✅ 🧪 🎯 ⚠️ | Very Hard | Tests FLAM matrix builder utilities, dense-vs-FLAM matrix entry reconstruction, fast-direct solves, and target accuracy for Laplace problems. | Strict MATLAB fixture parity covers square/circular/rectangular FLAM proxy geometry, the square inside predicate, deterministic Laplace `nproxy_square`, square/rectangular `kernbyindex` callbacks with sparse overwrite precedence, square/rectangular `proxyfun` matrices with filtered neighbor indices, plus a compact Laplace `chunkerflam` `rskelf_mv`/`rskelf_sv` comparison against the PyFLAM-backed operator on the same deterministic RHS. First PyFLAM-backed Python coverage also exists for square/rectangular `chnk.flam` callbacks, sparse overwrite precedence, smooth diagonal shifts, smooth/special l2 scaling, data-field callbacks, `ChunkerFLAMMatrix` apply/adjoint/solve/adjoint-solve/logdet, target evaluation with adaptive correction, and interior classification. Full devtools matrix-entry and target-evaluation parity remains pending. |
 | 61 | `flamproxybylevelTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Tests FLAM matrix building with level-dependent proxy points and checks solve/evaluation errors against tolerances. | Proxy helpers plus default and level-dependent PyFLAM proxy application are implemented and Python-tested for square matrix compression, rectangular target evaluation, and a larger shifted solve/evaluation stress case. MATLAB tolerance comparisons remain pending. |
