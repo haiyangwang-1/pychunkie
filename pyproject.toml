@@ -23,7 +23,7 @@ dev = [
 
 [tool.uv.sources]
 fmm2dpy = { git = "https://github.com/flatironinstitute/fmm2d.git", rev = "550dae5b77b1e006c8ffae37fc832f8c2b536871" }
-pyflam = { git = "https://github.com/haiyangwang-1/pyflam.git", rev = "7501bef4ec8a773064309ab2e3f04e6ca7ac98e9" }
+pyflam = { git = "https://github.com/haiyangwang-1/pyflam.git", rev = "d60f74672a43c200dcb2d6cc381b393a56746a93" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
