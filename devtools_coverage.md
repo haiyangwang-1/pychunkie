@@ -112,7 +112,7 @@ Deferred implementation:
 
 - Remaining FLAM parity beyond the first PyFLAM-backed pass: strict MATLAB
   devtools fixtures beyond the converted Green-identity target-evaluation
-  diagnostic, full multi-chunker block-kernel workflows, and larger
+  diagnostic, full block-kernel multi-chunker workflows, and larger
   proxy-by-level stress coverage.
 - Remaining `chunkerfit` modes beyond the implemented spline/open-line/circle
   paths.
@@ -194,7 +194,7 @@ Do not implement:
 | 59 | `quasiperiodicTest.m` | 🚫 | Very Hard | Tests quasi-periodic Helmholtz kernels, shifted phase relations, combined/transmission/all/gradient kernels, and an integral-equation solve for a periodic scattering setup. | Do not port; quasiperiodic kernels are explicit non-goals. |
 | 60 | `flamutilitiesTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Tests FLAM matrix builder utilities, dense-vs-FLAM matrix entry reconstruction, fast-direct solves, and target accuracy for Laplace problems. | First PyFLAM-backed Python coverage exists for square/rectangular `chnk.flam` callbacks, proxy geometry, sparse overwrite precedence, smooth diagonal shifts, smooth/special l2 scaling, data-field callbacks, `ChunkerFLAMMatrix` apply/adjoint/solve/adjoint-solve/logdet, target evaluation with adaptive correction, and interior classification. Strict MATLAB utility fixtures and full solve/evaluation devtools parity remain pending. |
 | 61 | `flamproxybylevelTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Tests FLAM matrix building with level-dependent proxy points and checks solve/evaluation errors against tolerances. | Proxy helpers plus default and level-dependent PyFLAM proxy application are implemented and Python-tested for square matrix compression and rectangular target evaluation. MATLAB tolerance comparisons and larger stress fixtures remain pending. |
-| 62 | `flamopdimsTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Tests FLAM with multi-operator-dimension Helmholtz systems across two chunkers and compares analytic solution accuracy. | Scalar and simple vector-opdim PyFLAM wiring is active through the generic operator surface, including smooth diagonal shifts and target evaluation/materialization. Full two-chunker Helmholtz/block-opdim devtools parity remains pending. |
+| 62 | `flamopdimsTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Tests FLAM with multi-operator-dimension Helmholtz systems across two chunkers and compares analytic solution accuracy. | Scalar explicit chunker-sequence and simple vector-opdim PyFLAM wiring is active through the generic operator surface, including smooth diagonal shifts and target evaluation/materialization. Full two-chunker Helmholtz/block-opdim devtools parity remains pending. |
 | 63 | `axissymkernTest.m` | 🚫 ⚠️ | Very Hard | Compares axisymmetric Helmholtz kernel evaluations against explicit azimuthal integral reference kernels, including shifted-kernel behavior. The file prints errors rather than asserting. | Do not port; axisymmetric kernels are explicit non-goals. |
 | 64 | `axissymkernel_sphereTest.m` | 🚫 ⚠️ | Very Hard | Builds axisymmetric sphere geometry, solves/evaluates a modal layer potential, and compares against spherical Bessel/Hankel analytic values. It prints the error. | Do not port; axisymmetric modal kernels are explicit non-goals. |
 | 65 | `chunkermat_axissymhelm2dTest.m` | 🚫 | Very Hard | Builds and solves an axisymmetric Helmholtz 2D matrix problem on a starfish-like generating curve and checks target accuracy. | Do not port; axisymmetric matrix builders are explicit non-goals. |

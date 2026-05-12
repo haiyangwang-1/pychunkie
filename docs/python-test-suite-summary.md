@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 303 pytest cases because several MATLAB parity tests are
+collection expands to 304 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -109,15 +109,16 @@ Implemented from this scope:
 - PyFLAM-backed acceleration: `chunkerflam`, `chnk.flam` callback/proxy
   helpers, `ChunkerFLAMMatrix`, `chunkermat`/`chunkermatapply`
   `acceleration="flam"`, FLAM target evaluation/materialization, FLAM
-  interior classification, adaptive near-target correction, shape-preserving
-  single-column and multiple-RHS application, adjoint application/solve
-  helpers, l2 scaling, and source/target point-data callbacks.
+  interior classification, adaptive near-target correction, explicit
+  chunker-sequence coercion, shape-preserving single-column and multiple-RHS
+  application, adjoint application/solve helpers, l2 scaling, and
+  source/target point-data callbacks.
 
 Deferred implementation:
 
 - Remaining FLAM parity beyond the first PyFLAM-backed pass: strict MATLAB
   devtools FLAM fixtures beyond the converted Laplace Green-identity
-  diagnostic, full multi-chunker block-kernel workflows, and larger
+  diagnostic, full block-kernel multi-chunker workflows, and larger
   proxy-by-level stress coverage.
 - Remaining `chunkerfit` modes beyond the implemented spline/open-line/circle
   paths.
@@ -675,6 +676,12 @@ traction and compares to `dalttrac`. Ground truth is the stress formula.
 FLAM matrix callbacks. The method requests selected row/column DOFs from
 `chnk.flam.kernbyindex`, compares them to the dense weighted matrix, and
 verifies sparse special-quadrature entries overwrite smooth entries.
+
+`test_flam_accepts_explicit_chunker_sequences` checks scalar FLAM behavior for
+explicit sequences of chunkers. The method compares `chnk.flam.kernbyindex`,
+`chunkermat(..., {"acceleration": "flam"})`, and
+`chunkermatapply(..., {"acceleration": "flam"})` on a two-chunker list against
+the same dense operations on `merge(chunkers)`.
 
 `test_flam_kernbyindexr_matches_dense_and_sparse_overwrites` checks the
 rectangular target/source FLAM callback. The method selects off-boundary target

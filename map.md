@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-12 with Python 3.11.9 collected 303 tests: `303 passed`. Full MATLAB parity runs generate ignored `tests/golden/*.mat` files on demand and require a populated `external/chunkie-matlab` checkout.
+Verification snapshot: `uv run pytest` on 2026-05-12 with Python 3.11.9 collected 304 tests: `304 passed`. Full MATLAB parity runs generate ignored `tests/golden/*.mat` files on demand and require a populated `external/chunkie-matlab` checkout.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -311,7 +311,7 @@ src/
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
-| `kernbyindex`, `kernbyindexr` | ✅ 🧪 ⚠️ | `+chnk/+flam/kernbyindex.m`, `kernbyindexr.m` | Python uses 0-based row/column DOF indices, applies source weights, and lets sparse special-quadrature entries overwrite smooth blocks for square and rectangular callbacks. |
+| `kernbyindex`, `kernbyindexr` | ✅ 🧪 ⚠️ | `+chnk/+flam/kernbyindex.m`, `kernbyindexr.m` | Python uses 0-based row/column DOF indices, applies source weights, lets sparse special-quadrature entries overwrite smooth blocks, and accepts explicit chunker sequences by merging them for square and rectangular callbacks. |
 | `proxy_square_pts`, `proxy_circ_pts`, `proxy_rect_pts`, `nproxy_square` | ✅ 🧪 ⚠️ | `+chnk/+flam/proxy_square_pts.m`, `proxy_circ_pts.m`, `proxy_rect_pts.m`, `nproxy_square.m` | Proxy geometry and normals are Python-tested; strict MATLAB proxy fixture parity is still pending. |
 | `proxyfun`, `proxyfunr` | ✅ 🧪 ⚠️ | `+chnk/+flam/proxyfun.m`, `proxyfunr.m` | 0-based callback helpers for PyFLAM compression; Python tests cover neighbor filtering, callback shapes, and integrated default/level-dependent rectangular proxy target evaluation. |
 
@@ -367,12 +367,12 @@ their matching `@kernel` factories.
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
 | `chunkermat` | ⚠️ 🧪 🎯 | `chunkermat.m` | Default `acceleration="dense"` native/special matrix path parity-tested; `acceleration="fmm"` returns `ChunkerFMMMatrix`; `acceleration="flam"` returns `ChunkerFLAMMatrix` backed by PyFLAM with sparse special-quadrature overwrites. |
-| private helpers | 🧩 ✅ | Internal Python helpers | Chunker coercion, weighted density flattening, kernel evaluation, special-quadrature dispatch. |
+| private helpers | 🧩 ✅ | Internal Python helpers | Chunker/chunker-sequence coercion, weighted density flattening, kernel evaluation, special-quadrature dispatch. |
 | `PointInfo` | ✅ 🧪 🎯 | MATLAB `srcinfo`/`targinfo` structs | Python dataclass for point info; chunker-flattened fields are fixture-tested. |
 | `ChunkerFMMMatrix` | ✅ 🧪 | `chunkermatapply.m`, `+chnk/chunkerkerneval_smooth.m` FMM concepts | Matrix-free `scipy.sparse.linalg.LinearOperator` returned by `chunkermat(..., {"acceleration": "fmm"})`; caches sparse special-quadrature corrections and supports vector/multiple-RHS products. |
 | `ChunkerFLAMMatrix` | ⚠️ ✅ 🧪 | `chunkerflam.m`, `+chnk/+flam/*` concepts | Matrix-free `LinearOperator` returned by `chunkermat(..., {"acceleration": "flam"})`; supports vector, multiple-RHS, and adjoint products, exposes `.factor`, `.solve(rhs, trans="n")` including adjoint solves, `.logdet()`, and dense materialization helpers when backed by PyFLAM `rskelf`. Full multi-chunker block-kernel parity remains pending. |
 | `pointinfo` | ✅ 🧪 🎯 | MATLAB point-info structs | Converts chunkers/dicts/arrays; chunker flattening is fixture-tested. |
-| `chunkerflam` | ⚠️ ✅ 🧪 | `chunkerflam.m` | Builds PyFLAM `rskelf`/`rskel` factors using 0-based matrix callbacks and optional proxy compression for both factor types; scalar, vector-opdim, proxy-enabled, smooth/special l2scale, point-data, and real/complex smooth diagonal-shift paths are Python-tested. |
+| `chunkerflam` | ⚠️ ✅ 🧪 | `chunkerflam.m` | Builds PyFLAM `rskelf`/`rskel` factors using 0-based matrix callbacks and optional proxy compression for both factor types; scalar, explicit chunker-sequence, vector-opdim, proxy-enabled, smooth/special l2scale, point-data, and real/complex smooth diagonal-shift paths are Python-tested. |
 | `chunkermatapply` | ✅ 🧪 🎯 | `chunkermatapply.m` | Smooth dense application is MATLAB-fixture tested; FMM/FLAM acceleration, shape-preserving single-column and multiple-RHS products, and sparse special-quadrature corrections remain Python-tested. |
 | `chunkerintegral` | ✅ 🧪 🎯 | `chunkerintegral.m` | Smooth value and callable integration routes are MATLAB-fixture tested. |
 | `chunkerinterior` | ✅ 🧪 🎯 | `chunkerinterior.m` | Direct point/grid classification is MATLAB-fixture tested; optional Laplace double-layer FMM and FLAM classification use direct close-boundary correction and are Python/devtools-tested. |
@@ -605,7 +605,7 @@ Should implement:
 
 Deferred implementation:
 
-- ⚠️ Remaining FLAM parity beyond the first PyFLAM-backed pass: strict MATLAB devtools FLAM fixtures beyond the converted Laplace Green-identity diagnostic, full multi-chunker block-kernel workflows, and larger proxy-by-level stress coverage.
+- ⚠️ Remaining FLAM parity beyond the first PyFLAM-backed pass: strict MATLAB devtools FLAM fixtures beyond the converted Laplace Green-identity diagnostic, full block-kernel multi-chunker workflows, and larger proxy-by-level stress coverage.
 - ⚠️ Remaining `chunkerfit` modes beyond the implemented spline/open-line/circle paths.
 
 Do not implement:

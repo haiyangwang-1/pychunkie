@@ -14,7 +14,7 @@ from numpy.typing import ArrayLike
 from scipy.sparse import spmatrix
 
 from .. import lege
-from ..chunker import Chunker
+from ..chunker import Chunker, merge
 
 
 def kernbyindex(
@@ -373,6 +373,14 @@ def _subblock_from_dofs(
 def _as_chunker(obj: Any) -> Chunker:
     if isinstance(obj, Chunker):
         return obj
+    if isinstance(obj, (list, tuple)):
+        items = list(obj)
+        if items and all(isinstance(item, Chunker) for item in items):
+            return merge(items)
+    if isinstance(obj, np.ndarray) and obj.dtype == object:
+        items = list(np.ravel(obj))
+        if items and all(isinstance(item, Chunker) for item in items):
+            return merge(items)
     merged = getattr(obj, "merged", None)
     if callable(merged):
         out = merged()

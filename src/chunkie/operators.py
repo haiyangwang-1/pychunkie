@@ -13,7 +13,7 @@ from scipy.sparse import spmatrix
 from scipy.sparse.linalg import LinearOperator
 
 from . import lege
-from .chunker import Chunker
+from .chunker import Chunker, merge
 
 
 @dataclass
@@ -509,6 +509,14 @@ def _optional_field(obj: dict[str, Any], name: str) -> np.ndarray | None:
 def _as_chunker(obj: Any) -> Chunker | None:
     if isinstance(obj, Chunker):
         return obj
+    if isinstance(obj, (list, tuple)):
+        items = list(obj)
+        if items and all(isinstance(item, Chunker) for item in items):
+            return merge(items)
+    if isinstance(obj, np.ndarray) and obj.dtype == object:
+        items = list(np.ravel(obj))
+        if items and all(isinstance(item, Chunker) for item in items):
+            return merge(items)
     merged = getattr(obj, "merged", None)
     if callable(merged):
         out = merged()

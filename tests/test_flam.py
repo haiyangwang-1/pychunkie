@@ -12,6 +12,7 @@ from chunkie import (
     chunkermat,
     chunkermatapply,
     kernel,
+    merge,
 )
 from chunkie.chnk import flam
 
@@ -70,6 +71,26 @@ def test_flam_kernbyindex_matches_dense_and_sparse_overwrites():
     overwritten = flam.kernbyindex(rows, cols, chnkr, smooth_kernel, (1, 1), overwrite)
     assert overwritten[1, 1] == 9.0
     assert overwritten[2, 2] == -4.0
+
+
+def test_flam_accepts_explicit_chunker_sequences():
+    first, _ = chunkerfunc(circle, {"nchmin": 3}, {"k": 6})
+    second = first.translate(np.array([3.0, 0.0]))
+    chunkers = [first, second]
+    merged = merge(chunkers)
+    dense = chunkermat(merged, smooth_kernel) + 0.25 * np.eye(merged.npt)
+    rhs = np.cos(merged.r[0].reshape(-1, order="F"))
+    opts = {"acceleration": "flam", "dval": 0.25, "occ": 8, "rank_or_tol": 1e-10, "useproxy": False}
+    rows = np.array([0, first.npt - 1, first.npt, merged.npt - 1], dtype=np.int64)
+    cols = np.array([1, first.npt, merged.npt - 2], dtype=np.int64)
+
+    entries = flam.kernbyindex(rows, cols, chunkers, smooth_kernel, (1, 1))
+    flam_mat = chunkermat(chunkers, smooth_kernel, opts)
+    applied = chunkermatapply(chunkers, smooth_kernel, rhs, opts)
+
+    np.testing.assert_allclose(entries, chunkermat(merged, smooth_kernel)[np.ix_(rows, cols)], atol=1e-14)
+    np.testing.assert_allclose(flam_mat @ rhs, dense @ rhs, rtol=1e-10, atol=1e-11)
+    np.testing.assert_allclose(applied, dense @ rhs, rtol=1e-10, atol=1e-11)
 
 
 def test_flam_kernbyindexr_matches_dense_and_sparse_overwrites():
