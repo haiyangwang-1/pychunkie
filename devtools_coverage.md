@@ -32,14 +32,14 @@ The parity rule for this repo is:
 - Python snapshot generator: `scripts/generate_devtools_easy_python_fixture.py`
 - Python comparisons: `tests/test_devtools_parity.py`
 - Python verification: `uv run pytest tests/test_devtools_parity.py` on
-  2026-05-12 with the regenerated local fixture: `28 passed`
+  2026-05-12 with the regenerated local fixture: `29 passed`
 - Covered now: `absconvgaussTest.m`, `legeexpsunitTest.m`,
   `arclengthfunTest.m`, `chunker_diffintmatTest.m`,
   `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`,
   `chunkerfuncuniTest.m`, `chunkerfuncTest.m`, `chunkerintegralTest.m`,
   `chunkerinteriorTest.m`, `chunkerpolyTest.m`, `chunkerarcparamTest.m`,
   `chunkermat_quadadapTest.m`, `flagrectTest.m`, `flagselfTest.m`,
-  `flagnearTest.m`, `helm2d_greenTest.m`, `kernelopTest.m`,
+  `flagnearTest.m`, `flamutilitiesTest.m`, `helm2d_greenTest.m`, `kernelopTest.m`,
   `kernelclassTest.m`, `chunkerkerneval_greenlapTest.m`,
   `chunkerkerneval_greenhelmTest.m`, `chunkerkernevalmat_greenlapTest.m`,
   `slicegraphTest.m`, `smootherTest.m`, `stokes_dtracTest.m`, and
@@ -50,9 +50,9 @@ The parity rule for this repo is:
 | Status | Count | Tests |
 | --- | ---: | --- |
 | ✅ 🧪 🎯 fully covered by devtools parity | 20 | `absconvgaussTest.m`, `legeexpsunitTest.m`, `arclengthfunTest.m`, `chunker_diffintmatTest.m`, `chunker_nearestTest.m`, `chunkerclassunitTest.m`, `chunkerfitTest.m`, `chunkerfuncuniTest.m`, `chunkerintegralTest.m`, `chunkerinteriorTest.m`, `chunkerkerneval_greenhelmTest.m`, `chunkerkernevalmat_greenlapTest.m`, `chunkermat_quadadapTest.m`, `chunkerpolyTest.m`, `flagrectTest.m`, `flagselfTest.m`, `flagnearTest.m`, `helm2d_greenTest.m`, `kernelopTest.m`, `tochunkgraphTest.m` |
-| ✅ 🧪 🎯 ⚠️ partial/diagnostic devtools parity | 7 | `chunkerarcparamTest.m`, `chunkerfuncTest.m`, `chunkerkerneval_greenlapTest.m`, `kernelclassTest.m`, `slicegraphTest.m`, `smootherTest.m`, `stokes_dtracTest.m` |
+| ✅ 🧪 🎯 ⚠️ partial/diagnostic devtools parity | 8 | `chunkerarcparamTest.m`, `chunkerfuncTest.m`, `chunkerkerneval_greenlapTest.m`, `flamutilitiesTest.m`, `kernelclassTest.m`, `slicegraphTest.m`, `smootherTest.m`, `stokes_dtracTest.m` |
 | 🧩 🧭 helper/reference | 1 | `gradient_check.m` |
-| 🚧 should/pending parity not yet converted | 35 | Remaining ranked entries below, excluding explicit non-goals. |
+| 🚧 should/pending parity not yet converted | 34 | Remaining ranked entries below, excluding explicit non-goals. |
 | 🚫 explicit non-goal; do not port | 11 | `trappermatTest.m`, `quasiperiodicTest.m`, axisymmetric tests 63-68, and flexural tests 72-74. |
 
 ## Scope Triage For Remaining Work
@@ -95,7 +95,8 @@ Implemented from this scope:
   `ChunkerFLAMMatrix`, FLAM-backed `chunkermat`/`chunkermatapply`, target
   evaluation/materialization, and `chunkerinterior` FLAM classification. These
   are covered by focused Python tests; the Green-identity target-evaluation
-  devtools fixture now also saves MATLAB FLAM diagnostics.
+  devtools fixture now also saves MATLAB FLAM diagnostics, and the devtools
+  fixture has strict MATLAB parity for square/circular FLAM proxy geometry.
 - Advanced RCIP chunkgraph workflows: selected vertices, ignored vertices, and
   global block-kernel subselection for local corner compression.
 - Laplace and Helmholtz Green-identity devtools target-evaluation fixtures:
@@ -192,7 +193,7 @@ Do not implement:
 | 57 | `mixedbcTest.m` | ✅ 🚧 ⚠️ | Very Hard | Tests mixed boundary conditions: Dirichlet/Neumann and Dirichlet/transmission, variable operator dimensions, RCIP scaling, target evaluation, and correction matrices. | Save the two mixed systems separately; port block dimensions and direct evaluation before RCIP-corrected solve parity. |
 | 58 | `kernel_interleaveTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Tests invalid interleave detection, then solves an exterior Neumann problem with a block interleaved Helmholtz representation and fast-direct interfaces. | Port in stages: invalid interleave, block matrix entries, dense solve, and FMM paths where applicable; FLAM/fast-direct parity can build on the new PyFLAM path once block-kernel workflows are converted. |
 | 59 | `quasiperiodicTest.m` | 🚫 | Very Hard | Tests quasi-periodic Helmholtz kernels, shifted phase relations, combined/transmission/all/gradient kernels, and an integral-equation solve for a periodic scattering setup. | Do not port; quasiperiodic kernels are explicit non-goals. |
-| 60 | `flamutilitiesTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Tests FLAM matrix builder utilities, dense-vs-FLAM matrix entry reconstruction, fast-direct solves, and target accuracy for Laplace problems. | First PyFLAM-backed Python coverage exists for square/rectangular `chnk.flam` callbacks, proxy geometry, sparse overwrite precedence, smooth diagonal shifts, smooth/special l2 scaling, data-field callbacks, `ChunkerFLAMMatrix` apply/adjoint/solve/adjoint-solve/logdet, target evaluation with adaptive correction, and interior classification. Strict MATLAB utility fixtures and full solve/evaluation devtools parity remain pending. |
+| 60 | `flamutilitiesTest.m` | ✅ 🧪 🎯 ⚠️ | Very Hard | Tests FLAM matrix builder utilities, dense-vs-FLAM matrix entry reconstruction, fast-direct solves, and target accuracy for Laplace problems. | Strict MATLAB fixture parity covers square/circular FLAM proxy geometry. First PyFLAM-backed Python coverage also exists for square/rectangular `chnk.flam` callbacks, sparse overwrite precedence, smooth diagonal shifts, smooth/special l2 scaling, data-field callbacks, `ChunkerFLAMMatrix` apply/adjoint/solve/adjoint-solve/logdet, target evaluation with adaptive correction, and interior classification. Full matrix-entry/solve/evaluation devtools parity remains pending. |
 | 61 | `flamproxybylevelTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Tests FLAM matrix building with level-dependent proxy points and checks solve/evaluation errors against tolerances. | Proxy helpers plus default and level-dependent PyFLAM proxy application are implemented and Python-tested for square matrix compression and rectangular target evaluation. MATLAB tolerance comparisons and larger stress fixtures remain pending. |
 | 62 | `flamopdimsTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Tests FLAM with multi-operator-dimension Helmholtz systems across two chunkers and compares analytic solution accuracy. | Scalar explicit chunker-sequence and simple vector-opdim PyFLAM wiring is active through the generic operator surface, including smooth diagonal shifts and target evaluation/materialization. Full two-chunker Helmholtz/block-opdim devtools parity remains pending. |
 | 63 | `axissymkernTest.m` | 🚫 ⚠️ | Very Hard | Compares axisymmetric Helmholtz kernel evaluations against explicit azimuthal integral reference kernels, including shifted-kernel behavior. The file prints errors rather than asserting. | Do not port; axisymmetric kernels are explicit non-goals. |

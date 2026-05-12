@@ -17,7 +17,7 @@ from chunkie import (
     lege,
     tochunkgraph,
 )
-from chunkie.chnk import arcparam, curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, helm2d, quadadap, smoother, spcl
+from chunkie.chnk import arcparam, curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, flam, helm2d, quadadap, smoother, spcl
 from chunkie.operators import PointInfo, pointinfo
 from _fixture_generation import load_generated_mat_fixture
 
@@ -763,3 +763,21 @@ def test_chunkermat_quadadap_devtools_outputs_match_matlab():
     np.testing.assert_allclose(adap, fixture.mat_adap, rtol=1e-9, atol=2e-9)
     assert float(fixture.relerr) < 1e-9
     assert np.linalg.norm(ggq - adap, "fro") / np.linalg.norm(ggq, "fro") < 1e-9
+
+
+def test_flam_proxy_geometry_helpers_match_matlab_fixture():
+    fixture = load_devtools_easy().flam_helpers
+
+    pr, ptau, pw, pin = flam.proxy_square_pts(64)
+    proxy, pnorm, cpw = flam.proxy_circ_pts(16)
+
+    np.testing.assert_allclose(pr, fixture.square64_pr, rtol=1e-14, atol=1e-14)
+    np.testing.assert_allclose(ptau, fixture.square64_ptau, rtol=1e-14, atol=1e-14)
+    np.testing.assert_allclose(pw, np.asarray(fixture.square64_pw).reshape(-1), rtol=1e-14, atol=1e-14)
+    np.testing.assert_array_equal(
+        pin(np.array([[0.0, 2.0, -1.49, 1.51], [0.0, 0.0, 1.49, 0.0]])),
+        np.asarray(fixture.square64_inside, dtype=bool).reshape(-1),
+    )
+    np.testing.assert_allclose(proxy, fixture.circle16_proxy, rtol=1e-14, atol=1e-14)
+    np.testing.assert_allclose(pnorm, fixture.circle16_pnorm, rtol=1e-14, atol=1e-14)
+    np.testing.assert_allclose(cpw, np.asarray(fixture.circle16_pw).reshape(-1), rtol=1e-14, atol=1e-14)
