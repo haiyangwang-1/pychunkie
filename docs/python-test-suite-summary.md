@@ -289,8 +289,9 @@ the upsampled Legendre nodes.
 `test_refine_oversamples_by_splitting_chunks` checks chunk refinement by panel
 splitting. The invariant is that one circle panel split with `nover=1` becomes
 two panels with closed adjacency, while area and total length are preserved.
-The method is `Chunker.refine`. Ground truth is expected adjacency, unchanged
-area, and unchanged summed chunk lengths.
+The method is `Chunker.refine`. Ground truth is expected adjacency, analytic
+half-circle positions, derivatives, normals, and weights on both split panels,
+unchanged area, and unchanged summed chunk lengths.
 
 `test_refine_enforces_arc_length_level_restriction` checks adaptive refinement
 of an existing uneven chunker. The method builds an open line with two short

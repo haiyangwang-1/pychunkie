@@ -237,9 +237,21 @@ def test_upsample_preserves_circle_geometry_and_density_values():
 def test_refine_oversamples_by_splitting_chunks():
     chnkr = circle_chunker(16)
     refined = chnkr.refine({"nover": 1})
+    h = np.pi / 2.0
 
     assert refined.nch == 2
     np.testing.assert_array_equal(refined.adj, [[2, 1], [2, 1]])
+    for ich in range(refined.nch):
+        theta = ich * np.pi + h * (refined.tstor + 1.0)
+        expected_r = np.stack([np.cos(theta), np.sin(theta)], axis=0)
+        expected_d = h * np.stack([-np.sin(theta), np.cos(theta)], axis=0)
+        expected_d2 = h * h * np.stack([-np.cos(theta), -np.sin(theta)], axis=0)
+
+        np.testing.assert_allclose(refined.r[:, :, ich], expected_r, atol=5e-10)
+        np.testing.assert_allclose(refined.d[:, :, ich], expected_d, atol=5e-10)
+        np.testing.assert_allclose(refined.d2[:, :, ich], expected_d2, atol=5e-10)
+        np.testing.assert_allclose(refined.n[:, :, ich], expected_r, atol=1e-10)
+        np.testing.assert_allclose(refined.wts[:, ich], h * refined.wstor, atol=5e-11)
     np.testing.assert_allclose(refined.area(), chnkr.area(), atol=1e-12)
     np.testing.assert_allclose(np.sum(refined.chunklen()), np.sum(chnkr.chunklen()), atol=1e-12)
 
