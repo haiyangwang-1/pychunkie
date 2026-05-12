@@ -1001,8 +1001,8 @@ against MATLAB fixture data.
 
 `test_helm1d_green_gradient_matches_finite_difference` checks the flat-interface
 Helmholtz helper `G = exp(i k |x-y|)`. The method evaluates `helm1d.green` and
-compares the target `x` gradient to a centered finite difference. Ground truth
-is the finite-difference derivative plus value and Hessian shape.
+compares target `x`/`y` gradients and Hessian components to centered finite
+differences. Ground truth is the finite-difference derivative and Hessian data.
 
 `test_helm1d_kernel_selectors_and_kernel_wrapper` checks 1D Helmholtz selector
 plumbing for single layer, double layer, target-normal derivative,
@@ -1125,8 +1125,8 @@ the explicit weighted matrix product and equality with the non-FMM evaluation.
 `test_laplace_green_matches_direct_formula` checks the 2D Laplace Green's
 function formula. For targets and sources with squared distances `4` and `5`,
 the value must be `-log(r2)/(4 pi)`. The method is direct `lap2d.green`.
-Ground truth is the closed-form value plus expected gradient and Hessian
-shapes.
+Ground truth is the closed-form value, gradient, and Hessian for the same
+source-target offsets.
 
 `test_laplace_direct_layer_evaluation_on_circle` checks direct Laplace
 single- and double-layer evaluation on a radius-2 circle at the center. The
@@ -1144,9 +1144,9 @@ data projected into each selector block.
 
 `test_helmholtz_green_gradient_matches_finite_difference` checks the 2D
 Helmholtz Green's function derivatives. The method evaluates `helm2d.green`
-at complex wavenumber `1.2+0.4i` and compares the target `x` derivative to a
-centered finite difference. Ground truth is the finite-difference gradient
-plus expected value and Hessian shapes.
+at complex wavenumber `1.2+0.4i` and compares target `x`/`y` gradients and
+Hessian components to centered finite differences. Ground truth is the
+finite-difference derivative and Hessian data.
 
 `test_helmholtz_kernel_selectors_have_expected_shapes` checks 2D Helmholtz
 single, double, target-normal derivative, and combined selectors. The method is

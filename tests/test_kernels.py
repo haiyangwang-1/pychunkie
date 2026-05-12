@@ -19,10 +19,22 @@ def test_laplace_green_matches_direct_formula():
 
     val, grad, hess = lap2d.green(src, targ)
 
-    r2 = np.array([[4.0, 5.0]])
+    rx = targ[0, :, None] - src[0, None, :]
+    ry = targ[1, :, None] - src[1, None, :]
+    r2 = rx**2 + ry**2
+    r4 = r2**2
+    expected_grad = np.stack((-rx / (2.0 * np.pi * r2), -ry / (2.0 * np.pi * r2)), axis=2)
+    expected_hess = np.stack(
+        (
+            rx**2 / (np.pi * r4) - 1.0 / (2.0 * np.pi * r2),
+            rx * ry / (np.pi * r4),
+            ry**2 / (np.pi * r4) - 1.0 / (2.0 * np.pi * r2),
+        ),
+        axis=2,
+    )
     np.testing.assert_allclose(val, -np.log(r2) / (4.0 * np.pi))
-    assert grad.shape == (1, 2, 2)
-    assert hess.shape == (1, 2, 3)
+    np.testing.assert_allclose(grad, expected_grad)
+    np.testing.assert_allclose(hess, expected_hess)
 
 
 def test_laplace_direct_layer_evaluation_on_circle():
@@ -69,11 +81,22 @@ def test_helmholtz_green_gradient_matches_finite_difference():
     val, grad, hess = helm2d.green(zk, src, targ)
     val_xp = helm2d.green(zk, src, targ + np.array([[eps], [0.0]]))[0]
     val_xm = helm2d.green(zk, src, targ - np.array([[eps], [0.0]]))[0]
+    val_yp = helm2d.green(zk, src, targ + np.array([[0.0], [eps]]))[0]
+    val_ym = helm2d.green(zk, src, targ - np.array([[0.0], [eps]]))[0]
     gx_fd = (val_xp - val_xm) / (2 * eps)
+    gy_fd = (val_yp - val_ym) / (2 * eps)
+    grad_xp = helm2d.green(zk, src, targ + np.array([[eps], [0.0]]))[1]
+    grad_xm = helm2d.green(zk, src, targ - np.array([[eps], [0.0]]))[1]
+    grad_yp = helm2d.green(zk, src, targ + np.array([[0.0], [eps]]))[1]
+    grad_ym = helm2d.green(zk, src, targ - np.array([[0.0], [eps]]))[1]
+    hess_fd = np.empty_like(hess)
+    hess_fd[:, :, 0] = (grad_xp[:, :, 0] - grad_xm[:, :, 0]) / (2 * eps)
+    hess_fd[:, :, 1] = (grad_yp[:, :, 0] - grad_ym[:, :, 0]) / (2 * eps)
+    hess_fd[:, :, 2] = (grad_yp[:, :, 1] - grad_ym[:, :, 1]) / (2 * eps)
 
     np.testing.assert_allclose(grad[:, :, 0], gx_fd, rtol=1e-6, atol=1e-7)
-    assert val.shape == (1, 1)
-    assert hess.shape == (1, 1, 3)
+    np.testing.assert_allclose(grad[:, :, 1], gy_fd, rtol=1e-6, atol=1e-7)
+    np.testing.assert_allclose(hess, hess_fd, rtol=5e-5, atol=5e-6)
 
 
 def test_helmholtz_kernel_selectors_have_expected_shapes():

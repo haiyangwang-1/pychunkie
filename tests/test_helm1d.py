@@ -13,10 +13,20 @@ def test_helm1d_green_gradient_matches_finite_difference():
     val, grad, hess = helm1d.green(zk, src, targ)
     val_xp = helm1d.green(zk, src, targ + np.array([[eps], [0.0]]))[0]
     val_xm = helm1d.green(zk, src, targ - np.array([[eps], [0.0]]))[0]
+    val_yp = helm1d.green(zk, src, targ + np.array([[0.0], [eps]]))[0]
+    val_ym = helm1d.green(zk, src, targ - np.array([[0.0], [eps]]))[0]
+    grad_xp = helm1d.green(zk, src, targ + np.array([[eps], [0.0]]))[1]
+    grad_xm = helm1d.green(zk, src, targ - np.array([[eps], [0.0]]))[1]
+    grad_yp = helm1d.green(zk, src, targ + np.array([[0.0], [eps]]))[1]
+    grad_ym = helm1d.green(zk, src, targ - np.array([[0.0], [eps]]))[1]
+    hess_fd = np.empty_like(hess)
+    hess_fd[:, :, 0] = (grad_xp[:, :, 0] - grad_xm[:, :, 0]) / (2 * eps)
+    hess_fd[:, :, 1] = (grad_yp[:, :, 0] - grad_ym[:, :, 0]) / (2 * eps)
+    hess_fd[:, :, 2] = (grad_yp[:, :, 1] - grad_ym[:, :, 1]) / (2 * eps)
 
     np.testing.assert_allclose(grad[:, :, 0], (val_xp - val_xm) / (2 * eps), rtol=1e-6, atol=1e-7)
-    assert val.shape == (1, 1)
-    assert hess.shape == (1, 1, 3)
+    np.testing.assert_allclose(grad[:, :, 1], (val_yp - val_ym) / (2 * eps), rtol=1e-6, atol=1e-7)
+    np.testing.assert_allclose(hess, hess_fd, rtol=5e-5, atol=5e-6)
 
 
 def test_helm1d_kernel_selectors_and_kernel_wrapper():
