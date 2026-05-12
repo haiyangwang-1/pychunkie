@@ -394,6 +394,14 @@ def test_chunkgraph_helpers_match_matlab_fixture():
     np.testing.assert_allclose(cg.rotate(0.31, [0.5, 0.5], [0.1, -0.2]).verts, fixture.rotated_verts, atol=1e-14)
     np.testing.assert_allclose(cg.reflect(-0.15, [0.5, 0.5], [0.25, -0.1]).verts, fixture.reflected_verts, atol=1e-14)
 
+    copied = cg.copy()
+    copied.verts[0, 0] += float(fixture.copy_delta)
+    copied.echnks[0].rstor[0, 0, 0] -= float(fixture.copy_delta)
+    np.testing.assert_allclose(cg.verts[0, 0], fixture.copy_source_vert, atol=0.0)
+    np.testing.assert_allclose(copied.verts[0, 0], fixture.copy_mutated_vert, atol=0.0)
+    np.testing.assert_allclose(cg.echnks[0].rstor[0, 0, 0], fixture.copy_source_edge_node, atol=0.0)
+    np.testing.assert_allclose(copied.echnks[0].rstor[0, 0, 0], fixture.copy_mutated_edge_node, atol=0.0)
+
 
 def test_chunkgraph_region_flag_operator_and_conversion_helpers_match_matlab_fixture():
     fixture = load_geometry_core().chunkgraph

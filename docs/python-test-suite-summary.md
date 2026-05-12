@@ -983,7 +983,8 @@ evaluation.
 `test_chunkgraph_helpers_match_matlab_fixture` checks square-graph
 construction, merged field access, source info, incidence matrices, extrema,
 dense helper matrices, `edgeids`, `slicegraph`, translation, matrix transform,
-rotation, and reflection.
+rotation, reflection, and `ChunkGraph.copy()` mutation isolation for graph
+vertices and edge chunk storage.
 
 `test_chunkgraph_region_flag_operator_and_conversion_helpers_match_matlab_fixture`
 checks `procverts`, `findregions`, graph `refine`, graph near-flag wrappers,

@@ -250,7 +250,7 @@ src/
 | --- | --- | --- | --- |
 | `findregions` | ⚠️ 🧪 🎯 | `@chunkgraph/findregions.m` | Region count and bounded cycle are MATLAB-fixture tested; Python keeps the outside region as an empty sentinel instead of MATLAB's signed unbounded loop. |
 | private graph helpers | 🧩 ✅ | Internal Python helpers | Include edge normalization, subchunking, simple cycles, polygon tests. |
-| `copy` | ✅ 🧪 | MATLAB value-copy behavior | Python helper. |
+| `copy` | ✅ 🧪 🎯 | MATLAB value-copy behavior | Fixture checks graph and edge-chunker storage mutation isolation against MATLAB value-object behavior. |
 | `procverts` | ✅ 🧪 🎯 | `@chunkgraph/procverts.m` | MATLAB fixture covers counterclockwise tangent ordering and incident-edge signs. |
 | `refine` | ✅ 🧪 🎯 | `@chunkgraph/refine.m` | Fixture covers per-edge refinement with sorted refined chunks and refreshed graph metadata. |
 | `flagnear*` | ✅ 🧪 🎯 | `@chunkgraph/flagnear*.m` | Merged chunker near flags, rectangle flags, and grid flags are MATLAB-fixture tested. |
