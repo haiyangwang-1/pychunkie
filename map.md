@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-12 with Python 3.11.9 collected 294 tests: `294 passed`. Full MATLAB parity runs generate ignored `tests/golden/*.mat` files on demand and require a populated `external/chunkie-matlab` checkout.
+Verification snapshot: `uv run pytest` on 2026-05-12 with Python 3.11.9 collected 296 tests: `296 passed`. Full MATLAB parity runs generate ignored `tests/golden/*.mat` files on demand and require a populated `external/chunkie-matlab` checkout.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -372,7 +372,7 @@ their matching `@kernel` factories.
 | `ChunkerFMMMatrix` | ✅ 🧪 | `chunkermatapply.m`, `+chnk/chunkerkerneval_smooth.m` FMM concepts | Matrix-free `scipy.sparse.linalg.LinearOperator` returned by `chunkermat(..., {"acceleration": "fmm"})`; caches sparse special-quadrature corrections and supports vector/multiple-RHS products. |
 | `ChunkerFLAMMatrix` | ⚠️ ✅ 🧪 | `chunkerflam.m`, `+chnk/+flam/*` concepts | Matrix-free `LinearOperator` returned by `chunkermat(..., {"acceleration": "flam"})`; exposes `.factor`, `.solve(rhs)`, `.logdet()`, and dense materialization helpers when backed by PyFLAM `rskelf`. Full multi-chunker block-kernel parity remains pending. |
 | `pointinfo` | ✅ 🧪 🎯 | MATLAB point-info structs | Converts chunkers/dicts/arrays; chunker flattening is fixture-tested. |
-| `chunkerflam` | ⚠️ ✅ 🧪 | `chunkerflam.m` | Builds PyFLAM `rskelf`/`rskel` factors using 0-based matrix callbacks and optional proxy compression for both factor types; scalar, vector-opdim, proxy-enabled, and real/complex smooth diagonal-shift paths are Python-tested. |
+| `chunkerflam` | ⚠️ ✅ 🧪 | `chunkerflam.m` | Builds PyFLAM `rskelf`/`rskel` factors using 0-based matrix callbacks and optional proxy compression for both factor types; scalar, vector-opdim, proxy-enabled, l2scale, point-data, and real/complex smooth diagonal-shift paths are Python-tested. |
 | `chunkermatapply` | ✅ 🧪 🎯 | `chunkermatapply.m` | Smooth dense application is MATLAB-fixture tested; FMM/FLAM acceleration plus sparse special-quadrature corrections remain Python-tested. |
 | `chunkerintegral` | ✅ 🧪 🎯 | `chunkerintegral.m` | Smooth value and callable integration routes are MATLAB-fixture tested. |
 | `chunkerinterior` | ✅ 🧪 🎯 | `chunkerinterior.m` | Direct point/grid classification is MATLAB-fixture tested; optional Laplace double-layer FMM and FLAM classification use direct close-boundary correction and are Python/devtools-tested. |

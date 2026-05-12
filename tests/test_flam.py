@@ -46,6 +46,11 @@ def vector_smooth_kernel(src: PointInfo, targ: PointInfo):
 vector_smooth_kernel.opdims = (2, 2)
 
 
+def data_kernel(src: PointInfo, targ: PointInfo):
+    dx = targ.r[0, :, None] - src.r[0, None, :]
+    return 1.0 + dx + 0.1 * src.data[0][None, :] + 0.2 * targ.data[0][:, None]
+
+
 def test_flam_kernbyindex_matches_dense_and_sparse_overwrites():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 6})
     dense = chunkermat(chnkr, smooth_kernel)
@@ -164,6 +169,29 @@ def test_chunkermat_flam_adds_dval_without_replacing_smooth_diagonal():
     flam_vector = chunkermat(chnkr, vector_smooth_kernel, {"acceleration": "flam", "dval": 0.25, "occ": 16, "rank_or_tol": 1e-10, "useproxy": False})
 
     np.testing.assert_allclose(flam_vector @ rhs_vector, dense_vector @ rhs_vector, rtol=1e-10, atol=1e-11)
+
+
+def test_chunkermat_flam_l2scale_matches_scaled_dense_matrix():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 6})
+    weighted_dense = chunkermat(chnkr, smooth_kernel)
+    weights = chnkr.wts.reshape(-1, order="F")
+    scaled_dense = np.sqrt(weights)[:, None] * weighted_dense * (1.0 / np.sqrt(weights))[None, :] + 0.75 * np.eye(chnkr.npt)
+    rhs = np.sin(np.arange(chnkr.npt))
+    flam_mat = chunkermat(chnkr, smooth_kernel, {"acceleration": "flam", "dval": 0.75, "l2scale": True, "occ": 16, "rank_or_tol": 1e-10, "useproxy": False})
+
+    np.testing.assert_allclose(flam_mat @ rhs, scaled_dense @ rhs, rtol=1e-10, atol=1e-11)
+
+
+def test_chunkermat_flam_preserves_point_data_without_proxy():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 6})
+    chnkr.makedatarows(1)
+    pts = chnkr.r.reshape(2, chnkr.npt, order="F")
+    chnkr.data[0, :, :] = pts[0].reshape(chnkr.k, chnkr.nch, order="F")
+    dense = chunkermat(chnkr, data_kernel) + 0.5 * np.eye(chnkr.npt)
+    rhs = np.cos(np.arange(chnkr.npt))
+    flam_mat = chunkermat(chnkr, data_kernel, {"acceleration": "flam", "dval": 0.5, "occ": 16, "rank_or_tol": 1e-10})
+
+    np.testing.assert_allclose(flam_mat @ rhs, dense @ rhs, rtol=1e-10, atol=1e-11)
 
 
 def test_chunkerkerneval_flam_matches_eval_matrix_and_dense():

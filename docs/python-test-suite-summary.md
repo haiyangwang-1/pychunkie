@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 294 pytest cases because several MATLAB parity tests are
+collection expands to 296 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -108,8 +108,8 @@ Implemented from this scope:
   and `chunkerkernevalmat`.
 - PyFLAM-backed acceleration: `chunkerflam`, `chnk.flam` callback/proxy
   helpers, `ChunkerFLAMMatrix`, `chunkermat`/`chunkermatapply`
-  `acceleration="flam"`, FLAM target evaluation/materialization, and FLAM
-  interior classification.
+  `acceleration="flam"`, FLAM target evaluation/materialization, FLAM
+  interior classification, l2 scaling, and point-data callbacks.
 
 Deferred implementation:
 
@@ -703,6 +703,17 @@ diagonal shifts for smooth kernels. The method compares scalar, complex-shift,
 and vector-opdim smooth FLAM applications with `dval` against dense matrices
 with an additive diagonal, ensuring the shift does not overwrite the native
 smooth diagonal.
+
+`test_chunkermat_flam_l2scale_matches_scaled_dense_matrix` checks FLAM l2
+scaling. The method compares a shifted smooth FLAM operator with `l2scale=True`
+against the dense weighted matrix transformed by the square-root source and
+target quadrature weights.
+
+`test_chunkermat_flam_preserves_point_data_without_proxy` checks that point
+data fields are passed through FLAM matrix callbacks. The method allocates a
+chunker data row, evaluates a custom data-dependent kernel, and compares the
+PyFLAM operator with the dense matrix. Ground truth is dense evaluation with
+the proxy path disabled automatically for data-bearing chunkers.
 
 `test_chunkerkerneval_flam_matches_eval_matrix_and_dense` checks off-boundary
 target FLAM evaluation. The method compares `chunkerkerneval` and
