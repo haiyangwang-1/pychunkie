@@ -171,6 +171,20 @@ def test_chunkerkerneval_flam_matches_eval_matrix_and_dense():
     np.testing.assert_allclose(flam_vals, dense_mat @ dens, rtol=1e-10, atol=1e-11)
 
 
+def test_chunkerkerneval_flam_default_proxy_matches_dense():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 6})
+    targets = np.array([[0.0, 1.4, -0.25, 0.7], [0.0, 0.2, 1.3, -1.2]])
+    dens = np.cos(chnkr.r[0].reshape(-1, order="F"))
+    opts = {"acceleration": "flam", "occ": 8, "rank_or_tol": 1e-10}
+
+    dense_mat = chunkerkernevalmat(chnkr, smooth_kernel, targets)
+    proxy_mat = chunkerkernevalmat(chnkr, smooth_kernel, targets, opts)
+    proxy_vals = chunkerkerneval(chnkr, smooth_kernel, dens, targets, opts).reshape(-1, order="F")
+
+    np.testing.assert_allclose(proxy_mat, dense_mat, rtol=1e-10, atol=1e-11)
+    np.testing.assert_allclose(proxy_vals, dense_mat @ dens, rtol=1e-10, atol=1e-11)
+
+
 def test_chunkerinterior_flam_matches_direct_classification():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 6}, {"k": 6})
     pts = np.array([[0.0, 1.25, 0.999999, 1.000001], [0.0, 0.0, 0.0, 0.0]])

@@ -13,7 +13,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 - 🧩 private/internal helper
 - 🧭 support/reference file rather than package API
 
-Verification snapshot: `uv run pytest` on 2026-05-12 with Python 3.11.9 collected 293 tests: `293 passed`. Full MATLAB parity runs generate ignored `tests/golden/*.mat` files on demand and require a populated `external/chunkie-matlab` checkout.
+Verification snapshot: `uv run pytest` on 2026-05-12 with Python 3.11.9 collected 294 tests: `294 passed`. Full MATLAB parity runs generate ignored `tests/golden/*.mat` files on demand and require a populated `external/chunkie-matlab` checkout.
 
 Updated for commits after `2568a934c759aaf614c48f428678da8f6bbcb39f`:
 
@@ -313,7 +313,7 @@ src/
 | --- | --- | --- | --- |
 | `kernbyindex`, `kernbyindexr` | ✅ 🧪 ⚠️ | `+chnk/+flam/kernbyindex.m`, `kernbyindexr.m` | Python uses 0-based row/column DOF indices, applies source weights, and lets sparse special-quadrature entries overwrite smooth blocks for square and rectangular callbacks. |
 | `proxy_square_pts`, `proxy_circ_pts`, `proxy_rect_pts`, `nproxy_square` | ✅ 🧪 ⚠️ | `+chnk/+flam/proxy_square_pts.m`, `proxy_circ_pts.m`, `proxy_rect_pts.m`, `nproxy_square.m` | Proxy geometry and normals are Python-tested; strict MATLAB proxy fixture parity is still pending. |
-| `proxyfun`, `proxyfunr` | ✅ 🧪 ⚠️ | `+chnk/+flam/proxyfun.m`, `proxyfunr.m` | 0-based callback helpers for PyFLAM compression; Python tests cover neighbor filtering and callback shapes. |
+| `proxyfun`, `proxyfunr` | ✅ 🧪 ⚠️ | `+chnk/+flam/proxyfun.m`, `proxyfunr.m` | 0-based callback helpers for PyFLAM compression; Python tests cover neighbor filtering, callback shapes, and integrated rectangular proxy target evaluation. |
 
 #### `chnk/geometry.py`
 

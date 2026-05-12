@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 293 pytest cases because several MATLAB parity tests are
+collection expands to 294 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -706,6 +706,11 @@ diagonal, ensuring the shift does not overwrite the native smooth diagonal.
 target FLAM evaluation. The method compares `chunkerkerneval` and
 `chunkerkernevalmat` with `acceleration="flam"` against dense target
 evaluation for a smooth kernel.
+
+`test_chunkerkerneval_flam_default_proxy_matches_dense` checks the integrated
+rectangular FLAM proxy path for target evaluation. The method leaves
+`useproxy=True`, materializes the PyFLAM eval matrix, applies the same factor
+to a density, and compares both outputs with dense direct evaluation.
 
 `test_chunkerinterior_flam_matches_direct_classification` checks FLAM interior
 classification. The method evaluates inside, outside, and near-boundary sample
