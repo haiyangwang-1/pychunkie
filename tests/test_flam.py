@@ -231,6 +231,23 @@ def test_chunkermat_flam_adds_dval_without_replacing_smooth_diagonal():
     np.testing.assert_allclose(flam_vector @ rhs_vector, dense_vector @ rhs_vector, rtol=1e-10, atol=1e-11)
 
 
+def test_chunkermat_flam_interleaved_block_kernel_matches_dense():
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 6})
+    s = kernel(smooth_kernel)
+    z = kernel("zero")
+    mixed = kernel([[s, -s], [s, z]])
+    pts = chnkr.r.reshape(2, chnkr.npt, order="F")
+    rhs = np.vstack((np.cos(pts[0]), np.sin(pts[1]))).reshape(-1, order="F")
+    dense = chunkermat(chnkr, mixed) + 0.25 * np.eye(2 * chnkr.npt)
+    flam_mat = chunkermat(
+        chnkr,
+        mixed,
+        {"acceleration": "flam", "dval": 0.25, "occ": 8, "rank_or_tol": 1e-10, "useproxy": False},
+    )
+
+    np.testing.assert_allclose(flam_mat @ rhs, dense @ rhs, rtol=1e-10, atol=1e-11)
+
+
 def test_chunkermat_flam_l2scale_matches_scaled_dense_matrix():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 6})
     weighted_dense = chunkermat(chnkr, smooth_kernel)
