@@ -114,6 +114,23 @@ def test_flam_accepts_explicit_chunker_sequences():
     np.testing.assert_allclose(applied, dense @ rhs, rtol=1e-10, atol=1e-11)
 
 
+def test_flam_accepts_vector_opdim_chunker_sequences():
+    first, _ = chunkerfunc(circle, {"nchmin": 3}, {"k": 6})
+    second = first.translate(np.array([3.0, 0.0]))
+    chunkers = [first, second]
+    merged = merge(chunkers)
+    pts = merged.r.reshape(2, merged.npt, order="F")
+    rhs = np.vstack((np.cos(pts[0]), np.sin(pts[1]))).reshape(-1, order="F")
+    dense = chunkermat(merged, vector_smooth_kernel) + 0.2 * np.eye(2 * merged.npt)
+    opts = {"acceleration": "flam", "dval": 0.2, "occ": 8, "rank_or_tol": 1e-10, "useproxy": False}
+
+    flam_mat = chunkermat(chunkers, vector_smooth_kernel, opts)
+    applied = chunkermatapply(chunkers, vector_smooth_kernel, rhs, opts)
+
+    np.testing.assert_allclose(flam_mat @ rhs, dense @ rhs, rtol=1e-10, atol=1e-11)
+    np.testing.assert_allclose(applied, dense @ rhs, rtol=1e-10, atol=1e-11)
+
+
 def test_flam_kernbyindexr_matches_dense_and_sparse_overwrites():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 6})
     targets = np.array([[0.0, 1.4, -0.25], [0.0, 0.2, 1.3]])
