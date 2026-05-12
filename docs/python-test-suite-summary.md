@@ -193,8 +193,8 @@ reparameterizes panels by arclength. The invariant is that each panel has
 constant speed density `chunklen / 2` on the reference interval `[-1,1]`.
 The method is arclength resampling of a Legendre chunker. Ground truth is
 preservation of area and total length, nonnegative reported error, and constant
-panel speed after resampling, plus preserved circle radius, tangent/radius
-orthogonality, normals, and curvature.
+panel speed after fixed-boundary resampling, plus preserved circle radius,
+tangent/radius orthogonality, normals, and curvature.
 
 ## `tests/test_biharm2d.py`
 
@@ -561,8 +561,8 @@ component scaled by `1.1`.
 parameterization against MATLAB. The method reconstructs the saved merged
 chunker, runs `arcparam.init/eval`, compares original-node and sample-point
 evaluations, verifies derivative residual diagnostics, and checks
-`arcresample` area/length preservation plus unit-speed panel output. Ground
-truth is `devtools_easy.mat`.
+`arcresample` area/length preservation plus unit-speed panel output for both
+fixed-boundary and boundary-moving modes. Ground truth is `devtools_easy.mat`.
 
 `test_chunker_diffintmat_devtools_outputs_match_matlab` checks spectral
 differentiation and integration matrices on saved ellipse and circle chunkers.

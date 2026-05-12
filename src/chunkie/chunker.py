@@ -776,7 +776,31 @@ class Chunker:
 
         from .chnk import arcparam
 
-        _ = {} if opts is None else dict(opts)
+        options = {} if opts is None else dict(opts)
+        if bool(options.get("mv_bdries", False)):
+            sorted_self, info = self.sort()
+            components: list[Chunker] = []
+            eps = 0.0
+            start = 0
+            for nchs, closed in zip(info["nchs"], info["ifclosed"]):
+                chunks = np.arange(start, start + int(nchs))
+                pdata = arcparam.init(sorted_self, chunks)
+
+                def fcurve(s: np.ndarray, pdata=pdata) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+                    return arcparam.eval(s, pdata)
+
+                cparams = {
+                    "eps": 10.0 * pdata.eps,
+                    "ifclosed": bool(closed),
+                    "maxchunklen": float(np.max(pdata.plen)),
+                    "tb": float(pdata.pstrt[-1]),
+                }
+                eps = max(eps, float(cparams["eps"]))
+                component, _ = chunkerfunc(fcurve, cparams, {"k": self.k, "nchmax": self.nchmax})
+                components.append(component)
+                start += int(nchs)
+            return merge(components), eps
+
         pdata = arcparam.init(self)
         xs = self.tstor
         legs = lege.pols(xs, self.k - 1)[0].T

@@ -369,6 +369,18 @@ def test_chunkerarcparam_devtools_outputs_match_matlab():
     assert float(fixture.resampled_len_err) < 1e-8
     np.testing.assert_allclose(fixture.resampled_speed_ratio, 1.0, atol=1e-6)
 
+    resampled_mv, eps_mv = chnkr.arcresample({"mv_bdries": 1})
+    np.testing.assert_allclose(eps_mv, fixture.resampled_mv_eps, rtol=1e-8, atol=1e-12)
+    assert float(fixture.resampled_mv_area_err) < 1e-8
+    assert float(fixture.resampled_mv_len_err) < 1e-8
+    np.testing.assert_allclose(abs(resampled_mv.area() - chnkr.area()), 0.0, atol=1e-8)
+    np.testing.assert_allclose(abs(np.sum(resampled_mv.wts) - np.sum(chnkr.wts)), 0.0, atol=1e-8)
+    np.testing.assert_allclose(
+        resampled_mv.arclengthdens() / (resampled_mv.chunklen() / 2)[None, :],
+        1.0,
+        atol=1e-6,
+    )
+
 
 def test_chunker_diffintmat_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().chunker_diffintmat

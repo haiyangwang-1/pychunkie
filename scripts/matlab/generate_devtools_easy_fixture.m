@@ -122,6 +122,11 @@ cap.resampled = fixture_pack_chunker(chnkr2);
 cap.resampled_area_err = abs(area(chnkr2) - area(chnkr));
 cap.resampled_len_err = abs(sum(chnkr2.wts(:)) - sum(chnkr.wts(:)));
 cap.resampled_speed_ratio = arclengthdens(chnkr2) ./ (chunklen(chnkr2) / 2).';
+[chnkr3, cap.resampled_mv_eps] = arcresample(chnkr, struct('mv_bdries', 1));
+cap.resampled_mv = fixture_pack_chunker(chnkr3);
+cap.resampled_mv_area_err = abs(area(chnkr3) - area(chnkr));
+cap.resampled_mv_len_err = abs(sum(chnkr3.wts(:)) - sum(chnkr.wts(:)));
+cap.resampled_mv_speed_ratio = arclengthdens(chnkr3) ./ (chunklen(chnkr3) / 2).';
 devtools_easy.chunkerarcparam = cap;
 
 % chunker_diffintmatTest.m

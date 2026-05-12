@@ -217,7 +217,7 @@ src/
 | `upsample` | ✅ 🧪 🎯 | `@chunker/upsample.m` | Python tested with density transfer and MATLAB fixture parity. |
 | `split` | ✅ 🧪 🎯 | `@chunker/split.m` | Focused parameter-space and arclength split parity covers geometry, weights, adjacency, and curved-panel scalar Newton updates. |
 | `refine` | ✅ 🧪 🎯 | `@chunker/refine.m` | Splits selected chunks, enforces max chunk length, arc-length level restriction, and oversampling; fixture covers selected split plus oversampling. |
-| `arcresample` | ✅ 🧪 🎯 | `@chunker/arcresample.m`, `+chnk/+arcparam/*` | Python tested for near-constant panel speed and MATLAB geometry parity. |
+| `arcresample` | ✅ 🧪 🎯 | `@chunker/arcresample.m`, `+chnk/+arcparam/*` | Python tested for near-constant panel speed and MATLAB geometry parity, including fixed-boundary and boundary-moving `mv_bdries` modes. |
 | `reverse` | ✅ 🧪 🎯 | `@chunker/reverse.m` | Python tested with polygon helpers and MATLAB fixture parity. |
 | `rotate` | ✅ 🧪 🎯 | `@chunker/rotate.m` | Strict geometry fixture covers rotation about source/destination centers. |
 | `reflect` | ✅ 🧪 🎯 | `@chunker/reflect.m` | Strict geometry fixture covers reflection about shifted lines. |
