@@ -627,7 +627,8 @@ FLAM helper geometry against the MATLAB fixture. The method compares
 `proxy_rect_pts([2, 3], [4, 6])` points, tangents, and weights. It also
 compares deterministic Laplace `nproxy_square` proxy-order selection and the
 0-based `kernbyindex`/`kernbyindexr` callback entries against MATLAB's 1-based
-fixture output, including sparse overwrite precedence.
+fixture output, including sparse overwrite precedence. The same fixture also
+checks `proxyfun` and `proxyfunr` proxy matrices plus filtered neighbor lists.
 
 `test_stokes_dtrac_devtools_output_matches_matlab` checks the Stokes double
 layer traction relation against MATLAB. The continuum equation is the traction

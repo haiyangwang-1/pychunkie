@@ -313,7 +313,7 @@ src/
 | --- | --- | --- | --- |
 | `kernbyindex`, `kernbyindexr` | ✅ 🧪 🎯 | `+chnk/+flam/kernbyindex.m`, `kernbyindexr.m` | Python uses 0-based row/column DOF indices, applies source weights, lets sparse special-quadrature entries overwrite smooth blocks, and accepts explicit chunker sequences by merging them for square and rectangular callbacks; MATLAB fixture parity covers square/rectangular Laplace entries and sparse overwrite precedence. |
 | `proxy_square_pts`, `proxy_circ_pts`, `proxy_rect_pts`, `nproxy_square` | ✅ 🧪 🎯 | `+chnk/+flam/proxy_square_pts.m`, `proxy_circ_pts.m`, `proxy_rect_pts.m`, `nproxy_square.m` | Proxy geometry, normals, the square inside predicate, and deterministic Laplace adaptive proxy-order selection are Python-tested and MATLAB-fixture tested. |
-| `proxyfun`, `proxyfunr` | ✅ 🧪 ⚠️ | `+chnk/+flam/proxyfun.m`, `proxyfunr.m` | 0-based callback helpers for PyFLAM compression; Python tests cover neighbor filtering, callback shapes, and integrated default/level-dependent rectangular proxy target evaluation. |
+| `proxyfun`, `proxyfunr` | ✅ 🧪 🎯 | `+chnk/+flam/proxyfun.m`, `proxyfunr.m` | 0-based callback helpers for PyFLAM compression; Python tests cover neighbor filtering, callback shapes, and integrated default/level-dependent rectangular proxy target evaluation, while MATLAB fixture parity covers Laplace proxy matrices and filtered neighbor indices. |
 
 #### `chnk/geometry.py`
 

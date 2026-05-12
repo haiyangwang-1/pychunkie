@@ -932,3 +932,28 @@ def test_flam_proxy_geometry_helpers_match_matlab_fixture():
         rtol=1e-13,
         atol=1e-13,
     )
+
+    pslf = np.asarray(fixture.proxyfun_slf, dtype=int).reshape(-1) - 1
+    pnbr = np.asarray(fixture.proxyfun_nbr, dtype=int).reshape(-1) - 1
+    pK, pnbr_out = flam.proxyfun(
+        pslf,
+        pnbr,
+        np.asarray(fixture.proxyfun_l, dtype=float).reshape(-1),
+        np.asarray(fixture.proxyfun_ctr, dtype=float).reshape(2),
+        chnkr,
+        lap_s,
+        (1, 1),
+        pr,
+        ptau,
+        pw,
+        pin,
+    )
+    np.testing.assert_allclose(pK, fixture.proxyfun_K, rtol=1e-13, atol=1e-13)
+    np.testing.assert_array_equal(pnbr_out + 1, np.asarray(fixture.proxyfun_nbr_out, dtype=int).reshape(-1))
+
+    pKc, pnbr_c = flam.proxyfunr("c", targets, chnkr.r.reshape(2, -1, order="F"), rcols, rrows, [1.0, 1.0], [0.0, 0.0], chnkr, lap_s, (1, 1), pr, ptau, pw, pin)
+    pKr, pnbr_r = flam.proxyfunr("r", targets, chnkr.r.reshape(2, -1, order="F"), rrows, rcols, [1.0, 1.0], [0.0, 0.0], chnkr, lap_s, (1, 1), pr, ptau, pw, pin)
+    np.testing.assert_allclose(pKc, fixture.proxyfunr_c_K, rtol=1e-13, atol=1e-13)
+    np.testing.assert_allclose(pKr, fixture.proxyfunr_r_K, rtol=1e-13, atol=1e-13)
+    np.testing.assert_array_equal(pnbr_c + 1, np.asarray(fixture.proxyfunr_c_nbr, dtype=int).reshape(-1))
+    np.testing.assert_array_equal(pnbr_r + 1, np.asarray(fixture.proxyfunr_r_nbr, dtype=int).reshape(-1))
