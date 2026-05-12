@@ -1413,6 +1413,10 @@ def test_chunkerkerneval_greenlap_devtools_outputs_match_matlab():
     Du_direct = chunkerkerneval(chnkr, lap_d, densu, fixture.targets, opts).reshape(-1, order="F")
     Sun_direct = chunkerkerneval(chnkr, lap_s, densun, fixture.targets, opts).reshape(-1, order="F")
     identity_direct = Sun_direct - Du_direct
+    fmm_opts = {"acceleration": "fmm", "forceadap": True, "eps": 1.0e-12}
+    Du_fmm = chunkerkerneval(chnkr, lap_d, densu, fixture.targets, fmm_opts).reshape(-1, order="F")
+    Sun_fmm = chunkerkerneval(chnkr, lap_s, densun, fixture.targets, fmm_opts).reshape(-1, order="F")
+    identity_fmm = Sun_fmm - Du_fmm
     flam_opts = {"acceleration": "flam", "forceadap": True, "occ": 32, "rank_or_tol": 1.0e-8, "useproxy": False}
     Du_flam = chunkerkerneval(chnkr, lap_d, densu, fixture.targets, flam_opts).reshape(-1, order="F")
     Sun_flam = chunkerkerneval(chnkr, lap_s, densun, fixture.targets, flam_opts).reshape(-1, order="F")
@@ -1424,6 +1428,9 @@ def test_chunkerkerneval_greenlap_devtools_outputs_match_matlab():
     np.testing.assert_allclose(Du_direct, fixture.Du_direct, rtol=1e-10, atol=1e-12)
     np.testing.assert_allclose(Sun_direct, fixture.Sun_direct, rtol=1e-10, atol=1e-12)
     np.testing.assert_allclose(identity_direct, fixture.utarg_identity_direct, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(Du_fmm, fixture.Du_fmm, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(Sun_fmm, fixture.Sun_fmm, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(identity_fmm, fixture.utarg_identity_fmm, rtol=1e-10, atol=1e-12)
     np.testing.assert_allclose(fixture.Du_fmm, fixture.Du_direct, rtol=1e-10, atol=1e-12)
     np.testing.assert_allclose(fixture.Sun_fmm, fixture.Sun_direct, rtol=1e-10, atol=1e-12)
     np.testing.assert_allclose(fixture.utarg_identity_fmm, fixture.utarg_identity_direct, rtol=1e-10, atol=1e-12)
@@ -1436,6 +1443,7 @@ def test_chunkerkerneval_greenlap_devtools_outputs_match_matlab():
     np.testing.assert_allclose(Du_flam, fixture.Du_flam, rtol=1e-8, atol=5e-9)
     np.testing.assert_allclose(Sun_flam, fixture.Sun_flam, rtol=1e-8, atol=5e-9)
     assert np.linalg.norm(utarg - identity_direct) / np.linalg.norm(utarg) < 1e-11
+    assert np.linalg.norm(utarg - identity_fmm) / np.linalg.norm(utarg) < 1e-11
     assert np.linalg.norm(utarg - identity_flam) / np.linalg.norm(utarg) < 1e-8
     assert float(fixture.relerr_direct) < 1e-11
     assert float(fixture.relerr_fmm) < 1e-11

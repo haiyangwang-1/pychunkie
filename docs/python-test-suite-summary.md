@@ -728,10 +728,9 @@ NaN-kernel diagnostics.
 Laplace Green-identity target-evaluation workflow from
 `chunkerkerneval_greenlapTest.m`. The method compares saved point-source
 fields, boundary densities, and close-corrected single/double-layer target
-evaluations through `forceadap`. Ground truth is MATLAB's direct outputs and
-diagnostic FMM equality plus saved MATLAB FLAM outputs. Python FLAM
-force-adaptive target evaluation is checked against both direct and MATLAB
-FLAM fixture values.
+evaluations through direct, FMM, and FLAM `forceadap` paths. Ground truth is
+MATLAB's direct, FMM, and FLAM outputs. Python FMM and FLAM force-adaptive
+target evaluation are checked against both direct and MATLAB fixture values.
 
 `test_chunkerkernevalmat_greenlap_devtools_outputs_match_matlab` checks the
 matrix form of the same Laplace Green identity. The method builds target
