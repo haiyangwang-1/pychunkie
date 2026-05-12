@@ -1700,6 +1700,30 @@ calls for target subsets outside the self/neighbor blocks. Ground truth is a
 finite matrix, at least one non-panel-sized adaptive target set, and a
 measurable difference from the non-robust matrix.
 
+## `tests/test_pquad.py`
+
+`test_low_level_pquad_weights_match_oversampled_legendre_moments` checks the
+isolated Helsing-Ojala product-quadrature weight generator. The method builds a
+straight source panel and compares log, Cauchy, hypersingular, and
+supersingular moment actions against high-order Legendre quadrature. Ground
+truth is direct oversampled integration of polynomial test densities. The test
+records and prints pquad construction time and maximum absolute error.
+
+`test_pquad_panel_weights_can_compose_to_original_nodes` checks the two product
+weight modes. The method builds upsampled-node and original-node weights for a
+close circle-panel target, then verifies that composing the upsampled weights
+with the interpolation matrix reproduces the original-node weights. The test
+records and prints pquad construction time and maximum absolute composition
+error.
+
+`test_pquad_split_panel_matrix_matches_oversampled_legendre` checks complete
+kernel-split panel assembly for close targets. The method compares isolated
+`pquad.panel_matrix` output for Laplace and Helmholtz scalar single/double
+layers against high-order oversampled Legendre panel matrices on exterior and
+interior close targets. Ground truth is direct kernel evaluation on a
+high-order source-panel interpolation. Each parametrized case records and
+prints pquad panel-matrix time and maximum absolute matrix error.
+
 ## `tests/test_rcip.py`
 
 `test_ipinit_interpolates_to_half_panels_and_preserves_weights` checks RCIP

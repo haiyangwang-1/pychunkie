@@ -121,6 +121,11 @@ src/
     │   ├── lap2d.py
     │   │   ├── green, kern
     │   │   └── _require
+    │   ├── pquad.py
+    │   │   ├── class SplitInfo
+    │   │   ├── pquadwts, panel_pquadwts, panel_matrix
+    │   │   ├── sd_special_quad, splitinfo_for_kernel
+    │   │   └── private helpers
     │   ├── quadggq.py
     │   │   ├── class AuxQuad
     │   │   ├── setup, getlogquad, logavail, hqsuppavail
@@ -167,7 +172,7 @@ src/
 
 - ✅ [src/chunkie/__init__.py](src/chunkie/__init__.py) exports the public Python API. MATLAB has no direct single-file equivalent; it is a Python package facade over MATLAB class folders and package folders.
 - ✅ 🧪 [src/chunkie/domain.py](src/chunkie/domain.py) implements top-level MATLAB geometry/domain helpers exported from the Python package facade.
-- ✅ [src/chunkie/chnk/__init__.py](src/chunkie/chnk/__init__.py) mirrors MATLAB `+chnk` package exports, including the newer `biharm2d`, `flam`, `quadadap`, `rcip`, and `smoother` modules.
+- ✅ [src/chunkie/chnk/__init__.py](src/chunkie/chnk/__init__.py) mirrors MATLAB `+chnk` package exports, including the newer `biharm2d`, `flam`, `pquad`, `quadadap`, `rcip`, and `smoother` modules.
 - ✅ [src/chunkie/lege/__init__.py](src/chunkie/lege/__init__.py) mirrors MATLAB `+lege` package exports.
 
 
@@ -414,6 +419,15 @@ their matching `@kernel` factories.
 | --- | --- | --- | --- |
 | `buildmat` | ✅ 🧪 🎯 | `+chnk/+quadadap/buildmat.m` | MATLAB fixture checks log self blocks, adaptive Gauss neighbor blocks, and robust close non-neighbor replacement; adaptive weights use MATLAB's translation-invariant recentering by default, and other singularity types delegate to `quadggq`. |
 | `adapgausswts` | ✅ 🧪 🎯 | `+chnk/adapgausswts.m` | Direct adaptive Gauss weight construction is devtools-fixture tested on the starfish Helmholtz double-layer neighbor block, including recursion metadata and agreement with the GGQ reference matrix block. |
+
+#### `chnk/pquad.py`
+
+| Python node | Flags | MATLAB reference | Notes |
+| --- | --- | --- | --- |
+| `SplitInfo`, split constants, private helpers | 🧩 ✅ 🧪 | `kernel.splitinfo`, `+chnk/pquadwts.m` internals | Kernel-split metadata and helper routines support isolated product-quadrature tests; public operator dispatch does not use this path yet. |
+| `sd_special_quad` | ✅ 🧪 | nested `SDspecialquad` in `+chnk/pquadwts.m` | Helsing-Ojala smooth/log/Cauchy/hypersingular/supersingular close-panel weights are Python-tested against high-order Legendre moment references. |
+| `pquadwts`, `panel_pquadwts` | ✅ 🧪 | `+chnk/pquadwts.m` | Product-quadrature weights for one target-panel set support original-node and upsampled-node forms; Python tests verify interpolation composition. |
+| `panel_matrix`, `splitinfo_for_kernel` | ✅ 🧪 | `chunkerkerneval.m` pquad branch and built-in `kernel.splitinfo` | Isolated panel-matrix assembly is Python-tested for Laplace and Helmholtz scalar single/double layer kernels against high-order oversampled Legendre matrices. Combined-kernel and public evaluator migration remain pending. |
 
 #### `chnk/quadggq.py`
 
