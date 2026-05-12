@@ -316,8 +316,9 @@ an explicitly selected row.
 chunkers with different data dimensions. The invariant is that geometry and
 data are concatenated chunk by chunk, adjacency for unrelated open components
 is free-ended, and missing data rows are zero-padded. The method is `merge`.
-Ground truth is original geometry in each output chunk, datadim equal to the
-maximum input datadim, and the expected padded data arrays.
+Ground truth is original coordinate, derivative, normal, and weight storage in
+each output chunk, datadim equal to the maximum input datadim, and the expected
+padded data arrays.
 
 ## `tests/test_chunkerfit.py`
 

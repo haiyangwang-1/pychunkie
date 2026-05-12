@@ -71,6 +71,7 @@ moved here so active triage stays focused on unfinished work.
 | `tests/test_chunker.py` translation/scaling/rotation/reflection checks | done | Transform tests did not cover all stored derivative, normal, and weight fields. | Adds translated, scaled, rotated, and reflected storage assertions across coordinates, derivatives, normals, and weights. |
 | `tests/test_chunker.py::test_upsample_preserves_circle_geometry_and_density_values` | done | Checked upsampled area and attached density but not the upsampled geometry fields. | Uses higher panel orders and compares upsampled positions, derivatives, normals, and weights to analytic circle formulas. |
 | `tests/test_chunker.py::test_chunker_spectral_helpers_on_circle` | done | Verified expansion output shapes without proving the coefficients reconstructed the stored geometry. | Reconstructs position, derivative, and second-derivative arrays from the Legendre coefficients. |
+| `tests/test_chunker.py::test_merge_combines_chunkers_and_pads_data_rows` | done | Checked merged coordinates and data padding, but not derivative, normal, or weight fields. | Adds per-chunk derivative, second-derivative, normal, and weight preservation checks. |
 
 ## Completed Full Test Ease Audit - 2026-05-12
 
