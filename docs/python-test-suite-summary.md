@@ -759,10 +759,10 @@ potentials and relative identity residual.
 MATLAB's explicit near-target correction matrix workflow from
 `chunkerkerneval_correctionsTest.m`. The method solves the saved Helmholtz
 double-layer boundary system, builds
-`chunkerkernevalmat(..., {"corrections": True})`, applies it through
-`chunkerkerneval(..., {"forcesmooth": True, "cormat": cormat})`, and verifies
-that corrected evaluation matches the point-source truth while uncorrected
-smooth evaluation remains measurably wrong.
+`chunkerkernevalmat(..., {"corrections": True})` as a sparse near-target
+correction matrix, applies it through `chunkerkerneval(..., {"forcesmooth":
+True, "cormat": cormat})`, and verifies that corrected evaluation matches the
+point-source truth while uncorrected smooth evaluation remains measurably wrong.
 
 `test_chunkerkerneval_gaussid_devtools_outputs_match_matlab` checks the
 adaptive assertion from `chunkerkerneval_gaussidTest.m`. The method uses the

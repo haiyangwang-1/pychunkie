@@ -638,11 +638,13 @@ def chunkerkernevalmat(
     kern: Callable[[Any, Any], np.ndarray],
     targobj: Chunker | dict[str, Any] | ArrayLike | PointInfo,
     opts: dict[str, Any] | None = None,
-) -> np.ndarray:
-    """Build the dense matrix mapping source densities to target values.
+) -> np.ndarray | spmatrix:
+    """Build the matrix mapping source densities to target values.
 
     This is the materialized companion to :func:`chunkerkerneval`. It is useful
-    for diagnostics, custom solvers, and adaptive correction matrices. FMM is a
+    for diagnostics, custom solvers, and adaptive correction matrices. Ordinary
+    evaluation matrices are dense; ``opts["corrections"]`` returns the sparse
+    near-target correction matrix used by ``opts["cormat"]``. FMM is a
     matrix-free path and is intentionally unavailable here; use
     :func:`chunkerkerneval` or :func:`chunkermatapply` for FMM application.
     """
@@ -651,7 +653,7 @@ def chunkerkernevalmat(
     chnkr = _require_chunker(chnkr)
     options = {} if opts is None else dict(opts)
     if bool(options.get("corrections", False)):
-        return _target_adaptive_correction_matrix(chnkr, kern, pointinfo(targobj), options).toarray()
+        return _target_adaptive_correction_matrix(chnkr, kern, pointinfo(targobj), options)
     acceleration = _acceleration(options)
     if acceleration == "flam":
         if same_source_target and _uses_special_quadrature(kern, opts):

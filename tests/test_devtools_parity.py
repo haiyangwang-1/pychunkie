@@ -1518,6 +1518,7 @@ def test_chunkerkerneval_corrections_devtools_outputs_match_matlab():
     sol = np.linalg.solve(sys, rhs)
     utrue = helm_s(srcinfo, PointInfo(r=targets)) @ strengths
     cormat = chunkerkernevalmat(chnkr, helm_d, targets, {"corrections": True})
+    assert sparse.issparse(cormat)
     u_eval_cor = chunkerkerneval(chnkr, helm_d, sol, targets, {"forcesmooth": True, "cormat": cormat}).reshape(-1, order="F")
     u_eval = chunkerkerneval(chnkr, helm_d, sol, targets, {"forcesmooth": True}).reshape(-1, order="F")
 
@@ -1526,7 +1527,8 @@ def test_chunkerkerneval_corrections_devtools_outputs_match_matlab():
     np.testing.assert_allclose(sol, np.asarray(fixture.sol).reshape(-1, order="F"), rtol=1e-8, atol=2e-9)
     np.testing.assert_allclose(utrue, np.asarray(fixture.utrue).reshape(-1, order="F"), rtol=1e-12, atol=1e-13)
     fixture_cormat = fixture.cormat.toarray() if sparse.issparse(fixture.cormat) else np.asarray(fixture.cormat)
-    np.testing.assert_allclose(cormat, fixture_cormat, rtol=1e-9, atol=1e-11)
+    cormat_dense = cormat.toarray() if sparse.issparse(cormat) else np.asarray(cormat)
+    np.testing.assert_allclose(cormat_dense, fixture_cormat, rtol=1e-9, atol=1e-11)
     np.testing.assert_allclose(u_eval_cor, np.asarray(fixture.u_eval_cor).reshape(-1, order="F"), rtol=1e-9, atol=1e-11)
     np.testing.assert_allclose(u_eval, np.asarray(fixture.u_eval).reshape(-1, order="F"), rtol=1e-9, atol=1e-11)
     assert np.linalg.norm(utrue - u_eval_cor, ord=np.inf) < 1e-11
