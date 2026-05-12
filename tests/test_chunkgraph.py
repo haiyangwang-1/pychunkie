@@ -98,6 +98,14 @@ def test_chunkgraph_accepts_incidence_matrix_edges():
     cg = chunkgraph(verts, incidence, pref={"k": 6}, cparams={"nchmin": 1})
 
     np.testing.assert_array_equal(cg.edgesendverts, np.array([[0, 1, 2, 3], [1, 2, 3, 0]]))
+    np.testing.assert_array_equal(cg.v2emat, incidence)
+    assert [(edges.tolist(), signs.tolist()) for edges, signs in cg.vstruc] == [
+        ([0, 3], [-1, 1]),
+        ([0, 1], [1, -1]),
+        ([1, 2], [1, -1]),
+        ([3, 2], [-1, 1]),
+    ]
+    assert cg.regions == [[], [[0, 1, 2, 3]]]
 
 
 def test_chunkgraph_slice_and_edgeids_match_selected_edges():

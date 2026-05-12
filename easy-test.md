@@ -74,6 +74,7 @@ moved here so active triage stays focused on unfinished work.
 | `tests/test_chunker.py::test_merge_combines_chunkers_and_pads_data_rows` | done | Checked merged coordinates and data padding, but not derivative, normal, or weight fields. | Adds per-chunk derivative, second-derivative, normal, and weight preservation checks. |
 | `tests/test_chunker.py::test_refine_oversamples_by_splitting_chunks` | done | Checked split count, adjacency, area, and length, but not the geometry of the split panels. | Adds analytic half-circle position, derivative, normal, and weight checks for both refined panels. |
 | `tests/test_domain.py::test_nonflatinterface_derivatives_and_redblue_colormap` | done | Used finite differences for the y-derivative but did not check the closed-form y-coordinate or second derivative. | Adds analytic y-coordinate, first-derivative, and second-derivative assertions. |
+| `tests/test_chunkgraph.py::test_chunkgraph_accepts_incidence_matrix_edges` | done | Checked only endpoint conversion from incidence-matrix input. | Adds incidence preservation, vertex-structure, and exact region-loop assertions. |
 
 ## Completed Full Test Ease Audit - 2026-05-12
 

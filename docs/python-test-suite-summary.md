@@ -439,7 +439,8 @@ loop.
 `test_chunkgraph_accepts_incidence_matrix_edges` checks the alternate graph
 constructor format where edges are supplied as an incidence matrix. The method
 converts incidence columns back to endpoint pairs. Ground truth is the same
-square endpoint matrix `[[0,1,2,3],[1,2,3,0]]`.
+square endpoint matrix `[[0,1,2,3],[1,2,3,0]]`, the original incidence matrix,
+exact vertex-edge structure, and the square region loop.
 
 `test_chunkgraph_slice_and_edgeids_match_selected_edges` checks subgraph
 slicing and global point-index selection. The method is `slicegraph([0,1])`
