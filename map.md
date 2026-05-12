@@ -448,7 +448,7 @@ their matching `@kernel` factories.
 | `diagbuildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/diagbuildmat.m` | Self-block and correction-block outputs are MATLAB-fixture tested. |
 | `nearbuildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/nearbuildmat.m` | Oversampled neighbor block and MATLAB-style correction subtraction are fixture-tested. |
 
-Log/PV/HS support tables are packaged as `.npz` assets and loaded with `importlib.resources`; runtime no longer depends on a MATLAB reference checkout for GGQ tables. `quadadap` covers MATLAB-style log self, neighbor, and robust close replacement. `quadba` is an explicit non-goal for this port.
+Log/PV/HS support tables are packaged as `.npz` assets and loaded with `importlib.resources`; runtime no longer depends on a MATLAB reference checkout for GGQ tables. `quadadap` covers MATLAB-style log self, neighbor, and robust close replacement. `pquad` now provides isolated Helsing-Ojala product-quadrature weights and panel matrices, but the default operator/evaluator paths have not migrated to it yet. `quadba` is an explicit non-goal for this port.
 
 #### `chnk/rcip.py`
 
@@ -525,10 +525,22 @@ docs/
 └── special-quadrature.md
 
 examples/
-├── accelerated_physics_kernels.py
-├── chunkgraph_multiregion_bvp.py
-├── nonsmooth_laplace_polygon.py
-└── smooth_laplace_bvp.py
+├── accelerated_flam_laplace.py
+├── accelerated_fmm_biharmonic.py
+├── accelerated_fmm_helmholtz.py
+├── accelerated_fmm_laplace.py
+├── accelerated_fmm_stokes.py
+├── chunkgraph_annular_dirichlet.py
+├── chunkgraph_region_classification.py
+├── nonsmooth_laplace_exterior_dirichlet.py
+├── nonsmooth_laplace_exterior_neumann.py
+├── nonsmooth_laplace_interior_dirichlet.py
+├── nonsmooth_laplace_interior_neumann.py
+├── nonsmooth_laplace_rcip.py
+├── smooth_laplace_exterior_dirichlet.py
+├── smooth_laplace_exterior_neumann.py
+├── smooth_laplace_interior_dirichlet.py
+└── smooth_laplace_interior_neumann.py
 
 scripts/
 ├── clean_test_data.py
@@ -604,7 +616,11 @@ Support file roles:
 - 🧭 `docs/bie-overview.md`: high-level guide to the chunker/chunkgraph/kernel/operator API, BIE workflows, supported physics kernels, and dense/FMM/FLAM acceleration options.
 - 🧭 `docs/matlab-reference-setup.md`: local MATLAB checkout / fixture setup notes.
 - 🧭 `docs/special-quadrature.md`: special quadrature implementation notes.
-- 🧭 `examples/*.py`: runnable documentation demos for smooth Laplace interior/exterior Dirichlet and Neumann systems, dyadically refined non-smooth polygon solves, chunkgraph multi-region workflows, and accelerated Laplace/Helmholtz/Stokes/biharmonic kernel evaluation.
+- 🧭 `examples/*.py`: runnable documentation demos for smooth Laplace
+  interior/exterior Dirichlet and Neumann systems, dyadically refined
+  non-smooth polygon solves with corrected near-boundary PNG output,
+  chunkgraph multi-region workflows, and one-backend/one-physics accelerated
+  Laplace/Helmholtz/Stokes/biharmonic kernel evaluation.
 - 🧭 `src/chunkie/data/quadggq/*.npz`: packaged NumPy copies of upstream MATLAB GGQ near, log self, PV support, and HS support tables used at runtime.
 - 🧭 `scripts/clean_test_data.py`: removes local generated `.mat`/`.npz` parity fixture files under `tests/golden`.
 - 🧭 `scripts/generate_quadggq_package_data.py`: converts upstream MATLAB `+chnk/+quadggq` table files into the package `.npz` data assets.
