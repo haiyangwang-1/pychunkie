@@ -130,3 +130,5 @@ def test_basic_curve_helpers_match_expected_derivatives():
     np.testing.assert_allclose(d[0], 1.0)
     np.testing.assert_allclose(d2[0], 0.0)
     np.testing.assert_allclose(r[1], 2.0 * np.sin(3.0 * t + 0.1))
+    np.testing.assert_allclose(d[1], 6.0 * np.cos(3.0 * t + 0.1))
+    np.testing.assert_allclose(d2[1], -18.0 * np.sin(3.0 * t + 0.1))

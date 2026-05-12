@@ -376,8 +376,9 @@ for `sqrt(1 + y'(t)^2)`.
 
 `test_basic_curve_helpers_match_expected_derivatives` checks the canned
 `curves.fsine` helper. The equations are `x(t)=t`, `x'(t)=1`, `x''(t)=0`, and
-`y(t)=amp sin(freq t + phase)`. The method directly evaluates the helper.
-Ground truth is the known coordinate and derivative formulas.
+`y(t)=amp sin(freq t + phase)` plus its first two derivatives. The method
+directly evaluates the helper. Ground truth is the known coordinate and
+derivative formulas.
 
 ## `tests/test_chunkerpoly.py`
 
