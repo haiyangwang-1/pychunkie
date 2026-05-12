@@ -42,11 +42,22 @@ def test_laplace_kernel_selectors_have_expected_shapes():
     info = pointinfo(chnkr)
     target = {"r": np.array([[0.25, 0.5], [0.1, -0.2]]), "n": np.array([[1.0, 0.0], [0.0, 1.0]])}
 
-    assert lap2d.kern(info, target, "s").shape == (2, chnkr.npt)
-    assert lap2d.kern(info, target, "d").shape == (2, chnkr.npt)
-    assert lap2d.kern(info, target, "c").shape == (2, chnkr.npt)
-    assert lap2d.kern(info, target, "cp").shape == (2, chnkr.npt)
-    assert lap2d.kern(info, target, "sgrad").shape == (4, chnkr.npt)
+    targ = pointinfo(target)
+    val, grad, hess = lap2d.green(info.r, targ.r)
+    expected_d = -(grad[:, :, 0] * info.n[0, None, :] + grad[:, :, 1] * info.n[1, None, :])
+    expected_sp = grad[:, :, 0] * targ.n[0, :, None] + grad[:, :, 1] * targ.n[1, :, None]
+    expected_dp = -(
+        hess[:, :, 0] * info.n[0, None, :] * targ.n[0, :, None]
+        + hess[:, :, 1] * (info.n[1, None, :] * targ.n[0, :, None] + info.n[0, None, :] * targ.n[1, :, None])
+        + hess[:, :, 2] * info.n[1, None, :] * targ.n[1, :, None]
+    )
+    expected_sgrad = grad.transpose(0, 2, 1).reshape(2 * targ.r.shape[1], info.r.shape[1])
+
+    np.testing.assert_allclose(lap2d.kern(info, target, "s"), val)
+    np.testing.assert_allclose(lap2d.kern(info, target, "d"), expected_d)
+    np.testing.assert_allclose(lap2d.kern(info, target, "c"), expected_d + val)
+    np.testing.assert_allclose(lap2d.kern(info, target, "cp"), expected_dp + expected_sp)
+    np.testing.assert_allclose(lap2d.kern(info, target, "sgrad"), expected_sgrad)
 
 
 def test_helmholtz_green_gradient_matches_finite_difference():
@@ -74,7 +85,16 @@ def test_helmholtz_kernel_selectors_have_expected_shapes():
         "d": np.array([[0.0, 1.0], [1.0, 0.0]]),
     }
 
-    assert helm2d.kern(1.3, info, target, "s").shape == (2, chnkr.npt)
-    assert helm2d.kern(1.3, info, target, "d").shape == (2, chnkr.npt)
-    assert helm2d.kern(1.3, info, target, "dp").shape == (2, chnkr.npt)
-    assert helm2d.kern(1.3, info, target, "c").shape == (2, chnkr.npt)
+    targ = pointinfo(target)
+    val, grad, hess = helm2d.green(1.3, info.r, targ.r)
+    expected_d = -(grad[:, :, 0] * info.n[0, None, :] + grad[:, :, 1] * info.n[1, None, :])
+    expected_dp = -(
+        hess[:, :, 0] * info.n[0, None, :] * targ.n[0, :, None]
+        + hess[:, :, 1] * (info.n[1, None, :] * targ.n[0, :, None] + info.n[0, None, :] * targ.n[1, :, None])
+        + hess[:, :, 2] * info.n[1, None, :] * targ.n[1, :, None]
+    )
+
+    np.testing.assert_allclose(helm2d.kern(1.3, info, target, "s"), val)
+    np.testing.assert_allclose(helm2d.kern(1.3, info, target, "d"), expected_d)
+    np.testing.assert_allclose(helm2d.kern(1.3, info, target, "dp"), expected_dp)
+    np.testing.assert_allclose(helm2d.kern(1.3, info, target, "c"), expected_d + 1.0j * val)

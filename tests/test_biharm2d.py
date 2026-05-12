@@ -31,18 +31,26 @@ def test_biharmonic_kernel_selectors_and_factory_shapes():
     src = PointInfo(r=np.array([[0.0, 1.0], [0.0, 0.0]]), n=np.array([[1.0, 0.0], [0.0, 1.0]]))
     targ = PointInfo(r=np.array([[0.2, -0.4, 0.7], [1.0, 0.3, -0.2]]), n=np.array([[0.0, 1.0, 0.0], [1.0, 0.0, 1.0]]))
 
-    assert biharm2d.kern(src, targ, "s").shape == (3, 2)
-    assert biharm2d.kern(src, targ, "d").shape == (3, 2)
-    assert biharm2d.kern(src, targ, "sp").shape == (3, 2)
-    assert biharm2d.kern(src, targ, "sgrad").shape == (6, 2)
-    assert biharm2d.kern(src, targ, "shess").shape == (9, 2)
+    val, grad, hess, _ = biharm2d.green(src.r, targ.r)
+    expected_d = -(grad[:, :, 0] * src.n[0, None, :] + grad[:, :, 1] * src.n[1, None, :])
+    expected_sp = grad[:, :, 0] * targ.n[0, :, None] + grad[:, :, 1] * targ.n[1, :, None]
+    expected_sgrad = grad.transpose(0, 2, 1).reshape(2 * targ.r.shape[1], src.r.shape[1])
+    expected_shess = hess.transpose(0, 2, 1).reshape(3 * targ.r.shape[1], src.r.shape[1])
+
+    np.testing.assert_allclose(biharm2d.kern(src, targ, "s"), val)
+    np.testing.assert_allclose(biharm2d.kern(src, targ, "d"), expected_d)
+    np.testing.assert_allclose(biharm2d.kern(src, targ, "sp"), expected_sp)
+    np.testing.assert_allclose(biharm2d.kern(src, targ, "sgrad"), expected_sgrad)
+    np.testing.assert_allclose(biharm2d.kern(src, targ, "shess"), expected_shess)
     assert kernel("biharm", "sgrad").opdims == (2, 1)
 
 
 def test_biharmonic_layer_evaluation_uses_special_quadrature():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 6}, {"k": 8})
     kern = kernel("biharmonic", "s")
-    vals = chunkerkerneval(chnkr, kern, np.ones(chnkr.npt), np.array([[0.25], [0.1]]))
+    target = np.array([[0.25], [0.1]])
+    vals = chunkerkerneval(chnkr, kern, np.ones(chnkr.npt), target)
 
     assert vals.shape == (1, 1)
-    assert np.isfinite(vals).all()
+    radius_sq = float(target[0, 0] ** 2 + target[1, 0] ** 2)
+    np.testing.assert_allclose(vals.ravel(), [radius_sq / 4.0], atol=5e-12)

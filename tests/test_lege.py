@@ -86,8 +86,20 @@ def test_intpol_and_intmat_integrate_constants_from_left_endpoint():
 def test_barywts_reproduce_lagrange_basis_sign_pattern():
     x, *_ = lege.exps(7)
     w = lege.barywts(7, x)
+    direct = np.ones_like(w)
+    for i, xi in enumerate(x):
+        direct[i] = 1.0 / np.prod(xi - np.delete(x, i))
+    direct /= direct[0]
+
     assert w.shape == (7,)
     assert np.all(np.sign(w[:-1]) != np.sign(w[1:]))
+    np.testing.assert_allclose(w, direct, atol=1e-14)
+
+    node_values = x**4 - 0.25 * x**2 + 0.5 * x - 2.0
+    targets = np.array([-0.8, -0.15, 0.6])
+    numer = np.sum(w[None, :] * node_values[None, :] / (targets[:, None] - x[None, :]), axis=1)
+    denom = np.sum(w[None, :] / (targets[:, None] - x[None, :]), axis=1)
+    np.testing.assert_allclose(numer / denom, targets**4 - 0.25 * targets**2 + 0.5 * targets - 2.0)
 
 
 def test_bernstein_ellipse_matches_conformal_map():

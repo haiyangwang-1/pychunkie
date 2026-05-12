@@ -99,13 +99,17 @@ def test_chunkgraph_region_ids_survive_translation():
 
 def test_chunkgraph_works_with_dense_operator_helpers():
     cg = square_graph()
-    dens = np.sin(cg.r[0])
+    dens = np.sin(cg.r[0].reshape(-1, order="F"))
+    weights = cg.wts.reshape(-1, order="F")
+    targets = np.array([[0.25, 1.5], [0.25, 0.25]])
 
     mat = chunkermat(cg, smooth_kernel)
-    vals = chunkerkerneval(cg, smooth_kernel, dens, np.array([[0.25, 1.5], [0.25, 0.25]])).reshape(-1)
+    vals = chunkerkerneval(cg, smooth_kernel, dens, targets).reshape(-1)
+    expected_mat = smooth_kernel(cg.sourceinfo, cg.sourceinfo) * weights[None, :]
+    expected_vals = smooth_kernel(cg.sourceinfo, PointInfo(r=targets)) @ (dens * weights)
 
-    assert mat.shape == (cg.npt, cg.npt)
-    assert vals.shape == (2,)
+    np.testing.assert_allclose(mat, expected_mat)
+    np.testing.assert_allclose(vals, expected_vals)
 
 
 def test_tochunkgraph_preserves_closed_and_open_components():

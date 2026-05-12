@@ -399,6 +399,14 @@ def test_chunkerfit_devtools_outputs_match_matlab():
     assert int(fixture.open_ier) == 0
     assert closed.checkadjinfo() == int(fixture.closed_ier)
     assert open_chnkr.checkadjinfo() == int(fixture.open_ier)
+    for actual, expected in ((closed, fixture.closed), (open_chnkr, fixture.open)):
+        np.testing.assert_allclose(actual.r, expected.r, atol=1e-12)
+        np.testing.assert_allclose(actual.d, expected.d, atol=1e-12)
+        np.testing.assert_allclose(actual.n, expected.n, atol=1e-12)
+        np.testing.assert_allclose(actual.wts, expected.wts, atol=1e-12)
+        np.testing.assert_array_equal(actual.adj, np.asarray(expected.adj, dtype=int))
+        np.testing.assert_allclose(actual.chunklen(), expected.chunklen, atol=1e-12)
+        np.testing.assert_allclose(actual.area(), expected.area, atol=1e-12)
 
 
 def test_tochunkgraph_devtools_outputs_match_matlab():
@@ -489,7 +497,7 @@ def test_chunkerpoly_devtools_outputs_match_matlab():
     nverts = np.asarray(fixture.verts).shape[1]
     rounded = chunkerpoly(
         fixture.verts,
-        {"widths": 0.1 * np.ones(nverts), "eps": 1.0e-8},
+        {"rounded": True, "widths": 0.1 * np.ones(nverts), "eps": 1.0e-8},
         {"k": 16, "dim": 2},
         fixture.edgevals,
     ).sort()[0]
@@ -519,6 +527,16 @@ def test_chunkerpoly_devtools_outputs_match_matlab():
     assert open_chnkr.checkadjinfo() == int(fixture.open_ier)
     assert float(fixture.truepoly_area_err) < 1e-12
     assert float(fixture.truepoly_length_err) < 1e-12
+    np.testing.assert_allclose(truepoly.area(), float(fixture.barb_area), rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(np.sum(truepoly.wts), float(fixture.barb_length), rtol=1e-12, atol=1e-12)
+    assert truepoly.datadim == np.asarray(fixture.edgevals).shape[0]
+    assert rounded.datadim == np.asarray(fixture.edgevals).shape[0]
+    assert rounded.nch == 2 * nverts
+    assert open_chnkr.nch == np.asarray(fixture.open_verts).shape[1] - 1
+    np.testing.assert_array_equal(open_chnkr.adj[:, 0], [-1, 2])
+    np.testing.assert_array_equal(open_chnkr.adj[:, -1], [open_chnkr.nch - 1, -1])
+    assert np.all(rounded.chunklen() > 0.0)
+    assert np.all(open_chnkr.chunklen() > 0.0)
 
 
 def test_smoother_devtools_output_matches_matlab_thresholds():
@@ -535,7 +553,11 @@ def test_smoother_devtools_output_matches_matlab_thresholds():
     assert float(fixture.err) < 1e-6
     assert float(err) < 1e-6
     assert np.asarray(fixture.err_by_pt).shape == (int(fixture.chunker.npt),)
-    assert np.asarray(err_by_pt).shape == (chnkr.npt,)
+    np.testing.assert_array_equal(err_by_pt, np.zeros(chnkr.npt))
+    assert chnkr.nch == 2 * int(fixture.nv)
+    assert chnkr.checkadjinfo() == 0
+    np.testing.assert_allclose(np.linalg.norm(chnkr.n, axis=0), 1.0, atol=1e-14)
+    assert np.all(chnkr.chunklen() > 0.0)
 
 
 def test_flagself_devtools_output_matches_matlab():

@@ -62,9 +62,25 @@ def test_flagnear_rectangle_uses_per_chunk_padding_and_chunkgraph_delegates():
     tight = flagnear_rectangle(chnkr, pts, {"rho": 1.0})
     padded = flagnear_rectangle(chnkr, pts, {"rho": 1.8})
     graph = tochunkgraph(chnkr)
+    expected_tight = np.array(
+        [
+            [False, False],
+            [False, False],
+            [False, False],
+            [False, False],
+        ]
+    )
+    expected_padded = np.array(
+        [
+            [True, False],
+            [False, False],
+            [False, True],
+            [False, False],
+        ]
+    )
 
-    assert tight.shape == (pts.shape[1], chnkr.nch)
-    assert np.count_nonzero(padded) >= np.count_nonzero(tight)
+    np.testing.assert_array_equal(tight, expected_tight)
+    np.testing.assert_array_equal(padded, expected_padded)
     np.testing.assert_array_equal(graph.flagnear(pts, {"fac": 0.5}), chnkr.flagnear(pts, {"fac": 0.5}))
     np.testing.assert_array_equal(graph.flagnear_rectangle(pts, {"rho": 1.8}), padded)
 

@@ -19,9 +19,13 @@ def test_ipinit_interpolates_to_half_panels_and_preserves_weights():
 def test_setup_returns_zero_based_rcip_indices_and_block_shapes():
     out = rcip.setup(4, 2, 3, np.array([True, False, True]))
     pbc, pwbc, starL, circL, starS, circS, ilist, starL1, circL1 = out
+    t, w, _, _ = lege.exps(4)
+    ip, ipw = rcip.IPinit(t, w)
+    expected_pbc = np.kron(np.eye(3), np.kron(ip, np.eye(2)))
+    expected_pwbc = np.kron(np.eye(3), np.kron(ipw, np.eye(2)))
 
-    assert pbc.shape == (48, 24)
-    assert pwbc.shape == (48, 24)
+    np.testing.assert_allclose(pbc, expected_pbc)
+    np.testing.assert_allclose(pwbc, expected_pwbc)
     assert starL.size == 48
     assert circL.size == 24
     assert starS.size == 24
@@ -57,7 +61,17 @@ def test_schurbana_matches_direct_block_formula_shapes():
     )
 
     assert out.shape == (nbad, nbad)
-    np.testing.assert_allclose(out, out)
+    expected = a.copy()
+    va = k[np.ix_(np.arange(nbad, size), np.arange(nbad))] @ expected
+    pta = pw.T @ expected
+    ptau = pta @ k[np.ix_(np.arange(nbad), np.arange(nbad, size))]
+    dvaui = np.linalg.inv(k[np.ix_(np.arange(nbad, size), np.arange(nbad, size))] - va @ k[np.ix_(np.arange(nbad), np.arange(nbad, size))])
+    dvauivap = dvaui @ (va @ p)
+    expected[np.ix_(np.arange(ngood), np.arange(ngood))] = pta @ p + ptau @ dvauivap
+    expected[np.ix_(np.arange(ngood, nbad), np.arange(ngood, nbad))] = dvaui
+    expected[np.ix_(np.arange(ngood, nbad), np.arange(ngood))] = -dvauivap
+    expected[np.ix_(np.arange(ngood), np.arange(ngood, nbad))] = -ptau @ dvaui
+    np.testing.assert_allclose(out, expected)
 
 
 def test_rcompchunk_identity_baseline_and_corner_refine():
@@ -103,6 +117,21 @@ def test_rcompchunk_runs_recursive_compression_for_corner_edges():
     assert len(saved.MAT) == 2
     assert len(saved.chnkrlocals) == 2
     assert np.linalg.norm(rmat - np.eye(rmat.shape[0])) > 1e-3
+    np.testing.assert_allclose(np.trace(rmat), 16.300387693756427, rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(np.linalg.norm(rmat, "fro"), 4.120788302796726, rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(
+        rmat[0, :6],
+        [
+            1.0033853368397785,
+            0.0088738397763664,
+            0.0078763442808689,
+            0.0096558477593892,
+            0.0019520338244678,
+            0.0044367509083990,
+        ],
+        rtol=1e-12,
+        atol=1e-12,
+    )
 
     rho, srcinfo, wts = rcip.rhohatInterp(np.arange(rmat.shape[0], dtype=float), saved, 2)
     assert len(rho) == 2
@@ -133,6 +162,17 @@ def test_chunkgraph_rcip_runs_selected_vertices_and_ignores_marked_vertices():
         assert saved.nedge == 2
         assert saved.nsub == 1
         assert np.isfinite(rmat).all()
+    for vertex, rmat, edge_indices in zip(result.vertices, result.R, result.edge_indices):
+        direct, direct_saved = rcip.Rcompchunk(
+            cg.echnks,
+            edge_indices,
+            kernel("lap", "d"),
+            1,
+            cg.verts[:, vertex],
+            opts={"nsub": 1, "rcip_savedepth": 1},
+        )
+        np.testing.assert_allclose(rmat, direct)
+        np.testing.assert_allclose(result.saved[np.where(result.vertices == vertex)[0][0]].R[-1], direct_saved.R[-1])
 
 
 def test_chunkgraph_rcip_subselects_global_block_kernels():
@@ -162,4 +202,4 @@ def test_chunkgraph_rcip_subselects_global_block_kernels():
     assert set(calls) <= {(0, 0), (0, 1), (1, 0), (1, 1)}
     assert calls
     assert result.R[0].shape == (4 * cg.k, 4 * cg.k)
-    assert np.isfinite(result.R[0]).all()
+    np.testing.assert_allclose(result.R[0], np.eye(4 * cg.k), atol=1e-14)

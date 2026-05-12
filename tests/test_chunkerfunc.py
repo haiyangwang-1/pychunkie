@@ -49,7 +49,16 @@ def test_chunkerfunc_can_spectrally_differentiate_position_only_curve():
     def position_only(t):
         return np.vstack((np.cos(t), np.sin(t)))
 
-    chnkr, _ = chunkerfunc(position_only, {"nchmin": 4}, {"k": 16})
+    chnkr, ab = chunkerfunc(position_only, {"nchmin": 4}, {"k": 16})
+    for ich, (a, b) in enumerate(ab.T):
+        theta = a + (b - a) * (chnkr.tstor + 1.0) / 2.0
+        h = (b - a) / 2.0
+        expected_d = h * np.vstack((-np.sin(theta), np.cos(theta)))
+        expected_d2 = h**2 * np.vstack((-np.cos(theta), -np.sin(theta)))
+        np.testing.assert_allclose(chnkr.d[:, :, ich], expected_d, atol=1e-12)
+        np.testing.assert_allclose(chnkr.d2[:, :, ich], expected_d2, atol=1e-11)
+    np.testing.assert_allclose(np.linalg.norm(chnkr.n, axis=0), 1.0, atol=1e-14)
+    np.testing.assert_allclose(np.sum(chnkr.r * chnkr.n, axis=0), 1.0, atol=1e-12)
     np.testing.assert_allclose(chnkr.area(), np.pi, atol=1e-12)
 
 

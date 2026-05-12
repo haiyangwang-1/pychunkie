@@ -186,15 +186,15 @@ single-layer gradient, and Hessian kernels. The equation content is the same
 biharmonic Green's function and its target derivatives, projected onto source
 or target normals where needed. The method is direct point-kernel evaluation
 through `biharm2d.kern` and the generic `kernel("biharm", ...)` factory.
-Ground truth is the expected block shape and `opdims` metadata for each
-selector.
+Ground truth is `biharm2d.green` value, gradient, and Hessian data projected
+into the expected selector blocks, plus `opdims` metadata.
 
 `test_biharmonic_layer_evaluation_uses_special_quadrature` checks the
 self/near singular dispatch for a biharmonic single-layer potential on a circle.
 The kernel is marked as logarithmic, so `chunkerkerneval` on a chunker target
 uses GGQ special quadrature instead of naive coincident-node quadrature. Ground
-truth is not an analytic value; it is that the evaluation returns a finite
-scalar of the correct shape for a smooth unit density at an interior target.
+truth is the analytic unit-density circle identity `S[1](x) = |x|^2/4` at an
+interior target.
 
 ## `tests/test_chunker.py`
 
@@ -262,15 +262,17 @@ chunk order. Ground truth is `arclengthfun()` flattened in the same order.
 
 `test_onesmat_and_normonesmat_shapes` checks block matrix helpers used by
 scalar and vector-valued operators. There is no PDE equation; the invariant is
-that scalar ones are `npt x npt` and normal-vector ones are
-`2 npt x 2 npt`. The method directly calls `onesmat` and `normonesmat`.
-Ground truth is expected matrix shape.
+that scalar ones are weighted by source quadrature weights and normal-vector
+ones repeat the outer products of target/source normals with those weights. The
+method directly calls `onesmat` and `normonesmat`. Ground truth is explicit
+matrix entries assembled from `wts` and `n`.
 
 `test_centroids_and_adjacency_info` checks centroids, sort metadata, component
 count, closedness, and adjacency validity on a two-panel refined circle. The
 method is `centroids`, `sortinfo`, and `checkadjinfo`. Ground truth is one
 closed component, two chunks, identity chunk ordering, adjacency equal to the
-stored adjacency, and no adjacency errors.
+stored adjacency, no adjacency errors, and centroid coordinates equal to
+weighted panel means.
 
 `test_upsample_preserves_circle_geometry_and_density_values` checks spectral
 upsampling from `k=8` to `k=16`. The scalar data equation is
@@ -321,10 +323,11 @@ open line from `x=0` to `x=3`, total length `3`, with `y=0`. The method is
 three panels, free-ended adjacency, total length `3`, and zero y-coordinates.
 
 `test_chunkerfit_closed_circle_spline_area` checks closed spline fitting of
-16 samples from the unit circle. The equation is the circle area `pi`. The
-method is `chunkerfit` with a closed periodic fit and split points. Ground
-truth is one panel per input interval and area within a loose spline tolerance
-of `2e-3` relative error.
+16 samples from the unit circle. The equations are circle area `pi`, perimeter
+`2 pi`, unit node radius, and radial/tangent orthogonality. The method is
+`chunkerfit` with a closed periodic fit and split points. Ground truth is one
+panel per input interval, closed adjacency, circle geometry, and length/area
+within spline tolerances.
 
 `test_chunkerfit_rejects_unsupported_methods` checks API validation. There is
 no numerical equation; the invariant is that unsupported fit methods are
@@ -354,9 +357,10 @@ the analytic area.
 
 `test_chunkerfunc_can_spectrally_differentiate_position_only_curve` checks that
 the constructor can infer derivatives when a curve callback returns only
-positions. The equation is the unit-circle area `pi`. The method is spectral
-differentiation of position data inside `chunkerfunc`. Ground truth is the
-correct area after derivative inference.
+positions. The equations are the unit-circle identities for `r`, `d`, `d2`,
+normals, weights, and area. The method is spectral differentiation of position
+data inside `chunkerfunc`. Ground truth is analytic circle geometry after
+derivative inference.
 
 `test_chunkerfunc_adaptively_refines_unresolved_curve` checks adaptive
 parameter-interval refinement. The method constructs a high-frequency open
@@ -387,14 +391,15 @@ rounded-polygon construction for a square. The method trims the straight edges
 and inserts rounded corner panels of width `0.1`. The geometric invariant is
 that the rounded shape remains valid, has positive panel lengths, and has area
 between `0.9` and the original square area `1`. Ground truth is eight chunks,
-valid adjacency, and the area/length inequalities.
+valid adjacency, area/length inequalities, trimmed edge node coordinates, and
+rounded-corner coordinate/derivative/second-derivative values.
 
 `test_chunkerpoly_rounded_open_polyline_and_edge_data` checks rounded
 construction for an open L-shaped polyline with data interpolation through the
 rounded corner. The method uses widths `[0, 0.2, 0]` and scalar edge values
-`2` and `4`. Ground truth is three chunks, free-ended adjacency, preserved
-endpoint-edge data, and middle-panel data bounded between the adjacent edge
-values.
+`2` and `4`. Ground truth is three chunks, free-ended adjacency, open rounded
+corner geometry, preserved endpoint-edge data, and middle-panel data bounded
+between the adjacent edge values.
 
 `test_reverse_and_move_preserve_expected_geometry` checks orientation reversal
 and rigid/scale movement on a square. The equations are `area(reverse) = -area`
@@ -432,8 +437,9 @@ both coordinate systems.
 `test_chunkgraph_works_with_dense_operator_helpers` checks that chunkgraphs can
 be passed into dense operator assembly/evaluation APIs. The kernel is the
 smooth polynomial `1 + dx^2 + dy^2`. The method is `chunkermat` and
-`chunkerkerneval` on a graph with a sinusoidal density. Ground truth is the
-matrix and value shapes, not an external analytic value.
+`chunkerkerneval` on a graph with a sinusoidal density. Ground truth is an
+explicit raw-kernel matrix weighted by graph quadrature weights and the
+corresponding manual matrix-vector target evaluation.
 
 `test_tochunkgraph_preserves_closed_and_open_components` checks conversion from
 ordinary chunkers to graph form. The invariant is that a closed component
@@ -520,6 +526,12 @@ angle to nearest boundary polar angle, with wrapped angle error. The method is
 is MATLAB's nearest point, derivative, second derivative, distance, local
 parameter, chunk index, and angle-error fixture.
 
+`test_chunkerfit_devtools_outputs_match_matlab` checks the saved
+`chunkerfitTest.m` closed and open curve fits. The method rebuilds the same
+random-mode sample points in Python, fits closed and open chunkers, and
+compares geometry fields, normals, weights, adjacency, chunk lengths, and area
+against the MATLAB devtools fixture.
+
 `test_flagself_devtools_output_matches_matlab` checks source-target duplicate
 pair detection. There is no PDE equation; the invariant is exact coordinate
 coincidence within tolerance. The method is `flagself` and a sorted-pair
@@ -556,6 +568,19 @@ combination.
 `nout=3`, random Fourier-mode construction, reversal, circle area, and
 refinement. Ground truth is MATLAB-saved chunker fields plus adjacency, area,
 and warning diagnostics.
+
+`test_chunkerpoly_devtools_outputs_match_matlab` checks the barbell-like
+polygon cases from `chunkerpolyTest.m`. The method builds Python rounded,
+true-polygon, and open polygon chunkers from the fixture inputs. Ground truth
+is MATLAB status/diagnostics, true-polygon area and length, data dimensions,
+rounded chunk count and positive lengths, and open lightweight adjacency and
+length invariants.
+
+`test_smoother_devtools_output_matches_matlab_thresholds` checks the
+lightweight smoother path against the MATLAB smoother diagnostic fixture. The
+method verifies the MATLAB and Python error thresholds and then checks the
+supported Python rounded-polygon chunker for zero reported errors, `2*nv`
+chunks, clean adjacency, unit normals, and positive chunk lengths.
 
 `test_slicegraph_devtools_outputs_match_matlab` checks the concentric-square
 `slicegraph` workflow. The method compares sliced geometry and edge id
@@ -681,8 +706,10 @@ clean adjacency, and positive area below the original polygon area.
 kernel selector and factory metadata. The equations are the Kelvin fundamental
 solution and its traction/gradient/double-layer variants for Lame parameters
 `lam=1.5`, `mu=2.1`. The method is direct point-kernel evaluation plus
-`kernel("elast", ...)`. Ground truth is expected block shape and operator
-dimension metadata for vector-valued densities and outputs.
+`kernel("elast", ...)`. Ground truth is explicit Kelvin, double-layer, and
+alternate-double formulas, finite-difference single-layer gradients,
+stress-traction contractions for `strac`/`dalttrac`, and operator-dimension
+metadata for vector-valued densities and outputs.
 
 `test_elasticity_single_layer_is_symmetric_in_components` checks symmetry of
 the Kelvin single-layer matrix block. The equation is the symmetric displacement
@@ -737,11 +764,14 @@ verifies sparse target-evaluation entries have overwrite precedence.
 `test_flam_proxy_square_geometry_and_proxyfun_shapes` checks proxy helper
 geometry and callback behavior. The method validates square proxy weights,
 interior flags, and `proxyfun` output/neighbor shapes for a small circle
-chunker. Ground truth is stable geometry and 0-based callback sizing.
+chunker. Ground truth is stable geometry, 0-based callback sizing, and direct
+proxy/source kernel blocks for the returned `Kpxy` values.
 
 `test_flam_proxyfunr_column_and_row_shapes` checks rectangular proxy callbacks
 for both column and row compression sides. The method verifies 0-based
 neighbor filtering and output shapes for off-boundary target evaluation.
+Ground truth is direct proxy-target and source-proxy kernel blocks for both
+callback orientations.
 
 `test_chunkermat_flam_applies_solves_and_logdet_against_dense` checks the
 PyFLAM-backed boundary matrix wrapper. The method builds
@@ -864,10 +894,10 @@ exact equality of the two boolean arrays.
 
 `test_flagnear_rectangle_uses_per_chunk_padding_and_chunkgraph_delegates`
 checks rectangular near-flag padding and chunkgraph delegation. The invariant
-is monotonicity: increasing `rho` should not reduce the number of near flags.
+is that the chosen targets produce known tight and padded per-chunk masks.
 The method compares tight and padded rectangle flags on an open polyline, then
 checks `tochunkgraph` delegates to chunker implementations. Ground truth is
-shape, monotonic flag count, and equality between graph and chunker results.
+the exact boolean masks and equality between graph and chunker results.
 
 `test_flagself_reports_close_source_target_pairs` checks duplicate coordinate
 pair reporting for small arrays. The method is `flagself`. Ground truth is the
@@ -972,8 +1002,8 @@ is the finite-difference derivative plus value and Hessian shape.
 plumbing for single layer, double layer, target-normal derivative,
 transmission block, and full 2-by-2 transmission system. The method is direct
 point-kernel evaluation and generic `kernel("helm1d", ...)`. Ground truth is
-expected matrix shapes and singularity metadata `removable` for the single
-layer.
+direct formulas from `helm1d.green` for `s`, `d`, `dp`, `c2trans`, and `all`
+blocks, plus singularity metadata `removable` for the single layer.
 
 `test_helm1d_sweep_matches_direct_causal_sums` checks the sweeping convolution
 helper. The equation is the direct weighted sum
@@ -1103,8 +1133,8 @@ potential values.
 selectors for Laplace single, double, combined, combined-prime, and gradient
 forms. The equation content is the Laplace Green's function and its normal or
 gradient projections. The method is direct `lap2d.kern` evaluation with
-`pointinfo`. Ground truth is expected matrix shapes for two targets and all
-source nodes.
+`pointinfo`. Ground truth is direct `lap2d.green` value, gradient, and Hessian
+data projected into each selector block.
 
 `test_helmholtz_green_gradient_matches_finite_difference` checks the 2D
 Helmholtz Green's function derivatives. The method evaluates `helm2d.green`
@@ -1114,8 +1144,9 @@ plus expected value and Hessian shapes.
 
 `test_helmholtz_kernel_selectors_have_expected_shapes` checks 2D Helmholtz
 single, double, target-normal derivative, and combined selectors. The method is
-direct `helm2d.kern` on point-info derived from a circle. Ground truth is the
-expected target-by-source matrix shapes.
+direct `helm2d.kern` on point-info derived from a circle. Ground truth is
+direct `helm2d.green` value, gradient, and Hessian data projected into the
+single, double, double-prime, and combined selectors.
 
 ## `tests/test_lege.py`
 
@@ -1160,8 +1191,8 @@ antiderivatives.
 
 `test_barywts_reproduce_lagrange_basis_sign_pattern` checks barycentric
 weights for Gauss-Legendre nodes. The method is `lege.barywts`. Ground truth
-is the expected length and alternating sign pattern of barycentric weights on
-ordered Legendre nodes.
+is an independent product formula for normalized barycentric weights plus
+exact interpolation of a low-order polynomial at off-node target points.
 
 `test_bernstein_ellipse_matches_conformal_map` checks Bernstein ellipse point
 generation. The method is `lege.bernstein_ellipse(8, 2.0)`. Ground truth is the
@@ -1408,8 +1439,8 @@ and evaluation routes, and near-zero unit-density boundary value.
 
 `test_quadggq_handles_complex_helmholtz_single_layer_blocks` checks that GGQ
 assembly supports complex kernels. The equation is the Helmholtz single-layer
-kernel at wavenumber `1.3+0.2i`. The method is `quadggq.buildmat`.
-Ground truth is that the matrix is complex-valued and finite.
+kernel at wavenumber `1.3+0.2i`. The method is `quadggq.buildmat`. Ground
+truth is complex-valued GGQ assembly matching adaptive log quadrature.
 
 `test_nearbuildmat_matches_buildmat_neighbor_block_and_correction` checks
 neighbor-block construction and correction output. The method builds the full
@@ -1438,12 +1469,15 @@ for PV and HS rules.
 `test_setup_accepts_pv_and_hs_singularities` checks the `setup` dispatcher for
 principal-value and hypersingular auxiliary quadrature. The method calls
 `quadggq.setup(8, "pv")` and `quadggq.setup(8, "hs")`. Ground truth is stored
-type metadata and one self rule per Legendre node.
+type metadata, one self rule per Legendre node, representative PV/HS rule
+nodes and weights, and constant-preserving interpolation matrices.
 
 `test_chunkermat_uses_special_quadrature_for_pv_and_hs_kernels` checks public
 dispatch for Laplace `sgrad` and `dgrad`, which are marked PV and HS
 respectively. The method is `chunkermat` on a circle. Ground truth is finite
-matrices with shape `2*npt x npt`.
+matrices with shape `2*npt x npt`, self blocks matching the PV/HS sparse
+special-block builder, far blocks matching force-smooth assembly, and nonzero
+special self blocks.
 
 `test_quadadap_buildmat_uses_adaptive_neighbor_blocks` checks adaptive
 near-neighbor assembly. The method monkeypatches `quadadap.adapgausswts`,
@@ -1454,7 +1488,8 @@ per chunk while preserving equality with the GGQ special matrix on a circle.
 close-interaction replacement. The method merges two nearly touching circles,
 enables `quadadap.buildmat(..., robust=True)`, and verifies adaptive correction
 calls for target subsets outside the self/neighbor blocks. Ground truth is a
-finite matrix and at least one non-panel-sized adaptive target set.
+finite matrix, at least one non-panel-sized adaptive target set, and a
+measurable difference from the non-robust matrix.
 
 ## `tests/test_rcip.py`
 
@@ -1469,15 +1504,14 @@ interpolation.
 sets and prolongation matrices produced by RCIP setup. There is no PDE
 equation; the invariant is array shape, zero-based indexing, and expected edge
 pair list. The method is `rcip.setup(4,2,3, ...)`. Ground truth is block
-matrix dimensions, index bounds, `ilist` columns, and half-sized first-level
-index sets.
+matrix dimensions, index bounds, `ilist` columns, half-sized first-level index
+sets, and explicit Kronecker constructions of `Pbc` and `PWbc` from `IPinit`.
 
 `test_schurbana_matches_direct_block_formula_shapes` checks the Schur
 complement assembly helper used inside RCIP. The equation is the block
 compression/Schur update applied to randomly generated matrices with a
 well-conditioned good block. The method is `rcip.SchurBana`. Ground truth is a
-finite output of expected `nbad x nbad` shape; this is mostly a shape and
-smoke test.
+direct independent block-update formula for every output subblock.
 
 `test_rcompchunk_identity_baseline_and_corner_refine` checks corner refinement
 and the identity-kernel baseline for recursive compression. The method builds
@@ -1490,20 +1524,21 @@ identity `R` matrix of the expected size, saved metadata, and identity
 nontrivial RCIP solve for a Laplace double-layer corner problem. The method is
 `Rcompchunk` with `kernel("lap","d")`, two recursive subdivisions, and saved
 depth 2, followed by `rhohatInterp`. Ground truth is a finite non-identity
-compression matrix, expected saved-array counts, and interpolated density,
-source-info, and weight shapes.
+compression matrix, deterministic trace/Frobenius/leading-row values, expected
+saved-array counts, and interpolated density, source-info, and weight shapes.
 
 `test_chunkgraph_rcip_runs_selected_vertices_and_ignores_marked_vertices`
 checks the chunkgraph-level RCIP driver. The method runs `chunkgraph_rcip` on a
 square graph, skips one vertex, and applies a Laplace double-layer kernel at
 the remaining corners. Ground truth is the selected vertex list, two incident
-edges per corner, finite compression matrices, and saved recursion metadata.
+edges per corner, compression matrices matching direct per-vertex
+`Rcompchunk` calls, and saved recursion metadata.
 
 `test_chunkgraph_rcip_subselects_global_block_kernels` checks local
 subselection from a global edge-by-edge block-kernel matrix. The method creates
 distinct zero kernels for each global block and runs RCIP at one square-graph
 vertex. Ground truth is that only the incident-edge submatrix is used and the
-resulting compression matrix is finite.
+resulting zero-kernel compression matrix is identity.
 
 ## `tests/test_rcip_parity.py`
 
@@ -1539,14 +1574,15 @@ truth is edge lengths, centroid, face normal, and unit pseudo-normal magnitude.
 `test_smoother_get_mesh_expands_legendre_panels` checks expansion of a uniform
 polygon mesh into Legendre panel nodes. The method is `smoother.get_mesh` with
 two panels per edge and order 5. Ground truth is the expected flattened shapes
-for points, normals, pseudo-normals, and weights, plus weight sum equal to the
-original edge-length sum.
+for points, normals, pseudo-normals, and weights, first-panel coordinates and
+normal fields, and weight sum equal to the original edge-length sum.
 
 `test_smoother_smooth_returns_rounded_chunker_and_error_outputs` checks the
 high-level smoother path. The method is `smoother.smooth` on a square with
 width `0.1` and `return_error=True`, internally producing a rounded chunker.
 Ground truth is eight chunks, zero reported smoothing error in the current
-implementation, per-point error shape, and area greater than `0.9`.
+implementation, per-point error shape, rounded edge geometry, clean adjacency,
+unit normals, positive chunk lengths, and area between `0.9` and `1.0`.
 
 ## `tests/test_sortinfo.py`
 
@@ -1570,8 +1606,9 @@ difference agreement and value shape equal to the input grid.
 equations are the 2D Stokes single-layer velocity, single-layer pressure,
 single-layer gradient, double-layer traction, combined pressure, and combined
 gradient blocks. The method is direct `stok2d.kern` evaluation and
-`kernel("stok", ...)` metadata inspection. Ground truth is expected block
-shapes and `opdims`.
+`kernel("stok", ...)` metadata inspection. Ground truth is explicit Stokeslet
+velocity and pressure formulas, finite-difference single-layer gradients, and
+`opdims`.
 
 `test_stokes_dtrac_matches_pressure_gradient_stress_identity` checks the
 Stokes double-layer traction formula. The equation is

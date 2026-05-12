@@ -30,6 +30,11 @@ def test_chunkerfit_closed_circle_spline_area():
 
     assert chnkr.nch == 16
     np.testing.assert_allclose(chnkr.area(), np.pi, rtol=2e-3)
+    np.testing.assert_allclose(np.sum(chnkr.chunklen()), 2.0 * np.pi, rtol=2e-3)
+    np.testing.assert_allclose(np.sqrt(np.sum(chnkr.r**2, axis=0)), 1.0, atol=1e-4)
+    np.testing.assert_allclose(np.sum(chnkr.r * chnkr.d, axis=0), 0.0, atol=2e-4)
+    np.testing.assert_array_equal(chnkr.adj[:, 0], [16, 2])
+    np.testing.assert_array_equal(chnkr.adj[:, -1], [15, 1])
 
 
 def test_chunkerfit_rejects_unsupported_methods():

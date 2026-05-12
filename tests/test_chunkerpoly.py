@@ -34,9 +34,21 @@ def test_chunkerpoly_open_polyline_and_edge_data():
 def test_chunkerpoly_rounded_builds_trimmed_edges_and_corner_panels():
     verts = np.array([[0.0, 1.0, 1.0, 0.0], [0.0, 0.0, 1.0, 1.0]])
     chnkr = chunkerpoly(verts, {"rounded": True, "widths": 0.1}, {"k": 8})
+    u = (chnkr.tstor + 1.0) / 2.0
+    first_edge = np.vstack((0.1 + 0.8 * u, np.zeros_like(u)))
+    first_corner = (
+        (1.0 - u)[None, :] ** 2 * np.array([[0.9], [0.0]])
+        + 2.0 * (1.0 - u)[None, :] * u[None, :] * np.array([[1.0], [0.0]])
+        + u[None, :] ** 2 * np.array([[1.0], [0.1]])
+    )
 
     assert chnkr.nch == 8
     assert chnkr.checkadjinfo() == 0
+    np.testing.assert_allclose(chnkr.r[:, :, 0], first_edge)
+    np.testing.assert_allclose(chnkr.d[:, :, 0], np.repeat([[0.4], [0.0]], chnkr.k, axis=1))
+    np.testing.assert_allclose(chnkr.d2[:, :, 0], 0.0)
+    np.testing.assert_allclose(chnkr.r[:, :, 1], first_corner)
+    np.testing.assert_allclose(chnkr.d2[:, :, 1], np.repeat([[-0.05], [0.05]], chnkr.k, axis=1))
     assert chnkr.area() > 0.9
     assert chnkr.area() < 1.0
     assert np.all(chnkr.chunklen() > 0.0)
@@ -53,10 +65,20 @@ def test_chunkerpoly_rounded_open_polyline_and_edge_data():
 
     assert chnkr.nch == 3
     assert chnkr.datadim == 1
+    u = (chnkr.tstor + 1.0) / 2.0
+    np.testing.assert_allclose(chnkr.r[:, :, 0], np.vstack((0.8 * u, np.zeros_like(u))))
+    np.testing.assert_allclose(
+        chnkr.r[:, :, 1],
+        (1.0 - u)[None, :] ** 2 * np.array([[0.8], [0.0]])
+        + 2.0 * (1.0 - u)[None, :] * u[None, :] * np.array([[1.0], [0.0]])
+        + u[None, :] ** 2 * np.array([[1.0], [0.2]]),
+    )
+    np.testing.assert_allclose(chnkr.r[:, :, 2], np.vstack((np.ones_like(u), 0.2 + 0.8 * u)))
     np.testing.assert_array_equal(chnkr.adj[:, 0], [-1, 2])
     np.testing.assert_array_equal(chnkr.adj[:, -1], [2, -1])
     np.testing.assert_allclose(chnkr.data[:, :, 0], 2.0)
     np.testing.assert_allclose(chnkr.data[:, :, -1], 4.0)
+    np.testing.assert_allclose(chnkr.data[:, :, 1], (2.0 * (1.0 - u) + 4.0 * u)[None, :])
     assert np.min(chnkr.data[:, :, 1]) >= 2.0
     assert np.max(chnkr.data[:, :, 1]) <= 4.0
 

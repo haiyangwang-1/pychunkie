@@ -165,8 +165,13 @@ def test_flam_proxy_square_geometry_and_proxyfun_shapes():
     slf = np.arange(5, dtype=np.int64)
     nbr = np.arange(chnkr.npt, dtype=np.int64)
     Kpxy, nbr_out = flam.proxyfun(slf, nbr, np.array([1.0, 1.0]), np.zeros(2), chnkr, smooth_kernel, (1, 1), pr, ptau, pw, pin)
+    srcinfo = PointInfo(r=chnkr.r.reshape(2, chnkr.npt, order="F"))
+    proxyinfo = PointInfo(r=pr)
+    weights = chnkr.wts.reshape(-1, order="F")
+    expected_top = smooth_kernel(srcinfo, proxyinfo)[:, slf] * weights[slf][None, :]
+    expected_bottom = (smooth_kernel(proxyinfo, PointInfo(r=srcinfo.r[:, slf])) * pw.reshape(1, -1)).T
 
-    assert Kpxy.shape == (128, slf.size)
+    np.testing.assert_allclose(Kpxy, np.vstack((expected_top, expected_bottom)))
     np.testing.assert_array_equal(nbr_out, nbr)
 
 
@@ -181,9 +186,14 @@ def test_flam_proxyfunr_column_and_row_shapes():
 
     Kc, nbr_c = flam.proxyfunr("c", targets, cx, cols, rows, np.array([1.0, 1.0]), np.zeros(2), chnkr, smooth_kernel, (1, 1), pr, ptau, pw, pin, targobj=targinfo)
     Kr, nbr_r = flam.proxyfunr("r", targets, cx, rows, cols, np.array([1.0, 1.0]), np.zeros(2), chnkr, smooth_kernel, (1, 1), pr, ptau, pw, pin, targobj=targinfo)
+    srcinfo = PointInfo(r=chnkr.r.reshape(2, chnkr.npt, order="F"))
+    proxyinfo = PointInfo(r=pr)
+    weights = chnkr.wts.reshape(-1, order="F")
+    expected_c = smooth_kernel(srcinfo, proxyinfo)[:, cols] * weights[cols][None, :]
+    expected_r = smooth_kernel(proxyinfo, targinfo)[rows, :] * pw.reshape(1, -1)
 
-    assert Kc.shape == (64, cols.size)
-    assert Kr.shape == (rows.size, 64)
+    np.testing.assert_allclose(Kc, expected_c)
+    np.testing.assert_allclose(Kr, expected_r)
     np.testing.assert_array_equal(nbr_c, rows)
     np.testing.assert_array_equal(nbr_r, cols)
 

@@ -161,16 +161,23 @@ def test_intmat_integrates_in_chunk_order():
 
 def test_onesmat_and_normonesmat_shapes():
     chnkr = circle_chunker(8)
-    assert chnkr.onesmat().shape == (chnkr.npt, chnkr.npt)
-    assert chnkr.normonesmat().shape == (2 * chnkr.npt, 2 * chnkr.npt)
+    weights = chnkr.wts.reshape(-1, order="F")
+    normals = chnkr.n.reshape(-1, order="F")
+
+    np.testing.assert_allclose(chnkr.onesmat(), np.ones((chnkr.npt, 1)) @ weights[None, :])
+    np.testing.assert_allclose(
+        chnkr.normonesmat(),
+        normals[:, None] @ (np.repeat(weights, chnkr.dim) * normals)[None, :],
+    )
 
 
 def test_centroids_and_adjacency_info():
     chnkr = circle_chunker(8).refine({"nover": 1})
     ctrs = chnkr.centroids()
     inds, adjs, info = chnkr.sortinfo()
+    expected_ctrs = np.sum(chnkr.r * chnkr.wstor[None, :, None], axis=1) / 2.0
 
-    assert ctrs.shape == (2, chnkr.nch)
+    np.testing.assert_allclose(ctrs, expected_ctrs)
     np.testing.assert_array_equal(inds, [0, 1])
     np.testing.assert_array_equal(adjs, chnkr.adj)
     assert info["ncomp"] == 1
