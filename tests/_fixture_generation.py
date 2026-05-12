@@ -5,8 +5,12 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import numpy as np
 import pytest
 from scipy.io import loadmat
+
+from chunkie import Chunker
+from chunkie.operators import PointInfo
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -80,3 +84,70 @@ def ensure_matlab_fixture(name: str) -> Path:
 
 def load_generated_mat_fixture(name: str, **kwargs):
     return loadmat(ensure_matlab_fixture(name), **kwargs)
+
+
+def point_array(value) -> np.ndarray:
+    arr = np.asarray(value)
+    if arr.ndim == 1:
+        arr = arr.reshape(-1, 1)
+    return arr
+
+
+def pointinfo_from_mat(obj) -> PointInfo:
+    return PointInfo(
+        r=point_array(obj.r),
+        d=point_array(obj.d) if hasattr(obj, "d") else None,
+        d2=point_array(obj.d2) if hasattr(obj, "d2") else None,
+        n=point_array(obj.n) if hasattr(obj, "n") else None,
+        data=point_array(obj.data) if hasattr(obj, "data") else None,
+    )
+
+
+def chunker_from_fields(fields, *, nchmax: int | None = None) -> Chunker:
+    k = int(fields.k)
+    nch = int(fields.nch)
+    dim = int(fields.dim)
+    if nchmax is None:
+        nchmax = max(2 * nch, nch + 16, 1)
+    chnkr = Chunker(
+        {"k": k, "dim": dim, "nchstor": nch, "nchmax": int(nchmax)},
+        np.asarray(fields.tstor).reshape(-1),
+        np.asarray(fields.wstor).reshape(-1),
+    )
+    chnkr.addchunk(nch)
+    chnkr.r = np.asarray(fields.r)
+    chnkr.d = np.asarray(fields.d)
+    chnkr.d2 = np.asarray(fields.d2)
+    chnkr.n = np.asarray(fields.n)
+    chnkr.wts = np.asarray(fields.wts)
+    chnkr.adj = np.asarray(fields.adj, dtype=int)
+    return chnkr
+
+
+def assert_chunker_matches_fields(
+    chnkr: Chunker,
+    fields,
+    label: str = "",
+    *,
+    rtol: float = 1e-7,
+    atol: float = 1e-12,
+    check_area: bool = True,
+    check_chunklen: bool = True,
+) -> None:
+    prefix = f"{label}: " if label else ""
+    np.testing.assert_allclose(chnkr.r, fields.r, rtol=rtol, atol=atol, err_msg=f"{prefix}r")
+    np.testing.assert_allclose(chnkr.d, fields.d, rtol=rtol, atol=atol, err_msg=f"{prefix}d")
+    np.testing.assert_allclose(chnkr.d2, fields.d2, rtol=rtol, atol=atol, err_msg=f"{prefix}d2")
+    np.testing.assert_allclose(chnkr.n, fields.n, rtol=rtol, atol=atol, err_msg=f"{prefix}n")
+    np.testing.assert_allclose(chnkr.wts, fields.wts, rtol=rtol, atol=atol, err_msg=f"{prefix}wts")
+    np.testing.assert_array_equal(chnkr.adj, np.asarray(fields.adj, dtype=int), err_msg=f"{prefix}adj")
+    if check_area:
+        np.testing.assert_allclose(chnkr.area(), fields.area, rtol=rtol, atol=atol, err_msg=f"{prefix}area")
+    if check_chunklen:
+        np.testing.assert_allclose(
+            chnkr.chunklen(),
+            fields.chunklen,
+            rtol=rtol,
+            atol=atol,
+            err_msg=f"{prefix}chunklen",
+        )

@@ -18,7 +18,7 @@ from chunkie import (
     pointinfo,
 )
 from chunkie.chnk import biharm2d, elast2d, helm1d, helm2d, lap2d, quadadap, quadggq, quadnative, rcip, stok2d
-from _fixture_generation import load_generated_mat_fixture
+from _fixture_generation import assert_chunker_matches_fields, chunker_from_fields, load_generated_mat_fixture
 
 
 def load_fixture(name: str):
@@ -56,25 +56,6 @@ def assert_cell_arrays_allclose(actual, expected, *, rtol: float = 1e-13, atol: 
             atol=atol,
             err_msg=f"{label}: cell {idx}",
         )
-
-
-def chunker_from_fields(fields) -> Chunker:
-    k = int(fields.k)
-    nch = int(fields.nch)
-    dim = int(fields.dim)
-    chnkr = Chunker(
-        {"k": k, "dim": dim, "nchstor": nch, "nchmax": nch},
-        np.asarray(fields.tstor).reshape(-1),
-        np.asarray(fields.wstor).reshape(-1),
-    )
-    chnkr.addchunk(nch)
-    chnkr.r = np.asarray(fields.r)
-    chnkr.d = np.asarray(fields.d)
-    chnkr.d2 = np.asarray(fields.d2)
-    chnkr.n = np.asarray(fields.n)
-    chnkr.wts = np.asarray(fields.wts)
-    chnkr.adj = np.asarray(fields.adj, dtype=int)
-    return chnkr
 
 
 def block_22_kernel(src, targ):
@@ -127,17 +108,6 @@ def block_scalar_kernel(src, targ):
 
 
 block_scalar_kernel.opdims = (1, 1)
-
-
-def assert_chunker_matches_fields(chnkr: Chunker, fields, label: str) -> None:
-    np.testing.assert_allclose(chnkr.r, fields.r, atol=1e-13, err_msg=f"{label}: r")
-    np.testing.assert_allclose(chnkr.d, fields.d, atol=1e-13, err_msg=f"{label}: d")
-    np.testing.assert_allclose(chnkr.d2, fields.d2, atol=1e-13, err_msg=f"{label}: d2")
-    np.testing.assert_allclose(chnkr.n, fields.n, atol=1e-13, err_msg=f"{label}: n")
-    np.testing.assert_allclose(chnkr.wts, fields.wts, atol=1e-13, err_msg=f"{label}: wts")
-    np.testing.assert_array_equal(chnkr.adj, fields.adj, err_msg=f"{label}: adj")
-    np.testing.assert_allclose(chnkr.area(), fields.area, atol=1e-13, err_msg=f"{label}: area")
-    np.testing.assert_allclose(chnkr.chunklen(), fields.chunklen, atol=1e-13, err_msg=f"{label}: chunklen")
 
 
 KERNEL_OBJECT_CASES = [
@@ -255,9 +225,9 @@ def test_chunker_geometry_and_transforms_match_matlab_fixture():
     ops = load_fixture("chunker_ops.mat")["chunker_ops"]
     base = chunker_from_fields(ops.base)
 
-    assert_chunker_matches_fields(base, ops.base, "base chunker")
+    assert_chunker_matches_fields(base, ops.base, "base chunker", atol=1e-13)
     transformed = base.move([0.35, -0.2], [0.1, 0.2], 0.45, 1.3).transform(ops.mat)
-    assert_chunker_matches_fields(transformed, ops.transformed, "transformed chunker")
+    assert_chunker_matches_fields(transformed, ops.transformed, "transformed chunker", atol=1e-13)
 
     np.testing.assert_allclose(dense_array(base.diffmat()), dense_array(ops.diffmat1), atol=1e-13)
     np.testing.assert_allclose(dense_array(base.diffmat(2)), dense_array(ops.diffmat2), atol=1e-13)
@@ -852,7 +822,7 @@ def test_rcip_recursive_compression_matches_matlab_fixture():
     np.testing.assert_allclose(rmat, fixture.R, rtol=1e-12, atol=1e-13)
     np.testing.assert_allclose(saved.R[-1], fixture.saved_R_final, rtol=1e-12, atol=1e-13)
     np.testing.assert_allclose(saved.MAT[-1], fixture.saved_MAT_last, rtol=1e-12, atol=1e-13)
-    assert_chunker_matches_fields(saved.chnkrlocals[-1], fixture.saved_local_last, "rcip saved local chunker")
+    assert_chunker_matches_fields(saved.chnkrlocals[-1], fixture.saved_local_last, "rcip saved local chunker", atol=1e-13)
 
     rhohatinterp, srcinfo, wts = rcip.rhohatInterp(fixture.rhohat, saved, 2)
     for iedge in range(saved.nedge):

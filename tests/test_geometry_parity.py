@@ -33,30 +33,11 @@ from chunkie.chnk import (
     normal2d,
     perp,
 )
-from _fixture_generation import load_generated_mat_fixture
+from _fixture_generation import assert_chunker_matches_fields, chunker_from_fields, load_generated_mat_fixture
 
 
 def load_geometry_core():
     return load_generated_mat_fixture("geometry_core.mat", squeeze_me=True, struct_as_record=False)["geometry_core"]
-
-
-def chunker_from_fields(fields) -> Chunker:
-    k = int(fields.k)
-    nch = int(fields.nch)
-    dim = int(fields.dim)
-    chnkr = Chunker(
-        {"k": k, "dim": dim, "nchstor": nch, "nchmax": max(2 * nch, nch + 16, 1)},
-        np.asarray(fields.tstor).reshape(-1),
-        np.asarray(fields.wstor).reshape(-1),
-    )
-    chnkr.addchunk(nch)
-    chnkr.r = np.asarray(fields.r)
-    chnkr.d = np.asarray(fields.d)
-    chnkr.d2 = np.asarray(fields.d2)
-    chnkr.n = np.asarray(fields.n)
-    chnkr.wts = np.asarray(fields.wts)
-    chnkr.adj = np.asarray(fields.adj, dtype=int)
-    return chnkr
 
 
 def attach_data(chnkr: Chunker, data: np.ndarray) -> Chunker:
@@ -67,17 +48,6 @@ def attach_data(chnkr: Chunker, data: np.ndarray) -> Chunker:
     out.makedatarows(data_arr.shape[0])
     out.data = data_arr
     return out
-
-
-def assert_chunker_matches_fields(chnkr: Chunker, fields, atol: float = 1e-12) -> None:
-    np.testing.assert_allclose(chnkr.r, fields.r, atol=atol)
-    np.testing.assert_allclose(chnkr.d, fields.d, atol=atol)
-    np.testing.assert_allclose(chnkr.d2, fields.d2, atol=atol)
-    np.testing.assert_allclose(chnkr.n, fields.n, atol=atol)
-    np.testing.assert_allclose(chnkr.wts, fields.wts, atol=atol)
-    np.testing.assert_array_equal(chnkr.adj, np.asarray(fields.adj, dtype=int))
-    np.testing.assert_allclose(chnkr.chunklen(), fields.chunklen, atol=atol)
-    np.testing.assert_allclose(chnkr.area(), fields.area, atol=atol)
 
 
 def assert_chunkgraph_matches_fields(cgrph, fields, atol: float = 1e-12) -> None:

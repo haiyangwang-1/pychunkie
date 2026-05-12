@@ -1,32 +1,13 @@
 import numpy as np
 import pytest
 
-from chunkie import Chunker, chunkgraph, kernel
+from chunkie import chunkgraph, kernel
 from chunkie.chnk import rcip
-from _fixture_generation import load_generated_mat_fixture
+from _fixture_generation import chunker_from_fields, load_generated_mat_fixture
 
 
 def load_fixture(name: str):
     return load_generated_mat_fixture(name, squeeze_me=True, struct_as_record=False)
-
-
-def chunker_from_fields(fields) -> Chunker:
-    k = int(fields.k)
-    nch = int(fields.nch)
-    dim = int(fields.dim)
-    chnkr = Chunker(
-        {"k": k, "dim": dim, "nchstor": nch, "nchmax": nch},
-        np.asarray(fields.tstor).reshape(-1),
-        np.asarray(fields.wstor).reshape(-1),
-    )
-    chnkr.addchunk(nch)
-    chnkr.r = np.asarray(fields.r)
-    chnkr.d = np.asarray(fields.d)
-    chnkr.d2 = np.asarray(fields.d2)
-    chnkr.n = np.asarray(fields.n)
-    chnkr.wts = np.asarray(fields.wts)
-    chnkr.adj = np.asarray(fields.adj, dtype=int)
-    return chnkr
 
 
 def as_1d(value, dtype=None) -> np.ndarray:
