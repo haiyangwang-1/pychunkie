@@ -158,6 +158,10 @@ def test_chunker_spectral_helpers_on_circle():
     assert rc.shape == (2, 20, 1)
     assert dc.shape == (2, 20, 1)
     assert d2c.shape == (2, 20, 1)
+    _, _, _, vals = lege.exps(20)
+    np.testing.assert_allclose(np.einsum("ij,djn->din", vals, rc), chnkr.r, atol=1e-13)
+    np.testing.assert_allclose(np.einsum("ij,djn->din", vals, dc), chnkr.d, atol=1e-13)
+    np.testing.assert_allclose(np.einsum("ij,djn->din", vals, d2c), chnkr.d2, atol=1e-13)
 
     s = chnkr.arclengthfun()
     np.testing.assert_allclose(s[:, 0], np.pi * (chnkr.tstor + 1.0), atol=1e-13)

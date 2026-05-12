@@ -255,8 +255,9 @@ unchanged quadrature weights.
 arclength, differentiation, and differentiation-matrix helpers. The equation is
 `s = pi(t+1)` on the one-panel circle helper and `d/ds sin(s) = cos(s)`.
 The method uses `exps`, `arclengthfun`, `arclengthder`, and `diffmat`.
-Ground truth is analytic sine differentiation and matching matrix-based
-differentiation.
+Ground truth is reconstruction of the position/derivative/second-derivative
+Legendre coefficients, analytic sine differentiation, and matching
+matrix-based differentiation.
 
 `test_intmat_integrates_in_chunk_order` checks cumulative arclength integration
 after refining a circle chunker. The equation is `integral_0^s 1 ds = s`.
