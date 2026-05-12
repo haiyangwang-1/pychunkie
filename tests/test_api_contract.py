@@ -57,6 +57,7 @@ def test_chnk_public_exports_are_stable_and_lazy():
         "chunkie.chnk.quadggq",
         "chunkie.chnk.quadadap",
         "chunkie.chnk.flam",
+        "chunkie.chnk.pquad",
         "chunkie.chnk.rcip",
         "chunkie.chnk.smoother",
     ]:
@@ -82,6 +83,7 @@ def test_chnk_public_exports_are_stable_and_lazy():
         "lap2d",
         "normal2d",
         "perp",
+        "pquad",
         "quadadap",
         "quadggq",
         "quadnative",
