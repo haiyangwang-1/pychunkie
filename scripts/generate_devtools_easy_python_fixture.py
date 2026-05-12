@@ -250,10 +250,10 @@ def build_snapshot() -> dict[str, np.ndarray]:
 
     cint2 = fixture.chunkerinterior
     cint2_chunker = chunker_from_fields(cint2.chunker)
-    out["chunkerinterior_in"] = chunkerinterior(cint2_chunker, cint2.targs, {"fmm": False, "flam": False})
-    out["chunkerinterior_in_flam"] = chunkerinterior(cint2_chunker, cint2.targs, {"fmm": False, "flam": True})
-    out["chunkerinterior_in_fmm"] = chunkerinterior(cint2_chunker, cint2.targs, {"fmm": True, "flam": False})
-    out["chunkerinterior_in_chunker"] = chunkerinterior(cint2_chunker, chunker_from_fields(cint2.inner_chunker), {"fmm": True})
+    out["chunkerinterior_in"] = chunkerinterior(cint2_chunker, cint2.targs, {"acceleration": "dense"})
+    out["chunkerinterior_in_flam"] = chunkerinterior(cint2_chunker, cint2.targs, {"acceleration": "flam", "useproxy": False})
+    out["chunkerinterior_in_fmm"] = chunkerinterior(cint2_chunker, cint2.targs, {"acceleration": "fmm"})
+    out["chunkerinterior_in_chunker"] = chunkerinterior(cint2_chunker, chunker_from_fields(cint2.inner_chunker), {"acceleration": "fmm"})
     out["chunkerinterior_axis"] = chunkerinterior(
         chunker_from_fields(cint2.axis_chunker),
         cint2.axis_targs,

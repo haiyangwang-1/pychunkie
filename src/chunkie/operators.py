@@ -8,6 +8,7 @@ from typing import Any
 
 import numpy as np
 from numpy.typing import ArrayLike
+from scipy import sparse
 from scipy.sparse import spmatrix
 from scipy.sparse.linalg import LinearOperator
 
@@ -78,6 +79,91 @@ class ChunkerFMMMatrix(LinearOperator):
         return self._correction_mat
 
 
+class ChunkerFLAMMatrix(LinearOperator):
+    """Matrix-free ``chunkermat`` operator backed by a PyFLAM factorization."""
+
+    def __init__(
+        self,
+        chnkr: Chunker,
+        kern: Callable[[Any, Any], np.ndarray],
+        dval: ArrayLike | float | complex = 0.0,
+        opts: dict[str, Any] | None = None,
+    ):
+        self.chnkr = _require_chunker(chnkr)
+        self.kern = kern
+        self.opts = {} if opts is None else dict(opts)
+        self.factor = chunkerflam(self.chnkr, self.kern, dval, self.opts)
+        self.flamtype = str(self.opts.get("flamtype", "rskelf")).lower()
+        self.opdims = _kernel_opdims(self.chnkr, kern)
+        dtype = _operator_dtype(self.chnkr, kern)
+        if np.asarray(dval).size:
+            dtype = np.result_type(dtype, np.asarray(dval).dtype)
+        shape = (self.chnkr.npt * int(self.opdims[0]), self.chnkr.npt * int(self.opdims[1]))
+        super().__init__(dtype=dtype, shape=shape)
+
+    def _matvec(self, x: np.ndarray) -> np.ndarray:
+        if x.size != self.shape[1]:
+            raise ValueError("density has incompatible size")
+        return self._apply(x)
+
+    def _matmat(self, x: np.ndarray) -> np.ndarray:
+        if x.shape[0] != self.shape[1]:
+            raise ValueError("density matrix has incompatible row count")
+        if x.shape[1] == 0:
+            return np.empty((self.shape[0], 0), dtype=np.result_type(self.dtype, x.dtype))
+        return self._apply(x)
+
+    def solve(self, rhs: ArrayLike) -> np.ndarray:
+        """Apply the FLAM approximate inverse to one or more right-hand sides."""
+
+        if self.flamtype != "rskelf":
+            raise NotImplementedError("solve is only available for rskelf FLAM factors")
+        pyflam = _require_pyflam()
+        arr = np.asarray(rhs)
+        one_dim = arr.ndim == 1
+        if one_dim:
+            arr = arr.reshape(-1, 1)
+        if arr.shape[0] != self.shape[0]:
+            raise ValueError("right-hand side has incompatible row count")
+        out = pyflam.rskelf_partial_sv(self.factor, arr)
+        return out[:, 0] if one_dim else out
+
+    def logdet(self):
+        """Return the FLAM log-determinant, including any residual skeleton block."""
+
+        if self.flamtype != "rskelf":
+            raise NotImplementedError("logdet is only available for rskelf FLAM factors")
+        return _rskelf_logdet_complete(self.factor)
+
+    def toarray(self) -> np.ndarray:
+        return self._matmat(np.eye(self.shape[1], dtype=self.dtype))
+
+    def todense(self) -> np.ndarray:
+        return self.toarray()
+
+    def __array__(self, dtype: np.dtype | None = None, copy: bool | None = None) -> np.ndarray:
+        arr = self.toarray()
+        if dtype is not None:
+            return np.array(arr, dtype=dtype, copy=True if copy is None else copy)
+        if copy:
+            return arr.copy()
+        return arr
+
+    def _apply(self, x: ArrayLike) -> np.ndarray:
+        pyflam = _require_pyflam()
+        arr = np.asarray(x)
+        one_dim = arr.ndim == 1
+        if one_dim:
+            arr = arr.reshape(-1, 1)
+        if self.flamtype == "rskelf":
+            out = pyflam.rskelf_partial_mv(self.factor, arr)
+        elif self.flamtype == "rskel":
+            out = pyflam.rskel_mv(self.factor, arr)
+        else:
+            raise NotImplementedError(f"unsupported FLAM factor type {self.flamtype!r}")
+        return out[:, 0] if one_dim else out
+
+
 def pointinfo(obj: Chunker | dict[str, Any] | ArrayLike | PointInfo) -> PointInfo:
     """Convert supported inputs to MATLAB-style point-info fields."""
 
@@ -106,18 +192,75 @@ def pointinfo(obj: Chunker | dict[str, Any] | ArrayLike | PointInfo) -> PointInf
     return PointInfo(r=arr.reshape(arr.shape[0], -1))
 
 
+def chunkerflam(
+    chnkobj: Chunker,
+    kern: Callable[[Any, Any], np.ndarray],
+    dval: ArrayLike | float | complex = 0.0,
+    opts: dict[str, Any] | None = None,
+):
+    """Build a PyFLAM compressed representation of a chunker system matrix."""
+
+    pyflam = _require_pyflam()
+    chnkr = _require_chunker(chnkobj)
+    options = {} if opts is None else dict(opts)
+    opdims = _kernel_opdims(chnkr, kern)
+    op0 = int(opdims[0])
+    op1 = int(opdims[1])
+    nrows = chnkr.npt * op0
+    ncols = chnkr.npt * op1
+    if nrows != ncols:
+        raise ValueError("chunkerflam requires a square discretized operator")
+
+    dval_vec = _dval_vector(dval, nrows)
+    spmat = options.get("sp_nonsmooth", None)
+    if spmat is None:
+        spmat = _special_overwrite_matrix(chnkr, kern, options)
+    else:
+        spmat = spmat.tocsr() if sparse.issparse(spmat) else sparse.csr_matrix(spmat)
+    if np.any(dval_vec != 0):
+        spmat = spmat + sparse.diags(dval_vec, offsets=0, shape=(nrows, nrows), format="csr")
+
+    from .chnk import flam
+
+    l2scale = bool(options.get("l2scale", False))
+
+    def matfun(rows: np.ndarray, cols: np.ndarray) -> np.ndarray:
+        return flam.kernbyindex(rows, cols, chnkr, kern, (op0, op1), spmat, l2scale)
+
+    srcinfo = pointinfo(chnkr)
+    xflam = np.repeat(np.real(srcinfo.r), op1, axis=1)
+    flamtype = str(options.get("flamtype", "rskelf")).lower()
+    occ = int(options.get("occ", 200))
+    rank_or_tol = options.get("rank_or_tol", options.get("eps", options.get("tol", 1.0e-14)))
+    rank_or_tol = int(rank_or_tol) if float(rank_or_tol).is_integer() and float(rank_or_tol) >= 1 else float(rank_or_tol)
+    opts_flam = {
+        "verb": int(bool(options.get("verb", False))),
+        "lvlmax": options.get("lvlmax", np.inf),
+    }
+    useproxy = bool(options.get("useproxy", True)) and chnkr.datadim == 0 and op0 == op1
+    pxyfun = None
+    if useproxy:
+        pxyfun = _chunkerflam_proxyfun(chnkr, kern, (op0, op1), options)
+
+    if flamtype == "rskelf":
+        return pyflam.rskelf(matfun, xflam, occ, rank_or_tol, pxyfun, opts_flam)
+    if flamtype == "rskel":
+        return pyflam.rskel(matfun, xflam, xflam, occ, rank_or_tol, None, opts_flam)
+    raise NotImplementedError("flamtype must be 'rskelf' or 'rskel'")
+
+
 def chunkermat(
     chnkr: Chunker,
     kern: Callable[[Any, Any], np.ndarray],
     opts: dict[str, Any] | None = None,
-) -> np.ndarray | ChunkerFMMMatrix:
+) -> np.ndarray | ChunkerFMMMatrix | ChunkerFLAMMatrix:
     """Build a native quadrature matrix, or an FMM-backed operator when requested."""
 
     chnkr = _require_chunker(chnkr)
     options = {} if opts is None else dict(opts)
     acceleration = _acceleration(options)
     if acceleration == "flam":
-        _raise_flam_not_implemented()
+        return ChunkerFLAMMatrix(chnkr, kern, options.get("dval", 0.0), options)
     if acceleration == "fmm":
         _require_fmm(kern)
         return ChunkerFMMMatrix(chnkr, kern, options)
@@ -150,7 +293,7 @@ def chunkermatapply(
     dens_vec = np.asarray(dens).reshape(-1, order="F")
     acceleration = _acceleration(options)
     if acceleration == "flam":
-        _raise_flam_not_implemented()
+        return chunkermat(chnkr, kern, options) @ dens_vec
     if acceleration == "fmm":
         _require_fmm(kern)
         return _chunkermatapply_fmm(chnkr, kern, dens_vec, options)
@@ -183,9 +326,9 @@ def chunkerinterior(
     """Classify target points as inside a closed 2D chunker.
 
     The default ``acceleration="dense"`` path is a dependency-light direct
-    polygon test. With ``acceleration="fmm"``, the Laplace double-layer
-    identity is used for accelerated classification, and near-boundary targets
-    are corrected by the direct path. FLAM acceleration is deferred.
+    polygon test. With ``acceleration="fmm"`` or ``acceleration="flam"``, the
+    Laplace double-layer identity is used for accelerated classification, and
+    near-boundary targets are corrected by the direct path.
     """
 
     chnkr = _require_chunker(chnkr)
@@ -214,9 +357,7 @@ def chunkerinterior(
         raise ValueError("target points must be two-dimensional")
 
     acceleration = _acceleration(options)
-    if acceleration == "flam":
-        _raise_flam_not_implemented()
-    if acceleration == "fmm":
+    if acceleration in {"fmm", "flam"}:
         from .kernel import kernel
 
         lap_d = kernel("lap", "d")
@@ -226,7 +367,7 @@ def chunkerinterior(
             lap_d,
             dens,
             PointInfo(r=pts),
-            {"acceleration": "fmm", "eps": float(options.get("eps", options.get("tol", 1e-12)))},
+            {"acceleration": acceleration, "eps": float(options.get("eps", options.get("tol", 1e-12)))},
         ).reshape(-1, order="F")
         inside = vals < -0.5
         if bool(options.get("closecorr", options.get("corrections", True))):
@@ -263,8 +404,17 @@ def chunkerkerneval(
     same_source_target = targobj is chnkr
     chnkr = _require_chunker(chnkr)
     acceleration = _acceleration(options)
+    if acceleration == "flam" and same_source_target and _uses_special_quadrature(kern, options):
+        vals = chunkermat(chnkr, kern, options) @ np.asarray(dens).reshape(-1, order="F")
+        opdims = getattr(kern, "opdims", (1, 1))[0]
+        return vals.reshape(opdims, chnkr.npt, order="F")
     if acceleration == "flam":
-        _raise_flam_not_implemented()
+        if bool(options.get("forceadap", False)):
+            targinfo = pointinfo(targobj)
+            mat = _target_adaptive_matrix(chnkr, kern, targinfo, options)
+            vals = mat @ np.asarray(dens).reshape(-1, order="F")
+            return vals.reshape(-1, targinfo.r.shape[1], order="F")
+        return _chunkerkerneval_flam(chnkr, kern, dens, targobj, options)
     use_fmm = acceleration == "fmm"
     if use_fmm:
         _require_fmm(kern)
@@ -305,7 +455,11 @@ def chunkerkernevalmat(
     options = {} if opts is None else dict(opts)
     acceleration = _acceleration(options)
     if acceleration == "flam":
-        _raise_flam_not_implemented()
+        if same_source_target and _uses_special_quadrature(kern, opts):
+            return np.asarray(chunkermat(chnkr, kern, options))
+        if bool(options.get("forceadap", False)):
+            return _target_adaptive_matrix(chnkr, kern, pointinfo(targobj), options)
+        return _chunkerkernevalmat_flam(chnkr, kern, targobj, options)
     if acceleration == "fmm":
         raise NotImplementedError("chunkerkernevalmat does not support FMM acceleration; use chunkerkerneval instead")
     if same_source_target and _uses_special_quadrature(kern, opts):
@@ -391,8 +545,184 @@ def _require_fmm(kern: Callable[[Any, Any], np.ndarray]) -> None:
         raise NotImplementedError("FMM acceleration requested, but the kernel has no FMM evaluator")
 
 
-def _raise_flam_not_implemented() -> None:
-    raise NotImplementedError("FLAM acceleration is not implemented yet")
+def _require_pyflam():
+    try:
+        import pyflam
+    except Exception as exc:  # pragma: no cover - dependency is required in packaged installs.
+        raise ImportError("FLAM acceleration requires the pyflam package") from exc
+    return pyflam
+
+
+def _dval_vector(dval: ArrayLike | float | complex, size: int) -> np.ndarray:
+    arr = np.asarray(dval)
+    if arr.size == 1:
+        return np.full(size, arr.reshape(-1)[0], dtype=arr.dtype)
+    vec = arr.reshape(-1, order="F")
+    if vec.size != size:
+        raise ValueError(f"dval must be scalar or length {size}")
+    return vec
+
+
+def _special_overwrite_matrix(
+    chnkr: Chunker,
+    kern: Callable[[Any, Any], np.ndarray],
+    options: dict[str, Any],
+) -> spmatrix:
+    if not _uses_special_quadrature(kern, options):
+        opdims = _kernel_opdims(chnkr, kern)
+        return sparse.csr_matrix((chnkr.npt * int(opdims[0]), chnkr.npt * int(opdims[1])))
+    from .chnk import quadggq
+
+    qtype = str(options.get("sing", getattr(kern, "sing", "log") or "log")).lower()
+    return quadggq.buildmattd(
+        chnkr,
+        kern,
+        getattr(kern, "opdims", None),
+        type=qtype,
+        ilist=options.get("ilist", None),
+        corrections=False,
+    )
+
+
+def _chunkerflam_proxyfun(
+    chnkr: Chunker,
+    kern: Callable[[Any, Any], np.ndarray],
+    opdims: tuple[int, int],
+    options: dict[str, Any],
+):
+    from .chnk import flam
+
+    rank_or_tol = options.get("rank_or_tol", options.get("eps", options.get("tol", 1.0e-14)))
+    optsnpxy = {"rank_or_tol": float(rank_or_tol), "nsrc": int(options.get("occ", 200))}
+    width = float(np.max(chnkr.max() - chnkr.min()))
+    proxybylevel = bool(options.get("proxybylevel", False))
+    if not proxybylevel:
+        npxy = flam.nproxy_square(kern, width, optsnpxy)
+        if npxy == -1:
+            return None
+        pr, ptau, pw, pin = flam.proxy_square_pts(npxy)
+
+        def pxyfun(x: np.ndarray, slf: np.ndarray, nbr: np.ndarray, l: np.ndarray, ctr: np.ndarray):
+            _ = x
+            return flam.proxyfun(slf, nbr, l, ctr, chnkr, kern, opdims, pr, ptau, pw, pin, True, bool(options.get("l2scale", False)))
+
+        return pxyfun
+
+    def pxyfun(x: np.ndarray, slf: np.ndarray, nbr: np.ndarray, l: np.ndarray, ctr: np.ndarray):
+        _ = x
+        level_width = float(np.max(np.asarray(l, dtype=float)))
+        npxy = flam.nproxy_square(kern, level_width, optsnpxy)
+        if npxy == -1:
+            return np.zeros((0, np.asarray(slf).size)), np.asarray(nbr, dtype=np.int64)
+        pr, ptau, pw, pin = flam.proxy_square_pts(npxy)
+        return flam.proxyfun(slf, nbr, l, ctr, chnkr, kern, opdims, pr, ptau, pw, pin, True, bool(options.get("l2scale", False)))
+
+    return pxyfun
+
+
+def _chunkerkerneval_flam(
+    chnkr: Chunker,
+    kern: Callable[[Any, Any], np.ndarray],
+    dens: ArrayLike,
+    targobj: Chunker | dict[str, Any] | ArrayLike | PointInfo,
+    options: dict[str, Any],
+) -> np.ndarray:
+    factor, matfun, out_shape = _chunkerkerneval_flam_factor(chnkr, kern, targobj, options)
+    pyflam = _require_pyflam()
+    dens_vec = np.asarray(dens).reshape(-1, order="F")
+    if dens_vec.size != out_shape[1]:
+        raise ValueError("density has incompatible size")
+    vals = pyflam.ifmm_mv(factor, dens_vec, matfun)
+    return np.asarray(vals).reshape(-1, out_shape[0] // _kernel_opdims(chnkr, kern)[0], order="F")
+
+
+def _chunkerkernevalmat_flam(
+    chnkr: Chunker,
+    kern: Callable[[Any, Any], np.ndarray],
+    targobj: Chunker | dict[str, Any] | ArrayLike | PointInfo,
+    options: dict[str, Any],
+) -> np.ndarray:
+    factor, matfun, out_shape = _chunkerkerneval_flam_factor(chnkr, kern, targobj, options)
+    pyflam = _require_pyflam()
+    eye = np.eye(out_shape[1], dtype=_operator_dtype(chnkr, kern))
+    return np.asarray(pyflam.ifmm_mv(factor, eye, matfun))
+
+
+def _chunkerkerneval_flam_factor(
+    chnkr: Chunker,
+    kern: Callable[[Any, Any], np.ndarray],
+    targobj: Chunker | dict[str, Any] | ArrayLike | PointInfo,
+    options: dict[str, Any],
+):
+    pyflam = _require_pyflam()
+    from .chnk import flam
+
+    targinfo = pointinfo(targobj)
+    op0, op1 = _kernel_opdims(chnkr, kern)
+    nrows = targinfo.r.shape[1] * op0
+    ncols = chnkr.npt * op1
+
+    def matfun(rows: np.ndarray, cols: np.ndarray) -> np.ndarray:
+        return flam.kernbyindexr(rows, cols, targinfo, chnkr, kern, (op0, op1))
+
+    rx = np.repeat(np.real(targinfo.r), op0, axis=1)
+    cx = np.repeat(np.real(pointinfo(chnkr).r), op1, axis=1)
+    occ = int(options.get("occ", 200))
+    rank_or_tol = options.get("rank_or_tol", options.get("eps", options.get("tol", 1.0e-14)))
+    rank_or_tol = int(rank_or_tol) if float(rank_or_tol).is_integer() and float(rank_or_tol) >= 1 else float(rank_or_tol)
+    opts_ifmm = {
+        "verb": int(bool(options.get("verb", False))),
+        "lvlmax": options.get("lvlmax", np.inf),
+        # Store near and diagonal blocks; application still receives matfun for
+        # interactions not retained by the compact representation.
+        "store": options.get("store", "n"),
+    }
+    pxyfun = None
+    if bool(options.get("useproxy", True)) and chnkr.datadim == 0:
+        pxyfun = _chunkerkerneval_proxyfun(chnkr, kern, targinfo, (op0, op1), options)
+    factor = pyflam.ifmm(matfun, rx, cx, occ, rank_or_tol, pxyfun, opts_ifmm)
+    return factor, matfun, (nrows, ncols)
+
+
+def _chunkerkerneval_proxyfun(
+    chnkr: Chunker,
+    kern: Callable[[Any, Any], np.ndarray],
+    targinfo: PointInfo,
+    opdims: tuple[int, int],
+    options: dict[str, Any],
+):
+    from .chnk import flam
+
+    rank_or_tol = options.get("rank_or_tol", options.get("eps", options.get("tol", 1.0e-14)))
+    optsnpxy = {"rank_or_tol": float(rank_or_tol), "nsrc": int(options.get("occ", 200))}
+    all_points = np.column_stack((np.real(targinfo.r), np.real(pointinfo(chnkr).r)))
+    width = float(np.max(np.max(all_points, axis=1) - np.min(all_points, axis=1)))
+    npxy = flam.nproxy_square(kern, width, optsnpxy)
+    if npxy == -1:
+        return None
+    pr, ptau, pw, pin = flam.proxy_square_pts(npxy)
+
+    def pxyfun(rc: str, rx: np.ndarray, cx: np.ndarray, slf: np.ndarray, nbr: np.ndarray, l: np.ndarray, ctr: np.ndarray):
+        return flam.proxyfunr(rc, rx, cx, slf, nbr, l, ctr, chnkr, kern, opdims, pr, ptau, pw, pin, targobj=targinfo)
+
+    return pxyfun
+
+
+def _rskelf_logdet_complete(factor: Any):
+    pyflam = _require_pyflam()
+    ld = pyflam.rskelf_logdet(factor)
+    si = getattr(factor, "Si", None)
+    if si is None or np.asarray(si).size == 0:
+        return ld
+    if getattr(factor, "A_dense", None) is not None:
+        skel = factor.A_dense[np.ix_(si, si)]
+    elif getattr(factor, "A", None) is not None:
+        skel = factor.A(si, si)
+    else:
+        return ld
+    S = factor.S.toarray() if sparse.issparse(factor.S) else np.asarray(factor.S)
+    sign, logabs = np.linalg.slogdet(np.asarray(skel) + S)
+    return ld + np.log(np.asarray(sign, dtype=complex)) + logabs
 
 
 def _chunkermatapply_fmm(

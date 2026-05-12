@@ -29,10 +29,12 @@ from .domain import (
 )
 from .kernel import Kernel, kernel
 from .operators import (
+    ChunkerFLAMMatrix,
     ChunkerFMMMatrix,
     PointInfo,
     chunkerinterior,
     chunkerintegral,
+    chunkerflam,
     chunkerkerneval,
     chunkerkernevalmat,
     chunkermat,
@@ -45,6 +47,7 @@ __all__ = [
     "ChunkerPref",
     "ChunkGraph",
     "Kernel",
+    "ChunkerFLAMMatrix",
     "ChunkerFMMMatrix",
     "PointInfo",
     "HypOctNode",
@@ -52,6 +55,7 @@ __all__ = [
     "checkcurveparam",
     "chunker",
     "chunkerfit",
+    "chunkerflam",
     "chunkerfunc",
     "chunkerfuncuni",
     "chunkerpoints",

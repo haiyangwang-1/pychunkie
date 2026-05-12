@@ -9,6 +9,7 @@ dependencies = [
     # the external/fmm2d submodule is only a parity-test reference checkout.
     "fmm2dpy",
     "numpy>=2.4.4",
+    "pyflam",
     "scipy>=1.17.1",
 ]
 
@@ -22,6 +23,7 @@ dev = [
 
 [tool.uv.sources]
 fmm2dpy = { git = "https://github.com/flatironinstitute/fmm2d.git", rev = "550dae5b77b1e006c8ffae37fc832f8c2b536871" }
+pyflam = { git = "https://github.com/haiyangwang-1/pyflam.git", rev = "7501bef4ec8a773064309ab2e3f04e6ca7ac98e9" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

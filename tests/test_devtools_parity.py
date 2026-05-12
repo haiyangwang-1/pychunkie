@@ -462,8 +462,8 @@ def test_chunkerinterior_devtools_outputs_match_matlab():
     np.testing.assert_array_equal(np.asarray(fixture.in_fmm, dtype=bool).reshape(-1), expected)
     np.testing.assert_array_equal(direct, expected)
     np.testing.assert_array_equal(fmm, expected)
-    with pytest.raises(NotImplementedError):
-        chunkerinterior(chnkr, fixture.targs, {"acceleration": "flam"})
+    flam = chunkerinterior(chnkr, fixture.targs, {"acceleration": "flam", "occ": 32, "rank_or_tol": 1.0e-8, "useproxy": False})
+    np.testing.assert_array_equal(flam, expected)
 
     inner = chunker_from_fields(fixture.inner_chunker)
     in_chunker = chunkerinterior(chnkr, inner, {"acceleration": "fmm"})

@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 284 pytest cases because several MATLAB parity tests are
+collection expands to 289 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -47,11 +47,11 @@ for Lame parameters `lam` and `mu`.
 Special quadrature is provided by `chnk.quadggq`. Logarithmic kernels use log
 GGQ rules; principal-value kernels use PV support tables; hypersingular kernels
 use HS support tables. Accelerated tests request
-`{"acceleration": "fmm"}` and compare against the dense direct path. RCIP
-tests exercise recursive compressed inverse preconditioning for corner edges.
-There is no active Python test that exercises FLAM compression;
-`chunkerinterior` has both a direct node-polygon fallback and an FMM classifier
-with direct close-boundary correction. FLAM interior acceleration is deferred.
+`{"acceleration": "fmm"}` and compare against the dense direct path. FLAM
+tests request `{"acceleration": "flam"}` and compare PyFLAM-backed matrix,
+target-evaluation, and interior-classification paths against dense/FMM
+references. RCIP tests exercise recursive compressed inverse preconditioning
+for corner edges.
 
 Ground truth comes from four places:
 
@@ -94,7 +94,8 @@ Implemented from this scope:
 - `chunkermat(..., acceleration="fmm")` matrix-free FMM operators and
   `chunkermatapply` FMM acceleration with sparse special-quadrature
   corrections for singular kernels.
-- `chunkerinterior` FMM classification with direct close-boundary correction.
+- `chunkerinterior` FMM and FLAM classification with direct close-boundary
+  correction.
 - Advanced RCIP chunkgraph workflows: selected vertices, ignored vertices, and
   global block-kernel subselection for local corner compression.
 - Section II kernel/operator parity: MATLAB `@kernel` factory metadata and
@@ -105,13 +106,16 @@ Implemented from this scope:
   `chunkerkerneval_greenhelm`, and `chunkerkernevalmat_greenlap` paths,
   including Python `forceadap` close-target replacement in `chunkerkerneval`
   and `chunkerkernevalmat`.
+- PyFLAM-backed acceleration: `chunkerflam`, `chnk.flam` callback/proxy
+  helpers, `ChunkerFLAMMatrix`, `chunkermat`/`chunkermatapply`
+  `acceleration="flam"`, FLAM target evaluation/materialization, and FLAM
+  interior classification.
 
 Deferred implementation:
 
-- FLAM-backed acceleration, including `chunkerflam`, `+chnk/+flam`, full
-  MATLAB-style FLAM integrations, `chunkermat` FLAM acceleration, and
-  `chunkerinterior` FLAM acceleration. This should be revisited after `pyflam`
-  exists.
+- Remaining FLAM parity beyond the first PyFLAM-backed pass: strict MATLAB
+  devtools FLAM fixtures, full multi-chunker block-kernel workflows, and
+  proxy-by-level stress coverage.
 - Remaining `chunkerfit` modes beyond the implemented spline/open-line/circle
   paths.
 
@@ -569,7 +573,8 @@ Laplace Green-identity target-evaluation workflow from
 `chunkerkerneval_greenlapTest.m`. The method compares saved point-source
 fields, boundary densities, and close-corrected single/double-layer target
 evaluations through `forceadap`. Ground truth is MATLAB's direct outputs and
-diagnostic FMM equality; FLAM remains deferred.
+diagnostic FMM equality. MATLAB FLAM diagnostics are not fixture-converted yet;
+focused Python FLAM target-evaluation tests cover the PyFLAM path separately.
 
 `test_chunkerkernevalmat_greenlap_devtools_outputs_match_matlab` checks the
 matrix form of the same Laplace Green identity. The method builds target
@@ -659,6 +664,34 @@ double-layer gradient. The equation is
 `t = lam n div(u) + mu(grad u + grad u^T)n`, expanded componentwise. The method
 evaluates `daltgrad`, contracts with a two-component density, then reconstructs
 traction and compares to `dalttrac`. Ground truth is the stress formula.
+
+## `tests/test_flam.py`
+
+`test_flam_kernbyindex_matches_dense_and_sparse_overwrites` checks 0-based
+FLAM matrix callbacks. The method requests selected row/column DOFs from
+`chnk.flam.kernbyindex`, compares them to the dense weighted matrix, and
+verifies sparse special-quadrature entries overwrite smooth entries.
+
+`test_flam_proxy_square_geometry_and_proxyfun_shapes` checks proxy helper
+geometry and callback behavior. The method validates square proxy weights,
+interior flags, and `proxyfun` output/neighbor shapes for a small circle
+chunker. Ground truth is stable geometry and 0-based callback sizing.
+
+`test_chunkermat_flam_applies_solves_and_logdet_against_dense` checks the
+PyFLAM-backed boundary matrix wrapper. The method builds
+`chunkermat(..., {"acceleration": "flam"})`, compares matrix-vector products
+against the dense special matrix, solves a shifted Laplace system, and compares
+`logdet()` to NumPy's dense determinant calculation.
+
+`test_chunkerkerneval_flam_matches_eval_matrix_and_dense` checks off-boundary
+target FLAM evaluation. The method compares `chunkerkerneval` and
+`chunkerkernevalmat` with `acceleration="flam"` against dense target
+evaluation for a smooth kernel.
+
+`test_chunkerinterior_flam_matches_direct_classification` checks FLAM interior
+classification. The method evaluates inside, outside, and near-boundary sample
+targets with `chunkerinterior(..., {"acceleration": "flam"})` and compares to
+the direct classifier.
 
 ## `tests/test_geometry.py`
 
