@@ -16,7 +16,7 @@ from numpy.typing import ArrayLike
 from ..chunker import Chunker
 from .. import lege
 from ..operators import PointInfo
-from . import quadggq, quadnative
+from . import pquad, quadggq, quadnative
 
 
 def buildmat(
@@ -60,9 +60,9 @@ def buildmat(
                 continue
             rows = _block_slice(targ_chunk, chnkr.k, op0)
             targinfo = _chunk_pointinfo(chnkr, targ_chunk)
-            mat[rows, src_cols] = adapgausswts(
+            mat[rows, src_cols] = _close_panel_matrix(
                 chnkr, src_chunk, targinfo, kern, (op0, op1), nodes, weights, bary, options
-            )[0]
+            )
 
         if src_chunk not in ignored:
             rows = _block_slice(src_chunk, chnkr.k, op0)
@@ -277,7 +277,7 @@ def _apply_robust_close_corrections(
             n=normals[:, fix],
             data=None if data is None else data[:, fix],
         )
-        submat = adapgausswts(chnkr, src_chunk, targinfo, kern, opdims, nodes, weights, bary, options)[0]
+        submat = _close_panel_matrix(chnkr, src_chunk, targinfo, kern, opdims, nodes, weights, bary, options)
         for local, global_idx in enumerate(fix):
             rows = slice(op0 * global_idx, op0 * (global_idx + 1))
             mat[rows, src_cols] = submat[op0 * local : op0 * (local + 1), :]
@@ -326,6 +326,79 @@ def _single_target(targinfo: PointInfo, idx: int) -> PointInfo:
         n=None if targinfo.n is None else targinfo.n[:, idx : idx + 1],
         data=None if targinfo.data is None else targinfo.data[:, idx : idx + 1],
     )
+
+
+def _close_panel_matrix(
+    chnkr: Chunker,
+    src_chunk: int,
+    targinfo: PointInfo,
+    kern: Callable[[Any, Any], np.ndarray],
+    opdims: tuple[int, int],
+    nodes: np.ndarray,
+    weights: np.ndarray,
+    bary: np.ndarray,
+    options: dict[str, Any],
+) -> np.ndarray:
+    pquad_mat, handled = _pquad_panel_matrix(chnkr, src_chunk, targinfo, kern, opdims, options)
+    if pquad_mat is not None and np.all(handled):
+        return np.real_if_close(pquad_mat)
+
+    adaptive = adapgausswts(chnkr, src_chunk, targinfo, kern, opdims, nodes, weights, bary, options)[0]
+    if pquad_mat is not None and np.any(handled):
+        op0 = int(opdims[0])
+        rows = _target_rows(np.flatnonzero(handled), op0)
+        adaptive = np.asarray(adaptive, dtype=np.result_type(adaptive.dtype, pquad_mat.dtype))
+        adaptive[rows, :] = pquad_mat[rows, :]
+    return adaptive
+
+
+def _pquad_panel_matrix(
+    chnkr: Chunker,
+    src_chunk: int,
+    targinfo: PointInfo,
+    kern: Callable[[Any, Any], np.ndarray],
+    opdims: tuple[int, int],
+    options: dict[str, Any],
+) -> tuple[np.ndarray | None, np.ndarray]:
+    if not _pquad_enabled(options):
+        return None, np.zeros(targinfo.r.shape[1], dtype=bool)
+    splitinfo = pquad.splitinfo_for_kernel(kern)
+    if splitinfo is None or tuple(splitinfo.opdims) != (int(opdims[0]), int(opdims[1])):
+        return None, np.zeros(targinfo.r.shape[1], dtype=bool)
+    side_tol = options.get("side_tol", None)
+    return pquad.panel_matrix_auto_side(
+        chnkr,
+        src_chunk,
+        targinfo,
+        splitinfo,
+        side=_pquad_side(options),
+        side_tol=None if side_tol is None else float(side_tol),
+    )
+
+
+def _pquad_enabled(options: dict[str, Any]) -> bool:
+    if "forcepquad" in options:
+        return _option_bool(options["forcepquad"])
+    return _option_bool(options.get("usepquad", False))
+
+
+def _pquad_side(options: dict[str, Any]) -> str | None:
+    if "side" not in options or options["side"] is None:
+        return None
+    side = str(options["side"]).lower()
+    if side not in {"i", "e"}:
+        raise ValueError("side must be 'i' or 'e'")
+    return side
+
+
+def _option_bool(value: Any) -> bool:
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "t", "yes", "y", "on"}
+    return bool(value)
+
+
+def _target_rows(indices: np.ndarray, op0: int) -> np.ndarray:
+    return (indices[:, None] * int(op0) + np.arange(int(op0))[None, :]).reshape(-1)
 
 
 def _block_slice(chunk: int, k: int, opdim: int) -> slice:

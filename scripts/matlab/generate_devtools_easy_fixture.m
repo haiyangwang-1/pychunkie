@@ -1750,6 +1750,42 @@ cqa.mat_adap = chnk.quadadap.buildmat(chnkr, fkern, [1 1], 'log', opts);
 cqa.relerr = norm(cqa.mat_ggq - cqa.mat_adap, 'fro') / norm(cqa.mat_ggq, 'fro');
 devtools_easy.chunkermat_quadadap = cqa;
 
+% pquadTest.m compact low-level product-quadrature helper slice
+pq = [];
+pref = [];
+pref.k = 8;
+cparams = [];
+cparams.nchmin = 8;
+[chnkr, ~] = chunkerfunc(@(t) chnk.curves.bymode(t, ones(1,1)), cparams, pref);
+pq.chunker = fixture_pack_chunker(chnkr);
+pq.source_chunk = 1;
+[pq.nodes, pq.weights] = lege.exps(2*chnkr.k);
+pq.interp = lege.matrin(chnkr.k, pq.nodes);
+pq.interp_ab = lege.matrin(chnkr.k, [-1.0; 1.0]);
+mid = lege.matrin(chnkr.k, 0.0);
+rmid = (mid*chnkr.r(:, :, pq.source_chunk).').';
+nmid = (mid*chnkr.n(:, :, pq.source_chunk).').';
+pq.target_exterior = rmid + 0.04*nmid;
+pq.target_interior = rmid - 0.03*nmid;
+pq.types = {
+    [1 0 0 0], ...
+    [0 0 -1 0], ...
+    [0 0 -2 0], ...
+    [0 0 -3 0]};
+opts = [];
+opts.side = 'e';
+[pq.ext_log_up, pq.ext_cauchy_up, pq.ext_hyp_up, pq.ext_super_up] = chnk.pquadwts( ...
+    chnkr.r, chnkr.d, chnkr.n, chnkr.d2, chnkr.wts, pq.source_chunk, ...
+    pq.target_exterior, pq.nodes, pq.weights, opts, pq.interp_ab, pq.interp, pq.types, true);
+[pq.ext_log_orig, pq.ext_cauchy_orig] = chnk.pquadwts( ...
+    chnkr.r, chnkr.d, chnkr.n, chnkr.d2, chnkr.wts, pq.source_chunk, ...
+    pq.target_exterior, pq.nodes, pq.weights, opts, pq.interp_ab, pq.interp, pq.types(1:2), false);
+opts.side = 'i';
+[pq.int_log_up, pq.int_cauchy_up] = chnk.pquadwts( ...
+    chnkr.r, chnkr.d, chnkr.n, chnkr.d2, chnkr.wts, pq.source_chunk, ...
+    pq.target_interior, pq.nodes, pq.weights, opts, pq.interp_ab, pq.interp, pq.types(1:2), true);
+devtools_easy.pquad = pq;
+
 % chunkermat_quadadap_closetotouchingTest.m compact solve/evaluation slice
 cqac = [];
 rng(8675309);

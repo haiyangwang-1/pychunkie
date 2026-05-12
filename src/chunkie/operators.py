@@ -477,11 +477,19 @@ def chunkermat(
 
             adap_options = dict(options)
             adap_options.setdefault("sing", _special_quadrature_type(kern, options))
+            adap_options.setdefault("usepquad", _boundary_pquad_enabled(options))
             mat = quadadap.buildmat(chnkr, kern, getattr(kern, "opdims", None), adap_options)
         else:
             from .chnk import quadggq
 
-            mat = quadggq.buildmat(chnkr, kern, getattr(kern, "opdims", None), _special_quadrature_type(kern, options))
+            mat = quadggq.buildmat(
+                chnkr,
+                kern,
+                getattr(kern, "opdims", None),
+                _special_quadrature_type(kern, options),
+                pquad_side=_pquad_side(options),
+                usepquad=_boundary_pquad_enabled(options),
+            )
         return _apply_l2scale_matrix(chnkr, mat) if _l2scale(options) else mat
 
     srcinfo = pointinfo(chnkr)
@@ -1123,6 +1131,30 @@ def _fmm_tol(options: dict[str, Any] | _OperatorOptions, default: float = 1.0e-1
     return _OperatorOptions.from_any(options).fmm_tol(default)
 
 
+def _pquad_enabled(options: dict[str, Any] | _OperatorOptions) -> bool:
+    raw = _OperatorOptions.from_any(options).raw
+    if "forcepquad" in raw:
+        return _option_bool(raw["forcepquad"])
+    return _option_bool(raw.get("usepquad", True))
+
+
+def _pquad_side(options: dict[str, Any] | _OperatorOptions) -> str | None:
+    raw = _OperatorOptions.from_any(options).raw
+    if "side" not in raw or raw["side"] is None:
+        return None
+    side = str(raw["side"]).lower()
+    if side not in {"i", "e"}:
+        raise ValueError("side must be 'i' or 'e'")
+    return side
+
+
+def _boundary_pquad_enabled(options: dict[str, Any] | _OperatorOptions) -> bool:
+    raw = _OperatorOptions.from_any(options).raw
+    if "forcepquad" in raw or "usepquad" in raw:
+        return _pquad_enabled(options)
+    return _pquad_side(options) is not None
+
+
 def _require_fmm(kern: Callable[[Any, Any], np.ndarray]) -> None:
     if getattr(kern, "fmm", None) is None:
         raise NotImplementedError("FMM acceleration requested, but the kernel has no FMM evaluator")
@@ -1164,6 +1196,8 @@ def _special_overwrite_matrix(
         type=qtype,
         ilist=options.get("ilist", None),
         corrections=False,
+        pquad_side=_pquad_side(options),
+        usepquad=_boundary_pquad_enabled(options),
     )
     if _l2scale(options):
         spmat = _apply_l2scale_matrix(chnkr, spmat)
@@ -1513,6 +1547,8 @@ def _special_correction_matrix(
         type=qtype,
         ilist=options.get("ilist", None),
         corrections=True,
+        pquad_side=_pquad_side(options),
+        usepquad=_boundary_pquad_enabled(options),
     )
 
 
@@ -1523,8 +1559,6 @@ def _target_adaptive_correction_matrix(
     options: dict[str, Any],
 ) -> spmatrix:
     """Sparse adaptive correction replacing smooth near-target blocks."""
-
-    from .chnk import quadadap
 
     op0, op1 = _kernel_opdims(chnkr, kern, targinfo)
     ntarget = targinfo.r.shape[1]
@@ -1554,8 +1588,8 @@ def _target_adaptive_correction_matrix(
             data=chnkr.data[:, :, src_chunk] if chnkr.datadim else None,
         )
         smooth = _eval_kernel(kern, srcinfo, subinfo) * np.repeat(chnkr.wts[:, src_chunk], op1)[None, :]
-        adaptive = quadadap.adapgausswts(chnkr, src_chunk, subinfo, kern, (op0, op1), opts=options)[0]
-        delta = adaptive - smooth
+        close_panel = _target_close_panel_matrix(chnkr, src_chunk, subinfo, kern, (op0, op1), options)
+        delta = close_panel - smooth
 
         global_rows = (target_ids[:, None] * op0 + np.arange(op0)[None, :]).reshape(-1)
         col_start = src_chunk * chnkr.k * op1
@@ -1580,8 +1614,6 @@ def _target_adaptive_matrix(
     options: dict[str, Any],
 ) -> np.ndarray:
     """Build a target-evaluation matrix with adaptive close-panel replacements."""
-
-    from .chnk import quadadap
 
     opdims = _kernel_opdims(chnkr, kern, targinfo)
     op0 = int(opdims[0])
@@ -1611,7 +1643,7 @@ def _target_adaptive_matrix(
             n=None if targinfo.n is None else targinfo.n[:, target_ids],
             data=None if targinfo.data is None else targinfo.data[:, target_ids],
         )
-        submat = quadadap.adapgausswts(chnkr, src_chunk, subinfo, kern, (op0, op1), opts=options)[0]
+        submat = _target_close_panel_matrix(chnkr, src_chunk, subinfo, kern, (op0, op1), options)
         col_start = src_chunk * chnkr.k * op1
         cols = slice(col_start, col_start + chnkr.k * op1)
         for local_idx, target_idx in enumerate(target_ids):
@@ -1619,6 +1651,56 @@ def _target_adaptive_matrix(
             local_rows = slice(op0 * local_idx, op0 * (local_idx + 1))
             mat[rows, cols] = submat[local_rows, :]
     return mat
+
+
+def _target_close_panel_matrix(
+    chnkr: Chunker,
+    src_chunk: int,
+    targinfo: PointInfo,
+    kern: Callable[[Any, Any], np.ndarray],
+    opdims: tuple[int, int],
+    options: dict[str, Any],
+) -> np.ndarray:
+    from .chnk import quadadap
+
+    pquad_mat, handled = _target_pquad_panel_matrix(chnkr, src_chunk, targinfo, kern, opdims, options)
+    if pquad_mat is not None and np.all(handled):
+        return np.real_if_close(pquad_mat)
+
+    adaptive = quadadap.adapgausswts(chnkr, src_chunk, targinfo, kern, opdims, opts=options)[0]
+    if pquad_mat is not None and np.any(handled):
+        op0 = int(opdims[0])
+        rows = _target_rows(np.flatnonzero(handled), op0)
+        adaptive = np.asarray(adaptive, dtype=np.result_type(adaptive.dtype, pquad_mat.dtype))
+        adaptive[rows, :] = pquad_mat[rows, :]
+    return adaptive
+
+
+def _target_pquad_panel_matrix(
+    chnkr: Chunker,
+    src_chunk: int,
+    targinfo: PointInfo,
+    kern: Callable[[Any, Any], np.ndarray],
+    opdims: tuple[int, int],
+    options: dict[str, Any],
+) -> tuple[np.ndarray | None, np.ndarray]:
+    if not _pquad_enabled(options):
+        return None, np.zeros(targinfo.r.shape[1], dtype=bool)
+    from .chnk import pquad
+
+    splitinfo = pquad.splitinfo_for_kernel(kern)
+    if splitinfo is None or tuple(splitinfo.opdims) != (int(opdims[0]), int(opdims[1])):
+        return None, np.zeros(targinfo.r.shape[1], dtype=bool)
+    side_tol = options.get("side_tol", None)
+    block, handled = pquad.panel_matrix_auto_side(
+        chnkr,
+        src_chunk,
+        targinfo,
+        splitinfo,
+        side=_pquad_side(options),
+        side_tol=None if side_tol is None else float(side_tol),
+    )
+    return block, handled
 
 
 def _kernel_opdims(
@@ -1668,6 +1750,10 @@ def _pointinfo_take(info: PointInfo, indices: np.ndarray) -> PointInfo:
         n=info.n[:, indices] if info.n is not None else None,
         data=info.data[:, indices] if info.data is not None else None,
     )
+
+
+def _target_rows(indices: np.ndarray, op0: int) -> np.ndarray:
+    return (indices[:, None] * int(op0) + np.arange(int(op0))[None, :]).reshape(-1)
 
 
 def _chunker_polygon_points(chnkr: Chunker) -> np.ndarray:

@@ -166,6 +166,9 @@ def buildmat(
     type: str = "log",
     auxquads: AuxQuad | None = None,
     ilist: ArrayLike | None = None,
+    *,
+    pquad_side: str | None = None,
+    usepquad: bool = False,
 ) -> np.ndarray:
     """Build a matrix with special self and neighbor quadrature blocks."""
 
@@ -188,7 +191,16 @@ def buildmat(
             if src_chunk in ignored and targ_chunk in ignored:
                 continue
             rows = _block_slice(targ_chunk, chnkr.k, int(opdims[0]))
-            mat[rows, src_cols] = nearbuildmat(chnkr, targ_chunk, src_chunk, kern, opdims, aux)
+            mat[rows, src_cols] = nearbuildmat(
+                chnkr,
+                targ_chunk,
+                src_chunk,
+                kern,
+                opdims,
+                aux,
+                pquad_side=pquad_side,
+                usepquad=usepquad,
+            )
 
         if src_chunk in ignored:
             continue
@@ -206,6 +218,9 @@ def buildmattd(
     auxquads: AuxQuad | None = None,
     ilist: ArrayLike | None = None,
     corrections: bool = False,
+    *,
+    pquad_side: str | None = None,
+    usepquad: bool = False,
 ) -> sparse.csr_matrix:
     """Build the sparse matrix of special self and neighbor blocks only."""
 
@@ -240,7 +255,17 @@ def buildmattd(
             append_block(
                 targ_chunk,
                 src_chunk,
-                nearbuildmat(chnkr, targ_chunk, src_chunk, kern, (op0, op1), aux, corrections=corrections),
+                nearbuildmat(
+                    chnkr,
+                    targ_chunk,
+                    src_chunk,
+                    kern,
+                    (op0, op1),
+                    aux,
+                    corrections=corrections,
+                    pquad_side=pquad_side,
+                    usepquad=usepquad,
+                ),
             )
 
         if src_chunk in ignored:
@@ -320,10 +345,27 @@ def nearbuildmat(
     aux: AuxQuad | None = None,
     corrections: bool = False,
     wtss: ArrayLike | None = None,
+    *,
+    pquad_side: str | None = None,
+    usepquad: bool = False,
 ) -> np.ndarray:
     """Build an oversampled near-neighbor block from source chunk ``j`` to target chunk ``i``."""
 
     aux = setup(chnkr.k, "log") if aux is None else aux
+    targ = PointInfo(
+        r=chnkr.r[:, :, i],
+        d=chnkr.d[:, :, i],
+        d2=chnkr.d2[:, :, i],
+        n=chnkr.n[:, :, i],
+        data=chnkr.data[:, :, i] if chnkr.datadim else None,
+    )
+    if usepquad:
+        pquad_block, handled = _pquad_near_block(chnkr, j, kern, opdims, targ, pquad_side)
+        if pquad_block is not None and np.all(handled):
+            if corrections:
+                pquad_block = pquad_block - _native_panel_block(chnkr, i, j, kern, opdims, wtss)
+            return np.real_if_close(pquad_block)
+
     interp = aux.ainterp1
     src = _interpolated_pointinfo(
         chnkr.r[:, :, j],
@@ -333,32 +375,57 @@ def nearbuildmat(
         chnkr.data[:, :, j] if chnkr.datadim else None,
         interp,
     )
-    targ = PointInfo(
-        r=chnkr.r[:, :, i],
-        d=chnkr.d[:, :, i],
-        d2=chnkr.d2[:, :, i],
-        n=chnkr.n[:, :, i],
-        data=chnkr.data[:, :, i] if chnkr.datadim else None,
-    )
     weights = np.sqrt(np.sum(np.abs(src.d) ** 2, axis=0)) * aux.wts1
     kvals = np.nan_to_num(_eval_kernel(kern, src, targ), nan=0.0, posinf=0.0, neginf=0.0)
     mat = kvals * np.repeat(weights, int(opdims[1]))[None, :]
     out = mat @ np.kron(interp, np.eye(int(opdims[1])))
     if corrections:
-        if wtss is None:
-            wtss_arr = chnkr.wts
-        else:
-            wtss_arr = np.asarray(wtss)
-        src0 = PointInfo(
-            r=chnkr.r[:, :, j],
-            d=chnkr.d[:, :, j],
-            d2=chnkr.d2[:, :, j],
-            n=chnkr.n[:, :, j],
-            data=chnkr.data[:, :, j] if chnkr.datadim else None,
-        )
-        smooth = _eval_kernel(kern, src0, targ)
-        out = out - smooth * np.repeat(wtss_arr[:, j], int(opdims[1]))[None, :]
+        out = out - _native_panel_block(chnkr, i, j, kern, opdims, wtss)
     return out
+
+
+def _pquad_near_block(
+    chnkr: Chunker,
+    src_chunk: int,
+    kern: Callable[[Any, Any], np.ndarray],
+    opdims: tuple[int, int],
+    targ: PointInfo,
+    side: str | None,
+) -> tuple[np.ndarray | None, np.ndarray]:
+    from . import pquad
+
+    splitinfo = pquad.splitinfo_for_kernel(kern)
+    if splitinfo is None or tuple(splitinfo.opdims) != (int(opdims[0]), int(opdims[1])):
+        return None, np.zeros(targ.r.shape[1], dtype=bool)
+    block, handled = pquad.panel_matrix_auto_side(chnkr, src_chunk, targ, splitinfo, side=side)
+    return block, handled
+
+
+def _native_panel_block(
+    chnkr: Chunker,
+    targ_chunk: int,
+    src_chunk: int,
+    kern: Callable[[Any, Any], np.ndarray],
+    opdims: tuple[int, int],
+    wtss: ArrayLike | None = None,
+) -> np.ndarray:
+    wtss_arr = chnkr.wts if wtss is None else np.asarray(wtss)
+    src = PointInfo(
+        r=chnkr.r[:, :, src_chunk],
+        d=chnkr.d[:, :, src_chunk],
+        d2=chnkr.d2[:, :, src_chunk],
+        n=chnkr.n[:, :, src_chunk],
+        data=chnkr.data[:, :, src_chunk] if chnkr.datadim else None,
+    )
+    targ = PointInfo(
+        r=chnkr.r[:, :, targ_chunk],
+        d=chnkr.d[:, :, targ_chunk],
+        d2=chnkr.d2[:, :, targ_chunk],
+        n=chnkr.n[:, :, targ_chunk],
+        data=chnkr.data[:, :, targ_chunk] if chnkr.datadim else None,
+    )
+    smooth = _eval_kernel(kern, src, targ)
+    return smooth * np.repeat(wtss_arr[:, src_chunk], int(opdims[1]))[None, :]
 
 
 def _interpolated_pointinfo(
