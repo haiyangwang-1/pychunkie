@@ -1610,9 +1610,9 @@ equal to the original chunker, and restored coordinates.
 
 `test_absconvgauss_derivatives_match_finite_differences` checks the smoothed
 absolute-value convolution helper. The method evaluates value, first
-derivative, and second derivative, then compares derivatives against centered
-finite differences of the lower-order outputs. Ground truth is finite
-difference agreement and value shape equal to the input grid.
+derivative, and second derivative, compares all three against the closed-form
+Gaussian-convolution formulas, then compares derivatives against centered
+finite differences of the lower-order outputs.
 
 ## `tests/test_stok2d.py`
 
