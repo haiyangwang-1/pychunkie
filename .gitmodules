@@ -1,9 +1,14 @@
+# These submodules are test/parity reference checkouts. They are not Python
+# runtime or build dependencies for the pychunkie package.
 [submodule "external/chunkie-matlab"]
 	path = external/chunkie-matlab
 	url = https://github.com/fastalgorithms/chunkie.git
+	reference-commit = af34cc41c81114e693b515066e4d308067bf7e63
 [submodule "external/FLAM"]
 	path = external/FLAM
 	url = https://github.com/fastalgorithms/FLAM.git
+	reference-commit = 73b7accda7c1a933517b008831d8404d8d3cc764
 [submodule "external/fmm2d"]
 	path = external/fmm2d
 	url = https://github.com/flatironinstitute/fmm2d.git
+	reference-commit = 550dae5b77b1e006c8ffae37fc832f8c2b536871
