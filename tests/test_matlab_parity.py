@@ -17,7 +17,11 @@ from chunkie import (
     lege,
     pointinfo,
 )
-from chunkie.chnk import biharm2d, elast2d, helm1d, helm2d, lap2d, quadadap, quadggq, quadnative, rcip, stok2d
+from chunkie.chnk import biharm2d, elast2d, helm1d, helm2d, lap2d, stok2d
+from chunkie.quadrature import adaptive as quadadap
+from chunkie.quadrature import ggq as quadggq
+from chunkie.quadrature import native as quadnative
+from chunkie.quadrature import rcip
 from _fixture_generation import assert_chunker_matches_fields, chunker_from_fields, load_generated_mat_fixture
 
 

@@ -103,7 +103,7 @@ constant-potential constraint when solving exterior or mean-sensitive problems.
 
 Use `chunkerpoly(..., {"dyadic": True, "depth": n})` for true corners. This
 creates smaller panels near each corner and preserves a non-rounded geometry.
-The package also includes RCIP utilities in `chunkie.chnk.rcip` for local corner
+The package also includes RCIP utilities in `chunkie.quadrature.rcip` for local corner
 compression on chunkgraphs. Current high-level examples keep the BVP solve
 explicit so users can see where jump terms, compatibility constraints, and
 corner refinement enter.

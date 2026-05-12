@@ -4,7 +4,8 @@ import numpy as np
 from scipy import sparse
 
 from chunkie import chunkerfunc, chunkerkerneval, chunkermat, kernel, merge
-from chunkie.chnk import quadadap, quadggq
+from chunkie.quadrature import adaptive as quadadap
+from chunkie.quadrature import ggq as quadggq
 
 
 def circle(t):

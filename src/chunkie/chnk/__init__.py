@@ -1,7 +1,7 @@
 """Utilities mirroring MATLAB ``+chnk``.
 
 Submodules are imported on first access so lightweight imports such as
-``chunkie.kernel`` do not eagerly load every quadrature, FLAM, and RCIP helper.
+``chunkie.kernel`` do not eagerly load every geometry, FLAM, and kernel helper.
 """
 
 from __future__ import annotations
@@ -20,11 +20,6 @@ _SUBMODULES = {
     "helm1d",
     "helm2d",
     "lap2d",
-    "pquad",
-    "quadadap",
-    "quadggq",
-    "quadnative",
-    "rcip",
     "smoother",
     "spcl",
     "stok2d",
@@ -71,11 +66,6 @@ __all__ = [
     "lap2d",
     "normal2d",
     "perp",
-    "pquad",
-    "quadadap",
-    "quadggq",
-    "quadnative",
-    "rcip",
     "smoother",
     "spcl",
     "stok2d",

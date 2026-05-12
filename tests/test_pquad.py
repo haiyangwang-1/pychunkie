@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from chunkie import PointInfo, chunkerfunc, kernel, lege
-from chunkie.chnk import pquad
+from chunkie.quadrature import panel as pquad
 
 
 def circle(t):

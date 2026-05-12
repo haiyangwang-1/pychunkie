@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from chunkie import chunkgraph, kernel
-from chunkie.chnk import rcip
+from chunkie.quadrature import rcip
 from _fixture_generation import chunker_from_fields, load_generated_mat_fixture
 
 

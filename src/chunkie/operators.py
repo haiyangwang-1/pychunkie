@@ -416,13 +416,13 @@ def chunkermat(
         return ChunkerFMMMatrix(chnkr, kern, options)
     if _uses_special_quadrature(kern, options):
         if _option_bool(options.get("adaptive_correction", False)):
-            from .chnk import quadadap
+            from .quadrature import adaptive as quadadap
 
             adap_options = dict(options)
             adap_options.setdefault("sing", _special_quadrature_type(kern, options))
             mat = quadadap.buildmat(chnkr, kern, getattr(kern, "opdims", None), adap_options)
         else:
-            from .chnk import quadggq
+            from .quadrature import ggq as quadggq
 
             mat = quadggq.buildmat(chnkr, kern, getattr(kern, "opdims", None), _special_quadrature_type(kern, options))
         return _apply_l2scale_matrix(chnkr, mat) if _option_bool(options.get("l2scale", False)) else mat
@@ -1085,7 +1085,7 @@ def _special_overwrite_matrix(
     if not _uses_special_quadrature(kern, options):
         opdims = _kernel_opdims(chnkr, kern)
         return sparse.csr_matrix((chnkr.npt * int(opdims[0]), chnkr.npt * int(opdims[1])))
-    from .chnk import quadggq
+    from .quadrature import ggq as quadggq
 
     qtype = _special_quadrature_type(kern, options)
     spmat = quadggq.buildmattd(
@@ -1444,7 +1444,7 @@ def _special_correction_matrix(
     kern: Callable[[Any, Any], np.ndarray],
     options: dict[str, Any],
 ) -> spmatrix:
-    from .chnk import quadggq
+    from .quadrature import ggq as quadggq
 
     qtype = _special_quadrature_type(kern, options)
     return quadggq.buildmattd(
@@ -1465,7 +1465,7 @@ def _target_adaptive_correction_matrix(
 ) -> spmatrix:
     """Sparse adaptive correction replacing smooth near-target blocks."""
 
-    from .chnk import quadadap
+    from .quadrature import adaptive as quadadap
 
     op0, op1 = _kernel_opdims(chnkr, kern, targinfo)
     ntarget = targinfo.r.shape[1]
@@ -1522,7 +1522,7 @@ def _target_adaptive_matrix(
 ) -> np.ndarray:
     """Build a target-evaluation matrix with adaptive close-panel replacements."""
 
-    from .chnk import quadadap
+    from .quadrature import adaptive as quadadap
 
     opdims = _kernel_opdims(chnkr, kern, targinfo)
     op0 = int(opdims[0])

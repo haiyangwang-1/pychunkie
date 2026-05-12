@@ -20,7 +20,7 @@ from scipy import sparse
 from chunkie import lege
 from chunkie.chunker import Chunker
 from chunkie.operators import PointInfo
-from chunkie.chnk import quadnative
+from . import native as quadnative
 
 
 _QUADGGQ_DATA_PATH = ("data", "quadggq")

@@ -15,7 +15,7 @@ import argparse
 import numpy as np
 
 from chunkie import chunkgraph, kernel
-from chunkie.chnk import rcip
+from chunkie.quadrature import rcip
 
 from _nonsmooth_laplace_common import SQUARE_EDGES, SQUARE_VERTS
 

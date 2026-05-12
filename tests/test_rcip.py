@@ -1,7 +1,7 @@
 import numpy as np
 
 from chunkie import chunkgraph, kernel, lege
-from chunkie.chnk import rcip
+from chunkie.quadrature import rcip
 
 
 def test_ipinit_interpolates_to_half_panels_and_preserves_weights():

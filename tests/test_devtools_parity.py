@@ -25,7 +25,8 @@ from chunkie import (
     lege,
     tochunkgraph,
 )
-from chunkie.chnk import arcparam, curves, elast2d, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, flam, helm1d, helm2d, lap2d, quadadap, smoother, spcl
+from chunkie.chnk import arcparam, curves, elast2d, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself, flam, helm1d, helm2d, lap2d, smoother, spcl
+from chunkie.quadrature import adaptive as quadadap
 from chunkie.operators import PointInfo, pointinfo
 from _fixture_generation import chunker_from_fields, load_generated_mat_fixture, point_array, pointinfo_from_mat
 

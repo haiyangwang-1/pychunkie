@@ -126,27 +126,6 @@ src/
     │   ├── lap2d.py
     │   │   ├── green, kern
     │   │   └── _require
-    │   ├── pquad.py
-    │   │   ├── class SplitInfo
-    │   │   ├── pquadwts, panel_pquadwts, panel_matrix
-    │   │   ├── sd_special_quad, splitinfo_for_kernel
-    │   │   └── private helpers
-    │   ├── quadggq.py
-    │   │   ├── class AuxQuad
-    │   │   ├── setup, getlogquad, logavail, hqsuppavail
-    │   │   ├── gethqsuppquad, getremovablequad, getpvquad, gethsquad
-    │   │   ├── buildmat, buildmattd, diagbuildmat, nearbuildmat
-    │   │   └── private helpers
-    │   ├── quadadap.py
-    │   │   └── buildmat
-    │   ├── quadnative.py
-    │   │   ├── buildmat
-    │   │   └── _pointinfo_for_chunks
-    │   ├── rcip.py
-    │   │   ├── class RCIPSaved, class RCIPChunkGraphResult
-    │   │   ├── IPinit, Pbcinit, setup, SchurBana
-    │   │   ├── Rcompchunk, rhohatInterp, corner_refine, chunkgraph_rcip
-    │   │   └── lowercase MATLAB-style aliases
     │   ├── smoother.py
     │   │   ├── class UniformMesh, class SmoothMesh
     │   │   ├── get_umesh, get_mesh, smooth
@@ -157,6 +136,29 @@ src/
     │   └── stok2d.py
     │       ├── kern
     │       └── private helpers
+    ├── quadrature/
+    │   ├── __init__.py
+    │   ├── adaptive.py
+    │   │   └── buildmat
+    │   ├── ggq.py
+    │   │   ├── class AuxQuad
+    │   │   ├── setup, getlogquad, logavail, hqsuppavail
+    │   │   ├── gethqsuppquad, getremovablequad, getpvquad, gethsquad
+    │   │   ├── buildmat, buildmattd, diagbuildmat, nearbuildmat
+    │   │   └── private helpers
+    │   ├── native.py
+    │   │   ├── buildmat
+    │   │   └── _pointinfo_for_chunks
+    │   ├── panel.py
+    │   │   ├── class SplitInfo
+    │   │   ├── pquadwts, panel_pquadwts, panel_matrix
+    │   │   ├── sd_special_quad, splitinfo_for_kernel
+    │   │   └── private helpers
+    │   └── rcip.py
+    │       ├── class RCIPSaved, class RCIPChunkGraphResult
+    │       ├── IPinit, Pbcinit, setup, SchurBana
+    │       ├── Rcompchunk, rhohatInterp, corner_refine, chunkgraph_rcip
+    │       └── lowercase MATLAB-style aliases
     ├── data/
     │   └── quadggq/
     │       ├── metadata.npz
@@ -177,7 +179,8 @@ src/
 
 - ✅ [src/chunkie/__init__.py](src/chunkie/__init__.py) exports the public Python API. MATLAB has no direct single-file equivalent; it is a Python package facade over MATLAB class folders and package folders.
 - ✅ 🧪 [src/chunkie/domain.py](src/chunkie/domain.py) implements top-level MATLAB geometry/domain helpers exported from the Python package facade.
-- ✅ [src/chunkie/chnk/__init__.py](src/chunkie/chnk/__init__.py) mirrors MATLAB `+chnk` package exports, including the newer `biharm2d`, `flam`, `pquad`, `quadadap`, `rcip`, and `smoother` modules.
+- ✅ [src/chunkie/chnk/__init__.py](src/chunkie/chnk/__init__.py) currently mirrors remaining MATLAB `+chnk` package exports while the Python package is being reorganized; quadrature and RCIP helpers have moved out.
+- ✅ 🧪 [src/chunkie/quadrature/__init__.py](src/chunkie/quadrature/__init__.py) exposes Python-native quadrature modules for native, GGQ, adaptive, panel-product, and RCIP workflows.
 - ✅ [src/chunkie/lege/__init__.py](src/chunkie/lege/__init__.py) mirrors MATLAB `+lege` package exports.
 
 
@@ -412,20 +415,20 @@ their matching `@kernel` factories.
 
 
 ### III QUADRATURES
-#### `chnk/quadnative.py`
+#### `quadrature/native.py`
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
 | `_pointinfo_for_chunks` | 🧩 ✅ | Internal Python helper | No direct MATLAB file. |
 | `buildmat` | ✅ 🧪 🎯 | `+chnk/+quadnative/buildmat.m` | Dense native operator path parity-tested. |
 
-#### `chnk/quadadap.py`
+#### `quadrature/adaptive.py`
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
 | `buildmat` | ✅ 🧪 🎯 | `+chnk/+quadadap/buildmat.m` | MATLAB fixture checks log self blocks, adaptive Gauss neighbor blocks, and robust close non-neighbor replacement; adaptive weights use MATLAB's translation-invariant recentering by default, and other singularity types delegate to `quadggq`. |
 | `adapgausswts` | ✅ 🧪 🎯 | `+chnk/adapgausswts.m` | Direct adaptive Gauss weight construction is devtools-fixture tested on the starfish Helmholtz double-layer neighbor block, including recursion metadata and agreement with the GGQ reference matrix block. |
 
-#### `chnk/pquad.py`
+#### `quadrature/panel.py`
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
@@ -434,7 +437,7 @@ their matching `@kernel` factories.
 | `pquadwts`, `panel_pquadwts` | ✅ 🧪 | `+chnk/pquadwts.m` | Product-quadrature weights for one target-panel set support original-node and upsampled-node forms; Python tests verify interpolation composition. |
 | `panel_matrix`, `splitinfo_for_kernel` | ✅ 🧪 | `chunkerkerneval.m` pquad branch and built-in `kernel.splitinfo` | Isolated panel-matrix assembly is Python-tested for Laplace and Helmholtz scalar single/double layer kernels against high-order oversampled Legendre matrices. Combined-kernel and public evaluator migration remain pending. |
 
-#### `chnk/quadggq.py`
+#### `quadrature/ggq.py`
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
@@ -453,9 +456,9 @@ their matching `@kernel` factories.
 | `diagbuildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/diagbuildmat.m` | Self-block and correction-block outputs are MATLAB-fixture tested. |
 | `nearbuildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/nearbuildmat.m` | Oversampled neighbor block and MATLAB-style correction subtraction are fixture-tested. |
 
-Log/PV/HS support tables are packaged as `.npz` assets and loaded with `importlib.resources`; runtime no longer depends on a MATLAB reference checkout for GGQ tables. `quadadap` covers MATLAB-style log self, neighbor, and robust close replacement. `pquad` now provides isolated Helsing-Ojala product-quadrature weights and panel matrices, but the default operator/evaluator paths have not migrated to it yet. `quadba` is an explicit non-goal for this port.
+Log/PV/HS support tables are packaged as `.npz` assets and loaded with `importlib.resources`; runtime no longer depends on a MATLAB reference checkout for GGQ tables. `quadrature.adaptive` covers MATLAB-style log self, neighbor, and robust close replacement. `quadrature.panel` now provides isolated Helsing-Ojala product-quadrature weights and panel matrices, but the default operator/evaluator paths have not migrated to it yet. `quadba` is an explicit non-goal for this port.
 
-#### `chnk/rcip.py`
+#### `quadrature/rcip.py`
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |

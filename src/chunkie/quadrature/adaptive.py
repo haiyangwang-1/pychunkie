@@ -16,7 +16,8 @@ from numpy.typing import ArrayLike
 from ..chunker import Chunker
 from .. import lege
 from ..operators import PointInfo
-from . import quadggq, quadnative
+from . import ggq as quadggq
+from . import native as quadnative
 
 
 def buildmat(

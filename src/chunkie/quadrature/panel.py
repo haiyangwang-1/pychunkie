@@ -366,7 +366,7 @@ def _laplace_splitinfo(kind: str, coefs: Any, opdims: tuple[int, int]) -> SplitI
 def _helmholtz_splitinfo(kind: str, zk: Any, coefs: Any, opdims: tuple[int, int]) -> SplitInfo | None:
     if zk is None or opdims != (1, 1):
         return None
-    from . import helm2d
+    from chunkie.chnk import helm2d
 
     if kind in {"s", "single"}:
         return SplitInfo((SMOOTH, LOG), ("r", "r"), lambda s, t: _helmholtz_s_split(helm2d, zk, s, t), (1, 1))

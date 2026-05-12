@@ -15,7 +15,7 @@ from chunkie import (
     kernel,
     pointinfo,
 )
-from chunkie.chnk import quadnative
+from chunkie.quadrature import native as quadnative
 
 
 def circle(t):

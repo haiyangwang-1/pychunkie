@@ -1,6 +1,6 @@
 # Special Quadrature Status
 
-The Python port now includes `chunkie.chnk.quadggq`, matching the MATLAB
+The Python port now includes `chunkie.quadrature.ggq`, matching the MATLAB
 special-quadrature entry points:
 
 - `setup`

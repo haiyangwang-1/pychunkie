@@ -12,7 +12,10 @@ from chunkie import (
     merge,
     pointinfo,
 )
-from chunkie.chnk import helm2d, lap2d, quadadap, quadggq, rcip, smoother
+from chunkie.chnk import helm2d, lap2d, smoother
+from chunkie.quadrature import adaptive as quadadap
+from chunkie.quadrature import ggq as quadggq
+from chunkie.quadrature import rcip
 
 
 def _unit_columns(arr):

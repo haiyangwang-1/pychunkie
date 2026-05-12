@@ -676,7 +676,8 @@ def _local_chunkermat(
     ilist: np.ndarray | None = None,
 ) -> np.ndarray:
     from ..operators import chunkerkernevalmat, chunkermat
-    from . import quadggq, quadnative
+    from . import ggq as quadggq
+    from . import native as quadnative
 
     starts = np.cumsum([0] + [ch.npt * int(ndim) for ch in chunks])
     out = np.zeros((starts[-1], starts[-1]))

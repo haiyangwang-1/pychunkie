@@ -54,10 +54,7 @@ def test_top_level_public_exports_are_stable():
 
 def test_chnk_public_exports_are_stable_and_lazy():
     for name in [
-        "chunkie.chnk.quadggq",
-        "chunkie.chnk.quadadap",
         "chunkie.chnk.flam",
-        "chunkie.chnk.rcip",
         "chunkie.chnk.smoother",
     ]:
         sys.modules.pop(name, None)
@@ -82,22 +79,36 @@ def test_chnk_public_exports_are_stable_and_lazy():
         "lap2d",
         "normal2d",
         "perp",
-        "pquad",
-        "quadadap",
-        "quadggq",
-        "quadnative",
-        "rcip",
         "smoother",
         "spcl",
         "stok2d",
     }
     assert set(chnk.__all__) == expected
-    assert "chunkie.chnk.quadggq" not in sys.modules
     assert "chunkie.chnk.flam" not in sys.modules
-    assert "chunkie.chnk.rcip" not in sys.modules
 
-    from chunkie.chnk import flagnear, lap2d, quadggq
+    from chunkie.chnk import flagnear, lap2d
 
     assert lap2d.__name__ == "chunkie.chnk.lap2d"
-    assert quadggq.__name__ == "chunkie.chnk.quadggq"
     assert callable(flagnear)
+
+
+def test_quadrature_public_exports_are_stable_and_lazy():
+    for name in [
+        "chunkie.quadrature.adaptive",
+        "chunkie.quadrature.ggq",
+        "chunkie.quadrature.panel",
+        "chunkie.quadrature.rcip",
+    ]:
+        sys.modules.pop(name, None)
+    sys.modules.pop("chunkie.quadrature", None)
+
+    quadrature = importlib.import_module("chunkie.quadrature")
+    expected = {"adaptive", "ggq", "native", "panel", "rcip"}
+    assert set(quadrature.__all__) == expected
+    assert "chunkie.quadrature.ggq" not in sys.modules
+    assert "chunkie.quadrature.rcip" not in sys.modules
+
+    from chunkie.quadrature import ggq, rcip
+
+    assert ggq.__name__ == "chunkie.quadrature.ggq"
+    assert rcip.__name__ == "chunkie.quadrature.rcip"

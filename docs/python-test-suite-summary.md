@@ -44,7 +44,7 @@ Stokes tests cover velocity, pressure, traction, and gradient blocks for the
 traction, double layer, alternate double layer, and derivative/traction forms
 for Lame parameters `lam` and `mu`.
 
-Special quadrature is provided by `chnk.quadggq`. Logarithmic kernels use log
+Special quadrature is provided by `chunkie.quadrature.ggq`. Logarithmic kernels use log
 GGQ rules; principal-value kernels use PV support tables; hypersingular kernels
 use HS support tables. Accelerated tests request
 `{"acceleration": "fmm"}` and compare against the dense direct path. FLAM
