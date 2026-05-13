@@ -47,8 +47,8 @@ for Lame parameters `lam` and `mu`.
 Special quadrature is provided by `chunkie.quadrature.ggq`. Logarithmic kernels use log
 GGQ rules; principal-value kernels use PV support tables; hypersingular kernels
 use HS support tables. Accelerated tests request
-`{"acceleration": "fmm"}` and compare against the dense direct path. FLAM
-tests request `{"acceleration": "flam"}` and compare PyFLAM-backed matrix,
+`acceleration="fmm"` and compare against the dense direct path. FLAM
+tests request `acceleration="flam"` and compare PyFLAM-backed matrix,
 target-evaluation, and interior-classification paths against dense/FMM
 references. RCIP tests exercise recursive compressed inverse preconditioning
 for corner edges.
@@ -698,7 +698,7 @@ threshold.
 transmission-style Helmholtz l2-scaling relation from
 `chunkermat_l2scaleTest.m`. The method builds the manual
 `diag(sqrt(w))*A*diag(1/sqrt(w))` block matrix and compares it to Python
-`chunkermat(..., {"l2scale": "true"})`, then verifies both solve the same RHS
+`chunkermat(..., l2scale=True)`, then verifies both solve the same RHS
 to the MATLAB diagnostic threshold.
 
 `test_singularkernel_devtools_pv_hs_outputs_match_matlab` checks principal-
@@ -718,7 +718,7 @@ recursion metadata, and GGQ reference block against MATLAB.
 `test_datafield_devtools_target_data_flam_matches_matlab` checks the
 directional-derivative single-layer target-data slice from MATLAB
 `datafieldTest.m`. The method uses the saved MATLAB boundary density, evaluates
-the custom target-data kernel through direct, `forceadap`, and
+the custom target-data kernel through direct, `force_adaptive`, and
 `acceleration="flam"` paths, and compares against MATLAB direct/adaptive/FLAM
 outputs plus the saved single-layer-gradient directional truth.
 
@@ -772,7 +772,7 @@ thresholds; the full boundary-integral solve stages remain pending.
 Green-identity portion of MATLAB `kernelclassTest.m` plus NaN-kernel
 propagation. The method reconstructs the saved starfish chunker, recomputes
 boundary `u` and normal-derivative densities from exterior point sources, then
-uses direct and FMM `chunkerkerneval(..., forceadap=True, usepquad=False)` for
+uses direct and FMM `chunkerkerneval(..., force_adaptive=True, use_panel_quadrature=False)` for
 MATLAB-adaptive close-corrected target layer evaluation. Ground truth is
 MATLAB's boundary data, target truth, layer potentials, FMM equality
 diagnostics, Green-identity residual, and NaN-kernel diagnostics.
@@ -781,14 +781,14 @@ diagnostics, Green-identity residual, and NaN-kernel diagnostics.
 Laplace Green-identity target-evaluation workflow from
 `chunkerkerneval_greenlapTest.m`. The method compares saved point-source
 fields, boundary densities, and close-corrected single/double-layer target
-evaluations through direct, FMM, and FLAM `forceadap` paths with pquad disabled
+evaluations through direct, FMM, and FLAM `force_adaptive` paths with pquad disabled
 for MATLAB-adaptive parity. Ground truth is MATLAB's direct, FMM, and FLAM
 outputs. Python FMM and FLAM force-adaptive target evaluation are checked
 against both direct and MATLAB fixture values.
 
 `test_chunkerkernevalmat_greenlap_devtools_outputs_match_matlab` checks the
 matrix form of the same Laplace Green identity. The method builds target
-evaluation matrices with `chunkerkernevalmat(..., forceadap=True)`, applies
+evaluation matrices with `chunkerkernevalmat(..., force_adaptive=True)`, applies
 them to saved boundary densities, and verifies the reconstructed target field.
 The matrix comparison disables pquad so it pins MATLAB's saved adaptive
 double-layer matrix. Ground truth is MATLAB's single-layer matrix, adaptive
@@ -798,23 +798,23 @@ double-layer matrix, applied layer potentials, and relative identity residual.
 Helmholtz Green-identity workflow from `chunkerkerneval_greenhelmTest.m`. The
 method uses the saved complex wave number, source strengths, boundary
 densities, and targets, then evaluates single and double Helmholtz layers with
-`chunkerkerneval(..., forceadap=True, usepquad=False)`. Ground truth is
+`chunkerkerneval(..., force_adaptive=True, use_panel_quadrature=False)`. Ground truth is
 MATLAB's adaptive layer potentials and relative identity residual.
 
 `test_chunkerkerneval_corrections_devtools_outputs_match_matlab` checks
 MATLAB's explicit near-target correction matrix workflow from
 `chunkerkerneval_correctionsTest.m`. The method solves the saved Helmholtz
 double-layer boundary system, builds
-`chunkerkernevalmat(..., {"corrections": True})` as a sparse near-target
+`chunkerkernevalmat(..., corrections=True)` as a sparse near-target
 correction matrix with pquad disabled for MATLAB-adaptive parity, applies it
-through `chunkerkerneval(..., {"forcesmooth": True, "cormat": cormat})`, and
+through `chunkerkerneval` with prebuilt legacy correction data, and
 verifies that corrected evaluation matches the point-source truth while
 uncorrected smooth evaluation remains measurably wrong.
 
 `test_chunkerkerneval_gaussid_devtools_outputs_match_matlab` checks the
 adaptive assertion from `chunkerkerneval_gaussidTest.m`. The method uses the
 saved starfish geometry, full `40 x 40` target grid, and unit double-layer
-density, then compares Python `chunkerkerneval(..., forceadap=True)` values to
+density, then compares Python `chunkerkerneval(..., force_adaptive=True)` values to
 MATLAB and verifies the Gauss identity values classify as either `0` outside
 or `-1` inside. Ground truth is MATLAB's target values, identity residuals, and
 inside/outside labels.
@@ -902,7 +902,7 @@ traction and compares to `dalttrac`. Ground truth is the stress formula.
 the canonical `opts["acceleration"]` key is the only acceleration selector. The
 method verifies MATLAB-style boolean aliases such as `{"flam": True}` and
 `{"fmm": True}` leave `chunkermat` on the dense path, while
-`{"acceleration": "flam"}` returns a `ChunkerFLAMMatrix` and invalid
+`acceleration="flam"` returns a `ChunkerFLAMMatrix` and invalid
 acceleration strings raise `ValueError`.
 
 `test_flam_kernbyindex_matches_dense_and_sparse_overwrites` checks 0-based
@@ -912,15 +912,15 @@ verifies sparse special-quadrature entries overwrite smooth entries.
 
 `test_flam_accepts_explicit_chunker_sequences` checks scalar FLAM behavior for
 explicit sequences of chunkers. The method compares `acceleration.flam.kernbyindex`,
-`chunkermat(..., {"acceleration": "flam"})`, and
-`chunkermatapply(..., {"acceleration": "flam"})` on a two-chunker list against
+`chunkermat(..., acceleration="flam")`, and
+`chunkermatapply(..., acceleration="flam")` on a two-chunker list against
 the same dense operations on `merge(chunkers)`.
 
 `test_flam_accepts_vector_opdim_chunker_sequences` checks that explicit
 chunker sequences and vector operator dimensions compose. The method builds a
 two-component smooth kernel over a two-chunker list, applies both
-`chunkermat(..., {"acceleration": "flam"})` and
-`chunkermatapply(..., {"acceleration": "flam"})`, and compares against the
+`chunkermat(..., acceleration="flam")` and
+`chunkermatapply(..., acceleration="flam")`, and compares against the
 dense matrix on `merge(chunkers)`.
 
 `test_flam_kernbyindex_accepts_multi_chunker_block_kernels` checks the
@@ -955,7 +955,7 @@ callback orientations.
 
 `test_chunkermat_flam_applies_solves_and_logdet_against_dense` checks the
 PyFLAM-backed boundary matrix wrapper. The method builds
-`chunkermat(..., {"acceleration": "flam"})`, compares matrix-vector products
+`chunkermat(..., acceleration="flam")`, compares matrix-vector products
 against the dense special matrix, solves a shifted Laplace system, and compares
 `logdet()` to NumPy's dense determinant calculation.
 
@@ -1006,12 +1006,12 @@ PyFLAM operator with the dense matrix. Ground truth is dense evaluation with
 the proxy path disabled automatically for data-bearing chunkers.
 
 `test_chunkermatapply_flam_accepts_multiple_rhs` checks direct
-`chunkermatapply(..., {"acceleration": "flam"})` application on multiple
+`chunkermatapply(..., acceleration="flam")` application on multiple
 right-hand sides. The method applies the PyFLAM-backed path to two density
 columns and compares the result to dense special-quadrature matrix products.
 
 `test_chunkermatapply_flam_preserves_single_column_rhs` checks that direct
-`chunkermatapply(..., {"acceleration": "flam"})` preserves an explicit
+`chunkermatapply(..., acceleration="flam")` preserves an explicit
 single-column density shape. The method applies the PyFLAM-backed path to an
 `(n, 1)` density and compares against the dense matrix product with the same
 shape.
@@ -1055,14 +1055,14 @@ adaptive reference.
 
 `test_chunkerkerneval_flam_same_source_special_quadrature_matches_dense`
 checks FLAM self-target evaluation for singular kernels. The method requests
-`chunkerkernevalmat(..., targobj=chnkr, {"acceleration": "flam"})` and
-`chunkerkerneval(..., targobj=chnkr, {"acceleration": "flam"})` for a Laplace
+`chunkerkernevalmat(..., targobj=chnkr, acceleration="flam")` and
+`chunkerkerneval(..., targobj=chnkr, acceleration="flam")` for a Laplace
 single-layer kernel, then compares both routes against the dense GGQ
 same-source matrix.
 
 `test_chunkerinterior_flam_matches_direct_classification` checks FLAM interior
 classification. The method evaluates inside, outside, and near-boundary sample
-targets with `chunkerinterior(..., {"acceleration": "flam"})` and compares to
+targets with `chunkerinterior(..., acceleration="flam")` and compares to
 the direct classifier.
 
 ## `tests/test_geometry.py`
@@ -1196,7 +1196,7 @@ kernel. Ground truth is the corresponding algebraic output, including
 
 `test_kernel_fmm_fallback_matches_direct_layer_evaluation` checks the FMM path
 for a Laplace single-layer kernel. The method evaluates the same circle density
-with dense direct summation and with `{"acceleration": "fmm"}`. Ground truth is
+with dense direct summation and with `acceleration="fmm"`. Ground truth is
 exact agreement with the dense direct reference and non-null FMM metadata.
 
 `test_fmm2dpy_laplace_gradient_and_helmholtz_layers_match_direct` checks
@@ -1486,7 +1486,7 @@ including matrices, applied values, integrals, and classifications.
 `test_accelerated_operator_paths_match_matlab_fixture` checks accelerated
 operator parity for a Laplace single-layer boundary matrix and a smooth
 multi-chunker block-kernel system. The method compares Python
-`ChunkerFMMMatrix` and `chunkermatapply(..., {"acceleration": "fmm"})`
+`ChunkerFMMMatrix` and `chunkermatapply(..., acceleration="fmm")`
 products against MATLAB forced-FMM output, then compares Python
 `ChunkerFLAMMatrix` matvec and `.solve()` results against MATLAB
 `chunkerflam`/`rskelf_mv`/`rskelf_sv` output on deterministic random
@@ -1525,13 +1525,13 @@ weighting, plus equality between the two direct routes.
 `test_chunkermatapply_fmm_matches_special_matrix_application` checks FMM
 matrix application for a singular boundary operator. The method applies a
 Laplace single-layer kernel through
-`chunkermatapply(..., {"acceleration": "fmm"})`, then compares against the
+`chunkermatapply(..., acceleration="fmm")`, then compares against the
 dense special-quadrature matrix product. Ground truth is agreement after sparse
 self/neighbor GGQ corrections are added to the FMM result.
 
 `test_chunkermat_fmm_returns_matrix_free_operator_matching_dense_application`
 checks the explicit FMM return path on `chunkermat`. The method requests
-`chunkermat(..., {"acceleration": "fmm"})` for a Laplace single-layer kernel,
+`chunkermat(..., acceleration="fmm")` for a Laplace single-layer kernel,
 verifies that the result is a `ChunkerFMMMatrix`, and compares both vector and
 multiple-right-hand-side products against the dense special-quadrature matrix.
 Ground truth is agreement with the dense product after cached sparse GGQ
@@ -1565,7 +1565,7 @@ weighted by source quadrature weights, plus direct evaluation equality.
 
 `test_chunkerkernevalmat_fmm_materializes_target_eval_matrix` checks FMM-backed
 materialization for off-boundary target-evaluation matrices. The method
-requests `chunkerkernevalmat(..., {"acceleration": "fmm"})` for a Laplace
+requests `chunkerkernevalmat(..., acceleration="fmm")` for a Laplace
 single-layer kernel, compares the materialized matrix against the dense direct
 matrix, and verifies applying it agrees with FMM target evaluation.
 
@@ -1721,13 +1721,13 @@ functions carry the scalar factor.
 `test_forceadap_target_matrix_prefers_pquad_when_side_is_inferred` checks the
 public target-evaluation matrix path. The method places an off-boundary close
 target near a source panel, monkeypatches `pquad.panel_matrix`, and verifies
-`chunkerkernevalmat(..., forceadap=True)` uses inferred-side pquad while
+`chunkerkernevalmat(..., force_adaptive=True)` uses inferred-side pquad while
 matching the `usepquad=False` adaptive fallback.
 
 `test_forceadap_sparse_correction_prefers_pquad_and_matches_matrix` checks the
-sparse correction path used by `opts["corrections"]`. The method compares a
+sparse correction path used by `corrections=True`. The method compares a
 smooth evaluation plus sparse pquad correction against
-`chunkerkerneval(..., forceadap=True)` for an interior close target.
+`chunkerkerneval(..., force_adaptive=True)` for an interior close target.
 
 `test_quadggq_neighbor_block_uses_pquad_when_side_is_explicit` checks the GGQ
 neighbor-block integration. The method supplies `pquad_side="e"` to
@@ -1736,7 +1736,7 @@ oversampled-Gauss fallback.
 
 `test_chunkermat_side_option_uses_pquad_for_special_neighbors` checks the
 public same-source matrix path when a boundary side is provided. The method
-uses `chunkermat(..., {"side": "e"})`, verifies pquad is called for eligible
+uses `chunkermat(..., side="e")`, verifies pquad is called for eligible
 special neighbor blocks, and compares against `usepquad=False`.
 
 `test_quadadap_neighbor_blocks_use_pquad_when_side_is_explicit` checks the

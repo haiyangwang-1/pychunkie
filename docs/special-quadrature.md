@@ -28,8 +28,7 @@ density values from the original panel nodes.
 `chunkermat`, `chunkermatapply`, `chunkerkerneval`, and `chunkerkernevalmat`
 use this special quadrature by default for kernel objects marked with
 `sing == "log"` when the target is the same chunker. Pass
-`{"forcesmooth": True}` or `{"usesmooth": True}` to force native smooth
-quadrature.
+`quadrature="native"` to force native smooth quadrature.
 
 The packaged data covers the upstream near tables, log self tables used by the
 Python loader, and the available PV/HS support tables.

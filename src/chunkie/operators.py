@@ -476,9 +476,9 @@ def chunkermat(
     """Assemble or factor a boundary-integral operator on a chunker-like object.
 
     The default path returns a dense NumPy matrix using native or special
-    quadrature. ``opts={"acceleration": "fmm"}`` returns a matrix-free
+    quadrature. ``acceleration="fmm"`` returns a matrix-free
     :class:`ChunkerFMMMatrix` for kernels with an FMM evaluator.
-    ``opts={"acceleration": "flam"}`` returns a :class:`ChunkerFLAMMatrix`
+    ``acceleration="flam"`` returns a :class:`ChunkerFLAMMatrix`
     backed by PyFLAM and accepts ``dval`` for second-kind or shifted systems.
     Block kernel matrices are supported for explicit chunker sequences and
     chunkgraphs.
@@ -566,7 +566,7 @@ def chunkermatapply(
     proxy: bool | None = None,
     side: str | None = None,
 ) -> np.ndarray:
-    """Apply ``chunkermat(chnkr, kern, opts)`` without forcing dense materialization."""
+    """Apply ``chunkermat(chnkr, kern, ...)`` without forcing dense materialization."""
 
     options = _normalize_public_options(
         opts,
@@ -716,7 +716,7 @@ def chunkerkerneval(
     implied by ``kern.opdims``. ``targobj`` may be raw coordinates, a
     ``PointInfo``/mapping, another chunker, or a chunkgraph-like object.
     Options include ``acceleration="fmm"`` for supported FMM kernels,
-    ``acceleration="flam"`` for PyFLAM target evaluation, and ``forceadap=True``
+    ``acceleration="flam"`` for PyFLAM target evaluation, and ``force_adaptive=True``
     for adaptive close-target correction.
     """
 
@@ -825,8 +825,9 @@ def chunkerkernevalmat(
 
     This is the materialized companion to :func:`chunkerkerneval`. It is useful
     for diagnostics, custom solvers, and adaptive correction matrices. Ordinary
-    evaluation matrices are dense; ``opts["corrections"]`` returns the sparse
-    near-target correction matrix used by ``opts["cormat"]``. FMM is a
+    evaluation matrices are dense; ``corrections=True`` returns the sparse
+    near-target correction matrix accepted by legacy ``cormat`` evaluation
+    calls. FMM is a
     matrix-free path and is intentionally unavailable here; use
     :func:`chunkerkerneval` or :func:`chunkermatapply` for FMM application.
     """

@@ -29,10 +29,11 @@ Operator inputs and densities flatten nodes in Fortran order, so the first
 
 Common constructors:
 
-- `chunkerfunc(fcurve, cparams, pref)` for smooth parametric curves.
-- `chunkerpoly(verts, cparams, pref)` for true polygons, rounded polygons, and
-  dyadically refined non-smooth corners.
-- `chunkerfit(points, opts)` for spline-fitted boundaries.
+- `chunkerfunc(fcurve, order=16, closed=True, tol=1e-6)` for smooth
+  parametric curves.
+- `chunkerpoly(verts, order=16, closed=True, dyadic=True)` for true polygons,
+  rounded polygons, and dyadically refined non-smooth corners.
+- `chunkerfit(points, order=16, closed=True)` for spline-fitted boundaries.
 - `tochunkgraph(chnkr)` when a chunker component should be handled as a graph.
 
 `ChunkGraph` stores a set of chunker edges and graph vertices. It is useful for
@@ -70,7 +71,7 @@ node-interleaved vector systems.
 A typical BIE workflow is:
 
 ```python
-chnkr, _ = chunkerfunc(curve, {"ifclosed": True}, {"k": 16})
+chnkr, _ = chunkerfunc(curve, order=16, closed=True)
 lap_s = kernel("lap", "s")
 mat = chunkermat(chnkr, lap_s)
 sigma = np.linalg.solve(mat, boundary_data)
@@ -83,7 +84,7 @@ Important conventions:
 - `chunkerkerneval` expects an unweighted density and applies weights
   internally.
 - Boundary jump terms such as `+/- 0.5 * I` are not included automatically.
-- For close target evaluation, pass `{"forceadap": True}` when adaptive
+- For close target evaluation, pass `force_adaptive=True` when adaptive
   correction is needed.
 
 ## Smooth Single-Domain BVPs
@@ -101,7 +102,7 @@ constant-potential constraint when solving exterior or mean-sensitive problems.
 
 ## Non-Smooth Domains
 
-Use `chunkerpoly(..., {"dyadic": True, "depth": n})` for true corners. This
+Use `chunkerpoly(..., dyadic=True, depth=n)` for true corners. This
 creates smaller panels near each corner and preserves a non-rounded geometry.
 The package also includes RCIP utilities in `chunkie.quadrature.rcip` for local corner
 compression on chunkgraphs. Current high-level examples keep the BVP solve
@@ -133,8 +134,8 @@ mat = chunkermat(chnkr, kern)
 FMM acceleration uses `fmm2dpy` for supported 2D kernels:
 
 ```python
-values = chunkerkerneval(chnkr, kern, sigma, targets, {"acceleration": "fmm", "eps": 1e-12})
-op = chunkermat(chnkr, kern, {"acceleration": "fmm"})
+values = chunkerkerneval(chnkr, kern, sigma, targets, acceleration="fmm", tol=1e-12)
+op = chunkermat(chnkr, kern, acceleration="fmm")
 y = op @ sigma
 ```
 
@@ -145,7 +146,9 @@ FLAM acceleration uses `pyflam` for compressed matrix application and, for
 op = chunkermat(
     chnkr,
     kern,
-    {"acceleration": "flam", "dval": 1.0, "rank_or_tol": 1e-10, "occ": 64},
+    acceleration="flam",
+    dval=1.0,
+    rank_or_tol=1e-10,
 )
 y = op @ sigma
 sigma = op.solve(rhs)
