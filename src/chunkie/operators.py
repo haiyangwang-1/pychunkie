@@ -13,7 +13,7 @@ from scipy.sparse import spmatrix
 from scipy.sparse.linalg import LinearOperator
 
 from . import lege
-from .chunker import Chunker, merge
+from .chunker import Chunker, ChunkerPref, merge
 
 
 _KERNEL_PROBE_EXCEPTIONS = (
@@ -1108,14 +1108,21 @@ def _chunkgraph_rcip_eval(
     for rcipsav in context.saved:
         starind = np.asarray(rcipsav.starind, dtype=int).reshape(-1)
         rhocells, srcinfos, wtscells = rcip.rhohatInterp(dens_vec[starind], rcipsav, ndepth)
-        srcinfo = _merge_pointinfos([src for src in srcinfos if src is not None])
-        if srcinfo is None:
-            continue
-        rho_local = np.concatenate([np.asarray(rho).reshape(-1, order="F") for rho in rhocells])
-        wts_local = np.concatenate([np.asarray(wts).reshape(-1, order="F") for wts in wtscells if wts is not None])
         local_targets = _shift_pointinfo(targinfo, np.asarray(rcipsav.ctr)[:, [0]])
-        local_mat = _eval_kernel(kern, srcinfo, local_targets)
-        vals = vals + local_mat @ _apply_weights_to_density(rho_local, wts_local)
+        if _flag(eval_options, "forceadap"):
+            for rho, srcinfo, wts in zip(rhocells, srcinfos, wtscells):
+                if srcinfo is None or wts is None:
+                    continue
+                local_chunker = _chunker_from_pointinfo(srcinfo, wts, rcipsav.k)
+                vals = vals + chunkerkerneval(local_chunker, kern, rho, local_targets, eval_options).reshape(-1, order="F")
+        else:
+            srcinfo = _merge_pointinfos([src for src in srcinfos if src is not None])
+            if srcinfo is None:
+                continue
+            rho_local = np.concatenate([np.asarray(rho).reshape(-1, order="F") for rho in rhocells])
+            wts_local = np.concatenate([np.asarray(wts).reshape(-1, order="F") for wts in wtscells if wts is not None])
+            local_mat = _eval_kernel(kern, srcinfo, local_targets)
+            vals = vals + local_mat @ _apply_weights_to_density(rho_local, wts_local)
 
     return vals.reshape(-1, targinfo.r.shape[1], order="F")
 
@@ -1140,6 +1147,32 @@ def _shift_pointinfo(info: PointInfo, ctr: np.ndarray) -> PointInfo:
         n=info.n,
         data=info.data,
     )
+
+
+def _chunker_from_pointinfo(info: PointInfo, wts: np.ndarray, k: int) -> Chunker:
+    npt = int(info.r.shape[1])
+    k = int(k)
+    if npt % k != 0:
+        raise ValueError("RCIP local source points must be whole chunks")
+    nch = npt // k
+    out = Chunker(ChunkerPref(k=k, dim=info.r.shape[0], nchstor=nch, nchmax=nch))
+    out.addchunk(nch)
+    out.r = info.r.reshape(info.r.shape[0], k, nch, order="F")
+    if info.d is not None:
+        out.d = info.d.reshape(info.r.shape[0], k, nch, order="F")
+    if info.d2 is not None:
+        out.d2 = info.d2.reshape(info.r.shape[0], k, nch, order="F")
+    if info.n is not None:
+        out.n = info.n.reshape(info.r.shape[0], k, nch, order="F")
+    out.wts = np.asarray(wts).reshape(k, nch, order="F")
+    if nch:
+        out.adj = np.vstack(
+            (
+                np.concatenate(([-1], np.arange(1, nch, dtype=int))),
+                np.concatenate((np.arange(2, nch + 1, dtype=int), [-1])),
+            )
+        )
+    return out
 
 
 def _apply_weights_to_density(rho: np.ndarray, wts: np.ndarray) -> np.ndarray:

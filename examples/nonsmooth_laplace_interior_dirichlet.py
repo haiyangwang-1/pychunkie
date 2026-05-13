@@ -24,7 +24,7 @@ rhs = boundary[0]
 sigma = np.linalg.solve(system, rhs)
 
 targets = np.array([[0.0, 0.3, -0.2], [0.0, 0.2, 0.4]])
-values = chunkerkerneval(cg, system_kernel, sigma, targets).reshape(-1)
+values = chunkerkerneval(cg, system_kernel, sigma, targets, {"forceadap": True}).reshape(-1)
 
 xs = np.linspace(-1.15, 1.15, grid_size)
 ys = np.linspace(-1.15, 1.15, grid_size)
@@ -33,7 +33,7 @@ domain = (np.abs(xx) <= 0.995) & (np.abs(yy) <= 0.995)
 plot_targets = np.vstack((xx[domain], yy[domain]))
 plot_truth = np.full(xx.shape, np.nan)
 plot_truth[domain] = plot_targets[0]
-plot_values = chunkerkerneval(cg, system_kernel, sigma, plot_targets).reshape(-1)
+plot_values = chunkerkerneval(cg, system_kernel, sigma, plot_targets, {"forceadap": True}).reshape(-1)
 
 solution = np.full(xx.shape, np.nan)
 solution[domain] = plot_values

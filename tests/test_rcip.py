@@ -222,6 +222,9 @@ def test_chunkermat_defaults_to_rcip_on_nonsmooth_chunkgraph_and_evaluates_corne
     targets = np.array([[0.0, 0.3, -0.2], [0.0, 0.2, 0.4]])
     values = chunkerkerneval(cg, system_kernel, sigma, targets).reshape(-1)
     np.testing.assert_allclose(values, targets[0], atol=2e-9)
+    near_targets = np.array([[0.99, 0.999, 0.999], [0.2, 0.0, 0.8]])
+    near_values = chunkerkerneval(cg, system_kernel, sigma, near_targets, {"forceadap": True}).reshape(-1)
+    np.testing.assert_allclose(near_values, near_targets[0], atol=1e-6)
 
     direct = chunkermat(cg, system_kernel, {"rcip": False})
     assert not hasattr(direct, "rcip")

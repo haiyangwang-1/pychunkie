@@ -108,7 +108,9 @@ for scalar second-kind Laplace/Helmholtz kernels such as double layer and
 sprime; pass `{"rcip": False}` to force ordinary merged-geometry assembly.
 `chunkerkerneval(cg, ...)` reuses the RCIP metadata cached by the preceding
 compressed solve and interpolates the corner density back to the locally
-refined panels for target evaluation.
+refined panels for target evaluation. For near-boundary targets, pass
+`{"forceadap": True}`; the adaptive correction is applied to both the coarse
+non-corner panels and the local RCIP corner panels.
 
 ## Chunkgraphs And Multi-Region Problems
 
