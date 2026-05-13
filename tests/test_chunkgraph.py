@@ -9,7 +9,7 @@ from chunkie import (
     find_edge_regions,
     tochunkgraph,
 )
-from chunkie.operators import PointInfo
+from chunkie.geometry import PointInfo
 
 
 def smooth_kernel(src: PointInfo, targ: PointInfo):

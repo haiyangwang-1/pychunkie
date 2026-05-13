@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import ArrayLike
 
-from chunkie.operators import PointInfo, pointinfo
+from chunkie.geometry import PointInfo
 
 
 def kern(
@@ -22,8 +22,8 @@ def kern(
     ``x`` and ``y`` components alternating in both rows and columns.
     """
 
-    src = pointinfo(srcinfo)
-    targ = pointinfo(targinfo)
+    src = PointInfo.from_any(srcinfo)
+    targ = PointInfo.from_any(targinfo)
     typ = kind.lower()
     rx = targ.r[0, :, None] - src.r[0, None, :]
     ry = targ.r[1, :, None] - src.r[1, None, :]

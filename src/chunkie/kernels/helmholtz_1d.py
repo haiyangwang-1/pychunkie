@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import ArrayLike
 
-from chunkie.operators import PointInfo, pointinfo
+from chunkie.geometry import PointInfo
 
 
 def green(zk: complex, src: ArrayLike, targ: ArrayLike) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -40,8 +40,8 @@ def kern(
 ) -> np.ndarray:
     """Evaluate 1D Helmholtz layer kernels using MATLAB selector names."""
 
-    src = pointinfo(srcinfo)
-    targ = pointinfo(targinfo)
+    src = PointInfo.from_any(srcinfo)
+    targ = PointInfo.from_any(targinfo)
     typ = kind.lower()
     val, grad, hess = green(zk, src.r, targ.r)
 

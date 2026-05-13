@@ -7,7 +7,7 @@ from numpy.typing import ArrayLike
 from scipy.special import hankel1
 
 from . import laplace as lap2d
-from chunkie.operators import PointInfo, pointinfo
+from chunkie.geometry import PointInfo
 
 
 def green(zk: complex, src: ArrayLike, targ: ArrayLike) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -59,8 +59,8 @@ def kern(
     rows/columns for coupled representation systems.
     """
 
-    src = pointinfo(srcinfo)
-    targ = pointinfo(targinfo)
+    src = PointInfo.from_any(srcinfo)
+    targ = PointInfo.from_any(targinfo)
     typ = kind.lower()
     is_diff = typ.endswith("_diff")
     suffix = "_diff" if is_diff else ""

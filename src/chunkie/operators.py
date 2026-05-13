@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
+import warnings
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -13,7 +14,8 @@ from scipy.sparse import spmatrix
 from scipy.sparse.linalg import LinearOperator
 
 from . import lege
-from .chunker import Chunker, merge
+from .geometry.chunker import Chunker, merge
+from .geometry.pointinfo import PointInfo
 
 
 _KERNEL_PROBE_EXCEPTIONS = (
@@ -26,21 +28,65 @@ _KERNEL_PROBE_EXCEPTIONS = (
 )
 
 
-@dataclass
-class PointInfo:
-    """Flattened source or target point data passed to kernels.
+_NORMALIZED_OPTIONS_MARKER = "_chunkie_normalized_operator_options"
 
-    ``r`` has shape ``(dim, npt)``. Optional ``d``, ``d2``, and ``n`` fields
-    carry tangent derivatives and normals for kernels that need source or
-    target normal derivatives. ``data`` is an optional user-defined
-    ``(datadim, npt)`` array available to custom kernels.
-    """
 
-    r: np.ndarray
-    d: np.ndarray | None = None
-    d2: np.ndarray | None = None
-    n: np.ndarray | None = None
-    data: np.ndarray | None = None
+def _normalize_public_options(
+    opts: dict[str, Any] | None,
+    *,
+    acceleration: str | None = None,
+    quadrature: str | None = None,
+    use_panel_quadrature: bool | None = None,
+    l2scale: bool | None = None,
+    dval: ArrayLike | float | complex | None = None,
+    tol: float | None = None,
+    flam_type: str | None = None,
+    rank_or_tol: int | float | None = None,
+    proxy: bool | None = None,
+    force_adaptive: bool | None = None,
+    corrections: bool | None = None,
+    side: str | None = None,
+    near_factor: float | None = None,
+) -> dict[str, Any]:
+    if opts is None:
+        options: dict[str, Any] = {}
+    elif bool(opts.get(_NORMALIZED_OPTIONS_MARKER, False)):
+        options = dict(opts)
+    else:
+        warnings.warn(
+            "operator option dictionaries are deprecated; use keyword-only arguments instead",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        options = dict(opts)
+    _set_option(options, "acceleration", acceleration)
+    _set_option(options, "usepquad", use_panel_quadrature)
+    _set_option(options, "l2scale", l2scale)
+    _set_option(options, "dval", dval)
+    _set_option(options, "tol", tol)
+    _set_option(options, "flamtype", flam_type)
+    _set_option(options, "rank_or_tol", rank_or_tol)
+    _set_option(options, "useproxy", proxy)
+    _set_option(options, "forceadap", force_adaptive)
+    _set_option(options, "corrections", corrections)
+    _set_option(options, "side", side)
+    _set_option(options, "fac", near_factor)
+    if quadrature is not None:
+        qmode = str(quadrature).lower()
+        if qmode == "smooth":
+            options["forcesmooth"] = True
+        elif qmode == "adaptive":
+            options["forceadap"] = True
+            options["adaptive_correction"] = True
+        elif qmode != "auto":
+            options["sing"] = qmode
+    options[_NORMALIZED_OPTIONS_MARKER] = True
+    return options
+
+
+def _set_option(options: dict[str, Any], key: str, value: Any) -> None:
+    if value is not None:
+        options[key] = value
 
 
 @dataclass
@@ -296,34 +342,6 @@ class ChunkerFLAMMatrix(LinearOperator):
         return out[:, 0] if one_dim else out
 
 
-def pointinfo(obj: Chunker | dict[str, Any] | ArrayLike | PointInfo) -> PointInfo:
-    """Convert supported inputs to MATLAB-style point-info fields."""
-
-    if isinstance(obj, PointInfo):
-        return obj
-    merged = _as_chunker(obj)
-    if merged is not None:
-        obj = merged
-    if isinstance(obj, Chunker):
-        return PointInfo(
-            r=obj.r.reshape(obj.dim, obj.npt, order="F"),
-            d=obj.d.reshape(obj.dim, obj.npt, order="F"),
-            d2=obj.d2.reshape(obj.dim, obj.npt, order="F"),
-            n=obj.n.reshape(obj.dim, obj.npt, order="F"),
-            data=obj.data.reshape(obj.datadim, obj.npt, order="F") if obj.datadim else None,
-        )
-    if isinstance(obj, dict):
-        return PointInfo(
-            r=np.asarray(obj["r"], dtype=float).reshape(np.asarray(obj["r"]).shape[0], -1),
-            d=_optional_field(obj, "d"),
-            d2=_optional_field(obj, "d2"),
-            n=_optional_field(obj, "n"),
-            data=_optional_field(obj, "data"),
-        )
-    arr = np.asarray(obj, dtype=float)
-    return PointInfo(r=arr.reshape(arr.shape[0], -1))
-
-
 def chunkerflam(
     chnkobj: Chunker,
     kern: Callable[[Any, Any], np.ndarray],
@@ -371,7 +389,7 @@ def chunkerflam(
             out = _add_diagonal_shift(out, rows, cols, dval_vec)
         return out
 
-    srcinfo = pointinfo(chnkr)
+    srcinfo = PointInfo.from_any(chnkr)
     xflam = np.repeat(np.real(srcinfo.r), op1, axis=1)
     flamtype = _flamtype(options)
     occ = _flam_occ(options)
@@ -382,7 +400,7 @@ def chunkerflam(
     if useproxy and flamtype == "rskelf":
         pxyfun = _chunkerflam_proxyfun(chnkr, kern, (op0, op1), options)
     elif useproxy and flamtype == "rskel":
-        pxyfun = _chunkerkerneval_proxyfun(chnkr, kern, pointinfo(chnkr), (op0, op1), options)
+        pxyfun = _chunkerkerneval_proxyfun(chnkr, kern, PointInfo.from_any(chnkr), (op0, op1), options)
 
     if flamtype == "rskelf":
         return pyflam.rskelf(matfun, xflam, occ, rank_or_tol, pxyfun, opts_flam)
@@ -424,7 +442,7 @@ def _chunkerflam_block(
 
     xflam = np.column_stack(
         [
-            np.repeat(np.real(pointinfo(chnkr).r), int(opdim), axis=1)
+            np.repeat(np.real(PointInfo.from_any(chnkr).r), int(opdim), axis=1)
             for chnkr, opdim in zip(layout.chunkers, layout.coldims)
         ]
     )
@@ -443,6 +461,17 @@ def chunkermat(
     chnkr: Chunker,
     kern: Callable[[Any, Any], np.ndarray],
     opts: dict[str, Any] | None = None,
+    *,
+    acceleration: str | None = None,
+    quadrature: str | None = None,
+    use_panel_quadrature: bool | None = None,
+    l2scale: bool | None = None,
+    dval: ArrayLike | float | complex | None = None,
+    tol: float | None = None,
+    flam_type: str | None = None,
+    rank_or_tol: int | float | None = None,
+    proxy: bool | None = None,
+    side: str | None = None,
 ) -> np.ndarray | ChunkerFMMMatrix | ChunkerFLAMMatrix:
     """Assemble or factor a boundary-integral operator on a chunker-like object.
 
@@ -455,7 +484,19 @@ def chunkermat(
     chunkgraphs.
     """
 
-    options = {} if opts is None else dict(opts)
+    options = _normalize_public_options(
+        opts,
+        acceleration=acceleration,
+        quadrature=quadrature,
+        use_panel_quadrature=use_panel_quadrature,
+        l2scale=l2scale,
+        dval=dval,
+        tol=tol,
+        flam_type=flam_type,
+        rank_or_tol=rank_or_tol,
+        proxy=proxy,
+        side=side,
+    )
     if _is_block_kernel_matrix(kern):
         acceleration = _acceleration(options)
         if acceleration == "flam":
@@ -492,7 +533,7 @@ def chunkermat(
             )
         return _apply_l2scale_matrix(chnkr, mat) if _l2scale(options) else mat
 
-    srcinfo = pointinfo(chnkr)
+    srcinfo = PointInfo.from_any(chnkr)
     mat = _eval_kernel(kern, srcinfo, srcinfo)
     wts = chnkr.wts.reshape(-1, order="F")
     if mat.shape[1] == chnkr.npt:
@@ -513,10 +554,33 @@ def chunkermatapply(
     kern: Callable[[Any, Any], np.ndarray],
     dens: ArrayLike,
     opts: dict[str, Any] | None = None,
+    *,
+    acceleration: str | None = None,
+    quadrature: str | None = None,
+    use_panel_quadrature: bool | None = None,
+    l2scale: bool | None = None,
+    dval: ArrayLike | float | complex | None = None,
+    tol: float | None = None,
+    flam_type: str | None = None,
+    rank_or_tol: int | float | None = None,
+    proxy: bool | None = None,
+    side: str | None = None,
 ) -> np.ndarray:
     """Apply ``chunkermat(chnkr, kern, opts)`` without forcing dense materialization."""
 
-    options = {} if opts is None else dict(opts)
+    options = _normalize_public_options(
+        opts,
+        acceleration=acceleration,
+        quadrature=quadrature,
+        use_panel_quadrature=use_panel_quadrature,
+        l2scale=l2scale,
+        dval=dval,
+        tol=tol,
+        flam_type=flam_type,
+        rank_or_tol=rank_or_tol,
+        proxy=proxy,
+        side=side,
+    )
     acceleration = _acceleration(options)
     if acceleration == "fmm":
         if _is_block_kernel_matrix(kern):
@@ -552,6 +616,12 @@ def chunkerinterior(
     chnkr: Chunker,
     ptsobj: Chunker | dict[str, Any] | ArrayLike | tuple[ArrayLike, ArrayLike] | list[ArrayLike],
     opts: dict[str, Any] | None = None,
+    *,
+    acceleration: str | None = None,
+    tol: float | None = None,
+    near_factor: float | None = None,
+    close_correction: bool | None = None,
+    axis_symmetric: bool | None = None,
 ) -> np.ndarray:
     """Classify target points as inside a closed 2D chunker.
 
@@ -562,7 +632,9 @@ def chunkerinterior(
     """
 
     chnkr = _require_chunker(chnkr)
-    options = {} if opts is None else dict(opts)
+    options = _normalize_public_options(opts, acceleration=acceleration, tol=tol, near_factor=near_factor)
+    _set_option(options, "closecorr", close_correction)
+    _set_option(options, "axissym", axis_symmetric)
     if chnkr.dim != 2:
         raise ValueError("interior only well-defined for 2D chunkers")
 
@@ -588,7 +660,7 @@ def chunkerinterior(
 
     acceleration = _acceleration(options)
     if acceleration in {"fmm", "flam"}:
-        from .kernel import kernel
+        from .kernels import kernel
 
         lap_d = kernel("lap", "d")
         dens = np.ones(chnkr.npt)
@@ -597,12 +669,12 @@ def chunkerinterior(
             lap_d,
             dens,
             PointInfo(r=pts),
-            {"acceleration": acceleration, "eps": _fmm_tol(options)},
+            {_NORMALIZED_OPTIONS_MARKER: True, "acceleration": acceleration, "eps": _fmm_tol(options)},
         ).reshape(-1, order="F")
         inside = vals < -0.5
         if _flag(options, "closecorr", _flag(options, "corrections", True)):
             near_fac = float(options.get("near_fac", options.get("fac", 1.0)))
-            near = np.any(chnkr.flagnear(pts, {"fac": near_fac}), axis=1)
+            near = np.any(chnkr.flagnear(pts, fac=near_fac), axis=1)
             if np.any(near):
                 corrected = _chunkerinterior_direct(chnkr, pts[:, near], _flag(options, "axissym"))
                 inside[near] = corrected
@@ -627,6 +699,16 @@ def chunkerkerneval(
     dens: ArrayLike,
     targobj: Chunker | dict[str, Any] | ArrayLike | PointInfo,
     opts: dict[str, Any] | None = None,
+    *,
+    acceleration: str | None = None,
+    quadrature: str | None = None,
+    use_panel_quadrature: bool | None = None,
+    tol: float | None = None,
+    flam_type: str | None = None,
+    rank_or_tol: int | float | None = None,
+    proxy: bool | None = None,
+    force_adaptive: bool | None = None,
+    side: str | None = None,
 ) -> np.ndarray:
     """Evaluate a layer potential generated by a chunker density at targets.
 
@@ -638,7 +720,18 @@ def chunkerkerneval(
     for adaptive close-target correction.
     """
 
-    options = {} if opts is None else dict(opts)
+    options = _normalize_public_options(
+        opts,
+        acceleration=acceleration,
+        quadrature=quadrature,
+        use_panel_quadrature=use_panel_quadrature,
+        tol=tol,
+        flam_type=flam_type,
+        rank_or_tol=rank_or_tol,
+        proxy=proxy,
+        force_adaptive=force_adaptive,
+        side=side,
+    )
     same_source_target = targobj is chnkr
     chnkr = _require_chunker(chnkr)
     acceleration = _acceleration(options)
@@ -649,7 +742,7 @@ def chunkerkerneval(
         opdims = getattr(kern, "opdims", (1, 1))[0]
         return vals.reshape(opdims, chnkr.npt, order="F")
     if acceleration == "flam":
-        targinfo = pointinfo(targobj)
+        targinfo = PointInfo.from_any(targobj)
         if _flag(options, "forceadap"):
             smooth_options = dict(options)
             smooth_options.pop("forceadap", None)
@@ -665,12 +758,12 @@ def chunkerkerneval(
     if use_fmm:
         _require_fmm(kern)
     if same_source_target and _uses_special_quadrature(kern, options) and not use_fmm:
-        vals = chunkermat(chnkr, kern, opts) @ np.asarray(dens).reshape(-1, order="F")
+        vals = chunkermat(chnkr, kern, options) @ np.asarray(dens).reshape(-1, order="F")
         opdims = getattr(kern, "opdims", (1, 1))[0]
         return vals.reshape(opdims, chnkr.npt, order="F")
 
-    srcinfo = pointinfo(chnkr)
-    targinfo = pointinfo(targobj)
+    srcinfo = PointInfo.from_any(chnkr)
+    targinfo = PointInfo.from_any(targobj)
     cormat = options.get("cormat", None)
     if cormat is not None:
         mat = _eval_kernel(kern, srcinfo, targinfo)
@@ -716,6 +809,17 @@ def chunkerkernevalmat(
     kern: Callable[[Any, Any], np.ndarray],
     targobj: Chunker | dict[str, Any] | ArrayLike | PointInfo,
     opts: dict[str, Any] | None = None,
+    *,
+    acceleration: str | None = None,
+    quadrature: str | None = None,
+    use_panel_quadrature: bool | None = None,
+    tol: float | None = None,
+    flam_type: str | None = None,
+    rank_or_tol: int | float | None = None,
+    proxy: bool | None = None,
+    force_adaptive: bool | None = None,
+    corrections: bool | None = None,
+    side: str | None = None,
 ) -> np.ndarray | spmatrix:
     """Build the matrix mapping source densities to target values.
 
@@ -729,29 +833,41 @@ def chunkerkernevalmat(
 
     same_source_target = targobj is chnkr
     chnkr = _require_chunker(chnkr)
-    options = {} if opts is None else dict(opts)
+    options = _normalize_public_options(
+        opts,
+        acceleration=acceleration,
+        quadrature=quadrature,
+        use_panel_quadrature=use_panel_quadrature,
+        tol=tol,
+        flam_type=flam_type,
+        rank_or_tol=rank_or_tol,
+        proxy=proxy,
+        force_adaptive=force_adaptive,
+        corrections=corrections,
+        side=side,
+    )
     if _flag(options, "corrections"):
-        return _target_adaptive_correction_matrix(chnkr, kern, pointinfo(targobj), options)
+        return _target_adaptive_correction_matrix(chnkr, kern, PointInfo.from_any(targobj), options)
     acceleration = _acceleration(options)
     if acceleration == "flam":
-        if same_source_target and _uses_special_quadrature(kern, opts):
+        if same_source_target and _uses_special_quadrature(kern, options):
             return np.asarray(chunkermat(chnkr, kern, options))
         if _flag(options, "forceadap"):
-            targinfo = pointinfo(targobj)
+            targinfo = PointInfo.from_any(targobj)
             smooth_options = dict(options)
             smooth_options.pop("forceadap", None)
             return _chunkerkernevalmat_flam(chnkr, kern, targinfo, smooth_options) + _target_adaptive_correction_matrix(chnkr, kern, targinfo, options).toarray()
         return _chunkerkernevalmat_flam(chnkr, kern, targobj, options)
     if acceleration == "fmm":
         _require_fmm(kern)
-        if same_source_target and _uses_special_quadrature(kern, opts):
+        if same_source_target and _uses_special_quadrature(kern, options):
             return np.asarray(chunkermat(chnkr, kern, options))
         return _chunkerkernevalmat_fmm(chnkr, kern, targobj, options)
-    if same_source_target and _uses_special_quadrature(kern, opts):
-        return chunkermat(chnkr, kern, opts)
+    if same_source_target and _uses_special_quadrature(kern, options):
+        return chunkermat(chnkr, kern, options)
 
-    srcinfo = pointinfo(chnkr)
-    targinfo = pointinfo(targobj)
+    srcinfo = PointInfo.from_any(chnkr)
+    targinfo = PointInfo.from_any(targobj)
     if _flag(options, "forceadap"):
         return _target_adaptive_matrix(chnkr, kern, targinfo, options)
     mat = _eval_kernel(kern, srcinfo, targinfo)
@@ -762,13 +878,6 @@ def chunkerkernevalmat(
         raise ValueError("kernel column dimension is incompatible with chunker points")
     opdims_col = mat.shape[1] // chnkr.npt
     return mat * np.repeat(wts, opdims_col)[None, :]
-
-
-def _optional_field(obj: dict[str, Any], name: str) -> np.ndarray | None:
-    if name not in obj or obj[name] is None:
-        return None
-    arr = np.asarray(obj[name])
-    return arr.reshape(arr.shape[0], -1)
 
 
 def _as_chunker(obj: Any) -> Chunker | None:
@@ -877,7 +986,7 @@ def _block_kernel_mat(obj: Any, kerns: Any, opts: dict[str, Any]) -> np.ndarray:
         source_edges = sorted({isrc for _, isrc in pairs})
         targ_merged = merge([edge_chunkers[idx] for idx in target_edges])
         src_merged = merge([edge_chunkers[idx] for idx in source_edges])
-        mat = _eval_kernel(kern, pointinfo(src_merged), pointinfo(targ_merged))
+        mat = _eval_kernel(kern, PointInfo.from_any(src_merged), PointInfo.from_any(targ_merged))
         sample_op1 = int(layout.opdims_mat[1, pairs[0][0], pairs[0][1]])
         src_weights = src_merged.wts.reshape(-1, order="F")
         if mat.shape[1] == src_merged.npt:
@@ -1359,7 +1468,7 @@ def _chunkerkerneval_flam(
     if dens_vec.size != out_shape[1]:
         raise ValueError("density has incompatible size")
     vals = pyflam.ifmm_mv(factor, dens_vec, matfun)
-    ntarget = pointinfo(targobj).r.shape[1]
+    ntarget = PointInfo.from_any(targobj).r.shape[1]
     return np.asarray(vals).reshape(-1, ntarget, order="F")
 
 
@@ -1384,7 +1493,7 @@ def _chunkerkerneval_flam_factor(
     pyflam = _require_pyflam()
     from .acceleration import flam
 
-    targinfo = pointinfo(targobj)
+    targinfo = PointInfo.from_any(targobj)
     op0, op1 = _kernel_opdims(chnkr, kern, targinfo)
     nrows = targinfo.r.shape[1] * op0
     ncols = chnkr.npt * op1
@@ -1393,7 +1502,7 @@ def _chunkerkerneval_flam_factor(
         return flam.kernbyindexr(rows, cols, targinfo, chnkr, kern, (op0, op1))
 
     rx = np.repeat(np.real(targinfo.r), op0, axis=1)
-    cx = np.repeat(np.real(pointinfo(chnkr).r), op1, axis=1)
+    cx = np.repeat(np.real(PointInfo.from_any(chnkr).r), op1, axis=1)
     occ = _flam_occ(options)
     rank_or_tol = _flam_rank_or_tol(options)
     opts_ifmm = _flam_options(options, store_default="n")
@@ -1417,7 +1526,7 @@ def _chunkerkerneval_proxyfun(
 
     rank_or_tol = _flam_rank_or_tol(options)
     optsnpxy = {"rank_or_tol": float(rank_or_tol), "nsrc": _flam_occ(options)}
-    all_points = np.column_stack((np.real(targinfo.r), np.real(pointinfo(chnkr).r)))
+    all_points = np.column_stack((np.real(targinfo.r), np.real(PointInfo.from_any(chnkr).r)))
     width = float(np.max(np.max(all_points, axis=1) - np.min(all_points, axis=1)))
     proxybylevel = _flag(options, "proxybylevel")
     if not proxybylevel:
@@ -1531,7 +1640,7 @@ def _chunkerkernevalmat_fmm(
     targobj: Chunker | dict[str, Any] | ArrayLike | PointInfo,
     options: dict[str, Any],
 ) -> np.ndarray:
-    targinfo = pointinfo(targobj)
+    targinfo = PointInfo.from_any(targobj)
     op0, op1 = _kernel_opdims(chnkr, kern, targinfo)
     nrows = targinfo.r.shape[1] * op0
     ncols = chnkr.npt * op1
@@ -1574,7 +1683,7 @@ def _target_adaptive_correction_matrix(
 
     op0, op1 = _kernel_opdims(chnkr, kern, targinfo)
     ntarget = targinfo.r.shape[1]
-    flags = chnkr.flagnear(targinfo.r, {"fac": float(options.get("fac", 1.0))})
+    flags = chnkr.flagnear(targinfo.r, fac=float(options.get("fac", 1.0)))
     if not np.any(flags):
         return sparse.csr_matrix((op0 * ntarget, op1 * chnkr.npt))
 
@@ -1630,7 +1739,7 @@ def _target_adaptive_matrix(
     opdims = _kernel_opdims(chnkr, kern, targinfo)
     op0 = int(opdims[0])
     op1 = int(opdims[1])
-    srcinfo = pointinfo(chnkr)
+    srcinfo = PointInfo.from_any(chnkr)
     mat = _eval_kernel(kern, srcinfo, targinfo)
     wts = chnkr.wts.reshape(-1, order="F")
     if mat.shape[1] == chnkr.npt:
@@ -1640,7 +1749,7 @@ def _target_adaptive_matrix(
     else:
         raise ValueError("kernel column dimension is incompatible with chunker points")
 
-    flags = chnkr.flagnear(targinfo.r, {"fac": float(options.get("fac", 1.0))})
+    flags = chnkr.flagnear(targinfo.r, fac=float(options.get("fac", 1.0)))
     if not np.any(flags):
         return mat
 
@@ -1745,7 +1854,7 @@ def _probe_kernel_dtype(kern: Callable[[Any, Any], np.ndarray], src: PointInfo, 
 
 
 def _pointinfo_node(chnkr: Chunker, inode: int) -> PointInfo:
-    src = pointinfo(chnkr)
+    src = PointInfo.from_any(chnkr)
     idx = int(inode)
     return _pointinfo_take(src, np.array([idx], dtype=np.int64))
 

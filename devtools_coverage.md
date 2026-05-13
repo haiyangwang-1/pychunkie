@@ -32,8 +32,8 @@ The parity rule for this repo is:
 - Python snapshot generator: `scripts/generate_devtools_easy_python_fixture.py`
 - Python comparisons: `tests/test_devtools_parity.py`
 - Python verification: `uv run pytest tests/test_devtools_parity.py` on
-  2026-05-12 with the regenerated local fixture: `55 passed`
-- Current fixture scope: 55 pytest comparisons covering easy geometry/kernel
+  2026-05-13 with the regenerated local fixture: `54 passed`
+- Current fixture scope: 54 pytest comparisons covering easy geometry/kernel
   diagnostics, chunker/chunkgraph constructors and regions, near-flagging,
   dense/adaptive/product-quadrature operator assembly, close-touching adaptive solves,
   Laplace, Helmholtz, and Stokes dense solves, scalar and vector-valued chunker plus
@@ -101,7 +101,7 @@ Explicit non-goals:
 | 5 | `arclengthfunTest.m` | ✅ 🧪 🎯 | Easy | Computes arclength coordinates on a circle and on two merged circles, comparing each component to analytic polar angle, with the second circle scaled by `1.1`. | Covered in `devtools_easy.mat`: compare single-component and merged-component arclength coordinates against Python `Chunker.arclengthfun`. |
 | 6 | `chunker_diffintmatTest.m` | ✅ 🧪 🎯 | Easy | Builds ellipse/circle chunkers, checks `diffmat` produces unit arclength tangents, and checks `intmat` inverts differentiation up to a constant. | Covered in `devtools_easy.mat`: compare MATLAB `D`, `C`, tangent derivatives, integrated coordinates, and Python `Chunker.diffmat`/`intmat`. |
 | 7 | `chunker_nearestTest.m` | ✅ 🧪 🎯 | Easy | For 1000 random radial targets around a circle, checks `nearest` returns the closest circle angle to within `1e-12`. | Covered in `devtools_easy.mat`: compare saved targets, closest points, derivatives, second derivatives, distances, panel ids, local parameters, and angle error against Python `Chunker.nearest`. |
-| 8 | `flagselfTest.m` | ✅ 🧪 🎯 | Easy | Flags overlapping source and target point sets and checks the reported source permutation matches duplicated target coordinates. | Covered in `devtools_easy.mat`: compare deterministic source/target arrays and expected overlap index pairs against Python `geometry.flagself`. |
+| 8 | `flagselfTest.m` | 🚫 | Easy | Flags overlapping source and target point sets and checks the reported source permutation matches duplicated target coordinates. | No current Python parity target after deleting public `geometry.predicates`; the fixture data remains available for reference, but duplicate-pair reporting is no longer part of the public API. |
 | 9 | `flagrectTest.m` | ✅ 🧪 🎯 | Easy | Tests rectangle-based near-flagging by comparing direct target flags to tensor-grid flags on a refined starfish chunker. | Covered in `devtools_easy.mat`: compare saved refined starfish chunker, target grid, direct flags, and grid flags against Python `flagnear_rectangle`/grid behavior. |
 | 10 | `flagnearTest.m` | ✅ 🧪 🎯 | Easy | Tests near-point flagging against a brute-force distance check for targets scaled radially around a starfish curve. | Covered in `devtools_easy.mat`: compare saved starfish chunker, targets, MATLAB near flags, and brute-force flags against Python `geometry.flagnear`. |
 | 11 | `kernelopTest.m` | ✅ 🧪 🎯 | Easy | Verifies kernel algebra: interleave, scalar multiply/divide, negation, addition, subtraction, and conjugation on Laplace/Helmholtz kernels. | Covered in `devtools_easy.mat`: compare saved kernel matrices from deterministic source/target normals. |

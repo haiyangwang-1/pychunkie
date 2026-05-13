@@ -1,8 +1,10 @@
 import numpy as np
 
-from chunkie import chunkerfunc, chunkerkerneval, pointinfo
+from chunkie import PointInfo, chunkerfunc, chunkerkerneval
 from chunkie.kernels import helmholtz as helm2d
 from chunkie.kernels import laplace as lap2d
+
+pointinfo = PointInfo.from_any
 
 
 def circle(t, radius=1.0):

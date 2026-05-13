@@ -10,7 +10,7 @@ import warnings
 import numpy as np
 from numpy.typing import ArrayLike
 
-from . import lege
+from .. import lege
 from ._chunker_polygon import (
     _dyadic_chunkerpoly,
     _fill_line_chunk,
@@ -18,6 +18,7 @@ from ._chunker_polygon import (
     _polygon_widths,
     _rounded_chunkerpoly,
 )
+from ._nearest import chunk_nearparam as _chunk_nearparam
 
 
 @dataclass
@@ -535,8 +536,9 @@ class Chunker:
         out.adj = adjs
         return out, info
 
-    def flagnear(self, pts: ArrayLike, opts: dict[str, Any] | None = None) -> np.ndarray:
-        opts = {} if opts is None else dict(opts)
+    def flagnear(self, pts: ArrayLike, opts: dict[str, Any] | None = None, *, fac: float | None = None) -> np.ndarray:
+        opts = _legacy_options(opts, "flagnear opts")
+        _set_option(opts, "fac", fac)
         fac = float(opts.get("fac", 1.0))
         points = np.asarray(pts, dtype=float).reshape(self.dim, -1)
         flags = np.zeros((points.shape[1], self.nch), dtype=bool)
@@ -547,8 +549,15 @@ class Chunker:
             flags[:, ich] = np.any(dists < lens[ich], axis=1)
         return flags
 
-    def flagnear_rectangle(self, pts: ArrayLike, opts: dict[str, Any] | None = None) -> np.ndarray:
-        opts = {} if opts is None else dict(opts)
+    def flagnear_rectangle(
+        self,
+        pts: ArrayLike,
+        opts: dict[str, Any] | None = None,
+        *,
+        rho: float | None = None,
+    ) -> np.ndarray:
+        opts = _legacy_options(opts, "flagnear_rectangle opts")
+        _set_option(opts, "rho", rho)
         if self.dim != 2:
             raise ValueError("flagnear_rectangle is implemented for 2D chunkers")
         rho = float(opts.get("rho", 1.8))
@@ -571,7 +580,11 @@ class Chunker:
         x: ArrayLike,
         y: ArrayLike,
         opts: dict[str, Any] | None = None,
+        *,
+        rho: float | None = None,
     ) -> np.ndarray:
+        opts = _legacy_options(opts, "flagnear_rectangle_grid opts")
+        _set_option(opts, "rho", rho)
         xx, yy = np.meshgrid(np.asarray(x, dtype=float).reshape(-1), np.asarray(y, dtype=float).reshape(-1))
         pts = np.vstack((xx.ravel(order="F"), yy.ravel(order="F")))
         return self.flagnear_rectangle(pts, opts)
@@ -582,6 +595,9 @@ class Chunker:
         ich: ArrayLike | None = None,
         opts: dict[str, Any] | None = None,
         u: ArrayLike | None = None,
+        *,
+        max_iterations: int | None = None,
+        threshold: float | None = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """Find the nearest point on this chunker to one or more points.
 
@@ -589,8 +605,9 @@ class Chunker:
         following the rest of the Python port.
         """
 
-        from .geometry.predicates import chunk_nearparam
-
+        opts = _legacy_options(opts, "nearest opts")
+        _set_option(opts, "nitermax", max_iterations)
+        _set_option(opts, "thresh", threshold)
         points = np.asarray(ref, dtype=self.rstor.dtype).reshape(self.dim, -1)
         nref = points.shape[1]
         chunks = np.arange(self.nch) if ich is None else np.asarray(ich, dtype=int).reshape(-1)
@@ -610,7 +627,7 @@ class Chunker:
         ichn = np.full(nref, -1, dtype=int)
 
         for idx in chunks:
-            ti, ri, di, d2i, dist2i = chunk_nearparam(
+            ti, ri, di, d2i, dist2i = _chunk_nearparam(
                 self.r[:, :, idx], points, opts, self.tstor, u_arr
             )
             better = dist2i < best_dist2
@@ -748,7 +765,18 @@ class Chunker:
         self.recompute_geometry()
         return self
 
-    def refine(self, opts: dict[str, Any] | None = None) -> "Chunker":
+    def refine(
+        self,
+        opts: dict[str, Any] | None = None,
+        *,
+        split_chunks: ArrayLike | None = None,
+        max_chunk_length: float | None = None,
+        level_restrict: str | None = None,
+        level_restrict_factor: float | None = None,
+        oversample: int | None = None,
+        split_type: str | None = None,
+        max_chunks: int | None = None,
+    ) -> "Chunker":
         """Return a refined copy after selected splits and length balancing.
 
         Recognized options include ``splitchunks`` for explicit zero-based chunk
@@ -757,7 +785,14 @@ class Chunker:
         for arclength versus parameter-space splitting.
         """
 
-        opts = {} if opts is None else dict(opts)
+        opts = _legacy_options(opts, "refine opts")
+        _set_option(opts, "splitchunks", split_chunks)
+        _set_option(opts, "maxchunklen", max_chunk_length)
+        _set_option(opts, "lvlr", level_restrict)
+        _set_option(opts, "lvlrfac", level_restrict_factor)
+        _set_option(opts, "nover", oversample)
+        _set_option(opts, "stype", split_type)
+        _set_option(opts, "nchmax", max_chunks)
         out = self.copy()
         nchmax = int(opts.get("nchmax", out.nchmax))
         if nchmax < out.nch:
@@ -816,7 +851,7 @@ class Chunker:
     def arcresample(self, opts: dict[str, Any] | None = None) -> tuple["Chunker", float]:
         """Reparameterize panel nodes by arc length on each existing chunk."""
 
-        from .numerics import arcparam
+        from ..misc import arcparam
 
         options = {} if opts is None else dict(opts)
         if bool(options.get("mv_bdries", False)):
@@ -832,6 +867,7 @@ class Chunker:
                     return arcparam.eval(s, pdata)
 
                 cparams = {
+                    _LEGACY_OPTIONS_MARKER: True,
                     "eps": 10.0 * pdata.eps,
                     "ifclosed": bool(closed),
                     "maxchunklen": float(np.max(pdata.plen)),
@@ -988,6 +1024,36 @@ def chunkerpref(pref: ChunkerPref | dict[str, Any] | None = None) -> ChunkerPref
     return ChunkerPref.from_any(pref)
 
 
+_LEGACY_OPTIONS_MARKER = "_chunkie_normalized_geometry_options"
+
+
+def _legacy_options(opts: dict[str, Any] | None, name: str) -> dict[str, Any]:
+    if opts is None:
+        return {_LEGACY_OPTIONS_MARKER: True}
+    if bool(opts.get(_LEGACY_OPTIONS_MARKER, False)):
+        return dict(opts)
+    warnings.warn(
+        f"{name} dictionaries are deprecated; use keyword-only arguments instead",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+    options = dict(opts)
+    options[_LEGACY_OPTIONS_MARKER] = True
+    return options
+
+
+def _set_option(options: dict[str, Any], key: str, value: Any) -> None:
+    if value is not None:
+        options[key] = value
+
+
+def _pref_with_order(pref: ChunkerPref | dict[str, Any] | None, order: int | None) -> ChunkerPref:
+    p = ChunkerPref.from_any(pref)
+    if order is None:
+        return p
+    return ChunkerPref(p.nchmax, int(order), p.dim, p.nchstor, p.verttol)
+
+
 def _curve_outputs(fcurve: Callable[[np.ndarray], Any], t: np.ndarray) -> tuple[np.ndarray, ...]:
     raw = fcurve(t)
     if isinstance(raw, tuple):
@@ -1001,6 +1067,19 @@ def chunkerfunc(
     fcurve: Callable[[np.ndarray], Any],
     cparams: dict[str, Any] | None = None,
     pref: ChunkerPref | dict[str, Any] | None = None,
+    *,
+    order: int | None = None,
+    closed: bool | None = None,
+    interval: tuple[float, float] | None = None,
+    tol: float | None = None,
+    min_chunks: int | None = None,
+    refine: bool | None = None,
+    oversample: int | None = None,
+    split_points: ArrayLike | None = None,
+    max_chunk_length: float | None = None,
+    level_restrict: str | None = None,
+    level_restrict_factor: float | None = None,
+    split_type: str | None = None,
 ) -> tuple[Chunker, np.ndarray]:
     """Create a chunker for a parameterized curve.
 
@@ -1015,8 +1094,20 @@ def chunkerfunc(
     for forced breakpoints, and ``maxchunklen`` for arclength control.
     """
 
-    cparams = {} if cparams is None else dict(cparams)
-    p = ChunkerPref.from_any(pref)
+    cparams = _legacy_options(cparams, "chunkerfunc cparams")
+    if interval is not None:
+        cparams["ta"], cparams["tb"] = interval
+    _set_option(cparams, "ifclosed", closed)
+    _set_option(cparams, "eps", tol)
+    _set_option(cparams, "nchmin", min_chunks)
+    _set_option(cparams, "ifrefine", refine)
+    _set_option(cparams, "nover", oversample)
+    _set_option(cparams, "tsplits", split_points)
+    _set_option(cparams, "maxchunklen", max_chunk_length)
+    _set_option(cparams, "lvlr", level_restrict)
+    _set_option(cparams, "lvlrfac", level_restrict_factor)
+    _set_option(cparams, "stype", split_type)
+    p = _pref_with_order(pref, order)
 
     ta = float(cparams.get("ta", 0.0))
     tb = float(cparams.get("tb", 2.0 * np.pi))
@@ -1399,6 +1490,10 @@ def chunkerfuncuni(
     nch: int = 16,
     cparams: dict[str, Any] | None = None,
     pref: ChunkerPref | dict[str, Any] | None = None,
+    *,
+    order: int | None = None,
+    closed: bool | None = None,
+    interval: tuple[float, float] | None = None,
 ) -> Chunker:
     """Create a uniformly panelized chunker from a parametric curve."""
 
@@ -1409,21 +1504,33 @@ def chunkerfuncuni(
             return raw[:2]
         return raw
 
-    params = {} if cparams is None else dict(cparams)
+    params = _legacy_options(cparams, "chunkerfuncuni cparams")
+    if interval is not None:
+        params["ta"], params["tb"] = interval
+    _set_option(params, "ifclosed", closed)
     nch = int(nch)
     ta = float(params.get("ta", 0.0))
     tb = float(params.get("tb", 2.0 * np.pi))
     ifclosed = bool(params.get("ifclosed", True))
-    params = {"ta": ta, "tb": tb, "ifclosed": ifclosed}
+    params = {_LEGACY_OPTIONS_MARKER: True, "ta": ta, "tb": tb, "ifclosed": ifclosed}
     params["tsplits"] = np.linspace(ta, tb, nch + 1)[1:-1]
     params["ifrefine"] = False
     params["lvlr"] = "n"
     params["nover"] = 0
-    chnkr, _ = chunkerfunc(uniform_curve, params, pref)
+    chnkr, _ = chunkerfunc(uniform_curve, params, pref, order=order)
     return chnkr
 
 
-def chunkerfit(xy: ArrayLike, opts: dict[str, Any] | None = None) -> Chunker:
+def chunkerfit(
+    xy: ArrayLike,
+    opts: dict[str, Any] | None = None,
+    *,
+    closed: bool | None = None,
+    split_at_points: bool | None = None,
+    tol: float | None = None,
+    order: int | None = None,
+    pref: ChunkerPref | dict[str, Any] | None = None,
+) -> Chunker:
     """Create a chunker by fitting a cubic spline through 2D points."""
 
     from scipy.interpolate import CubicSpline
@@ -1431,7 +1538,16 @@ def chunkerfit(xy: ArrayLike, opts: dict[str, Any] | None = None) -> Chunker:
     points = np.asarray(xy, dtype=float)
     if points.ndim != 2 or points.shape[0] != 2:
         raise ValueError("Points must be specified as a 2xN matrix")
-    options = {} if opts is None else dict(opts)
+    options = _legacy_options(opts, "chunkerfit opts")
+    _set_option(options, "ifclosed", closed)
+    _set_option(options, "splitatpoints", split_at_points)
+    if tol is not None:
+        options.setdefault("cparams", {})["eps"] = tol
+    if pref is not None:
+        options["pref"] = pref
+    if order is not None:
+        p0 = ChunkerPref.from_any(options.get("pref", None))
+        options["pref"] = ChunkerPref(p0.nchmax, int(order), p0.dim, p0.nchstor, p0.verttol)
     method = str(options.get("method", "spline")).lower()
     if method != "spline":
         raise ValueError(f"Unsupported method {method!r}")
@@ -1461,6 +1577,7 @@ def chunkerfit(xy: ArrayLike, opts: dict[str, Any] | None = None) -> Chunker:
         )
 
     cparams = dict(options.get("cparams", {}))
+    cparams[_LEGACY_OPTIONS_MARKER] = True
     cparams["ifclosed"] = ifclosed
     cparams["ta"] = float(t[0])
     cparams["tb"] = float(t[-1])
@@ -1478,6 +1595,13 @@ def chunkerpoly(
     cparams: dict[str, Any] | None = None,
     pref: ChunkerPref | dict[str, Any] | None = None,
     edgevals: ArrayLike | None = None,
+    *,
+    order: int | None = None,
+    closed: bool | None = None,
+    dyadic: bool | None = None,
+    depth: int | None = None,
+    rounded: bool | None = None,
+    widths: ArrayLike | None = None,
 ) -> Chunker:
     """Create a chunker for a true polygon or open polyline.
 
@@ -1490,7 +1614,12 @@ def chunkerpoly(
     propagation.
     """
 
-    cparams = {} if cparams is None else dict(cparams)
+    cparams = _legacy_options(cparams, "chunkerpoly cparams")
+    _set_option(cparams, "ifclosed", closed)
+    _set_option(cparams, "dyadic", dyadic)
+    _set_option(cparams, "depth", depth)
+    _set_option(cparams, "rounded", rounded)
+    _set_option(cparams, "widths", widths)
     rounded = bool(cparams.get("rounded", False))
 
     vertices = np.asarray(verts, dtype=float)
@@ -1498,7 +1627,7 @@ def chunkerpoly(
         raise ValueError("verts must have shape (dim, nverts) with dim > 1")
     dim, nv = vertices.shape
     ifclosed = bool(cparams.get("ifclosed", True))
-    p = ChunkerPref.from_any(pref)
+    p = _pref_with_order(pref, order)
     p = ChunkerPref(p.nchmax, p.k, dim, max(p.nchstor, nv), p.verttol)
 
     if rounded:
@@ -1556,7 +1685,12 @@ def chunkerpoly(
     return chnkr
 
 
-def chunkerpoints(src: ArrayLike | dict[str, ArrayLike], opts: dict[str, Any] | None = None) -> Chunker:
+def chunkerpoints(
+    src: ArrayLike | dict[str, ArrayLike],
+    opts: dict[str, Any] | None = None,
+    *,
+    closed: bool | None = None,
+) -> Chunker:
     """Create a chunker from panel node values.
 
     ``src`` may be either a ``(dim, k, nch)`` position array or a mapping
@@ -1564,7 +1698,8 @@ def chunkerpoints(src: ArrayLike | dict[str, ArrayLike], opts: dict[str, Any] | 
     ``chunkerpoints``.
     """
 
-    opts = {} if opts is None else dict(opts)
+    opts = _legacy_options(opts, "chunkerpoints opts")
+    _set_option(opts, "ifclosed", closed)
     d_arr = None
     d2_arr = None
     if isinstance(src, dict):

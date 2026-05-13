@@ -1,4 +1,4 @@
-"""Numerical helper modules used by geometry and quadrature code."""
+"""Miscellaneous numerical helper modules."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from importlib import import_module
 from typing import Any
 
 
-_SUBMODULES = {"arcparam", "smoother", "special"}
+_SUBMODULES = {"absconvgauss", "arcparam", "smoother"}
 
 
 def __getattr__(name: str) -> Any:
@@ -17,4 +17,4 @@ def __getattr__(name: str) -> Any:
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-__all__ = ["arcparam", "smoother", "special"]
+__all__ = ["absconvgauss", "arcparam", "smoother"]

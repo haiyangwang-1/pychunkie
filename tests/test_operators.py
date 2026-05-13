@@ -14,9 +14,10 @@ from chunkie import (
     chunkermatapply,
     chunkerpoly,
     kernel,
-    pointinfo,
 )
 from chunkie.quadrature import native as quadnative
+
+pointinfo = PointInfo.from_any
 
 
 def circle(t):

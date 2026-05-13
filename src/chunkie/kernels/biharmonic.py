@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import ArrayLike
 
-from chunkie.operators import PointInfo, pointinfo
+from chunkie.geometry import PointInfo
 
 
 def green(src: ArrayLike, targ: ArrayLike) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -41,8 +41,8 @@ def kern(
 ) -> np.ndarray:
     """Evaluate biharmonic single, double, derivative, gradient, or Hessian kernels."""
 
-    src = pointinfo(srcinfo)
-    targ = pointinfo(targinfo)
+    src = PointInfo.from_any(srcinfo)
+    targ = PointInfo.from_any(targinfo)
     typ = kind.lower()
     val, grad, hess, lap = green(src.r, targ.r)
 

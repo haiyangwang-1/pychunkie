@@ -10,14 +10,15 @@ from chunkie import (
     chunkgraph,
     kernel,
     merge,
-    pointinfo,
 )
 from chunkie.kernels import helmholtz as helm2d
 from chunkie.kernels import laplace as lap2d
-from chunkie.numerics import smoother
+from chunkie.misc import smoother
 from chunkie.quadrature import adaptive as quadadap
 from chunkie.quadrature import ggq as quadggq
 from chunkie.quadrature import rcip
+
+pointinfo = PointInfo.from_any
 
 
 def _unit_columns(arr):

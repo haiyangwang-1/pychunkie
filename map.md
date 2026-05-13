@@ -16,7 +16,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 ## Current Snapshot
 
 - Verification snapshot: full `uv run pytest` on 2026-05-13 with Python
-  3.11.9 collected 374 tests: `374 passed`. MATLAB parity tests generated
+  3.11.9 collected 368 tests: `368 passed`. MATLAB parity tests generated
   ignored `tests/golden/*.mat` files on demand using the populated
   `external/chunkie-matlab` checkout.
 - The implemented surface covers core chunkers/chunkgraphs, domain helpers, kernel factories, dense/FMM/FLAM operator paths, GGQ/adaptive quadrature, RCIP helpers, Legendre utilities, and the lightweight rounded-polygon smoother.
@@ -31,64 +31,15 @@ The ignored directories `.venv/`, `.pytest_cache/`, and `.git/` are not expanded
 src/
 └── chunkie/
     ├── __init__.py
-    ├── chunker.py
-    │   ├── class ChunkerPref
-    │   │   └── from_any
-    │   ├── class Chunker
-    │   │   ├── __init__
-    │   │   ├── properties: k, dim, npt, datadim, nvert, vertdeg
-    │   │   ├── storage properties: r, d, d2, n, wts, adj, data
-    │   │   ├── copy, addchunk, resize, makedatarows, cleardata
-    │   │   ├── weights, normals, tangents
-    │   │   ├── arclengthdens, arclengthder, arclengthfun
-    │   │   ├── chunklen, chunkends, area, signed_curvature
-    │   │   ├── exps, diffmat, intmat, onesmat, normonesmat
-    │   │   ├── centroids, datares, sortinfo, checkadjinfo, sort
-    │   │   ├── flagnear, flagnear_rectangle, flagnear_rectangle_grid, nearest
-    │   │   ├── min, max, recompute_geometry, upsample, split, refine, arcresample
-    │   │   ├── translate, transform, reverse, move, rotate, reflect
-    │   │   └── __add__, __radd__, __mul__, __rmul__, __rmatmul__
-    │   ├── chunker, chunkerpref
-    │   ├── chunkerfunc, chunkerfuncuni, chunkerfit, chunkerpoly, chunkerpoints
-    │   ├── merge
-    │   └── private helpers
-    ├── _chunker_polygon.py
-    │   └── private polygon construction helpers used by chunkerpoly
-    ├── chunkgraph.py
-    │   ├── class SourceInfo
-    │   ├── class ChunkGraph
-    │   │   ├── __init__
-    │   │   ├── properties: npt, k, dim, datadim, r, d, d2, n, wts, data, adj
-    │   │   ├── sourceinfo, merged, build_v2emat, procverts, findregions, find_edge_regions
-    │   │   ├── slicegraph, edgeids, refine, copy
-    │   │   ├── translate, transform, rotate, reflect
-    │   │   ├── min, max, onesmat, normonesmat
-    │   │   ├── flagnear, flagnear_rectangle, flagnear_rectangle_grid
-    │   │   └── __add__, __radd__, __mul__, __rmul__, __rmatmul__
-    │   ├── chunkgraph, tochunkgraph, chunkgraphinregion
-    │   └── private graph/geometry helpers
     ├── domain.py
     │   ├── checkcurveparam, ellipse, starfish, nonflatinterface
     │   ├── redblue, hypoct_uni
     │   ├── pointinregion, regioninside, mergeregions
     │   ├── class HypOctNode, class HypOctTree
     │   └── private helpers
-    ├── kernel.py
-    │   ├── class Kernel
-    │   │   ├── __call__
-    │   │   ├── __add__, __sub__, __neg__, __mul__, __rmul__, __truediv__
-    │   │   ├── conj, conjugate
-    │   │   └── zeros, nans
-    │   ├── kernel
-    │   ├── lap2d_kernel, helm2d_kernel, helm1d_kernel, biharm2d_kernel
-    │   ├── stok2d_kernel, elast2d_kernel
-    │   ├── zeros, nans, interleave
-    │   └── private helpers
     ├── operators.py
-    │   ├── class PointInfo
     │   ├── class ChunkerFMMMatrix
     │   ├── class ChunkerFLAMMatrix
-    │   ├── pointinfo
     │   ├── chunkermat, chunkermatapply, chunkerflam
     │   ├── chunkerintegral, chunkerinterior
     │   ├── chunkerkerneval, chunkerkernevalmat
@@ -101,35 +52,38 @@ src/
     │       └── proxyfun, proxyfunr
     ├── geometry/
     │   ├── __init__.py
+    │   ├── chunker.py
+    │   │   ├── class ChunkerPref, class Chunker
+    │   │   ├── chunker, chunkerpref
+    │   │   ├── chunkerfunc, chunkerfuncuni, chunkerfit, chunkerpoly, chunkerpoints
+    │   │   ├── merge
+    │   │   └── private chunker/refinement helpers
+    │   ├── chunkgraph.py
+    │   │   ├── class SourceInfo, class ChunkGraph
+    │   │   ├── chunkgraph, tochunkgraph, chunkgraphinregion, find_edge_regions
+    │   │   └── private graph/region helpers
+    │   ├── pointinfo.py
+    │   │   └── class PointInfo
     │   ├── curves.py
     │   │   ├── linefunc, fpara, fsine, bymode
     │   │   └── _pack
-    │   └── predicates.py
-    │       ├── perp, normal2d, curvature2d
-    │       ├── flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself
-    │       ├── chunk_nearparam
-    │       └── _ptinfo_field
+    │   ├── _chunker_polygon.py
+    │   │   └── private polygon construction helpers used by chunkerpoly
+    │   └── _nearest.py
+    │       └── private nearest-panel helper used by Chunker.nearest
     ├── kernels/
     │   ├── __init__.py
-    │   ├── biharmonic.py
-    │   │   ├── green, kern
-    │   │   └── _require
-    │   ├── elasticity.py
-    │   │   ├── kern
+    │   ├── factory.py
+    │   │   ├── class Kernel
+    │   │   ├── kernel
+    │   │   ├── lap2d_kernel, helm2d_kernel, helm1d_kernel, biharm2d_kernel
+    │   │   ├── stok2d_kernel, elast2d_kernel
+    │   │   ├── zeros, nans, interleave
     │   │   └── private helpers
-    │   ├── helmholtz.py
-    │   │   ├── green, kern
-    │   │   └── _require
-    │   ├── helmholtz_1d.py
-    │   │   ├── green, kern, sweep
-    │   │   └── private helpers
+    │   ├── biharmonic.py, elasticity.py, helmholtz.py, helmholtz_1d.py
     │   ├── laplace.py
-    │   │   ├── green, kern
-    │   │   └── _require
     │   └── stokes.py
-    │       ├── kern
-    │       └── private helpers
-    ├── numerics/
+    ├── misc/
     │   ├── __init__.py
     │   ├── arcparam.py
     │   │   ├── class ArcParamData
@@ -140,7 +94,7 @@ src/
     │   │   ├── get_umesh, get_mesh, smooth
     │   │   ├── smooth_curve, smooth_curve2, smooth_curve3
     │   │   └── _panel_nodes
-    │   └── special.py
+    │   └── absconvgauss.py
     │       └── absconvgauss
     ├── quadrature/
     │   ├── __init__.py
@@ -186,9 +140,9 @@ src/
 - ✅ [src/chunkie/__init__.py](src/chunkie/__init__.py) exports the public Python API. MATLAB has no direct single-file equivalent; it is a Python package facade over MATLAB class folders and package folders.
 - ✅ 🧪 [src/chunkie/acceleration/__init__.py](src/chunkie/acceleration/__init__.py) exposes FLAM callback/proxy helper modules.
 - ✅ 🧪 [src/chunkie/domain.py](src/chunkie/domain.py) implements top-level MATLAB geometry/domain helpers exported from the Python package facade.
-- ✅ 🧪 [src/chunkie/geometry/__init__.py](src/chunkie/geometry/__init__.py) exposes curve constructors and low-level geometric predicates.
-- ✅ 🧪 [src/chunkie/kernels/__init__.py](src/chunkie/kernels/__init__.py) exposes concrete Laplace, Helmholtz, Stokes, biharmonic, and elasticity kernel-family modules.
-- ✅ 🧪 [src/chunkie/numerics/__init__.py](src/chunkie/numerics/__init__.py) exposes arclength parametrization, lightweight smoother, and special scalar helper modules.
+- ✅ 🧪 [src/chunkie/geometry/__init__.py](src/chunkie/geometry/__init__.py) exposes `Chunker`, `ChunkerPref`, `ChunkGraph`, chunker constructors, graph helpers, `PointInfo`, and curve helpers.
+- ✅ 🧪 [src/chunkie/kernels/__init__.py](src/chunkie/kernels/__init__.py) exposes the `Kernel` factory/algebra layer plus concrete Laplace, Helmholtz, Stokes, biharmonic, and elasticity kernel-family modules.
+- ✅ 🧪 [src/chunkie/misc/__init__.py](src/chunkie/misc/__init__.py) exposes arclength parametrization, lightweight smoother, and `absconvgauss` helper modules.
 - ✅ 🧪 [src/chunkie/quadrature/__init__.py](src/chunkie/quadrature/__init__.py) exposes Python-native quadrature modules for native, GGQ, adaptive, panel-product, and RCIP workflows.
 - ✅ [src/chunkie/lege/__init__.py](src/chunkie/lege/__init__.py) mirrors MATLAB `+lege` package exports.
 
@@ -196,9 +150,9 @@ src/
 ## Python To MATLAB Map
 
 ### I GEOMETRY
-#### `chunker.py`
+#### `geometry/chunker.py`
 
-- ✅ 🧪 🎯 [src/chunkie/chunker.py](src/chunkie/chunker.py) is the main Python home for MATLAB `@chunker`, top-level chunker constructors, and related factory functions.
+- ✅ 🧪 🎯 [src/chunkie/geometry/chunker.py](src/chunkie/geometry/chunker.py) is the main Python home for MATLAB `@chunker`, top-level chunker constructors, and related factory functions.
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
@@ -214,7 +168,7 @@ src/
 | `sort` | ✅ 🧪 🎯 | `@chunker/sort.m` | Python tested on open segments; strict geometry fixture compares sorted chunker fields. |
 | `chunkerpref` | ✅ 🧪 🎯 | `@chunkerpref/chunkerpref.m` | Python preference wrapper has MATLAB fixture coverage for explicit field overrides. |
 | `chunkerpoly` | ✅ 🧪 🎯 | `chunkerpoly.m`, `+chnk/+smoother/*` workflows | Straight-edge, MATLAB-style dyadic true-polygon refinement, and rounded-corner polygon paths are implemented and tested; devtools parity compares the non-smooth true-polygon chunk geometry as an unordered/orientation-aware panel set, while exact rounded smoother geometry remains the supported lightweight path. |
-| `_dyadic_chunkerpoly`, `_rounded_chunkerpoly`, `_polygon_widths`, `_fill_line_chunk`, `_fill_quadratic_chunk` | 🧩 ✅ 🧪 | `chunkerpoly.m`, `+chnk/+smoother/*` concepts | Internal polygon construction helpers live in `src/chunkie/_chunker_polygon.py` and are re-imported by `chunker.py` without changing public constructors. |
+| `_dyadic_chunkerpoly`, `_rounded_chunkerpoly`, `_polygon_widths`, `_fill_line_chunk`, `_fill_quadratic_chunk` | 🧩 ✅ 🧪 | `chunkerpoly.m`, `+chnk/+smoother/*` concepts | Internal polygon construction helpers live in `src/chunkie/geometry/_chunker_polygon.py` and are re-imported by `geometry/chunker.py` without changing public constructors. |
 | `flagnear` | ✅ 🧪 🎯 | `@chunker/flagnear.m`, `+chnk/flagnear*` helpers | Python tested against brute-force distances and MATLAB fixture flags. |
 | `flagnear_rectangle` | ✅ 🧪 🎯 | `@chunker/flagnear_rectangle.m` | 2D rectangle flags covered by direct MATLAB fixture values. |
 | `flagnear_rectangle_grid` | ✅ 🧪 🎯 | `@chunker/flagnear_rectangle_grid.m` | Python meshgrid ordering and MATLAB fixture values covered. |
@@ -262,9 +216,9 @@ src/
 | `chunker` | ✅ 🧪 🎯 | `@chunker/chunker.m` | Python constructor wrapper. |
 | `chunkerfunc` | ✅ 🧪 🎯 | `chunkerfunc.m` | Circle fixture parity plus adaptive curve/speed resolution, level restriction, max-length splitting, oversampling, and MATLAB-style open/closed endpoint warnings. |
 
-#### `chunkgraph.py`
+#### `geometry/chunkgraph.py`
 
-- ✅ 🧪 🎯 [src/chunkie/chunkgraph.py](src/chunkie/chunkgraph.py) maps the Python chunk graph object to MATLAB `@chunkgraph` plus top-level graph helpers.
+- ✅ 🧪 🎯 [src/chunkie/geometry/chunkgraph.py](src/chunkie/geometry/chunkgraph.py) maps the Python chunk graph object to MATLAB `@chunkgraph` plus top-level graph helpers.
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
@@ -310,7 +264,7 @@ src/
 | `mergeregions` | ✅ 🧪 🎯 | `mergeregions.m` | Merges nested/disjoint chunkgraph region lists. |
 
 
-#### `numerics/arcparam.py`
+#### `misc/arcparam.py`
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
@@ -336,25 +290,20 @@ src/
 | `proxy_square_pts`, `proxy_circ_pts`, `proxy_rect_pts`, `nproxy_square` | ✅ 🧪 🎯 | `+chnk/+flam/proxy_square_pts.m`, `proxy_circ_pts.m`, `proxy_rect_pts.m`, `nproxy_square.m` | Proxy geometry, normals, the square inside predicate, and deterministic Laplace adaptive proxy-order selection are Python-tested and MATLAB-fixture tested. |
 | `proxyfun`, `proxyfunr` | ✅ 🧪 🎯 | `+chnk/+flam/proxyfun.m`, `proxyfunr.m` | 0-based callback helpers for PyFLAM compression; Python tests cover neighbor filtering, callback shapes, and integrated default/level-dependent rectangular proxy target evaluation, while MATLAB fixture parity covers Laplace proxy matrices and filtered neighbor indices. |
 
-#### `geometry/predicates.py`
+#### `geometry/pointinfo.py` and private nearest helpers
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
-| `_ptinfo_field` | 🧩 ✅ | Internal Python helper | No direct MATLAB file. |
-| `perp` | ✅ 🧪 🎯 | `+chnk/perp.m` | Tested and MATLAB fixture parity-tested. |
-| `normal2d` | ✅ 🧪 🎯 | `+chnk/normal2d.m` | Tested and MATLAB fixture parity-tested. |
-| `curvature2d` | ✅ 🧪 🎯 | `+chnk/curvature2d.m` | Tested and MATLAB fixture parity-tested. |
-| `flagself` | ✅ 🧪 🎯 | `+chnk/flagself.m` | Tested and MATLAB fixture parity-tested with one-based MATLAB pair conversion. |
-| `chunk_nearparam` | ✅ 🧪 🎯 | `+chnk/chunk_nearparam.m` | Tested on a line segment and MATLAB fixture parity-tested on a curved panel. |
-| `flagnear` | ✅ 🧪 🎯 | `@chunker/flagnear.m` / `@chunkgraph/flagnear.m` behavior | Delegates to chunker implementation; chunker wrapper path now has MATLAB fixture parity. |
-| `flagnear_rectangle` | ✅ 🧪 🎯 | `@chunker/flagnear_rectangle.m` | Delegates to chunker implementation; MATLAB fixture covers direct rectangle flags. |
-| `flagnear_rectangle_grid` | ✅ 🧪 🎯 | `@chunker/flagnear_rectangle_grid.m` | Delegates to chunker implementation; MATLAB fixture covers grid flattening order. |
+| `PointInfo` | ✅ 🧪 🎯 | MATLAB `srcinfo`/`targinfo` structs | Structured point data now lives in geometry and is constructed through `from_chunker`, `from_points`, and `from_mapping`; chunker-flattened fields are fixture-tested. |
+| `PointInfo.from_any` | 🧩 ✅ 🧪 🎯 | MATLAB point-info interchange structs | Internal legacy normalizer used by operators, FLAM callbacks, tests, and MATLAB fixture interchange. |
+| `_nearest.chunk_nearparam` | 🧩 ✅ 🧪 🎯 | `+chnk/chunk_nearparam.m` | Private helper used by `Chunker.nearest`; public code should call `Chunker.nearest(...)`. |
+| deleted public predicate wrappers | 🚫 | `+chnk/perp.m`, `+chnk/normal2d.m`, `+chnk/flagself.m` | Removed from the public API because they were dead or duplicative in Python; near-flagging is available as `Chunker`/`ChunkGraph` methods. |
 
 
 ### II KERNEL AND OPERATORS
-#### `kernel.py`
+#### `kernels/factory.py`
 
-- ✅ 🧪 🎯 [src/chunkie/kernel.py](src/chunkie/kernel.py) maps MATLAB `@kernel` composition and kernel factory behavior.
+- ✅ 🧪 🎯 [src/chunkie/kernels/factory.py](src/chunkie/kernels/factory.py) maps MATLAB `@kernel` composition and kernel factory behavior.
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
@@ -389,11 +338,9 @@ their matching `@kernel` factories.
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
 | `chunkermat` | ⚠️ 🧪 🎯 | `chunkermat.m` | Default `acceleration="dense"` native/special matrix path parity-tested, including dense l2 scaling, Laplace/Helmholtz starfish Dirichlet solve/target evaluation, Stokes combined-velocity and traction-system solve/target diagnostics, close-touching robust adaptive correction via `opts["adaptive_correction"]`, Laplace `sprime` removable self limits plus Stokes single-layer traction self limits plus PV/HS singular diagnostics, chunker-sequence/chunkgraph block-kernel opdim assembly with finite special-quadrature self blocks, and a custom data-bearing Hilbert/cotangent PV kernel; `acceleration="fmm"` returns `ChunkerFMMMatrix` for scalar and block-kernel matrices whose blocks expose FMM evaluators, with MATLAB forced-FMM scalar matvec parity and Python dense cross-checks for block products/l2 scaling; `acceleration="flam"` returns `ChunkerFLAMMatrix` backed by PyFLAM with sparse special-quadrature overwrites and MATLAB FLAM matvec/solve parity for scalar, level-dependent proxy, and smooth multi-chunker block kernels. |
-| private helpers | 🧩 ✅ | Internal Python helpers | Chunker/chunker-sequence coercion, weighted density flattening, kernel evaluation, special-quadrature dispatch, dense l2 matrix scaling, and canonical `opts["acceleration"]` parsing with MATLAB-style boolean aliases intentionally ignored. |
-| `PointInfo` | ✅ 🧪 🎯 | MATLAB `srcinfo`/`targinfo` structs | Python dataclass for point info; chunker-flattened fields are fixture-tested. |
+| private helpers | 🧩 ✅ | Internal Python helpers | Chunker/chunker-sequence coercion, weighted density flattening, kernel evaluation, special-quadrature dispatch, dense l2 matrix scaling, and normalized keyword-only option handling with temporary dict deprecation warnings. |
 | `ChunkerFMMMatrix` | ✅ 🧪 🎯 | `chunkermatapply.m`, `+chnk/chunkerkerneval_smooth.m` FMM concepts | Matrix-free `scipy.sparse.linalg.LinearOperator` returned by `chunkermat(..., {"acceleration": "fmm"})`; caches sparse special-quadrature corrections, supports vector/multiple-RHS products, single-chunker and block-kernel matrix application, and l2-scaled FMM products. Scalar deterministic RHS matvecs have MATLAB forced-FMM parity; block-kernel FMM products are Python-tested against dense block matrices. |
 | `ChunkerFLAMMatrix` | ⚠️ ✅ 🧪 🎯 | `chunkerflam.m`, `+chnk/+flam/*` concepts | Matrix-free `LinearOperator` returned by `chunkermat(..., {"acceleration": "flam"})`; supports vector, multiple-RHS, adjoint products, multi-chunker block kernels, exposes `.factor`, `.solve(rhs, trans="n")` including adjoint solves, `.logdet()`, and dense materialization helpers when backed by PyFLAM `rskelf`; scalar Laplace no-proxy and level-dependent proxy `rskelf` matvec/solve plus smooth block-kernel `rskelf` matvec/solve are fixture-tested against MATLAB FLAM on deterministic random RHS vectors. |
-| `pointinfo` | ✅ 🧪 🎯 | MATLAB point-info structs | Converts chunkers/dicts/arrays; chunker flattening is fixture-tested. |
 | `chunkerflam` | ⚠️ ✅ 🧪 🎯 | `chunkerflam.m` | Builds PyFLAM `rskelf`/`rskel` factors using 0-based matrix callbacks and optional proxy compression for scalar factors; scalar and vector-opdim explicit chunker sequences, smooth multi-chunker block-kernel factors, smooth interleaved block-kernel matrix/evaluation, proxy-enabled and level-dependent-proxy scalar paths, smooth/special l2scale, point-data, real/complex smooth diagonal-shift paths, and MATLAB FLAM `rskelf` matvec/solve parity are tested. |
 | `chunkermatapply` | ✅ 🧪 🎯 | `chunkermatapply.m` | Smooth dense application, scalar Laplace matrix-free system apply/solve diagnostics, vector-valued Helmholtz-transmission matrix-free apply diagnostics, and diagnostic scalar/vector chunkgraph apply paths are MATLAB-fixture tested; FMM/FLAM acceleration, block-kernel FMM application, shape-preserving single-column and multiple-RHS products, and sparse special-quadrature corrections remain Python-tested. |
 | `chunkerintegral` | ✅ 🧪 🎯 | `chunkerintegral.m` | Smooth value and callable integration routes are MATLAB-fixture tested. |
@@ -509,7 +456,7 @@ Log/PV/HS support tables are packaged as `.npz` assets and loaded with `importli
 | `tayl` | ✅ 🧪 🎯 | `+lege/tayl.m` | Taylor stepping tested against direct Legendre evaluation and scalar-call MATLAB parity fixture outputs. |
 
 ### V SMOOTH
-#### `numerics/smoother.py`
+#### `misc/smoother.py`
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
@@ -521,7 +468,7 @@ Log/PV/HS support tables are packaged as `.npz` assets and loaded with `importli
 | `get_mesh` | ✅ 🧪 | `+chnk/+smoother/get_mesh.m` | Legendre-panel mesh expansion tested. |
 | `_panel_nodes` | 🧩 ✅ 🧪 | Internal Python helper | Builds panel-local Legendre nodes and weights. |
 
-#### `numerics/special.py`
+#### `misc/absconvgauss.py`
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |

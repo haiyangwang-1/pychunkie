@@ -3,6 +3,13 @@
 The MATLAB implementation adaptively decides which close interactions need
 replacement quadrature. This Python baseline exposes the same build path
 and delegates the actual replacement blocks to ``quadggq``.
+
+Use this path when target points are close to a source panel but are not just
+the boundary self/neighbor cases covered by GGQ tables. The algorithm keeps the
+smooth native matrix for far blocks, detects close target-panel pairs, and
+replaces those blocks with recursively subdivided Gauss integrals. Product
+quadrature can be used first for kernels with analytic split metadata; adaptive
+Gauss remains the fallback when the side or split is unavailable.
 """
 
 from __future__ import annotations
@@ -13,9 +20,9 @@ from typing import Any
 import numpy as np
 from numpy.typing import ArrayLike
 
-from ..chunker import Chunker
+from ..geometry.chunker import Chunker
 from .. import lege
-from ..operators import PointInfo
+from ..geometry import PointInfo
 from . import ggq as quadggq
 from . import native as quadnative
 from . import panel as pquad
@@ -27,6 +34,8 @@ def buildmat(
     opdims: tuple[int, int] | None = None,
     opts: dict[str, Any] | None = None,
 ) -> np.ndarray:
+    """Assemble a dense matrix with adaptive close-panel replacements."""
+
     options = {} if opts is None else dict(opts)
     qtype = str(options.get("sing", getattr(kern, "sing", "log") or "log")).lower()
     if qtype != "log":
@@ -87,7 +96,14 @@ def adapgausswts(
     barywts: ArrayLike | None = None,
     opts: dict[str, Any] | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Adaptive source-panel quadrature weights for one chunk and target set."""
+    """Adaptive source-panel quadrature weights for one chunk and target set.
+
+    Each target gets an independent recursive integral over ``[-1, 1]`` on the
+    source panel. A parent interval is accepted when splitting it in two changes
+    the weighted kernel block by less than ``eps``; otherwise the children stay
+    on the stack. The returned matrix maps original source-panel node values to
+    target values, so callers can drop it directly into a global operator.
+    """
 
     options = {} if opts is None else dict(opts)
     eps = float(options.get("eps", 1.0e-12))

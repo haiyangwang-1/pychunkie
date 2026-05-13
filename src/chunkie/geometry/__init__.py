@@ -1,23 +1,27 @@
-"""Geometry helper modules and point/panel predicates."""
+"""Geometry data structures, curve helpers, and point data."""
 
 from __future__ import annotations
 
 from importlib import import_module
 from typing import Any
 
+from .chunker import (
+    Chunker,
+    ChunkerPref,
+    chunker,
+    chunkerfit,
+    chunkerfunc,
+    chunkerfuncuni,
+    chunkerpoints,
+    chunkerpoly,
+    chunkerpref,
+    merge,
+)
+from .chunkgraph import ChunkGraph, chunkgraph, chunkgraphinregion, find_edge_regions, tochunkgraph
+from .pointinfo import PointInfo
 
-_SUBMODULES = {"curves", "predicates"}
 
-_PREDICATE_EXPORTS = {
-    "chunk_nearparam",
-    "curvature2d",
-    "flagnear",
-    "flagnear_rectangle",
-    "flagnear_rectangle_grid",
-    "flagself",
-    "normal2d",
-    "perp",
-}
+_SUBMODULES = {"chunker", "chunkgraph", "curves", "pointinfo"}
 
 
 def __getattr__(name: str) -> Any:
@@ -25,22 +29,25 @@ def __getattr__(name: str) -> Any:
         module = import_module(f"{__name__}.{name}")
         globals()[name] = module
         return module
-    if name in _PREDICATE_EXPORTS:
-        value = getattr(import_module(f"{__name__}.predicates"), name)
-        globals()[name] = value
-        return value
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 __all__ = [
-    "chunk_nearparam",
-    "curvature2d",
+    "Chunker",
+    "ChunkerPref",
+    "ChunkGraph",
+    "chunker",
+    "chunkerfit",
+    "chunkerfunc",
+    "chunkerfuncuni",
+    "chunkerpoints",
+    "chunkerpoly",
+    "chunkerpref",
+    "chunkgraph",
+    "chunkgraphinregion",
     "curves",
-    "flagnear",
-    "flagnear_rectangle",
-    "flagnear_rectangle_grid",
-    "flagself",
-    "normal2d",
-    "perp",
-    "predicates",
+    "find_edge_regions",
+    "merge",
+    "PointInfo",
+    "tochunkgraph",
 ]

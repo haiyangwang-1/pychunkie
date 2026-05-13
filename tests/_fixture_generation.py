@@ -11,7 +11,7 @@ import numpy as np
 from scipy.io import loadmat
 
 from chunkie import Chunker
-from chunkie.operators import PointInfo
+from chunkie.geometry import PointInfo
 
 
 ROOT = Path(__file__).resolve().parents[1]

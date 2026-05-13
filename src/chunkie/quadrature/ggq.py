@@ -3,6 +3,12 @@
 This module mirrors the MATLAB ``chnk.quadggq`` entry points. MATLAB's
 tabulated GGQ rules are vendored as NumPy package data, so runtime quadrature
 loading does not depend on a local MATLAB checkout.
+
+GGQ assembly starts from native smooth quadrature and overwrites blocks whose
+source and target panels are the same or immediate neighbors. Self blocks use
+the per-node split rules in ``xs0/wts0``; neighbor blocks use the one-sided
+``xs1/wts1`` rule. This keeps the global matrix dense and MATLAB-compatible
+while localizing all singular correction logic to panel blocks.
 """
 
 from __future__ import annotations
@@ -18,8 +24,8 @@ from numpy.typing import ArrayLike
 from scipy import sparse
 
 from chunkie import lege
-from chunkie.chunker import Chunker
-from chunkie.operators import PointInfo
+from chunkie.geometry.chunker import Chunker
+from chunkie.geometry import PointInfo
 from . import native as quadnative
 
 
@@ -170,7 +176,13 @@ def buildmat(
     pquad_side: str | None = None,
     usepquad: bool = False,
 ) -> np.ndarray:
-    """Build a matrix with special self and neighbor quadrature blocks."""
+    """Build a matrix with special self and neighbor quadrature blocks.
+
+    ``quadnative.buildmat`` supplies every smooth interaction. The loop below
+    replaces adjacent-panel blocks first and then each self block; those are the
+    only places where logarithmic, principal-value, or hypersingular kernels
+    need GGQ tables on a chunker boundary.
+    """
 
     if opdims is None:
         opdims = getattr(kern, "opdims", None)
@@ -222,7 +234,12 @@ def buildmattd(
     pquad_side: str | None = None,
     usepquad: bool = False,
 ) -> sparse.csr_matrix:
-    """Build the sparse matrix of special self and neighbor blocks only."""
+    """Build the sparse matrix of special self and neighbor blocks only.
+
+    This is a correction/overwrite view of GGQ. Operator code uses it to patch
+    matrix-free paths: the sparse entries are exactly the local special blocks,
+    while all far interactions still come from direct evaluation or FMM.
+    """
 
     if opdims is None:
         opdims = getattr(kern, "opdims", None)

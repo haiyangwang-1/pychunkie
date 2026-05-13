@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import ArrayLike
 
-from chunkie.operators import PointInfo, pointinfo
+from chunkie.geometry import PointInfo
 
 
 def kern(
@@ -15,8 +15,8 @@ def kern(
     targinfo: PointInfo | dict | ArrayLike,
     kind: str = "s",
 ) -> np.ndarray:
-    src = pointinfo(srcinfo)
-    targ = pointinfo(targinfo)
+    src = PointInfo.from_any(srcinfo)
+    targ = PointInfo.from_any(targinfo)
     typ = kind.lower()
     beta = (lam + 3.0 * mu) / (4.0 * np.pi * mu * (lam + 2.0 * mu))
     gamma = -(lam + mu) / (4.0 * np.pi * mu * (lam + 2.0 * mu))

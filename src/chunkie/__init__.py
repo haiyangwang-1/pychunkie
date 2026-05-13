@@ -22,7 +22,7 @@ when forming a particular interior or exterior BVP equation.
 """
 
 from . import lege
-from .chunker import (
+from .geometry.chunker import (
     Chunker,
     ChunkerPref,
     chunker,
@@ -34,7 +34,8 @@ from .chunker import (
     chunkerpref,
     merge,
 )
-from .chunkgraph import ChunkGraph, chunkgraph, chunkgraphinregion, find_edge_regions, tochunkgraph
+from .geometry.chunkgraph import ChunkGraph, chunkgraph, chunkgraphinregion, find_edge_regions, tochunkgraph
+from .geometry import PointInfo
 from .domain import (
     HypOctNode,
     HypOctTree,
@@ -48,11 +49,10 @@ from .domain import (
     regioninside,
     starfish,
 )
-from .kernel import Kernel, kernel
+from .kernels import Kernel, kernel
 from .operators import (
     ChunkerFLAMMatrix,
     ChunkerFMMMatrix,
-    PointInfo,
     chunkerinterior,
     chunkerintegral,
     chunkerflam,
@@ -60,7 +60,6 @@ from .operators import (
     chunkerkernevalmat,
     chunkermat,
     chunkermatapply,
-    pointinfo,
 )
 
 __all__ = [
@@ -99,7 +98,6 @@ __all__ = [
     "nonflatinterface",
     "lege",
     "pointinregion",
-    "pointinfo",
     "redblue",
     "regioninside",
     "starfish",

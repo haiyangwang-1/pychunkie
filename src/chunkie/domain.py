@@ -8,7 +8,7 @@ from typing import Any, Callable
 import numpy as np
 from numpy.typing import ArrayLike
 
-from .chunkgraph import ChunkGraph
+from .geometry.chunkgraph import ChunkGraph
 
 
 def checkcurveparam(fcurve: Callable[[np.ndarray], Any], ta: ArrayLike, nout: int = 3) -> int:

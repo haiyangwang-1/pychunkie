@@ -60,7 +60,6 @@ def test_top_level_public_exports_are_stable():
         "nonflatinterface",
         "lege",
         "pointinregion",
-        "pointinfo",
         "redblue",
         "regioninside",
         "starfish",
@@ -88,37 +87,45 @@ def test_acceleration_public_exports_are_stable_and_lazy():
 
 def test_geometry_public_exports_are_stable_and_lazy():
     with temporarily_unloaded(
+        "chunkie.geometry.chunker",
+        "chunkie.geometry.chunkgraph",
         "chunkie.geometry.curves",
-        "chunkie.geometry.predicates",
+        "chunkie.geometry.pointinfo",
         "chunkie.geometry",
     ):
         geometry = importlib.import_module("chunkie.geometry")
         expected = {
-            "chunk_nearparam",
-            "curvature2d",
+            "Chunker",
+            "ChunkerPref",
+            "ChunkGraph",
+            "chunker",
+            "chunkerfit",
+            "chunkerfunc",
+            "chunkerfuncuni",
+            "chunkerpoints",
+            "chunkerpoly",
+            "chunkerpref",
+            "chunkgraph",
+            "chunkgraphinregion",
             "curves",
-            "flagnear",
-            "flagnear_rectangle",
-            "flagnear_rectangle_grid",
-            "flagself",
-            "normal2d",
-            "perp",
-            "predicates",
+            "find_edge_regions",
+            "merge",
+            "PointInfo",
+            "tochunkgraph",
         }
         assert set(geometry.__all__) == expected
-        assert "chunkie.geometry.curves" not in sys.modules
-        assert "chunkie.geometry.predicates" not in sys.modules
-
-        from chunkie.geometry import curves, flagnear
+        from chunkie.geometry import PointInfo, chunkerfunc, curves
 
         assert curves.__name__ == "chunkie.geometry.curves"
-        assert callable(flagnear)
+        assert PointInfo.__name__ == "PointInfo"
+        assert callable(chunkerfunc)
 
 
 def test_kernels_public_exports_are_stable_and_lazy():
     with temporarily_unloaded(
         "chunkie.kernels.biharmonic",
         "chunkie.kernels.elasticity",
+        "chunkie.kernels.factory",
         "chunkie.kernels.helmholtz",
         "chunkie.kernels.helmholtz_1d",
         "chunkie.kernels.laplace",
@@ -126,14 +133,16 @@ def test_kernels_public_exports_are_stable_and_lazy():
         "chunkie.kernels",
     ):
         kernels = importlib.import_module("chunkie.kernels")
-        expected = {"biharmonic", "elasticity", "helmholtz", "helmholtz_1d", "laplace", "stokes"}
+        expected = {"biharmonic", "elasticity", "factory", "helmholtz", "helmholtz_1d", "Kernel", "kernel", "laplace", "stokes"}
         assert set(kernels.__all__) == expected
         assert "chunkie.kernels.laplace" not in sys.modules
         assert "chunkie.kernels.helmholtz" not in sys.modules
 
-        from chunkie.kernels import laplace, stokes
+        from chunkie.kernels import Kernel, kernel, laplace, stokes
 
         assert laplace.__name__ == "chunkie.kernels.laplace"
+        assert Kernel.__name__ == "Kernel"
+        assert callable(kernel)
         assert callable(stokes.kern)
 
 
@@ -157,20 +166,20 @@ def test_quadrature_public_exports_are_stable_and_lazy():
         assert rcip.__name__ == "chunkie.quadrature.rcip"
 
 
-def test_numerics_public_exports_are_stable_and_lazy():
+def test_misc_public_exports_are_stable_and_lazy():
     with temporarily_unloaded(
-        "chunkie.numerics.arcparam",
-        "chunkie.numerics.smoother",
-        "chunkie.numerics.special",
-        "chunkie.numerics",
+        "chunkie.misc.absconvgauss",
+        "chunkie.misc.arcparam",
+        "chunkie.misc.smoother",
+        "chunkie.misc",
     ):
-        numerics = importlib.import_module("chunkie.numerics")
-        expected = {"arcparam", "smoother", "special"}
-        assert set(numerics.__all__) == expected
-        assert "chunkie.numerics.arcparam" not in sys.modules
-        assert "chunkie.numerics.smoother" not in sys.modules
+        misc = importlib.import_module("chunkie.misc")
+        expected = {"absconvgauss", "arcparam", "smoother"}
+        assert set(misc.__all__) == expected
+        assert "chunkie.misc.arcparam" not in sys.modules
+        assert "chunkie.misc.smoother" not in sys.modules
 
-        from chunkie.numerics import arcparam, special
+        from chunkie.misc import absconvgauss, arcparam
 
-        assert arcparam.__name__ == "chunkie.numerics.arcparam"
-        assert callable(special.absconvgauss)
+        assert arcparam.__name__ == "chunkie.misc.arcparam"
+        assert callable(absconvgauss.absconvgauss)

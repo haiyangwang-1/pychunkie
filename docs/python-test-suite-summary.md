@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 374 pytest cases because several MATLAB parity tests are
+collection expands to 368 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -78,10 +78,10 @@ Current test-backed coverage includes:
   special quadrature, and RCIP helper/compression workflows.
 - Public API contract guards for top-level `chunkie` exports and lazy
   responsibility-package exports under `acceleration`, `geometry`, `kernels`,
-  `numerics`, and `quadrature`.
+  `misc`, and `quadrature`.
 - MATLAB golden parity for compact fixtures under `tests/golden`, including
   geometry, kernel/operator, quadrature, and RCIP fixtures.
-- MATLAB devtools parity for 55 focused comparisons in
+- MATLAB devtools parity for 54 focused comparisons in
   `tests/test_devtools_parity.py`, including Laplace, Helmholtz, and Stokes dense
   `chunkermat` solve/target-evaluation workflows and interleaved Helmholtz
   block-system diagnostics.
@@ -109,7 +109,7 @@ after internal refactors.
 `test_geometry_public_exports_are_stable_and_lazy`,
 `test_kernels_public_exports_are_stable_and_lazy`,
 `test_quadrature_public_exports_are_stable_and_lazy`, and
-`test_numerics_public_exports_are_stable_and_lazy` check that the refactored
+`test_misc_public_exports_are_stable_and_lazy` check that the refactored
 responsibility packages expose stable names while lazily loading heavier
 submodules only when accessed. These tests restore any temporarily unloaded
 modules so later monkeypatch tests observe the same module objects used by
@@ -531,17 +531,11 @@ random-mode sample points in Python, fits closed and open chunkers, and
 compares position, first and second derivatives, normals, weights, adjacency,
 chunk lengths, and area against the MATLAB devtools fixture.
 
-`test_flagself_devtools_output_matches_matlab` checks source-target duplicate
-pair detection. There is no PDE equation; the invariant is exact coordinate
-coincidence within tolerance. The method is `flagself` and a sorted-pair
-comparison. Ground truth is the MATLAB pair list, adjusted from 1-based to
-0-based indexing, plus the fixture's zero error count.
-
 `test_flagnear_devtools_output_matches_matlab` checks chunk-near target flags
 on a saved chunker. The equation is a per-target/per-chunk distance threshold
-controlled by `fac`. The method is `flagnear` using chunker geometry and
-sortinfo-style spatial filtering. Ground truth is MATLAB's near-flag matrix
-and its brute-force verification matrix.
+controlled by `fac`. The method is `Chunker.flagnear` using chunker geometry.
+Ground truth is MATLAB's near-flag matrix and its brute-force verification
+matrix.
 
 `test_flagrect_devtools_output_matches_matlab` checks rectangle-based near
 flagging in both direct point-list and tensor-grid modes. The method is
@@ -1092,31 +1086,6 @@ The method compares tight and padded rectangle flags on an open polyline, then
 checks `tochunkgraph` delegates to chunker implementations. Ground truth is
 the exact boolean masks and equality between graph and chunker results.
 
-`test_flagself_reports_close_source_target_pairs` checks duplicate coordinate
-pair reporting for small arrays. The method is `flagself`. Ground truth is the
-explicit index-pair matrix identifying target coordinates that coincide with
-source coordinates.
-
-`test_flagself_handles_grid_sized_inputs_and_strict_tolerance` stress-tests
-`flagself` on an 80-by-80 grid. The equation is coordinate equality within a
-strict `1e-14` tolerance; an additional target shifted by `1e-14` should not
-create an extra reported pair. The method is `flagself` on large point arrays.
-Ground truth is exactly one pair per source point in identity order.
-
-`test_basic_2d_geometry_helpers` checks elementary differential-geometry
-helpers. The equations are `perp([x,y]) = [y,-x]`, outward normals from
-tangents, and curvature
-`kappa = (x' y'' - y' x'') / |r'|^3`, which equals `1` on the unit circle.
-The method is `perp`, `normal2d`, and `curvature2d`. Ground truth is explicit
-perp values, chunker normals, and unit curvature.
-
-`test_chunk_nearparam_on_line_segment` checks nearest-parameter recovery on a
-straight line segment from `(0,0)` to `(2,0)`. The equation is the affine map
-`x = t + 1` from reference coordinate `t in [-1,1]`, so targets project to
-`t=-0.5` and `t=0.75`. The method is `chunk_nearparam` on one panel. Ground
-truth is projected points, constant derivative `(1,0)`, zero second
-derivative, and squared distances `1` and `0.0625`.
-
 `test_chunker_nearest_selects_point_and_chunk` checks full chunker nearest
 search on an open L-shaped polyline. The target `(1.25,0.6)` is closest to the
 horizontal segment at `(1.25,0)`. The method is `Chunker.nearest`, which
@@ -1151,9 +1120,9 @@ arclength density, curvature, arclength coordinates and derivatives,
 endpoints, extrema, `sortinfo`, `sort`, and `datares`.
 
 `test_chunker_flag_nearest_translate_and_uniform_helpers_match_matlab_fixture`
-checks chunker and `geometry.predicates` near-flag wrappers, rectangle/grid near
-flags, vectorized nearest-point results against MATLAB scalar-reference calls,
-geometry cache recomputation, left/right translation operators, and
+checks chunker near-flag methods, rectangle/grid near flags, vectorized
+nearest-point results against MATLAB scalar-reference calls, geometry cache
+recomputation, left/right translation operators, and
 `chunkerfuncuni` uniform geometry including MATLAB-compatible spectral second
 derivatives.
 
@@ -1163,12 +1132,8 @@ checks `split`, `refine`, `upsample`, `arcresample`, `rotate`, `reflect`,
 MATLAB geometry after recomputing normals and weights so Python's live geometry
 caches are compared to the same state.
 
-`test_geometry_predicate_helpers_match_matlab_fixture` checks `perp`, `normal2d`,
-`curvature2d`, `chunk_nearparam`, and `flagself` against MATLAB outputs, with
-one-based MATLAB pair indices converted at assertion time.
-
-`test_arcparam_helpers_match_matlab_fixture` checks `numerics.arcparam.init` and
-`numerics.arcparam.eval` against MATLAB fixture data for the full chunker and a
+`test_arcparam_helpers_match_matlab_fixture` checks `misc.arcparam.init` and
+`misc.arcparam.eval` against MATLAB fixture data for the full chunker and a
 selected-panel subset, including stored coefficients, panel lengths,
 condition/error diagnostics, original-node evaluation, and sample arclength
 evaluation.
@@ -1328,8 +1293,8 @@ potential values.
 selectors for Laplace single, double, combined, combined-prime, and gradient
 forms. The equation content is the Laplace Green's function and its normal or
 gradient projections. The method is direct `lap2d.kern` evaluation with
-`pointinfo`. Ground truth is direct `lap2d.green` value, gradient, and Hessian
-data projected into each selector block.
+`PointInfo` records. Ground truth is direct `lap2d.green` value, gradient, and
+Hessian data projected into each selector block.
 
 `test_helmholtz_green_gradient_matches_finite_difference` checks the 2D
 Helmholtz Green's function derivatives. The method evaluates `helm2d.green`
@@ -1513,7 +1478,7 @@ assembly and evaluation for Laplace and Stokes, point-info flattening, smooth
 matrix application, zero-kernel matrices, smooth scalar integration, callable
 integration, and direct point/grid interior classification. The matrix
 equation is `M_ij = K(x_i,y_j) w_j`; application is `M sigma`. The method uses
-`pointinfo`, `chunkermat`, `chunkermatapply`, `chunkerintegral`,
+`PointInfo`, `chunkermat`, `chunkermatapply`, `chunkerintegral`,
 `chunkerinterior`, `chunkerkernevalmat`, `chunkerkerneval`, and
 `quadnative.buildmat`. Ground truth is `tests/golden/operator_parity.mat`,
 including matrices, applied values, integrals, and classifications.
@@ -1588,8 +1553,9 @@ the corresponding single-chunker special-quadrature matrix.
 `test_pointinfo_uses_matlab_chunk_contiguous_ordering` checks point ordering
 when flattening chunker fields. The invariant is MATLAB/Fortran chunk-contiguous
 ordering: all nodes of chunk 0, then all nodes of chunk 1, and so on. The
-method is `pointinfo(chnkr)`. Ground truth is equality of the full flattened
-`r`, `d`, `d2`, and normal arrays with the original chunk arrays.
+method is `PointInfo.from_chunker(chnkr)` through the test-local legacy alias.
+Ground truth is equality of the full flattened `r`, `d`, `d2`, and normal
+arrays with the original chunk arrays.
 
 `test_chunkerkernevalmat_matches_direct_target_evaluation` checks target
 evaluation matrix assembly. The equation is `values = EvalMat sigma` for the

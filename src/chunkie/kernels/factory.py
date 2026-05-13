@@ -15,7 +15,8 @@ from typing import Any
 
 import numpy as np
 
-from .kernels import (
+from ..geometry import PointInfo
+from . import (
     biharmonic as biharm2d,
     elasticity as elast2d,
     helmholtz as helm2d,
@@ -445,10 +446,8 @@ def zeros(m: int = 1, n: int | None = None) -> Kernel:
     n = m if n is None else n
 
     def eval_(srcinfo: Any, targinfo: Any) -> np.ndarray:
-        from .operators import pointinfo
-
-        src = pointinfo(srcinfo)
-        targ = pointinfo(targinfo)
+        src = PointInfo.from_any(srcinfo)
+        targ = PointInfo.from_any(targinfo)
         return np.zeros((m * targ.r.shape[1], n * src.r.shape[1]))
 
     return Kernel(
@@ -468,10 +467,8 @@ def nans(m: int = 1, n: int | None = None) -> Kernel:
     n = m if n is None else n
 
     def eval_(srcinfo: Any, targinfo: Any) -> np.ndarray:
-        from .operators import pointinfo
-
-        src = pointinfo(srcinfo)
-        targ = pointinfo(targinfo)
+        src = PointInfo.from_any(srcinfo)
+        targ = PointInfo.from_any(targinfo)
         return np.full((m * targ.r.shape[1], n * src.r.shape[1]), np.nan)
 
     return Kernel(
@@ -519,10 +516,8 @@ def interleave(kerns: Any) -> Kernel:
     colstarts = np.concatenate(([0], np.cumsum(coldims)))
 
     def eval_(srcinfo: Any, targinfo: Any) -> np.ndarray:
-        from .operators import pointinfo
-
-        src = pointinfo(srcinfo)
-        targ = pointinfo(targinfo)
+        src = PointInfo.from_any(srcinfo)
+        targ = PointInfo.from_any(targinfo)
         out = np.zeros((opdims[0] * targ.r.shape[1], opdims[1] * src.r.shape[1]), dtype=_interleave_dtype(items, src, targ))
         for i in range(items.shape[0]):
             ridx = _interleave_indices(targ.r.shape[1], opdims[0], rowstarts[i], rowdims[i])
@@ -547,10 +542,8 @@ def interleave(kerns: Any) -> Kernel:
 def _direct_fmm(func: Callable[[Any, Any], np.ndarray]) -> Callable[[float, Any, Any, np.ndarray], np.ndarray]:
     def fmm_eval(eps: float, srcinfo: Any, targinfo: Any, sigma: np.ndarray) -> np.ndarray:
         _ = eps
-        from .operators import pointinfo
-
-        src = pointinfo(srcinfo)
-        targ = pointinfo(targinfo)
+        src = PointInfo.from_any(srcinfo)
+        targ = PointInfo.from_any(targinfo)
         return func(src, targ) @ np.asarray(sigma).reshape(-1, order="F")
 
     return fmm_eval
@@ -573,10 +566,8 @@ def _lap2d_fmm(kind: str, coefs: Any | None = None) -> Callable[[float, Any, Any
         return None
 
     def fmm_eval(eps: float, srcinfo: Any, targinfo: Any, sigma: np.ndarray) -> np.ndarray:
-        from .operators import pointinfo
-
-        src = pointinfo(srcinfo)
-        targ = pointinfo(targinfo)
+        src = PointInfo.from_any(srcinfo)
+        targ = PointInfo.from_any(targinfo)
         sig = np.asarray(sigma).reshape(-1, order="F")
         if typ in {"s", "single", "sgrad", "sg", "sp", "sprime", "st", "stau"}:
             out = _fmm2dpy.lfmm2d(eps=eps, sources=src.r, charges=sig, targets=targ.r, pgt=2)
@@ -620,10 +611,8 @@ def _biharm2d_fmm(kind: str) -> Callable[[float, Any, Any, np.ndarray], np.ndarr
         return None
 
     def fmm_eval(eps: float, srcinfo: Any, targinfo: Any, sigma: np.ndarray) -> np.ndarray:
-        from .operators import pointinfo
-
-        src = pointinfo(srcinfo)
-        targ = pointinfo(targinfo)
+        src = PointInfo.from_any(srcinfo)
+        targ = PointInfo.from_any(targinfo)
         sig = np.asarray(sigma).reshape(-1, order="F")
         sx = src.r[0]
         sy = src.r[1]
@@ -697,10 +686,8 @@ def _elast2d_fmm(kind: str, lam: float, mu: float) -> Callable[[float, Any, Any,
     stok_dgrad = _stok2d_fmm("dgrad", mu)
 
     def fmm_eval(eps: float, srcinfo: Any, targinfo: Any, sigma: np.ndarray) -> np.ndarray:
-        from .operators import pointinfo
-
-        src = pointinfo(srcinfo)
-        targ = pointinfo(targinfo)
+        src = PointInfo.from_any(srcinfo)
+        targ = PointInfo.from_any(targinfo)
         sig = np.asarray(sigma).reshape(2, -1, order="F")
         nt = targ.r.shape[1]
         if typ in {"s", "single", "sgrad", "sg", "strac"}:
@@ -831,9 +818,7 @@ def _elastic_traction_from_grad(grad: np.ndarray, normals: np.ndarray, lam: floa
 
 
 def _with_normals(src: Any, normals: np.ndarray) -> Any:
-    from .operators import PointInfo, pointinfo
-
-    base = pointinfo(src)
+    base = PointInfo.from_any(src)
     return PointInfo(r=base.r, d=base.d, d2=base.d2, n=np.asarray(normals), data=base.data)
 
 
@@ -851,10 +836,8 @@ def _helm2d_fmm(kind: str, zk: complex, coefs: Any | None = None) -> Callable[[f
         return None
 
     def fmm_eval(eps: float, srcinfo: Any, targinfo: Any, sigma: np.ndarray) -> np.ndarray:
-        from .operators import pointinfo
-
-        src = pointinfo(srcinfo)
-        targ = pointinfo(targinfo)
+        src = PointInfo.from_any(srcinfo)
+        targ = PointInfo.from_any(targinfo)
         sig = np.asarray(sigma).reshape(-1, order="F")
         if typ in {"s", "single", "sgrad", "sg", "sp", "sprime", "stau", "st"}:
             out = _fmm2dpy.hfmm2d(eps=eps, zk=zk, sources=src.r, charges=sig, targets=targ.r, pgt=2)
@@ -923,10 +906,8 @@ def _stok2d_fmm(kind: str, mu: float = 1.0, coefs: Any | None = None) -> Callabl
         return None
 
     def fmm_eval(eps: float, srcinfo: Any, targinfo: Any, sigma: np.ndarray) -> np.ndarray:
-        from .operators import pointinfo
-
-        src = pointinfo(srcinfo)
-        targ = pointinfo(targinfo)
+        src = PointInfo.from_any(srcinfo)
+        targ = PointInfo.from_any(targinfo)
         sig = np.asarray(sigma).reshape(2, -1, order="F")
         is_double = typ in {"d", "double", "dvel", "dvelocity", "dpres", "dpressure", "dgrad", "dg"}
         if is_double and src.n is None:
@@ -961,9 +942,7 @@ def _stok2d_traction_fmm(
         return None
 
     def fmm_eval(eps: float, srcinfo: Any, targinfo: Any, sigma: np.ndarray) -> np.ndarray:
-        from .operators import pointinfo
-
-        targ = pointinfo(targinfo)
+        targ = PointInfo.from_any(targinfo)
         if targ.n is None:
             raise ValueError("target normals are required")
         pressure = np.asarray(pressure_fmm(eps, srcinfo, targ, sigma)).reshape(-1, order="F")
@@ -995,9 +974,7 @@ def _sum_raw_fmm(
 
 
 def _target_count(targinfo: Any) -> int:
-    from .operators import pointinfo
-
-    return pointinfo(targinfo).r.shape[1]
+    return PointInfo.from_any(targinfo).r.shape[1]
 
 
 def _sum_fmm(left: Kernel, right: Kernel, sign: float) -> Callable[[float, Any, Any, np.ndarray], Any] | None:
@@ -1069,10 +1046,8 @@ def _interleave_fmm(
         return None
 
     def fmm_eval(eps: float, srcinfo: Any, targinfo: Any, sigma: np.ndarray) -> np.ndarray:
-        from .operators import pointinfo
-
-        src = pointinfo(srcinfo)
-        targ = pointinfo(targinfo)
+        src = PointInfo.from_any(srcinfo)
+        targ = PointInfo.from_any(targinfo)
         sig = np.asarray(sigma).reshape(-1, order="F")
         out = np.zeros(opdims[0] * targ.r.shape[1], dtype=np.result_type(sig, complex if any(np.iscomplexobj(item.params) for item in items.flat) else float))
         for i in range(items.shape[0]):
@@ -1092,8 +1067,6 @@ def _interleave_fmm(
 
 def _infer_opdims(func: Callable[[Any, Any], np.ndarray]) -> tuple[int, int]:
     try:
-        from .operators import PointInfo
-
         src = PointInfo(r=np.zeros((2, 1)), d=np.ones((2, 1)), d2=np.zeros((2, 1)), n=np.ones((2, 1)))
         targ = PointInfo(r=np.ones((2, 1)), d=np.ones((2, 1)), d2=np.zeros((2, 1)), n=np.ones((2, 1)))
         shape = func(src, targ).shape

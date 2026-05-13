@@ -14,7 +14,8 @@ from numpy.typing import ArrayLike
 from scipy.sparse import spmatrix
 
 from .. import lege
-from ..chunker import Chunker, merge
+from ..geometry.chunker import Chunker, merge
+from ..geometry import PointInfo
 
 
 _KERNEL_PROBE_EXCEPTIONS = (
@@ -550,37 +551,7 @@ def _is_block_kernel_matrix(kern: Any) -> bool:
 
 
 def _pointinfo(obj: Any) -> Any:
-    if isinstance(obj, Chunker):
-        return _new_info(
-            r=obj.r.reshape(obj.dim, obj.npt, order="F"),
-            d=obj.d.reshape(obj.dim, obj.npt, order="F"),
-            d2=obj.d2.reshape(obj.dim, obj.npt, order="F"),
-            n=obj.n.reshape(obj.dim, obj.npt, order="F"),
-            data=obj.data.reshape(obj.datadim, obj.npt, order="F") if obj.datadim else None,
-        )
-    merged = getattr(obj, "merged", None)
-    if callable(merged):
-        return _pointinfo(merged())
-    if all(hasattr(obj, name) for name in ("r",)):
-        r = np.asarray(obj.r)
-        return _new_info(
-            r=r.reshape(r.shape[0], -1),
-            d=_optional_attr(obj, "d"),
-            d2=_optional_attr(obj, "d2"),
-            n=_optional_attr(obj, "n"),
-            data=_optional_attr(obj, "data"),
-        )
-    if isinstance(obj, dict):
-        r = np.asarray(obj["r"])
-        return _new_info(
-            r=r.reshape(r.shape[0], -1),
-            d=_optional_item(obj, "d"),
-            d2=_optional_item(obj, "d2"),
-            n=_optional_item(obj, "n"),
-            data=_optional_item(obj, "data"),
-        )
-    arr = np.asarray(obj, dtype=float)
-    return _new_info(r=arr.reshape(arr.shape[0], -1))
+    return PointInfo.from_any(obj)
 
 
 def _proxy_info(pr: ArrayLike, ptau: ArrayLike, scale: float, ctr: np.ndarray) -> Any:
@@ -597,25 +568,6 @@ def _subset_info(info: Any, indices: np.ndarray) -> Any:
         n=None if info.n is None else info.n[:, indices],
         data=None if info.data is None else info.data[:, indices],
     )
-
-
-def _optional_attr(obj: Any, name: str) -> np.ndarray | None:
-    value = getattr(obj, name, None)
-    if value is None:
-        return None
-    arr = np.asarray(value)
-    if arr.size == 0:
-        return None
-    return arr.reshape(arr.shape[0], -1)
-
-
-def _optional_item(obj: dict[str, Any], name: str) -> np.ndarray | None:
-    if name not in obj or obj[name] is None:
-        return None
-    arr = np.asarray(obj[name])
-    if arr.size == 0:
-        return None
-    return arr.reshape(arr.shape[0], -1)
 
 
 def _opdims(
@@ -677,8 +629,6 @@ def _new_info(
     n: np.ndarray | None = None,
     data: np.ndarray | None = None,
 ) -> Any:
-    from ..operators import PointInfo
-
     return PointInfo(r=r, d=d, d2=d2, n=n, data=data)
 
 

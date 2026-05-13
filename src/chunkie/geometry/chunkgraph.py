@@ -10,8 +10,8 @@ from typing import Any
 import numpy as np
 from numpy.typing import ArrayLike
 
-from .chunker import Chunker, ChunkerPref, chunkerfunc, chunkerpoints, merge
-from .geometry.curves import linefunc
+from .chunker import Chunker, ChunkerPref, _legacy_options, _set_option, chunkerfunc, chunkerpoints, merge
+from .curves import linefunc
 
 
 @dataclass
@@ -62,6 +62,7 @@ class ChunkGraph:
 
         raw_edges = np.asarray(edgesendverts)
         nedge_hint = _edge_count_hint(raw_edges, self.verts.shape[1])
+        cparams = _normalize_graph_cparams(cparams)
         edge_specs = _expand_edge_specs(fchnks, nedge_hint)
         self.verts, self.edgesendverts, prebuilt = _normalize_edges_with_closed_vertices(
             raw_edges, self.verts, edge_specs, cparams, p
@@ -210,8 +211,32 @@ class ChunkGraph:
             ids.extend(range(starts[edge], starts[edge + 1]))
         return np.array(ids, dtype=int)
 
-    def refine(self, opts: dict[str, Any] | None = None) -> "ChunkGraph":
-        opts = {} if opts is None else dict(opts)
+    def refine(
+        self,
+        opts: dict[str, Any] | None = None,
+        *,
+        refine_edges: ArrayLike | None = None,
+        ignore_edges: ArrayLike | None = None,
+        split_chunks: Any | None = None,
+        last_length: float | None = None,
+        max_chunk_length: float | None = None,
+        level_restrict: str | None = None,
+        level_restrict_factor: float | None = None,
+        oversample: int | None = None,
+        split_type: str | None = None,
+        max_chunks: int | None = None,
+    ) -> "ChunkGraph":
+        opts = _legacy_options(opts, "chunkgraph refine opts")
+        _set_option(opts, "dlist", refine_edges)
+        _set_option(opts, "ilist", ignore_edges)
+        _set_option(opts, "splitchunks", split_chunks)
+        _set_option(opts, "last_len", last_length)
+        _set_option(opts, "maxchunklen", max_chunk_length)
+        _set_option(opts, "lvlr", level_restrict)
+        _set_option(opts, "lvlrfac", level_restrict_factor)
+        _set_option(opts, "nover", oversample)
+        _set_option(opts, "stype", split_type)
+        _set_option(opts, "nchmax", max_chunks)
         out = self.copy()
         nedge = len(out.echnks)
         dlist = _normalize_index_list(opts.get("dlist", np.arange(nedge)), nedge)
@@ -291,13 +316,32 @@ class ChunkGraph:
     def normonesmat(self) -> np.ndarray:
         return self.merged().normonesmat()
 
-    def flagnear(self, pts: ArrayLike, opts: dict[str, Any] | None = None) -> np.ndarray:
+    def flagnear(self, pts: ArrayLike, opts: dict[str, Any] | None = None, *, fac: float | None = None) -> np.ndarray:
+        opts = _legacy_options(opts, "chunkgraph flagnear opts")
+        _set_option(opts, "fac", fac)
         return self.merged().flagnear(pts, opts)
 
-    def flagnear_rectangle(self, pts: ArrayLike, opts: dict[str, Any] | None = None) -> np.ndarray:
+    def flagnear_rectangle(
+        self,
+        pts: ArrayLike,
+        opts: dict[str, Any] | None = None,
+        *,
+        rho: float | None = None,
+    ) -> np.ndarray:
+        opts = _legacy_options(opts, "chunkgraph flagnear_rectangle opts")
+        _set_option(opts, "rho", rho)
         return self.merged().flagnear_rectangle(pts, opts)
 
-    def flagnear_rectangle_grid(self, x: ArrayLike, y: ArrayLike, opts: dict[str, Any] | None = None) -> np.ndarray:
+    def flagnear_rectangle_grid(
+        self,
+        x: ArrayLike,
+        y: ArrayLike,
+        opts: dict[str, Any] | None = None,
+        *,
+        rho: float | None = None,
+    ) -> np.ndarray:
+        opts = _legacy_options(opts, "chunkgraph flagnear_rectangle_grid opts")
+        _set_option(opts, "rho", rho)
         return self.merged().flagnear_rectangle_grid(x, y, opts)
 
     def __add__(self, other: ArrayLike) -> "ChunkGraph":
@@ -506,12 +550,20 @@ def _expand_edge_specs(specs: Any, nedge: int) -> list[Any]:
     return out
 
 
+def _normalize_graph_cparams(cparams: Any) -> Any:
+    if cparams is None:
+        return None
+    if isinstance(cparams, dict):
+        return _legacy_options(cparams, "chunkgraph cparams")
+    return [_legacy_options(cp, "chunkgraph cparams") for cp in cparams]
+
+
 def _edge_cparams(cparams: Any, iedge: int) -> dict[str, Any]:
     if cparams is None:
-        return {}
+        return _legacy_options(None, "chunkgraph cparams")
     if isinstance(cparams, dict):
-        return dict(cparams)
-    return dict(cparams[iedge])
+        return _legacy_options(cparams, "chunkgraph cparams")
+    return _legacy_options(cparams[iedge], "chunkgraph cparams")
 
 
 def _normalize_index_list(value: Any, nitems: int) -> list[int]:

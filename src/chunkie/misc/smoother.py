@@ -9,7 +9,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from .. import lege
-from ..chunker import chunkerpoly
+from ..geometry.chunker import chunkerpoly
 
 
 @dataclass

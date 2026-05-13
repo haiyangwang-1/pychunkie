@@ -1,16 +1,6 @@
 import numpy as np
 
 from chunkie import chunkerfunc, chunkerpoly, tochunkgraph
-from chunkie.geometry import (
-    chunk_nearparam,
-    curvature2d,
-    flagnear,
-    flagnear_rectangle,
-    flagnear_rectangle_grid,
-    flagself,
-    normal2d,
-    perp,
-)
 
 
 def circle(t):
@@ -27,7 +17,7 @@ def test_flagnear_matches_bruteforce_chunk_node_distance():
     pts = np.array([[1.0, 0.0, 5.0], [0.0, 1.0, 5.0]])
     fac = 0.75
 
-    flag = flagnear(chnkr, pts, {"fac": fac})
+    flag = chnkr.flagnear(pts, {"fac": fac})
 
     expected = np.zeros_like(flag)
     lens = chnkr.chunklen()
@@ -45,8 +35,8 @@ def test_flagnear_rectangle_grid_matches_direct_meshgrid_order():
     xx, yy = np.meshgrid(x, y)
     pts = np.vstack((xx.ravel(order="F"), yy.ravel(order="F")))
 
-    direct = flagnear_rectangle(chnkr, pts, {"rho": 1.5})
-    grid = flagnear_rectangle_grid(chnkr, x, y, {"rho": 1.5})
+    direct = chnkr.flagnear_rectangle(pts, {"rho": 1.5})
+    grid = chnkr.flagnear_rectangle_grid(x, y, {"rho": 1.5})
 
     np.testing.assert_array_equal(grid, direct)
 
@@ -59,8 +49,8 @@ def test_flagnear_rectangle_uses_per_chunk_padding_and_chunkgraph_delegates():
     )
     pts = np.array([[1.0, 1.0, 2.25, 2.25], [0.1, 1.6, 0.5, 1.6]])
 
-    tight = flagnear_rectangle(chnkr, pts, {"rho": 1.0})
-    padded = flagnear_rectangle(chnkr, pts, {"rho": 1.8})
+    tight = chnkr.flagnear_rectangle(pts, {"rho": 1.0})
+    padded = chnkr.flagnear_rectangle(pts, {"rho": 1.8})
     graph = tochunkgraph(chnkr)
     expected_tight = np.array(
         [
@@ -83,52 +73,6 @@ def test_flagnear_rectangle_uses_per_chunk_padding_and_chunkgraph_delegates():
     np.testing.assert_array_equal(padded, expected_padded)
     np.testing.assert_array_equal(graph.flagnear(pts, {"fac": 0.5}), chnkr.flagnear(pts, {"fac": 0.5}))
     np.testing.assert_array_equal(graph.flagnear_rectangle(pts, {"rho": 1.8}), padded)
-
-
-def test_flagself_reports_close_source_target_pairs():
-    src = np.array([[0.0, 1.0, 2.0], [0.0, 1.0, 2.0]])
-    targ = np.array([[2.0, 0.0, 3.0], [2.0, 0.0, 3.0]])
-
-    pairs = flagself(src, targ)
-
-    np.testing.assert_array_equal(pairs, np.array([[0, 2], [1, 0]]))
-
-
-def test_flagself_handles_grid_sized_inputs_and_strict_tolerance():
-    x = np.linspace(0.0, 1.0, 80)
-    y = np.linspace(0.0, 2.0, 80)
-    xx, yy = np.meshgrid(x, y)
-    src = np.vstack((xx.ravel(), yy.ravel()))
-    targ = np.column_stack((src, src[:, :1] + np.array([[1.0e-14], [0.0]])))
-
-    pairs = flagself(src, targ, 1.0e-14)
-
-    assert pairs.shape == (2, src.shape[1])
-    np.testing.assert_array_equal(pairs[0], np.arange(src.shape[1]))
-    np.testing.assert_array_equal(pairs[1], np.arange(src.shape[1]))
-
-
-def test_basic_2d_geometry_helpers():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 2}, {"k": 8})
-    d = chnkr.d.reshape(2, -1)
-    d2 = chnkr.d2.reshape(2, -1)
-
-    np.testing.assert_allclose(perp(np.array([[1.0, 0.0], [0.0, 1.0]])), [[0.0, 1.0], [-1.0, -0.0]])
-    np.testing.assert_allclose(normal2d({"d": d}), chnkr.n.reshape(2, -1), atol=1e-14)
-    np.testing.assert_allclose(curvature2d({"d": d, "d2": d2}), 1.0, atol=1e-12)
-
-
-def test_chunk_nearparam_on_line_segment():
-    chnkr = chunkerpoly(np.array([[0.0, 2.0], [0.0, 0.0]]), {"ifclosed": False}, {"k": 12})
-    ts, rs, ds, d2s, dist2s = chunk_nearparam(
-        chnkr.r[:, :, 0], np.array([[0.5, 1.75], [1.0, -0.25]]), t=chnkr.tstor
-    )
-
-    np.testing.assert_allclose(ts, [-0.5, 0.75], atol=1e-12)
-    np.testing.assert_allclose(rs, [[0.5, 1.75], [0.0, 0.0]], atol=1e-12)
-    np.testing.assert_allclose(ds, [[1.0, 1.0], [0.0, 0.0]], atol=1e-12)
-    np.testing.assert_allclose(d2s, 0.0, atol=1e-12)
-    np.testing.assert_allclose(dist2s, [1.0, 0.0625], atol=1e-12)
 
 
 def test_chunker_nearest_selects_point_and_chunk():

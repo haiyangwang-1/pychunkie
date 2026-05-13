@@ -4,6 +4,13 @@ This module mirrors the small linear-algebra setup helpers from MATLAB
 ``chnk.rcip`` and provides a conservative first Python interface for corner
 refinement and compression metadata. The full recursive local compression
 solver is intentionally not hidden behind this baseline.
+
+RCIP is the corner path: sharp vertices get local dyadic refinement and a
+compressed correction matrix so a global smooth-grid solve can represent the
+near-corner singular density. The helpers here expose the prolongation,
+weighted prolongation, Schur-Banachiewicz block update, and saved metadata used
+by higher-level chunkgraph assembly; they do not silently run an incomplete full
+corner solver.
 """
 
 from __future__ import annotations
@@ -15,7 +22,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from .. import lege
-from ..chunker import Chunker, ChunkerPref, merge
+from ..geometry.chunker import Chunker, ChunkerPref, merge
 
 
 @dataclass
@@ -87,7 +94,13 @@ def Pbcinit(IP: ArrayLike, nedge: int, ndim: int) -> np.ndarray:
 
 
 def setup(ngl: int, ndim: int, nedge: int, isstart: ArrayLike) -> tuple[np.ndarray, ...]:
-    """Return MATLAB ``chnk.rcip.setup`` arrays using zero-based indices."""
+    """Return MATLAB ``chnk.rcip.setup`` arrays using zero-based indices.
+
+    The ``star`` indices are the fine nodes adjacent to the corner, while
+    ``circ`` indices are the surrounding coarse/interface nodes. The ``L``
+    arrays act on vector unknowns; ``L1`` is the scalar companion used when the
+    same local topology is needed without operator components.
+    """
 
     t, w, _, _ = lege.exps(int(ngl))
     ip, ipw = IPinit(t, w)
@@ -167,7 +180,13 @@ def SchurBana(
     starS: ArrayLike,
     circS: ArrayLike,
 ) -> np.ndarray:
-    """Apply the Schur-Banachiewicz RCIP block inverse update."""
+    """Apply the Schur-Banachiewicz RCIP block inverse update.
+
+    This is the local block algebra that folds a refined corner patch back into
+    the coarse unknowns. ``P`` prolongs coarse values to fine values, ``PW`` is
+    the weighted adjoint, and the ``star``/``circ`` index sets select the fine
+    and interface blocks of the local matrix ``K``.
+    """
 
     p = np.asarray(P)
     pw = np.asarray(PW)

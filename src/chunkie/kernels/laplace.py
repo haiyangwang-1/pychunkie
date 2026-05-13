@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import ArrayLike
 
-from chunkie.operators import PointInfo, pointinfo
+from chunkie.geometry import PointInfo
 
 
 def green(
@@ -51,8 +51,8 @@ def kern(
     ``"c"``, ``"cp"``, and ``"cgrad"``.
     """
 
-    src = pointinfo(srcinfo)
-    targ = pointinfo(targinfo)
+    src = PointInfo.from_any(srcinfo)
+    targ = PointInfo.from_any(targinfo)
     typ = kind.lower()
     val, grad, hess = green(src.r, targ.r, nolog=typ not in {"s", "single", "c", "combined"})
 

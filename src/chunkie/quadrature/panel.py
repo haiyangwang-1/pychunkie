@@ -4,6 +4,12 @@ This module ports the analytic panel-weight construction used by MATLAB
 ``chnk.pquadwts``. Operator assembly uses these helpers for eligible close
 target-panel replacements and falls back to adaptive or oversampled Gauss
 quadrature when split metadata or side information is unavailable.
+
+Panel product quadrature is different from GGQ tables: a kernel advertises a
+local analytic split, such as smooth plus log or Cauchy pieces, and this module
+builds weights for those singular pieces against one source panel. That is why
+``SplitInfo`` stores both the split types and the callable that evaluates the
+smooth coefficients multiplying each singular basis.
 """
 
 from __future__ import annotations
@@ -16,8 +22,8 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from chunkie import lege
-from chunkie.chunker import Chunker
-from chunkie.operators import PointInfo, pointinfo
+from chunkie.geometry.chunker import Chunker
+from chunkie.geometry import PointInfo
 
 
 SplitType = tuple[int, int, int, int]
@@ -31,7 +37,12 @@ SUPERSINGULAR: SplitType = (0, 0, -3, 0)
 
 @dataclass(frozen=True)
 class SplitInfo:
-    """Kernel split metadata for product quadrature assembly."""
+    """Kernel split metadata for product quadrature assembly.
+
+    ``types`` describes the singular basis functions, ``actions`` says whether
+    a weight matrix should be used directly or differentiated, and ``functions``
+    evaluates the kernel-specific smooth coefficients on the upsampled panel.
+    """
 
     types: tuple[SplitType, ...]
     actions: tuple[str, ...]
@@ -75,7 +86,7 @@ def pquadwts(
         raise ValueError("nodes and weights must have the same shape")
     interp = lege.matrin(k, t)[0] if intp is None else np.asarray(intp)
     interp_ab = lege.matrin(k, np.array([-1.0, 1.0]))[0] if intp_ab is None else np.asarray(intp_ab)
-    targ = pointinfo(targobj)
+    targ = PointInfo.from_any(targobj)
     return panel_pquadwts(
         chnkr.r,
         chnkr.d,
@@ -118,7 +129,7 @@ def panel_matrix(
         w = np.asarray(weights, dtype=float).reshape(-1)
     interp = lege.matrin(k, t)[0]
     interp_ab = lege.matrin(k, np.array([-1.0, 1.0]))[0]
-    targ = pointinfo(targobj)
+    targ = PointInfo.from_any(targobj)
     weights_by_type = pquadwts(
         chnkr,
         src_chunk,
@@ -167,7 +178,7 @@ def panel_matrix_auto_side(
     unhandled so callers can use their Gauss fallback.
     """
 
-    targ = pointinfo(targobj)
+    targ = PointInfo.from_any(targobj)
     op0, op1 = splitinfo.opdims
     ntarg = int(targ.r.shape[1])
     shape = (op0 * ntarg, op1 * chnkr.k)

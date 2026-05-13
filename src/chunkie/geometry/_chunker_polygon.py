@@ -1,4 +1,4 @@
-"""Private polygon-construction helpers for :mod:`chunkie.chunker`."""
+"""Private polygon-construction helpers for :mod:`chunkie.geometry.chunker`."""
 
 from __future__ import annotations
 

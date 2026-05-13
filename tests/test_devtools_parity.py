@@ -30,12 +30,13 @@ from chunkie.kernels import elasticity as elast2d
 from chunkie.kernels import helmholtz as helm2d
 from chunkie.kernels import helmholtz_1d as helm1d
 from chunkie.kernels import laplace as lap2d
-from chunkie.geometry import curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself
-from chunkie.numerics import arcparam, smoother, special
+from chunkie.geometry import PointInfo, curves
+from chunkie.misc import absconvgauss, arcparam, smoother
 from chunkie.quadrature import adaptive as quadadap
 from chunkie.quadrature import panel as pquad
-from chunkie.operators import PointInfo, pointinfo
 from _fixture_generation import chunker_from_fields, load_generated_mat_fixture, point_array, pointinfo_from_mat
+
+pointinfo = PointInfo.from_any
 
 
 def load_devtools_easy():
@@ -454,7 +455,7 @@ def _elastic_finite_difference_errors(lam: float, mu: float, src: PointInfo, tar
 def test_absconvgauss_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().absconvgauss
 
-    val, der, der2 = special.absconvgauss(fixture.x, float(fixture.m), float(fixture.offset), float(fixture.h))
+    val, der, der2 = absconvgauss.absconvgauss(fixture.x, float(fixture.m), float(fixture.offset), float(fixture.h))
 
     np.testing.assert_allclose(val, fixture.val, atol=1e-15)
     np.testing.assert_allclose(der, fixture.der, atol=1e-15)
@@ -687,13 +688,14 @@ def test_chunkerfunc_devtools_outputs_match_matlab():
     with pytest.warns(UserWarning, match="start and end points"):
         chunkerfunc(
             lambda t: np.vstack((np.cos(np.asarray(t).reshape(-1)), np.sin(np.asarray(t).reshape(-1)))),
-            {"ta": 0.0, "tb": 2 * np.pi - 1.0e-3},
+            interval=(0.0, 2 * np.pi - 1.0e-3),
         )
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         chunkerfunc(
             lambda t: np.vstack((np.cos(np.asarray(t).reshape(-1)), np.sin(np.asarray(t).reshape(-1)))),
-            {"ta": 0.0, "tb": 2 * np.pi - 1.0e-3, "ifclosed": False},
+            interval=(0.0, 2 * np.pi - 1.0e-3),
+            closed=False,
         )
     assert caught == []
     assert_chunker_fields_match(starfish, fixture.starfish, atol=1e-11)
@@ -1080,23 +1082,11 @@ def test_smoother_devtools_output_matches_matlab_thresholds():
     assert np.all(chnkr.chunklen() > 0.0)
 
 
-def test_flagself_devtools_output_matches_matlab():
-    fixture = load_devtools_easy().flagself
-    actual = flagself(fixture.srcs, fixture.targs)
-    expected = np.asarray(fixture.flagslf, dtype=int) - 1
-
-    assert actual.shape[1] == int(fixture.nsrc)
-    assert actual.shape[1] == int(fixture.flagged_count)
-    assert int(fixture.err_count) == 0
-    np.testing.assert_array_equal(sorted_pairs(actual), sorted_pairs(expected))
-    np.testing.assert_allclose(fixture.srcs[:, actual[0]], fixture.targs[:, actual[1]], atol=1e-10)
-
-
 def test_flagnear_devtools_output_matches_matlab():
     fixture = load_devtools_easy().flagnear
     chnkr = chunker_from_fields(fixture.chunker)
 
-    actual = flagnear(chnkr, fixture.targs, {"fac": float(fixture.fac)})
+    actual = chnkr.flagnear(fixture.targs, {"fac": float(fixture.fac)})
     expected = np.asarray(fixture.flag, dtype=bool)
     expected_bruteforce = np.asarray(fixture.flag_bruteforce, dtype=bool)
 
@@ -1110,8 +1100,8 @@ def test_flagrect_devtools_output_matches_matlab():
     fixture = load_devtools_easy().flagrect
     chnkr = chunker_from_fields(fixture.chunker)
 
-    direct = flagnear_rectangle(chnkr, fixture.targets)
-    grid = flagnear_rectangle_grid(chnkr, fixture.x, fixture.y)
+    direct = chnkr.flagnear_rectangle(fixture.targets)
+    grid = chnkr.flagnear_rectangle_grid(fixture.x, fixture.y)
     expected = np.asarray(fixture.flag, dtype=bool)
     expected_grid = np.asarray(fixture.flag_grid, dtype=bool)
 

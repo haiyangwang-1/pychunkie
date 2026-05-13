@@ -3,7 +3,7 @@ import importlib
 import numpy as np
 
 from chunkie import Kernel, chunkerfunc, chunkerkerneval, kernel
-from chunkie.operators import PointInfo
+from chunkie.geometry import PointInfo
 
 
 def circle(t):
@@ -163,7 +163,7 @@ def test_helmholtz_factory_transmission_selectors_match_direct_kernel():
 
 
 def test_helmholtz_double_gradient_fmm_requests_dipole_gradients(monkeypatch):
-    kernel_mod = importlib.import_module("chunkie.kernel")
+    kernel_mod = importlib.import_module("chunkie.kernels.factory")
 
     class FakeFmm2d:
         def __init__(self):
@@ -203,7 +203,7 @@ def test_helmholtz_double_gradient_fmm_requests_dipole_gradients(monkeypatch):
 
 
 def test_biharmonic_laplacian_fmm_reuses_laplace_single_layer(monkeypatch):
-    kernel_mod = importlib.import_module("chunkie.kernel")
+    kernel_mod = importlib.import_module("chunkie.kernels.factory")
 
     class FakeFmm2d:
         def __init__(self):
@@ -282,7 +282,7 @@ def test_fmm2dpy_stokes_layers_match_direct():
 
 
 def test_stokes_traction_fmm_reconstructs_stress_from_pressure_and_gradient(monkeypatch):
-    kernel_mod = importlib.import_module("chunkie.kernel")
+    kernel_mod = importlib.import_module("chunkie.kernels.factory")
 
     class FakeFmm2d:
         def __init__(self):

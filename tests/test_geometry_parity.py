@@ -20,19 +20,8 @@ from chunkie import (
     starfish,
     tochunkgraph,
 )
-from chunkie import lege
-from chunkie.geometry import (
-    chunk_nearparam,
-    curvature2d,
-    curves,
-    flagnear,
-    flagnear_rectangle,
-    flagnear_rectangle_grid,
-    flagself,
-    normal2d,
-    perp,
-)
-from chunkie.numerics import arcparam
+from chunkie.geometry import curves
+from chunkie.misc import arcparam
 from _fixture_generation import assert_chunker_matches_fields, chunker_from_fields, load_generated_mat_fixture
 
 
@@ -204,15 +193,12 @@ def test_chunker_flag_nearest_translate_and_uniform_helpers_match_matlab_fixture
     flag_opts = {"fac": float(fixture.flag_fac)}
     expected_flagnear = np.asarray(fixture.flagnear, dtype=bool)
     np.testing.assert_array_equal(base.flagnear(fixture.flag_targets, flag_opts), expected_flagnear)
-    np.testing.assert_array_equal(flagnear(base, fixture.flag_targets, flag_opts), expected_flagnear)
 
     rect_opts = {"rho": float(fixture.rect_rho)}
     expected_rect = np.asarray(fixture.flagnear_rectangle, dtype=bool)
     expected_grid = np.asarray(fixture.flagnear_rectangle_grid, dtype=bool)
     np.testing.assert_array_equal(base.flagnear_rectangle(fixture.rect_targets, rect_opts), expected_rect)
     np.testing.assert_array_equal(base.flagnear_rectangle_grid(fixture.rect_x, fixture.rect_y, rect_opts), expected_grid)
-    np.testing.assert_array_equal(flagnear_rectangle(base, fixture.rect_targets, rect_opts), expected_rect)
-    np.testing.assert_array_equal(flagnear_rectangle_grid(base, fixture.rect_x, fixture.rect_y, rect_opts), expected_grid)
 
     rn, dn, d2n, dist, tn, ichn = base.nearest(fixture.nearest_targets)
     np.testing.assert_allclose(rn, fixture.nearest_r, atol=2e-12)
@@ -278,28 +264,6 @@ def test_chunker_refinement_and_reconstruction_helpers_match_matlab_fixture():
     merged = merge([circ1, circ2])
     assert_chunker_matches_fields(merged, fixture.merged_circles, atol=2e-12)
     np.testing.assert_allclose(merged.data, fixture.merged_circles_data, atol=1e-14)
-
-
-def test_geometry_predicate_helpers_match_matlab_fixture():
-    root = load_geometry_core()
-    fixture = root.geometry
-    base = chunker_from_fields(root.chunker.base)
-    ptinfo = {"r": fixture.ptinfo.r, "d": fixture.ptinfo.d, "d2": fixture.ptinfo.d2}
-
-    np.testing.assert_allclose(perp(ptinfo["d"]), fixture.perp, atol=0.0)
-    np.testing.assert_allclose(normal2d(ptinfo), fixture.normal2d, atol=1e-13)
-    np.testing.assert_allclose(curvature2d(ptinfo), fixture.curvature2d, atol=1e-12)
-
-    _, _, u, _ = lege.exps(base.k)
-    ts, rs, ds, d2s, dist2s = chunk_nearparam(base.r[:, :, 1], fixture.targets, t=base.tstor, u=u)
-    np.testing.assert_allclose(ts, fixture.near_t, atol=1e-12)
-    np.testing.assert_allclose(rs, fixture.near_r, atol=1e-12)
-    np.testing.assert_allclose(ds, fixture.near_d, atol=1e-12)
-    np.testing.assert_allclose(d2s, fixture.near_d2, atol=1e-11)
-    np.testing.assert_allclose(dist2s, fixture.near_dist2, atol=1e-12)
-
-    actual_pairs = flagself(fixture.flagself_src, fixture.flagself_targ) + 1
-    np.testing.assert_array_equal(actual_pairs, np.asarray(fixture.flagself_pairs, dtype=int))
 
 
 def test_arcparam_helpers_match_matlab_fixture():

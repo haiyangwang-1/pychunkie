@@ -1,67 +1,11 @@
-"""Small geometry helpers from MATLAB ``+chnk``."""
+"""Nearest-point helpers for chunker geometry."""
 
 from __future__ import annotations
 
 import numpy as np
 from numpy.typing import ArrayLike
-from scipy.spatial import cKDTree
 
-from chunkie.chunker import Chunker
-from chunkie import lege
-
-
-def perp(tau: ArrayLike) -> np.ndarray:
-    tau_arr = np.asarray(tau)
-    if tau_arr.shape[0] != 2:
-        raise ValueError("perp expects a leading dimension of length 2")
-    out = np.empty_like(tau_arr)
-    out[0] = tau_arr[1]
-    out[1] = -tau_arr[0]
-    return out
-
-
-def normal2d(ptinfo: object | dict) -> np.ndarray:
-    d = _ptinfo_field(ptinfo, "d")
-    speed = np.sqrt(np.sum(d**2, axis=0))
-    return perp(d) / speed[None, ...]
-
-
-def curvature2d(ptinfo: object | dict) -> np.ndarray:
-    d = _ptinfo_field(ptinfo, "d")
-    d2 = _ptinfo_field(ptinfo, "d2")
-    speed3 = np.sqrt(np.sum(d**2, axis=0)) ** 3
-    return (d[0] * d2[1] - d[1] * d2[0]) / speed3
-
-
-def flagnear(chnkr: Chunker, pts: ArrayLike, opts: dict | None = None) -> np.ndarray:
-    return chnkr.flagnear(pts, opts)
-
-
-def flagnear_rectangle(chnkr: Chunker, pts: ArrayLike, opts: dict | None = None) -> np.ndarray:
-    return chnkr.flagnear_rectangle(pts, opts)
-
-
-def flagnear_rectangle_grid(chnkr: Chunker, x: ArrayLike, y: ArrayLike, opts: dict | None = None) -> np.ndarray:
-    return chnkr.flagnear_rectangle_grid(x, y, opts)
-
-
-def flagself(srcs: ArrayLike, targs: ArrayLike, tol: float = 1e-14) -> np.ndarray:
-    src = np.asarray(srcs, dtype=float).reshape(np.asarray(srcs).shape[0], -1)
-    targ = np.asarray(targs, dtype=float).reshape(np.asarray(targs).shape[0], -1)
-    if src.shape[0] != targ.shape[0]:
-        raise ValueError("sources and targets must have the same leading dimension")
-
-    tree = cKDTree(targ.T)
-    pairs: list[tuple[int, int]] = []
-    for i, close in enumerate(tree.query_ball_point(src.T, tol, return_sorted=True)):
-        if not close:
-            continue
-        close_arr = np.asarray(close, dtype=int)
-        dists = np.sqrt(np.sum((targ[:, close_arr] - src[:, i : i + 1]) ** 2, axis=0))
-        pairs.extend((i, int(j)) for j in close_arr[dists < tol])
-    if not pairs:
-        return np.zeros((2, 0), dtype=int)
-    return np.array(pairs, dtype=int).T
+from .. import lege
 
 
 def chunk_nearparam(
@@ -71,11 +15,7 @@ def chunk_nearparam(
     t: ArrayLike | None = None,
     u: ArrayLike | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Find nearest curve parameters on a single chunk.
-
-    This mirrors MATLAB ``chnk.chunk_nearparam`` and is intended as an
-    implementation helper for :meth:`chunkie.Chunker.nearest`.
-    """
+    """Find nearest curve parameters on a single chunk."""
 
     options = {} if opts is None else dict(opts)
     maxnewt = int(options.get("nitermax", 15))
@@ -218,14 +158,3 @@ def chunk_nearparam(
         dist2s[idx] = dist0
 
     return ts, rs, ds, d2s, dist2s
-
-
-def _ptinfo_field(ptinfo: object | dict, name: str) -> np.ndarray:
-    if isinstance(ptinfo, dict):
-        value = ptinfo[name]
-    else:
-        value = getattr(ptinfo, name)
-    arr = np.asarray(value)
-    if arr.shape[0] != 2:
-        raise ValueError(f"{name} must have leading dimension 2")
-    return arr

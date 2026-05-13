@@ -8,7 +8,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from chunkie import lege
-from chunkie.chunker import Chunker
+from chunkie.geometry.chunker import Chunker
 
 
 @dataclass
