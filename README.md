@@ -5,13 +5,46 @@ package.
 
 The port is intentionally conservative:
 
-- mirror the MATLAB package structure where practical under `src/chunkie`;
+- keep MATLAB numerical behavior recognizable while using Python-centered
+  package boundaries under `src/chunkie`;
 - use `uv` and the project-local `.venv`;
 - keep runtime dependencies focused on `numpy`, `scipy`, `fmm2dpy`, and
   `matplotlib` for demo figures;
 - add FMM2D acceleration incrementally while dense/direct functionality remains
   the reference path;
 - test behavior against MATLAB-generated golden fixtures as the port grows.
+
+## Installation
+
+From the repository root, install the package with `uv`:
+
+```powershell
+uv sync
+```
+
+Then run an example in the managed environment:
+
+```powershell
+uv run python examples/smooth_laplace_interior_dirichlet.py
+```
+
+Without `uv`, use a standard virtual environment and `pip`:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e .
+```
+
+Then run the same example with that environment's Python:
+
+```powershell
+python examples/smooth_laplace_interior_dirichlet.py
+```
+
+`pip` installs need Git available because `fmm2dpy` and `pyflam` are pinned
+from Git repositories in `pyproject.toml`.
 
 ## Development
 
