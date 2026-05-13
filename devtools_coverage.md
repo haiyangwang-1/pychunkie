@@ -32,10 +32,10 @@ The parity rule for this repo is:
 - Python snapshot generator: `scripts/generate_devtools_easy_python_fixture.py`
 - Python comparisons: `tests/test_devtools_parity.py`
 - Python verification: `uv run pytest tests/test_devtools_parity.py` on
-  2026-05-12 with the regenerated local fixture: `54 passed`
-- Current fixture scope: 54 pytest comparisons covering easy geometry/kernel
+  2026-05-12 with the regenerated local fixture: `55 passed`
+- Current fixture scope: 55 pytest comparisons covering easy geometry/kernel
   diagnostics, chunker/chunkgraph constructors and regions, near-flagging,
-  dense/adaptive operator assembly, close-touching adaptive solves,
+  dense/adaptive/product-quadrature operator assembly, close-touching adaptive solves,
   Laplace, Helmholtz, and Stokes dense solves, scalar and vector-valued chunker plus
   chunkgraph matrix-free apply diagnostics, interleaved Helmholtz block-system
   diagnostics, singular PV/HS diagnostics, Green-identity target evaluation,
@@ -48,9 +48,9 @@ The parity rule for this repo is:
 | Status | Count | Meaning |
 | --- | ---: | --- |
 | ✅ 🧪 🎯 fully covered by devtools parity | 40 | MATLAB file has strict fixture comparison for the behavior tracked here. |
-| ✅ 🧪 🎯 ⚠️ partial/diagnostic devtools parity | 8 | Fixture coverage exists, but the MATLAB file also exercises deferred solve, FLAM, pquad, or diagnostic-only paths. |
+| ✅ 🧪 🎯 ⚠️ partial/diagnostic devtools parity | 9 | Fixture coverage exists, but the MATLAB file also exercises deferred solve, FLAM, pquad, or diagnostic-only paths. |
 | 🧩 🧭 helper/reference | 1 | Shared MATLAB helper, not standalone package behavior. |
-| 🚧 pending parity | 13 | Candidate future ports, excluding explicit non-goals. |
+| 🚧 pending parity | 12 | Candidate future ports, excluding explicit non-goals. |
 | 🚫 explicit non-goal | 11 | Trapper, quasiperiodic, axisymmetric, and flexural families. |
 
 ## Scope Triage For Remaining Work
@@ -143,7 +143,7 @@ Explicit non-goals:
 | 47 | `chunkermatapplyTest.m` | ✅ 🧪 🎯 ⚠️ | Hard | Tests matrix-free `chunkermatapply` against dense matrices for scalar, vector-valued, multi-boundary, and block-kernel cases; includes solve comparisons. | Covered in `devtools_easy.mat` for scalar Laplace chunker apply/solve diagnostics, vector-valued Helmholtz-transmission chunker apply diagnostics, and scalar/vector chunkgraph apply diagnostics. Strict chunker paths compare reconstructed boundary data, dense products, matrix-free outputs, probes, dense solve, and MATLAB GMRES where present. Chunkgraph paths reconstruct MATLAB edge chunkers and verify MATLAB/Python internal dense-vs-apply agreement, with bounded cross-language matrix-value diagnostics because MATLAB graph `chunkermat` applies RCIP corrections not yet present in Python's scalar graph path. |
 | 48 | `chunkermat_quadadap_closetotouchingTest.m` | ✅ 🧪 🎯 ⚠️ | Hard | Solves an exterior Laplace Dirichlet problem on two nearly touching disks and demonstrates adaptive quadrature accuracy near close interactions. | Covered in `devtools_easy.mat`: compare the two-disk geometry, source/target truth, robust adaptive matrix probe products, original GGQ matrix probe products, adaptive/original solves, target evaluations, and MATLAB target-error diagnostics. Helsing-Ojala/product-quadrature diagnostics remain tracked with `pquadTest.m`. |
 | 49 | `chunkermat_truepolygonTest.m` | ✅ 🚧 ⚠️ | Hard | Solves a true-corner polygon Neumann problem using adaptive refinement/RCIP-style machinery and checks target accuracy. | Save refined polygon graph/chunker, system, RHS, solution, and targets; compare after Python true-corner support matures. |
-| 50 | `pquadTest.m` | 🚧 | Hard | Tests product quadrature for an interior Helmholtz problem by comparing product-quadrature layer-potential values to a reference solution. | Python now has isolated Helsing-Ojala product-quadrature weights and panel matrices tested against high-order Legendre references for Laplace/Helmholtz scalar panels. Devtools parity still needs saved MATLAB product-quadrature matrices/values from this full interior Helmholtz workflow. |
+| 50 | `pquadTest.m` | ✅ 🧪 🎯 ⚠️ | Hard | Tests product quadrature for an interior Helmholtz problem by comparing product-quadrature layer-potential values to a reference solution. | Covered in `devtools_easy.mat` for a compact low-level slice: compare MATLAB `chnk.pquadwts` log, Cauchy, hypersingular, and supersingular exterior weights, original-node composition, and interior log/Cauchy weights against Python `quadrature.panel`. Python also has isolated Helsing-Ojala panel-matrix tests against high-order Legendre references for Laplace/Helmholtz scalar panels. Full interior Helmholtz solve/evaluation workflow parity remains pending. |
 | 51 | `singularkernelTest.m` | ✅ 🧪 🎯 ⚠️ | Hard | Checks principal-value and hypersingular quadratures by comparing boundary tangential and normal derivatives from singular kernels to analytic boundary data. | Covered in `devtools_easy.mat`: compare boundary fields, Laplace `sprime` removable self limits, PV `stau` matrix probe products and tangential derivative solve, plus HS `dprime` matrix probe products and normal-derivative diagnostics. The HS final derivative is diagnostic-tolerance parity because the MATLAB test prints but does not assert that error. |
 | 52 | `trappermatTest.m` | 🚫 | Hard | Builds a trapper discretization, assembles a Laplace Dirichlet matrix, compares GMRES/backslash solutions, and evaluates target accuracy. The file prints diagnostics but has no final assert. | Do not port; the trapper family is an explicit non-goal. |
 | 53 | `rcipTest.m` | ✅ 🧪 🚧 ⚠️ | Very Hard | Tests RCIP for an exterior Dirichlet problem on two circular arcs meeting at corners, comparing system matrices, solutions, interpolation to fine grid, and target accuracy. | Python has some RCIP helpers; save coarse/fine operators and densities before attempting full solve parity. |

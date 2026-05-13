@@ -148,10 +148,7 @@ def chunkermatapply_graph_from_fixture(fixture):
     return chunkgraph(fixture.verts, edges, edge_specs, {"nover": max(int(fixture.nover) - 1, 0)})
 
 
-def build_snapshot() -> dict[str, np.ndarray]:
-    fixture = loadmat(MATLAB_FIXTURE, squeeze_me=True, struct_as_record=False)["devtools_easy"]
-    out: dict[str, np.ndarray] = {}
-
+def _add_basic_snapshot(out: dict[str, np.ndarray], fixture) -> None:
     acg = fixture.absconvgauss
     acg_val, acg_der, acg_der2 = spcl.absconvgauss(acg.x, float(acg.m), float(acg.offset), float(acg.h))
     out["absconvgauss_val"] = acg_val
@@ -175,6 +172,8 @@ def build_snapshot() -> dict[str, np.ndarray]:
     out["lege_cfsint_original"] = lege.intpol(leg.cfs, "original")
     out["lege_integral_exev"] = lege.exev(x, lege.intpol(leg.cfs))
 
+
+def _add_geometry_snapshot(out: dict[str, np.ndarray], fixture) -> None:
     arc = fixture.arclengthfun
     out["arclength_single"] = chunker_from_fields(arc.chunker_single).arclengthfun()
     out["arclength_merged"] = chunker_from_fields(arc.chunker_merged).arclengthfun()
@@ -398,6 +397,8 @@ def build_snapshot() -> dict[str, np.ndarray]:
     out["flagrect_flags"] = flagnear_rectangle(fr_chunker, fr.targets)
     out["flagrect_grid_flags"] = flagnear_rectangle_grid(fr_chunker, fr.x, fr.y)
 
+
+def _add_kernel_snapshot(out: dict[str, np.ndarray], fixture) -> None:
     h2g = fixture.helm2d_green
     h2g_val, h2g_grad, h2g_hess = helm2d.green(h2g.zk, h2g.src, h2g.trg)
     out["helm2d_green_val"] = h2g_val
@@ -466,6 +467,8 @@ def build_snapshot() -> dict[str, np.ndarray]:
     out["stokes_dtrac_Kp"] = kp
     out["stokes_dtrac_reconstructed"] = reconstructed
 
+
+def _add_operator_snapshot(out: dict[str, np.ndarray], fixture) -> None:
     stok = fixture.chunkermat_stok2d
     stok_chunker = chunker_from_fields(stok.chunker)
     stok_mu = float(stok.mu)
@@ -571,6 +574,15 @@ def build_snapshot() -> dict[str, np.ndarray]:
     out["singularkernel_stau_probe"] = chunkermat(sk_chunker, kernel("lap", "stau")) @ sk_probe
     out["singularkernel_d_probe"] = chunkermat(sk_chunker, kernel("lap", "d")) @ sk_probe
     out["singularkernel_dprime_probe"] = chunkermat(sk_chunker, kernel("lap", "dp")) @ sk_probe
+
+
+def build_snapshot() -> dict[str, np.ndarray]:
+    fixture = loadmat(MATLAB_FIXTURE, squeeze_me=True, struct_as_record=False)["devtools_easy"]
+    out: dict[str, np.ndarray] = {}
+    _add_basic_snapshot(out, fixture)
+    _add_geometry_snapshot(out, fixture)
+    _add_kernel_snapshot(out, fixture)
+    _add_operator_snapshot(out, fixture)
     return out
 
 

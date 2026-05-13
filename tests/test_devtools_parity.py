@@ -33,6 +33,7 @@ from chunkie.kernels import laplace as lap2d
 from chunkie.geometry import curves, flagnear, flagnear_rectangle, flagnear_rectangle_grid, flagself
 from chunkie.numerics import arcparam, smoother, special
 from chunkie.quadrature import adaptive as quadadap
+from chunkie.quadrature import panel as pquad
 from chunkie.operators import PointInfo, pointinfo
 from _fixture_generation import chunker_from_fields, load_generated_mat_fixture, point_array, pointinfo_from_mat
 
@@ -1311,7 +1312,7 @@ def test_kernel_interleave_devtools_dense_solve_matches_matlab():
     sol_scaled = np.linalg.solve(sys, rhs)
     sol = sol_scaled / np.repeat(sqrt_weights, rowdim)
     utarg = sk(src, PointInfo(r=targets)) @ strengths
-    dsol = chunkerkerneval(chnkr, eval_kernel, sol, targets, {"forceadap": True}).reshape(-1, order="F")
+    dsol = chunkerkerneval(chnkr, eval_kernel, sol, targets, {"forceadap": True, "usepquad": False}).reshape(-1, order="F")
     relerr = np.linalg.norm(utarg - dsol) / (np.sqrt(chnkr.nch) * np.linalg.norm(utarg))
     relerr2 = np.linalg.norm(utarg - dsol, ord=np.inf) / np.dot(np.abs(sol), np.repeat(weights, rowdim))
 
@@ -1532,11 +1533,11 @@ def test_kernelclass_devtools_green_identity_matches_matlab():
     fixture = load_devtools_easy().kernelclass
     chnkr, lap_s, lap_d, densu, densun, utarg = laplace_green_identity_quantities(fixture)
 
-    opts = {"forceadap": True}
+    opts = {"forceadap": True, "usepquad": False}
     Du = chunkerkerneval(chnkr, lap_d, densu, fixture.targets, opts).reshape(-1, order="F")
     Sun = chunkerkerneval(chnkr, lap_s, densun, fixture.targets, opts).reshape(-1, order="F")
     identity = Sun - Du
-    fmm_opts = {"acceleration": "fmm", "forceadap": True, "eps": 1.0e-12}
+    fmm_opts = {"acceleration": "fmm", "forceadap": True, "eps": 1.0e-12, "usepquad": False}
     Du_fmm = chunkerkerneval(chnkr, lap_d, densu, fixture.targets, fmm_opts).reshape(-1, order="F")
     Sun_fmm = chunkerkerneval(chnkr, lap_s, densun, fixture.targets, fmm_opts).reshape(-1, order="F")
     identity_fmm = Sun_fmm - Du_fmm
@@ -1570,15 +1571,22 @@ def test_chunkerkerneval_greenlap_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().chunkerkerneval_greenlap
     chnkr, lap_s, lap_d, densu, densun, utarg = laplace_green_identity_quantities(fixture)
 
-    opts = {"forceadap": True}
+    opts = {"forceadap": True, "usepquad": False}
     Du_direct = chunkerkerneval(chnkr, lap_d, densu, fixture.targets, opts).reshape(-1, order="F")
     Sun_direct = chunkerkerneval(chnkr, lap_s, densun, fixture.targets, opts).reshape(-1, order="F")
     identity_direct = Sun_direct - Du_direct
-    fmm_opts = {"acceleration": "fmm", "forceadap": True, "eps": 1.0e-12}
+    fmm_opts = {"acceleration": "fmm", "forceadap": True, "eps": 1.0e-12, "usepquad": False}
     Du_fmm = chunkerkerneval(chnkr, lap_d, densu, fixture.targets, fmm_opts).reshape(-1, order="F")
     Sun_fmm = chunkerkerneval(chnkr, lap_s, densun, fixture.targets, fmm_opts).reshape(-1, order="F")
     identity_fmm = Sun_fmm - Du_fmm
-    flam_opts = {"acceleration": "flam", "forceadap": True, "occ": 32, "rank_or_tol": 1.0e-8, "useproxy": False}
+    flam_opts = {
+        "acceleration": "flam",
+        "forceadap": True,
+        "occ": 32,
+        "rank_or_tol": 1.0e-8,
+        "useproxy": False,
+        "usepquad": False,
+    }
     Du_flam = chunkerkerneval(chnkr, lap_d, densu, fixture.targets, flam_opts).reshape(-1, order="F")
     Sun_flam = chunkerkerneval(chnkr, lap_s, densun, fixture.targets, flam_opts).reshape(-1, order="F")
     identity_flam = Sun_flam - Du_flam
@@ -1616,7 +1624,7 @@ def test_chunkerkernevalmat_greenlap_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().chunkerkernevalmat_greenlap
     chnkr, lap_s, lap_d, densu, densun, utarg = laplace_green_identity_quantities(fixture)
 
-    opts = {"forceadap": True}
+    opts = {"forceadap": True, "usepquad": False}
     Dmat = chunkerkernevalmat(chnkr, lap_d, fixture.targets, opts)
     Smat = chunkerkernevalmat(chnkr, lap_s, fixture.targets, opts)
     Du = Dmat @ densu
@@ -1640,7 +1648,7 @@ def test_chunkerkerneval_greenhelm_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().chunkerkerneval_greenhelm
     chnkr, helm_s, helm_d, densu, densun, utarg = helmholtz_green_identity_quantities(fixture)
 
-    opts = {"forceadap": True}
+    opts = {"forceadap": True, "usepquad": False}
     Du = chunkerkerneval(chnkr, helm_d, densu, fixture.targets, opts).reshape(-1, order="F")
     Sun = chunkerkerneval(chnkr, helm_s, densun, fixture.targets, opts).reshape(-1, order="F")
     identity = Sun - Du
@@ -1669,7 +1677,7 @@ def test_chunkerkerneval_corrections_devtools_outputs_match_matlab():
     sys = -0.5 * np.eye(chnkr.npt) + chunkermat(chnkr, helm_d)
     sol = np.linalg.solve(sys, rhs)
     utrue = helm_s(srcinfo, PointInfo(r=targets)) @ strengths
-    cormat = chunkerkernevalmat(chnkr, helm_d, targets, {"corrections": True})
+    cormat = chunkerkernevalmat(chnkr, helm_d, targets, {"corrections": True, "usepquad": False})
     assert sparse.issparse(cormat)
     u_eval_cor = chunkerkerneval(chnkr, helm_d, sol, targets, {"forcesmooth": True, "cormat": cormat}).reshape(-1, order="F")
     u_eval = chunkerkerneval(chnkr, helm_d, sol, targets, {"forcesmooth": True}).reshape(-1, order="F")
@@ -1696,7 +1704,7 @@ def test_chunkerkerneval_gaussid_devtools_outputs_match_matlab():
     dens = np.asarray(fixture.density)
     targets = point_array(fixture.targets)
 
-    values = chunkerkerneval(chnkr, lap_d, dens, targets, {"forceadap": True, "fac": 1.0}).reshape(-1, order="F")
+    values = chunkerkerneval(chnkr, lap_d, dens, targets, {"forceadap": True, "fac": 1.0, "usepquad": False}).reshape(-1, order="F")
     expected = np.asarray(fixture.values).reshape(-1, order="F")
     identity_err = np.minimum(np.abs(values), np.abs(values + 1.0))
     expected_inside = np.asarray(fixture.inside, dtype=bool).reshape(-1)
@@ -1765,6 +1773,69 @@ def test_chunkermat_quadadap_devtools_outputs_match_matlab():
     assert np.linalg.norm(ggq - adap, "fro") / np.linalg.norm(ggq, "fro") < 1e-9
 
 
+def test_pquad_devtools_low_level_weights_match_matlab():
+    fixture = load_devtools_easy().pquad
+    chnkr = chunker_from_fields(fixture.chunker)
+    src_chunk = int(fixture.source_chunk) - 1
+    nodes = np.asarray(fixture.nodes, dtype=float).reshape(-1, order="F")
+    weights = np.asarray(fixture.weights, dtype=float).reshape(-1, order="F")
+    interp = np.asarray(fixture.interp)
+    interp_ab = np.asarray(fixture.interp_ab)
+    target_ext = PointInfo(r=np.asarray(fixture.target_exterior, dtype=float).reshape(2, 1, order="F"))
+    target_int = PointInfo(r=np.asarray(fixture.target_interior, dtype=float).reshape(2, 1, order="F"))
+
+    def assert_pquad_matrix(actual, expected):
+        expected_arr = np.asarray(expected).reshape(actual.shape, order="F")
+        np.testing.assert_allclose(actual, expected_arr, rtol=1e-10, atol=5e-12)
+
+    ext_up = pquad.pquadwts(
+        chnkr,
+        src_chunk,
+        target_ext,
+        (pquad.LOG, pquad.CAUCHY, pquad.HYPERSINGULAR, pquad.SUPERSINGULAR),
+        "e",
+        nodes=nodes,
+        weights=weights,
+        intp_ab=interp_ab,
+        intp=interp,
+        ifup=True,
+    )
+    for actual, expected in zip(ext_up, (fixture.ext_log_up, fixture.ext_cauchy_up, fixture.ext_hyp_up, fixture.ext_super_up), strict=True):
+        assert_pquad_matrix(actual, expected)
+
+    ext_orig = pquad.pquadwts(
+        chnkr,
+        src_chunk,
+        target_ext,
+        (pquad.LOG, pquad.CAUCHY),
+        "e",
+        nodes=nodes,
+        weights=weights,
+        intp_ab=interp_ab,
+        intp=interp,
+        ifup=False,
+    )
+    for actual, expected in zip(ext_orig, (fixture.ext_log_orig, fixture.ext_cauchy_orig), strict=True):
+        assert_pquad_matrix(actual, expected)
+    np.testing.assert_allclose(ext_up[0] @ interp, ext_orig[0], rtol=1e-13, atol=1e-13)
+    np.testing.assert_allclose(ext_up[1] @ interp, ext_orig[1], rtol=1e-13, atol=1e-13)
+
+    int_up = pquad.pquadwts(
+        chnkr,
+        src_chunk,
+        target_int,
+        (pquad.LOG, pquad.CAUCHY),
+        "i",
+        nodes=nodes,
+        weights=weights,
+        intp_ab=interp_ab,
+        intp=interp,
+        ifup=True,
+    )
+    for actual, expected in zip(int_up, (fixture.int_log_up, fixture.int_cauchy_up), strict=True):
+        assert_pquad_matrix(actual, expected)
+
+
 def test_chunkermat_quadadap_closetotouching_devtools_solve_matches_matlab():
     fixture = load_devtools_easy().chunkermat_quadadap_closetotouching
     chnkr = chunker_from_fields(fixture.chunker)
@@ -1784,8 +1855,8 @@ def test_chunkermat_quadadap_closetotouching_devtools_solve_matches_matlab():
     sys_original = 0.5 * np.eye(chnkr.npt) + mat_original
     sol_adap = np.linalg.solve(sys_adap, rhs)
     sol_original = np.linalg.solve(sys_original, rhs)
-    layer_adap = chunkerkerneval(chnkr, combined, sol_adap, targets, {"forceadap": True}).reshape(-1, order="F")
-    layer_original = chunkerkerneval(chnkr, combined, sol_original, targets, {"forceadap": True}).reshape(-1, order="F")
+    layer_adap = chunkerkerneval(chnkr, combined, sol_adap, targets, {"forceadap": True, "usepquad": False}).reshape(-1, order="F")
+    layer_original = chunkerkerneval(chnkr, combined, sol_original, targets, {"forceadap": True, "usepquad": False}).reshape(-1, order="F")
     relerr_adap = np.linalg.norm(utarg - layer_adap) / (np.sqrt(chnkr.nch) * np.linalg.norm(utarg))
     relerr_original = np.linalg.norm(utarg - layer_original) / (np.sqrt(chnkr.nch) * np.linalg.norm(utarg))
     relerr2_adap = np.linalg.norm(utarg - layer_adap, ord=np.inf) / np.dot(np.abs(sol_adap), chnkr.wts.reshape(-1, order="F"))
@@ -1923,7 +1994,7 @@ def test_chunkermat_laplace_solve_devtools_outputs_match_matlab():
     sys = -0.5 * np.eye(chnkr.npt) + dmat
     rhs = ubdry.reshape(-1, order="F")
     sol = np.linalg.solve(sys, rhs)
-    dsol = chunkerkerneval(chnkr, lap_d, sol, targets, {"forceadap": True}).reshape(-1, order="F")
+    dsol = chunkerkerneval(chnkr, lap_d, sol, targets, {"forceadap": True, "usepquad": False}).reshape(-1, order="F")
     relerr = np.linalg.norm(utarg - dsol) / (np.sqrt(chnkr.nch) * np.linalg.norm(utarg))
     relerr2 = np.linalg.norm(utarg - dsol, ord=np.inf) / np.dot(np.abs(sol), chnkr.wts.reshape(-1, order="F"))
 
@@ -1956,7 +2027,7 @@ def test_chunkermat_helm2d_solve_devtools_outputs_match_matlab():
     sys = -0.5 * np.eye(chnkr.npt) + dmat
     rhs = ubdry.reshape(-1, order="F")
     sol = np.linalg.solve(sys, rhs)
-    dsol = chunkerkerneval(chnkr, helm_d, sol, targets, {"forceadap": True}).reshape(-1, order="F")
+    dsol = chunkerkerneval(chnkr, helm_d, sol, targets, {"forceadap": True, "usepquad": False}).reshape(-1, order="F")
     relerr = np.linalg.norm(utarg - dsol) / (np.sqrt(chnkr.nch) * np.linalg.norm(utarg))
     relerr2 = np.linalg.norm(utarg - dsol, ord=np.inf) / np.dot(np.abs(sol), chnkr.wts.reshape(-1, order="F"))
 
@@ -2108,7 +2179,7 @@ def test_datafield_devtools_target_data_flam_matches_matlab():
     unbdry = spkern(srcinfo, pointinfo(chnkr)).reshape(-1, order="F")
     mu = np.asarray(fixture.mu).reshape(-1, order="F")
     deru = chunkerkerneval(chnkr, directional_derivative_kernel, mu, targinfo).reshape(-1, order="F")
-    deru_adap = chunkerkerneval(chnkr, directional_derivative_kernel, mu, targinfo, {"forceadap": True}).reshape(-1, order="F")
+    deru_adap = chunkerkerneval(chnkr, directional_derivative_kernel, mu, targinfo, {"forceadap": True, "usepquad": False}).reshape(-1, order="F")
     flam_opts = {"acceleration": "flam", "occ": 32, "rank_or_tol": 1.0e-10}
     deru_flam = chunkerkerneval(chnkr, directional_derivative_kernel, mu, targinfo, flam_opts).reshape(-1, order="F")
     gradutrue = kernel("lap", "sg")(srcinfo, targinfo).reshape(2, -1, order="F")

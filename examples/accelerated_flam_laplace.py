@@ -1,39 +1,27 @@
-"""FLAM matrix application and solve for a shifted Laplace operator.
-
-Run from the repository root:
-
-    uv run python examples/accelerated_flam_laplace.py
-
-The dense shifted matrix is used only as a reference check. The FLAM object is
-the matrix-free/compressed object a larger solve would use.
-"""
-
-from __future__ import annotations
+"""FLAM matrix application and solve for a shifted Laplace operator."""
 
 import numpy as np
 
-from chunkie import chunkermat, kernel
-
-from _accelerated_common import make_circle, relerr
+from chunkie import chunkerfunc, chunkermat, ellipse, kernel
 
 
-def main() -> None:
-    chnkr = make_circle()
-    lap_s = kernel("lap", "s")
-    rhs = np.cos(np.arange(chnkr.npt))
+chnkr = chunkerfunc(ellipse, {"nchmin": 6, "eps": 1e-8}, {"k": 8})[0]
+lap_s = kernel("lap", "s")
+rhs = np.cos(np.arange(chnkr.npt))
 
-    dense_shifted = chunkermat(chnkr, lap_s) + np.eye(chnkr.npt)
-    flam = chunkermat(
-        chnkr,
-        lap_s,
-        {"acceleration": "flam", "dval": 1.0, "occ": 8, "rank_or_tol": 1e-9, "useproxy": False},
-    )
+dense_shifted = chunkermat(chnkr, lap_s) + np.eye(chnkr.npt)
+flam = chunkermat(
+    chnkr,
+    lap_s,
+    {"acceleration": "flam", "dval": 1.0, "occ": 8, "rank_or_tol": 1e-9, "useproxy": False},
+)
 
-    applied = flam @ rhs
-    solved = flam.solve(rhs)
-    print(f"FLAM shifted Laplace matvec relative error: {relerr(applied, dense_shifted @ rhs):.3e}")
-    print(f"FLAM shifted Laplace solve residual: {relerr(dense_shifted @ solved, rhs):.3e}")
+applied = flam @ rhs
+solved = flam.solve(rhs)
+matvec_error = np.linalg.norm(applied - dense_shifted @ rhs) / max(
+    np.linalg.norm(dense_shifted @ rhs), 1.0
+)
+solve_error = np.linalg.norm(dense_shifted @ solved - rhs) / max(np.linalg.norm(rhs), 1.0)
 
-
-if __name__ == "__main__":
-    main()
+print(f"FLAM shifted Laplace matvec relative error: {matvec_error:.3e}")
+print(f"FLAM shifted Laplace solve residual: {solve_error:.3e}")

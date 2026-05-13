@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 365 pytest cases because several MATLAB parity tests are
+collection expands to 374 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -76,9 +76,12 @@ Current test-backed coverage includes:
   evaluators, dense/native operators, scalar and block-kernel FMM
   acceleration, FMM target-evaluation materialization, PyFLAM acceleration,
   special quadrature, and RCIP helper/compression workflows.
+- Public API contract guards for top-level `chunkie` exports and lazy
+  responsibility-package exports under `acceleration`, `geometry`, `kernels`,
+  `numerics`, and `quadrature`.
 - MATLAB golden parity for compact fixtures under `tests/golden`, including
   geometry, kernel/operator, quadrature, and RCIP fixtures.
-- MATLAB devtools parity for 54 focused comparisons in
+- MATLAB devtools parity for 55 focused comparisons in
   `tests/test_devtools_parity.py`, including Laplace, Helmholtz, and Stokes dense
   `chunkermat` solve/target-evaluation workflows and interleaved Helmholtz
   block-system diagnostics.
@@ -95,6 +98,22 @@ Open or intentionally limited areas:
 - Explicit non-goals remain the `trapper` family, axisymmetric/quasiperiodic
   and flexural kernel families, `quadba`, full nonlinear MATLAB smoother/Newton
   behavior, `+chnk/+intchunk`, and MATLAB plotting methods.
+
+## `tests/test_api_contract.py`
+
+`test_top_level_public_exports_are_stable` checks that the documented
+top-level `chunkie.__all__` facade continues to expose the same public names
+after internal refactors.
+
+`test_acceleration_public_exports_are_stable_and_lazy`,
+`test_geometry_public_exports_are_stable_and_lazy`,
+`test_kernels_public_exports_are_stable_and_lazy`,
+`test_quadrature_public_exports_are_stable_and_lazy`, and
+`test_numerics_public_exports_are_stable_and_lazy` check that the refactored
+responsibility packages expose stable names while lazily loading heavier
+submodules only when accessed. These tests restore any temporarily unloaded
+modules so later monkeypatch tests observe the same module objects used by
+operator dispatch.
 
 ## `tests/test_arcparam.py`
 
@@ -631,6 +650,13 @@ adaptive-neighbor matrix comparison from `chunkermat_quadadapTest.m`. The
 method compares MATLAB and Python Helmholtz double-layer GGQ and adaptive
 matrices and verifies both routes agree to the devtools Frobenius threshold.
 
+`test_pquad_devtools_low_level_weights_match_matlab` checks a compact
+low-level slice from the `pquadTest.m` product-quadrature track. The method
+reconstructs the saved circle panel and compares MATLAB `chnk.pquadwts` output
+against Python `chnk.pquad.pquadwts` for exterior log, Cauchy,
+hypersingular, and supersingular weights, original-node composition, and
+interior log/Cauchy weights.
+
 `test_chunkermat_quadadap_closetotouching_devtools_solve_matches_matlab`
 checks the near-touching two-disk adaptive solve from
 `chunkermat_quadadap_closetotouchingTest.m`. The method compares MATLAB and
@@ -752,41 +778,44 @@ thresholds; the full boundary-integral solve stages remain pending.
 Green-identity portion of MATLAB `kernelclassTest.m` plus NaN-kernel
 propagation. The method reconstructs the saved starfish chunker, recomputes
 boundary `u` and normal-derivative densities from exterior point sources, then
-uses direct and FMM `chunkerkerneval(..., forceadap=True)` for close-corrected
-target layer evaluation. Ground truth is MATLAB's boundary data, target truth,
-layer potentials, FMM equality diagnostics, Green-identity residual, and
-NaN-kernel diagnostics.
+uses direct and FMM `chunkerkerneval(..., forceadap=True, usepquad=False)` for
+MATLAB-adaptive close-corrected target layer evaluation. Ground truth is
+MATLAB's boundary data, target truth, layer potentials, FMM equality
+diagnostics, Green-identity residual, and NaN-kernel diagnostics.
 
 `test_chunkerkerneval_greenlap_devtools_outputs_match_matlab` checks the
 Laplace Green-identity target-evaluation workflow from
 `chunkerkerneval_greenlapTest.m`. The method compares saved point-source
 fields, boundary densities, and close-corrected single/double-layer target
-evaluations through direct, FMM, and FLAM `forceadap` paths. Ground truth is
-MATLAB's direct, FMM, and FLAM outputs. Python FMM and FLAM force-adaptive
-target evaluation are checked against both direct and MATLAB fixture values.
+evaluations through direct, FMM, and FLAM `forceadap` paths with pquad disabled
+for MATLAB-adaptive parity. Ground truth is MATLAB's direct, FMM, and FLAM
+outputs. Python FMM and FLAM force-adaptive target evaluation are checked
+against both direct and MATLAB fixture values.
 
 `test_chunkerkernevalmat_greenlap_devtools_outputs_match_matlab` checks the
 matrix form of the same Laplace Green identity. The method builds target
 evaluation matrices with `chunkerkernevalmat(..., forceadap=True)`, applies
 them to saved boundary densities, and verifies the reconstructed target field.
-Ground truth is MATLAB's single-layer matrix, adaptive double-layer matrix,
-applied layer potentials, and relative identity residual.
+The matrix comparison disables pquad so it pins MATLAB's saved adaptive
+double-layer matrix. Ground truth is MATLAB's single-layer matrix, adaptive
+double-layer matrix, applied layer potentials, and relative identity residual.
 
 `test_chunkerkerneval_greenhelm_devtools_outputs_match_matlab` checks the
 Helmholtz Green-identity workflow from `chunkerkerneval_greenhelmTest.m`. The
 method uses the saved complex wave number, source strengths, boundary
 densities, and targets, then evaluates single and double Helmholtz layers with
-`chunkerkerneval(..., forceadap=True)`. Ground truth is MATLAB's layer
-potentials and relative identity residual.
+`chunkerkerneval(..., forceadap=True, usepquad=False)`. Ground truth is
+MATLAB's adaptive layer potentials and relative identity residual.
 
 `test_chunkerkerneval_corrections_devtools_outputs_match_matlab` checks
 MATLAB's explicit near-target correction matrix workflow from
 `chunkerkerneval_correctionsTest.m`. The method solves the saved Helmholtz
 double-layer boundary system, builds
 `chunkerkernevalmat(..., {"corrections": True})` as a sparse near-target
-correction matrix, applies it through `chunkerkerneval(..., {"forcesmooth":
-True, "cormat": cormat})`, and verifies that corrected evaluation matches the
-point-source truth while uncorrected smooth evaluation remains measurably wrong.
+correction matrix with pquad disabled for MATLAB-adaptive parity, applies it
+through `chunkerkerneval(..., {"forcesmooth": True, "cormat": cormat})`, and
+verifies that corrected evaluation matches the point-source truth while
+uncorrected smooth evaluation remains measurably wrong.
 
 `test_chunkerkerneval_gaussid_devtools_outputs_match_matlab` checks the
 adaptive assertion from `chunkerkerneval_gaussidTest.m`. The method uses the
@@ -1700,19 +1729,54 @@ measurable difference from the non-robust matrix.
 isolated Helsing-Ojala product-quadrature weight generator. The method builds a
 straight source panel and compares log, Cauchy, hypersingular, and
 supersingular moment actions against high-order Legendre quadrature. Ground
-truth is direct oversampled integration of polynomial test densities.
+truth is direct oversampled integration of polynomial test densities. The test
+records and prints pquad construction time and maximum absolute error.
 
 `test_pquad_panel_weights_can_compose_to_original_nodes` checks the two product
 weight modes. The method builds upsampled-node and original-node weights for a
 close circle-panel target, then verifies that composing the upsampled weights
-with the interpolation matrix reproduces the original-node weights.
+with the interpolation matrix reproduces the original-node weights. The test
+records and prints pquad construction time and maximum absolute composition
+error.
 
 `test_pquad_split_panel_matrix_matches_oversampled_legendre` checks complete
 kernel-split panel assembly for close targets. The method compares isolated
 `pquad.panel_matrix` output for Laplace and Helmholtz scalar single/double
 layers against high-order oversampled Legendre panel matrices on exterior and
 interior close targets. Ground truth is direct kernel evaluation on a
-high-order source-panel interpolation.
+high-order source-panel interpolation. Each parametrized case records and
+prints pquad panel-matrix time and maximum absolute matrix error.
+
+`test_pquad_splitinfo_respects_scaled_kernel` checks split metadata for scaled
+kernel objects. The method compares pquad panel matrices for a Laplace
+single-layer kernel and a complex scalar multiple, verifying the split
+functions carry the scalar factor.
+
+`test_forceadap_target_matrix_prefers_pquad_when_side_is_inferred` checks the
+public target-evaluation matrix path. The method places an off-boundary close
+target near a source panel, monkeypatches `pquad.panel_matrix`, and verifies
+`chunkerkernevalmat(..., forceadap=True)` uses inferred-side pquad while
+matching the `usepquad=False` adaptive fallback.
+
+`test_forceadap_sparse_correction_prefers_pquad_and_matches_matrix` checks the
+sparse correction path used by `opts["corrections"]`. The method compares a
+smooth evaluation plus sparse pquad correction against
+`chunkerkerneval(..., forceadap=True)` for an interior close target.
+
+`test_quadggq_neighbor_block_uses_pquad_when_side_is_explicit` checks the GGQ
+neighbor-block integration. The method supplies `pquad_side="e"` to
+`quadggq.buildmat`, verifies pquad is called, and compares against the
+oversampled-Gauss fallback.
+
+`test_chunkermat_side_option_uses_pquad_for_special_neighbors` checks the
+public same-source matrix path when a boundary side is provided. The method
+uses `chunkermat(..., {"side": "e"})`, verifies pquad is called for eligible
+special neighbor blocks, and compares against `usepquad=False`.
+
+`test_quadadap_neighbor_blocks_use_pquad_when_side_is_explicit` checks the
+adaptive matrix builder with explicit boundary side. The method verifies
+`quadadap.buildmat(..., side="e")` uses pquad for all neighbor blocks and
+matches the disabled-pquad adaptive fallback.
 
 ## `tests/test_rcip.py`
 

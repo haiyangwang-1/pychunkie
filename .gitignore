@@ -16,6 +16,8 @@ htmlcov/
 
 # Generated demo image output.
 examples/output/
+examples/*_solution.png
+examples/*_error_log10.png
 
 # Generated parity fixture data. Tests regenerate these files on demand; use
 # scripts/clean_test_data.py to remove local copies.

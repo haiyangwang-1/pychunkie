@@ -15,8 +15,8 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 
 ## Current Snapshot
 
-- Verification snapshot: full `uv run pytest` on 2026-05-12 with Python
-  3.11.9 collected 365 tests: `365 passed`. MATLAB parity tests generated
+- Verification snapshot: full `uv run pytest` on 2026-05-13 with Python
+  3.11.9 collected 374 tests: `374 passed`. MATLAB parity tests generated
   ignored `tests/golden/*.mat` files on demand using the populated
   `external/chunkie-matlab` checkout.
 - The implemented surface covers core chunkers/chunkgraphs, domain helpers, kernel factories, dense/FMM/FLAM operator paths, GGQ/adaptive quadrature, RCIP helpers, Legendre utilities, and the lightweight rounded-polygon smoother.
@@ -52,6 +52,8 @@ src/
     │   ├── chunkerfunc, chunkerfuncuni, chunkerfit, chunkerpoly, chunkerpoints
     │   ├── merge
     │   └── private helpers
+    ├── _chunker_polygon.py
+    │   └── private polygon construction helpers used by chunkerpoly
     ├── chunkgraph.py
     │   ├── class SourceInfo
     │   ├── class ChunkGraph
@@ -155,7 +157,7 @@ src/
     │   │   └── _pointinfo_for_chunks
     │   ├── panel.py
     │   │   ├── class SplitInfo
-    │   │   ├── pquadwts, panel_pquadwts, panel_matrix
+    │   │   ├── pquadwts, panel_pquadwts, panel_matrix, panel_matrix_auto_side
     │   │   ├── sd_special_quad, splitinfo_for_kernel
     │   │   └── private helpers
     │   └── rcip.py
@@ -212,7 +214,7 @@ src/
 | `sort` | ✅ 🧪 🎯 | `@chunker/sort.m` | Python tested on open segments; strict geometry fixture compares sorted chunker fields. |
 | `chunkerpref` | ✅ 🧪 🎯 | `@chunkerpref/chunkerpref.m` | Python preference wrapper has MATLAB fixture coverage for explicit field overrides. |
 | `chunkerpoly` | ✅ 🧪 🎯 | `chunkerpoly.m`, `+chnk/+smoother/*` workflows | Straight-edge, MATLAB-style dyadic true-polygon refinement, and rounded-corner polygon paths are implemented and tested; devtools parity compares the non-smooth true-polygon chunk geometry as an unordered/orientation-aware panel set, while exact rounded smoother geometry remains the supported lightweight path. |
-| `_rounded_chunkerpoly`, `_polygon_widths`, `_fill_line_chunk`, `_fill_quadratic_chunk` | 🧩 ✅ 🧪 | `chunkerpoly.m`, `+chnk/+smoother/*` concepts | Internal rounded polygon construction helpers. |
+| `_dyadic_chunkerpoly`, `_rounded_chunkerpoly`, `_polygon_widths`, `_fill_line_chunk`, `_fill_quadratic_chunk` | 🧩 ✅ 🧪 | `chunkerpoly.m`, `+chnk/+smoother/*` concepts | Internal polygon construction helpers live in `src/chunkie/_chunker_polygon.py` and are re-imported by `chunker.py` without changing public constructors. |
 | `flagnear` | ✅ 🧪 🎯 | `@chunker/flagnear.m`, `+chnk/flagnear*` helpers | Python tested against brute-force distances and MATLAB fixture flags. |
 | `flagnear_rectangle` | ✅ 🧪 🎯 | `@chunker/flagnear_rectangle.m` | 2D rectangle flags covered by direct MATLAB fixture values. |
 | `flagnear_rectangle_grid` | ✅ 🧪 🎯 | `@chunker/flagnear_rectangle_grid.m` | Python meshgrid ordering and MATLAB fixture values covered. |
@@ -396,8 +398,8 @@ their matching `@kernel` factories.
 | `chunkermatapply` | ✅ 🧪 🎯 | `chunkermatapply.m` | Smooth dense application, scalar Laplace matrix-free system apply/solve diagnostics, vector-valued Helmholtz-transmission matrix-free apply diagnostics, and diagnostic scalar/vector chunkgraph apply paths are MATLAB-fixture tested; FMM/FLAM acceleration, block-kernel FMM application, shape-preserving single-column and multiple-RHS products, and sparse special-quadrature corrections remain Python-tested. |
 | `chunkerintegral` | ✅ 🧪 🎯 | `chunkerintegral.m` | Smooth value and callable integration routes are MATLAB-fixture tested. |
 | `chunkerinterior` | ✅ 🧪 🎯 | `chunkerinterior.m` | Direct point/grid classification is MATLAB-fixture tested; optional Laplace double-layer FMM and FLAM classification use direct close-boundary correction and are Python/devtools-tested. |
-| `chunkerkerneval` | ✅ 🧪 🎯 | `chunkerkerneval.m` | MATLAB parity fixture checks dense target evaluation, including `forceadap` close-target replacement for Laplace Green-identity devtools targets, FMM smooth evaluation plus sparse adaptive correction for the `kernelclassTest.m` Green-identity path, MATLAB-style smooth evaluation plus `opts["cormat"]` correction application for Helmholtz near-target corrections, full-grid Gauss identity values/classification, target-data directional-derivative direct/adaptive/FLAM parity, and a compact FLAM level-dependent-proxy target evaluation within MATLAB ifmm approximation tolerance; FLAM target evaluation is Python-tested with default/level-dependent rectangular proxies, real/complex smooth kernels, same-source special-quadrature handling, `forceadap=True` using PyFLAM smooth evaluation plus sparse adaptive near-target corrections, and data-bearing targets falling back to non-proxy compression. Adaptive target evaluation recomputes source normals from interpolated derivatives to match MATLAB `chunkerkerneval_adap`. |
-| `chunkerkernevalmat` | ✅ 🧪 🎯 | `chunkerkernevalmat.m` | MATLAB parity fixture checks eval matrices, including adaptive close-target replacement through `forceadap` and sparse correction-only matrices through `opts["corrections"]`; FMM eval-matrix materialization is Python-tested by basis application for off-boundary targets and same-source special-quadrature matrices; FLAM eval-matrix materialization is Python-tested, with default/level-dependent rectangular proxies, real/complex smooth kernels, same-source special-quadrature handling, `forceadap=True` using PyFLAM smooth materialization plus sparse adaptive near-target corrections, and data-bearing targets falling back to non-proxy compression. |
+| `chunkerkerneval` | ✅ 🧪 🎯 | `chunkerkerneval.m` | MATLAB parity fixture checks dense target evaluation, including `forceadap` close-target replacement for Laplace Green-identity devtools targets, FMM smooth evaluation plus sparse close-panel correction for the `kernelclassTest.m` Green-identity path, MATLAB-style smooth evaluation plus `opts["cormat"]` correction application for Helmholtz near-target corrections, full-grid Gauss identity values/classification, target-data directional-derivative direct/adaptive/FLAM parity, and a compact FLAM level-dependent-proxy target evaluation within MATLAB ifmm approximation tolerance; FLAM target evaluation is Python-tested with default/level-dependent rectangular proxies, real/complex smooth kernels, same-source special-quadrature handling, `forceadap=True` using PyFLAM smooth evaluation plus sparse near-target corrections, and data-bearing targets falling back to non-proxy compression. Close-target evaluation now prefers Helsing-Ojala pquad for kernels with split metadata and classifiable side, then falls back to adaptive Gauss. |
+| `chunkerkernevalmat` | ✅ 🧪 🎯 | `chunkerkernevalmat.m` | MATLAB parity fixture checks eval matrices, including close-target replacement through `forceadap` and sparse correction-only matrices through `opts["corrections"]`; FMM eval-matrix materialization is Python-tested by basis application for off-boundary targets and same-source special-quadrature matrices; FLAM eval-matrix materialization is Python-tested, with default/level-dependent rectangular proxies, real/complex smooth kernels, same-source special-quadrature handling, `forceadap=True` using PyFLAM smooth materialization plus sparse near-target corrections, and data-bearing targets falling back to non-proxy compression. Off-boundary target matrices and correction matrices now prefer pquad for eligible close panels, with adaptive fallback; same-source boundary matrices require explicit side/opt-in before using pquad. |
 
 
 
@@ -432,17 +434,17 @@ their matching `@kernel` factories.
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
-| `buildmat` | ✅ 🧪 🎯 | `+chnk/+quadadap/buildmat.m` | MATLAB fixture checks log self blocks, adaptive Gauss neighbor blocks, and robust close non-neighbor replacement; adaptive weights use MATLAB's translation-invariant recentering by default, and other singularity types delegate to `quadggq`. |
+| `buildmat` | ✅ 🧪 🎯 | `+chnk/+quadadap/buildmat.m` | MATLAB fixture checks log self blocks, adaptive Gauss neighbor blocks, and robust close non-neighbor replacement; eligible close blocks can use Helsing-Ojala pquad when requested by the operator path or `usepquad=True`, while adaptive weights remain the low-level default/fallback and use MATLAB's translation-invariant recentering by default. Other singularity types delegate to `quadggq`. |
 | `adapgausswts` | ✅ 🧪 🎯 | `+chnk/adapgausswts.m` | Direct adaptive Gauss weight construction is devtools-fixture tested on the starfish Helmholtz double-layer neighbor block, including recursion metadata and agreement with the GGQ reference matrix block. |
 
 #### `quadrature/panel.py`
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
-| `SplitInfo`, split constants, private helpers | 🧩 ✅ 🧪 | `kernel.splitinfo`, `+chnk/pquadwts.m` internals | Kernel-split metadata and helper routines support isolated product-quadrature tests; public operator dispatch does not use this path yet. |
-| `sd_special_quad` | ✅ 🧪 | nested `SDspecialquad` in `+chnk/pquadwts.m` | Helsing-Ojala smooth/log/Cauchy/hypersingular/supersingular close-panel weights are Python-tested against high-order Legendre moment references. |
-| `pquadwts`, `panel_pquadwts` | ✅ 🧪 | `+chnk/pquadwts.m` | Product-quadrature weights for one target-panel set support original-node and upsampled-node forms; Python tests verify interpolation composition. |
-| `panel_matrix`, `splitinfo_for_kernel` | ✅ 🧪 | `chunkerkerneval.m` pquad branch and built-in `kernel.splitinfo` | Isolated panel-matrix assembly is Python-tested for Laplace and Helmholtz scalar single/double layer kernels against high-order oversampled Legendre matrices. Combined-kernel and public evaluator migration remain pending. |
+| `SplitInfo`, split constants, private helpers | 🧩 ✅ 🧪 | `kernel.splitinfo`, `+chnk/pquadwts.m` internals | Kernel-split metadata and side-classification helpers support product-quadrature tests and the public close-panel replacement path. |
+| `sd_special_quad` | ✅ 🧪 🎯 | nested `SDspecialquad` in `+chnk/pquadwts.m` | Helsing-Ojala smooth/log/Cauchy/hypersingular/supersingular close-panel weights are Python-tested against high-order Legendre moment references and exercised through MATLAB `pquadwts` fixture parity. |
+| `pquadwts`, `panel_pquadwts` | ✅ 🧪 🎯 | `+chnk/pquadwts.m` | Product-quadrature weights for one target-panel set support original-node and upsampled-node forms; Python tests verify interpolation composition, and devtools fixture parity compares compact MATLAB exterior/interior log/Cauchy plus hypersingular/supersingular weights. |
+| `panel_matrix`, `panel_matrix_auto_side`, `splitinfo_for_kernel` | ✅ 🧪 | `chunkerkerneval.m` pquad branch and built-in `kernel.splitinfo` | Panel-matrix assembly is Python-tested for Laplace and Helmholtz scalar single/double layer kernels against high-order oversampled Legendre matrices and through public `forceadap`/correction dispatch. Combined-kernel migration remains pending. |
 
 #### `quadrature/ggq.py`
 
@@ -461,9 +463,9 @@ their matching `@kernel` factories.
 | `getlogquad` | ✅ 🧪 🎯 | `+chnk/+quadggq/getlogquad.m`, `ggqnear*`, `ggqself_*` | Reads packaged NumPy log near/self tables, with generated fallback for unavailable orders. |
 | `buildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/buildmat.m` | Log/PV/HS matrix assembly and `ilist` skipping are MATLAB-fixture tested. |
 | `diagbuildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/diagbuildmat.m` | Self-block and correction-block outputs are MATLAB-fixture tested. |
-| `nearbuildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/nearbuildmat.m` | Oversampled neighbor block and MATLAB-style correction subtraction are fixture-tested. |
+| `nearbuildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/nearbuildmat.m` | Oversampled neighbor block and MATLAB-style correction subtraction are fixture-tested; operator dispatch can request pquad replacement for eligible split kernels, with oversampled GGQ/Gauss fallback. |
 
-Log/PV/HS support tables are packaged as `.npz` assets and loaded with `importlib.resources`; runtime no longer depends on a MATLAB reference checkout for GGQ tables. `quadrature.adaptive` covers MATLAB-style log self, neighbor, and robust close replacement. `quadrature.panel` now provides isolated Helsing-Ojala product-quadrature weights and panel matrices, but the default operator/evaluator paths have not migrated to it yet. `quadba` is an explicit non-goal for this port.
+Log/PV/HS support tables are packaged as `.npz` assets and loaded with `importlib.resources`; runtime no longer depends on a MATLAB reference checkout for GGQ tables. `quadrature.adaptive` covers MATLAB-style log self, neighbor, and robust close replacement, and the operator path can request `quadrature.panel` for eligible close panels while retaining adaptive Gauss fallback. `quadrature.panel` now backs eligible close-target/correction matrices and opt-in GGQ/adaptive neighbor blocks; `quadba` is an explicit non-goal for this port.
 
 #### `quadrature/rcip.py`
 
@@ -540,23 +542,22 @@ docs/
 └── special-quadrature.md
 
 examples/
-├── _accelerated_common.py
-├── _chunkgraph_square_annulus_common.py
-├── _nonsmooth_laplace_common.py
-├── _smooth_laplace_common.py
 ├── accelerated_flam_laplace.py
-├── accelerated_fmm_kernels.py
-├── accelerated_physics_kernels.py
+├── accelerated_fmm_biharmonic.py
+├── accelerated_fmm_helmholtz.py
+├── accelerated_fmm_laplace.py
+├── accelerated_fmm_stokes.py
 ├── chunkgraph_annular_dirichlet.py
-├── chunkgraph_multiregion_bvp.py
 ├── chunkgraph_region_classification.py
-├── nonsmooth_laplace_dirichlet.py
-├── nonsmooth_laplace_neumann.py
-├── nonsmooth_laplace_polygon.py
+├── nonsmooth_laplace_exterior_dirichlet.py
+├── nonsmooth_laplace_exterior_neumann.py
+├── nonsmooth_laplace_interior_dirichlet.py
+├── nonsmooth_laplace_interior_neumann.py
 ├── nonsmooth_laplace_rcip.py
-├── smooth_laplace_dirichlet.py
-├── smooth_laplace_neumann.py
-└── smooth_laplace_bvp.py
+├── smooth_laplace_exterior_dirichlet.py
+├── smooth_laplace_exterior_neumann.py
+├── smooth_laplace_interior_dirichlet.py
+└── smooth_laplace_interior_neumann.py
 
 scripts/
 ├── clean_test_data.py
@@ -632,13 +633,17 @@ Support file roles:
 - 🧭 `docs/bie-overview.md`: high-level guide to the chunker/chunkgraph/kernel/operator API, BIE workflows, supported physics kernels, and dense/FMM/FLAM acceleration options.
 - 🧭 `docs/matlab-reference-setup.md`: local MATLAB checkout / fixture setup notes.
 - 🧭 `docs/special-quadrature.md`: special quadrature implementation notes.
-- 🧭 `examples/*.py`: runnable documentation demos for smooth Laplace interior/exterior Dirichlet and Neumann systems, dyadically refined non-smooth polygon solves, chunkgraph multi-region workflows, and accelerated Laplace/Helmholtz/Stokes/biharmonic kernel evaluation.
+- 🧭 `examples/*.py`: runnable documentation demos for smooth Laplace
+  interior/exterior Dirichlet and Neumann systems, dyadically refined
+  non-smooth polygon solves with corrected near-boundary PNG output,
+  chunkgraph multi-region workflows, and one-backend/one-physics accelerated
+  Laplace/Helmholtz/Stokes/biharmonic kernel evaluation.
 - 🧭 `src/chunkie/data/quadggq/*.npz`: packaged NumPy copies of upstream MATLAB GGQ near, log self, PV support, and HS support tables used at runtime.
 - 🧭 `scripts/clean_test_data.py`: removes local generated `.mat`/`.npz` parity fixture files under `tests/golden`.
 - 🧭 `scripts/generate_quadggq_package_data.py`: converts upstream MATLAB `+chnk/+quadggq` table files into the package `.npz` data assets.
 - 🧭 `scripts/matlab/*.m`: MATLAB fixture-generation scripts; these are the source of the `.mat` golden data used for 🎯 flags.
 - 🧪 `tests/_fixture_generation.py`: ensures missing MATLAB parity fixture files are generated on demand before tests load them; generation failure is a test failure.
-- 🧪 `tests/golden/*.mat`: ignored MATLAB-generated parity fixture files created on demand by tests. `devtools_easy.mat` covers the low/mid devtools track through adaptive `chunkerfunc`, `chunkerarcparam`, non-smooth dyadic `chunkerpoly`, chunkgraph constructor/basic region/full signed-region/opdim/last-length refinement parity, partial `slicegraph`, direct `adapgausswts`, `chunkermat_l2scale`, `chunkermat_quadadap`, close-touching adaptive `chunkermat` solve/evaluation diagnostics, scalar/vector chunker and diagnostic chunkgraph `chunkermatapply` paths, interleaved Helmholtz block-system dense solve/evaluation diagnostics, singular PV/HS diagnostics, Laplace/Helmholtz/Stokes dense `chunkermat` solve/target evaluation, Laplace/Helmholtz Green-identity, explicit near-target correction, elasticity direct-kernel diagnostics, Helmholtz 1D direct Green/kernel/sweep diagnostics, and Gauss-identity target-evaluation parity, and converted `datafieldTest.m` Hilbert/cotangent plus target-data directional-derivative slices. `operator_parity.mat` covers dense/FMM/FLAM operator parity, including level-dependent proxy FLAM matvec/solve/evaluation and smooth multi-chunker block-kernel FLAM matvec/solve. `geometry_core.mat` covers compact I GEOMETRY parity excluding `chunkerfit` and smoother workflows. `quadggq.mat` covers Section III native, GGQ, and adaptive quadrature behavior; `rcip.mat` covers Section III RCIP helpers, Schur updates, chunkgraph driver metadata, and recursive compression.
+- 🧪 `tests/golden/*.mat`: ignored MATLAB-generated parity fixture files created on demand by tests. `devtools_easy.mat` covers the low/mid devtools track through adaptive `chunkerfunc`, `chunkerarcparam`, non-smooth dyadic `chunkerpoly`, chunkgraph constructor/basic region/full signed-region/opdim/last-length refinement parity, partial `slicegraph`, direct `adapgausswts`, compact product-quadrature weights, `chunkermat_l2scale`, `chunkermat_quadadap`, close-touching adaptive `chunkermat` solve/evaluation diagnostics, scalar/vector chunker and diagnostic chunkgraph `chunkermatapply` paths, interleaved Helmholtz block-system dense solve/evaluation diagnostics, singular PV/HS diagnostics, Laplace/Helmholtz/Stokes dense `chunkermat` solve/target evaluation, Laplace/Helmholtz Green-identity, explicit near-target correction, elasticity direct-kernel diagnostics, Helmholtz 1D direct Green/kernel/sweep diagnostics, and Gauss-identity target-evaluation parity, and converted `datafieldTest.m` Hilbert/cotangent plus target-data directional-derivative slices. `operator_parity.mat` covers dense/FMM/FLAM operator parity, including level-dependent proxy FLAM matvec/solve/evaluation and smooth multi-chunker block-kernel FLAM matvec/solve. `geometry_core.mat` covers compact I GEOMETRY parity excluding `chunkerfit` and smoother workflows. `quadggq.mat` covers Section III native, GGQ, and adaptive quadrature behavior; `rcip.mat` covers Section III RCIP helpers, Schur updates, chunkgraph driver metadata, and recursive compression.
 - 🧪 `tests/test_matlab_parity.py`: main exact-behavior comparison suite against golden data.
 - 🧪 `tests/test_geometry_parity.py`: focused I GEOMETRY comparison suite against `geometry_core.mat`.
 - 🧪 `tests/test_matlab_fixtures.py`: basic fixture comparison suite.

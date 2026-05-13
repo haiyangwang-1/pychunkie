@@ -1,8 +1,9 @@
 """Helsing-Ojala product quadrature for close panel interactions.
 
 This module ports the analytic panel-weight construction used by MATLAB
-``chnk.pquadwts``.  It is intentionally isolated from the public operator
-dispatch for now: callers opt in by importing this module directly.
+``chnk.pquadwts``. Operator assembly uses these helpers for eligible close
+target-panel replacements and falls back to adaptive or oversampled Gauss
+quadrature when split metadata or side information is unavailable.
 """
 
 from __future__ import annotations
@@ -145,6 +146,51 @@ def panel_matrix(
             raise ValueError("split function returned an array with incompatible shape")
         out_up = out_up + mat0opdim * values_arr
     return out_up @ np.kron(interp, np.eye(op1))
+
+
+def panel_matrix_auto_side(
+    chnkr: Chunker,
+    src_chunk: int,
+    targobj: PointInfo | dict[str, Any] | ArrayLike,
+    splitinfo: SplitInfo,
+    *,
+    side: str | None = None,
+    nodes: ArrayLike | None = None,
+    weights: ArrayLike | None = None,
+    side_tol: float | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Assemble pquad blocks for targets whose interior/exterior side is known.
+
+    If ``side`` is supplied, every target is evaluated on that side. Otherwise
+    the side is inferred from the nearest source node normal on ``src_chunk``.
+    Targets too close to the source panel to classify robustly are left
+    unhandled so callers can use their Gauss fallback.
+    """
+
+    targ = pointinfo(targobj)
+    op0, op1 = splitinfo.opdims
+    ntarg = int(targ.r.shape[1])
+    shape = (op0 * ntarg, op1 * chnkr.k)
+    if ntarg == 0:
+        return np.zeros(shape), np.zeros(0, dtype=bool)
+
+    groups = _side_groups(chnkr, src_chunk, targ, side=side, side_tol=side_tol)
+    handled = np.zeros(ntarg, dtype=bool)
+    out: np.ndarray | None = None
+    for side0, target_ids in groups:
+        if target_ids.size == 0:
+            continue
+        block = panel_matrix(chnkr, src_chunk, _take_pointinfo(targ, target_ids), splitinfo, side0, nodes=nodes, weights=weights)
+        if out is None:
+            out = np.zeros(shape, dtype=block.dtype)
+        elif np.result_type(out.dtype, block.dtype) != out.dtype:
+            out = out.astype(np.result_type(out.dtype, block.dtype), copy=False)
+        rows = _target_rows(target_ids, op0)
+        out[rows, :] = block
+        handled[target_ids] = True
+    if out is None:
+        out = np.zeros(shape)
+    return np.real_if_close(out), handled
 
 
 def panel_pquadwts(
@@ -340,41 +386,42 @@ def splitinfo_for_kernel(kern: Any) -> SplitInfo | None:
     kind = str(getattr(kern, "type", "")).lower()
     params = getattr(kern, "params", {}) or {}
     opdims = tuple(getattr(kern, "opdims", (1, 1)))
+    scale = params.get("_scale", 1.0)
     if name == "laplace":
-        return _laplace_splitinfo(kind, params.get("coefs", None), opdims)
+        return _laplace_splitinfo(kind, params.get("coefs", None), scale)
     if name == "helmholtz":
-        return _helmholtz_splitinfo(kind, params.get("zk", None), params.get("coefs", None), opdims)
+        return _helmholtz_splitinfo(kind, params.get("zk", None), params.get("coefs", None), opdims, scale)
     return None
 
 
-def _laplace_splitinfo(kind: str, coefs: Any, opdims: tuple[int, int]) -> SplitInfo | None:
+def _laplace_splitinfo(kind: str, coefs: Any, scale: Any = 1.0) -> SplitInfo | None:
     if kind in {"s", "single"}:
-        return SplitInfo((LOG,), ("r",), lambda s, t: (_ones(t, s),), (1, 1))
+        return SplitInfo((LOG,), ("r",), lambda s, t: (scale * _ones(t, s),), (1, 1))
     if kind in {"d", "double"}:
-        return SplitInfo((CAUCHY,), ("r",), lambda s, t: (_ones(t, s),), (1, 1))
+        return SplitInfo((CAUCHY,), ("r",), lambda s, t: (scale * _ones(t, s),), (1, 1))
     if kind in {"c", "combined"}:
         c = np.ones(2) if coefs is None else np.asarray(coefs).reshape(-1, order="F")
 
         def functions(s: PointInfo, t: PointInfo) -> tuple[np.ndarray, np.ndarray]:
             ones = _ones(t, s)
-            return c[1] * ones, c[0] * ones
+            return scale * c[1] * ones, scale * c[0] * ones
 
         return SplitInfo((LOG, CAUCHY), ("r", "r"), functions, (1, 1))
     return None
 
 
-def _helmholtz_splitinfo(kind: str, zk: Any, coefs: Any, opdims: tuple[int, int]) -> SplitInfo | None:
+def _helmholtz_splitinfo(kind: str, zk: Any, coefs: Any, opdims: tuple[int, int], scale: Any = 1.0) -> SplitInfo | None:
     if zk is None or opdims != (1, 1):
         return None
     from chunkie.kernels import helmholtz as helm2d
 
     if kind in {"s", "single"}:
-        return SplitInfo((SMOOTH, LOG), ("r", "r"), lambda s, t: _helmholtz_s_split(helm2d, zk, s, t), (1, 1))
+        return SplitInfo((SMOOTH, LOG), ("r", "r"), lambda s, t: _scale_split(scale, _helmholtz_s_split(helm2d, zk, s, t)), (1, 1))
     if kind in {"d", "double"}:
         return SplitInfo(
             (SMOOTH, LOG, CAUCHY),
             ("r", "r", "r"),
-            lambda s, t: _helmholtz_d_split(helm2d, zk, s, t),
+            lambda s, t: _scale_split(scale, _helmholtz_d_split(helm2d, zk, s, t)),
             (1, 1),
         )
     if kind in {"c", "combined"}:
@@ -382,7 +429,7 @@ def _helmholtz_splitinfo(kind: str, zk: Any, coefs: Any, opdims: tuple[int, int]
         return SplitInfo(
             (SMOOTH, LOG, CAUCHY),
             ("r", "r", "r"),
-            lambda s, t: _helmholtz_c_split(helm2d, zk, c, s, t),
+            lambda s, t: _scale_split(scale, _helmholtz_c_split(helm2d, zk, c, s, t)),
             (1, 1),
         )
     return None
@@ -475,3 +522,71 @@ def _complex_normals(info: PointInfo) -> np.ndarray:
 
 def _ones(targ: PointInfo, src: PointInfo) -> np.ndarray:
     return np.ones((targ.r.shape[1], src.r.shape[1]))
+
+
+def _scale_split(scale: Any, values: tuple[np.ndarray, ...]) -> tuple[np.ndarray, ...]:
+    return tuple(scale * value for value in values)
+
+
+def _side_groups(
+    chnkr: Chunker,
+    src_chunk: int,
+    targ: PointInfo,
+    *,
+    side: str | None,
+    side_tol: float | None,
+) -> list[tuple[str, np.ndarray]]:
+    explicit = _normalize_side(side)
+    ntarg = int(targ.r.shape[1])
+    if explicit is not None:
+        return [(explicit, np.arange(ntarg, dtype=int))]
+
+    if chnkr.dim != 2:
+        return []
+    tol = _default_side_tol(chnkr, src_chunk) if side_tol is None else float(side_tol)
+    diff = targ.r[:, :, None] - chnkr.r[:, None, :, src_chunk]
+    dist2 = np.sum(diff * diff, axis=0)
+    nearest = np.argmin(dist2, axis=1)
+    target_ids = np.arange(ntarg)
+    offsets = targ.r[:, target_ids] - chnkr.r[:, nearest, src_chunk]
+    normals = chnkr.n[:, nearest, src_chunk]
+    signed = np.sum(offsets * normals, axis=0)
+    inside = np.flatnonzero(signed < -tol)
+    outside = np.flatnonzero(signed > tol)
+    groups: list[tuple[str, np.ndarray]] = []
+    if inside.size:
+        groups.append(("i", inside.astype(int, copy=False)))
+    if outside.size:
+        groups.append(("e", outside.astype(int, copy=False)))
+    return groups
+
+
+def _normalize_side(side: str | None) -> str | None:
+    if side is None:
+        return None
+    side0 = str(side).lower()
+    if side0 not in {"i", "e"}:
+        raise ValueError("side must be 'i' or 'e'")
+    return side0
+
+
+def _default_side_tol(chnkr: Chunker, src_chunk: int) -> float:
+    try:
+        scale = float(chnkr.chunklen()[src_chunk])
+    except Exception:
+        scale = 1.0
+    return 1.0e-13 * max(1.0, scale)
+
+
+def _take_pointinfo(info: PointInfo, indices: np.ndarray) -> PointInfo:
+    return PointInfo(
+        r=info.r[:, indices],
+        d=None if info.d is None else info.d[:, indices],
+        d2=None if info.d2 is None else info.d2[:, indices],
+        n=None if info.n is None else info.n[:, indices],
+        data=None if info.data is None else info.data[:, indices],
+    )
+
+
+def _target_rows(indices: np.ndarray, op0: int) -> np.ndarray:
+    return (indices[:, None] * int(op0) + np.arange(int(op0))[None, :]).reshape(-1)
