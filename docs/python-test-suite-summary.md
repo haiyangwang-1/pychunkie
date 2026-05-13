@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 353 pytest cases because several MATLAB parity tests are
+collection expands to 370 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -75,7 +75,8 @@ Current test-backed coverage includes:
 - Core geometry/domain/chunkgraph behavior, Legendre helpers, point-kernel
   evaluators, dense/native operators, scalar and block-kernel FMM
   acceleration, FMM target-evaluation materialization, PyFLAM acceleration,
-  special quadrature, and RCIP helper/compression workflows.
+  special quadrature, RCIP helper/compression workflows, and default
+  chunkgraph RCIP integration in dense operator assembly/evaluation.
 - Public API contract guards for top-level `chunkie` exports, `chunkie.chnk`
   exports, and lazy `chunkie.chnk` submodule/helper imports.
 - MATLAB golden parity for compact fixtures under `tests/golden`, including
@@ -102,7 +103,7 @@ Open or intentionally limited areas:
 
 `test_top_level_public_exports_are_stable` checks that the documented
 top-level `chunkie.__all__` facade continues to expose the same public names
-after internal refactors.
+after internal refactors, including the exported RCIP matrix/context helpers.
 
 `test_chnk_public_exports_are_stable_and_lazy` checks that `chunkie.chnk`
 keeps the same MATLAB-style export names while lazily loading heavy submodules
@@ -634,9 +635,8 @@ degrees against the MATLAB fixture.
 `slicegraph` workflow. The method compares sliced geometry and edge id
 ordering against MATLAB, and verifies that both MATLAB and Python preserve the
 inner-slice/full-submatrix relation. Python graph matrices are also checked to
-be finite after Laplace double-layer self-block replacement. Direct matrix
-values remain partial because MATLAB default graph `chunkermat` applies RCIP
-corrections not yet present in the Python scalar graph path.
+be finite after Laplace double-layer self-block replacement and default RCIP
+corner compression.
 
 `test_chunkermat_quadadap_devtools_outputs_match_matlab` checks the starfish
 adaptive-neighbor matrix comparison from `chunkermat_quadadapTest.m`. The
@@ -676,9 +676,8 @@ fixture outputs.
 chunkgraph paths from `chunkermatapplyTest.m`. The methods reconstruct the
 MATLAB edge chunkers exactly, verify saved scalar/vector boundary data, and
 assert both MATLAB and Python matrix-free apply agree with their matching dense
-graph products. Cross-language graph matrix values are kept as bounded
-diagnostics because MATLAB applies graph RCIP corrections not yet present in
-the Python scalar graph matrix path.
+graph products. Scalar graph application now follows the default RCIP-compressed
+`chunkermat` path, while vector block systems stay on the edge-block dense path.
 
 `test_chunkermat_laplace_solve_devtools_outputs_match_matlab` checks the
 Laplace dense-system solve workflow from `chunkermatTest.m`. The method
@@ -1813,6 +1812,14 @@ subselection from a global edge-by-edge block-kernel matrix. The method creates
 distinct zero kernels for each global block and runs RCIP at one square-graph
 vertex. Ground truth is that only the incident-edge submatrix is used and the
 resulting zero-kernel compression matrix is identity.
+
+`test_chunkermat_defaults_to_rcip_on_nonsmooth_chunkgraph_and_evaluates_corners`
+checks the public operator integration for RCIP. The method solves an interior
+Laplace double-layer problem on a coarse square chunkgraph with
+`chunkermat(cg, -2D)`, verifies that `ChunkerRCIPMatrix` carries cached
+`RCIPContext` metadata, then evaluates off-boundary targets through
+`chunkerkerneval(cg, ...)`. Ground truth is four compressed corner blocks and
+the manufactured solution `u(x,y)=x` at interior targets.
 
 ## `tests/test_rcip_parity.py`
 

@@ -101,12 +101,14 @@ constant-potential constraint when solving exterior or mean-sensitive problems.
 
 ## Non-Smooth Domains
 
-Use `chunkerpoly(..., {"dyadic": True, "depth": n})` for true corners. This
-creates smaller panels near each corner and preserves a non-rounded geometry.
-The package also includes RCIP utilities in `chunkie.chnk.rcip` for local corner
-compression on chunkgraphs. Current high-level examples keep the BVP solve
-explicit so users can see where jump terms, compatibility constraints, and
-corner refinement enter.
+Use `chunkerpoly(..., {"dyadic": True, "depth": n})` for direct true-corner
+panel refinement. For coarse `ChunkGraph` solves with corner vertices,
+`chunkermat(cg, kern)` now applies MATLAB-style RCIP compression by default
+for scalar second-kind Laplace/Helmholtz kernels such as double layer and
+sprime; pass `{"rcip": False}` to force ordinary merged-geometry assembly.
+`chunkerkerneval(cg, ...)` reuses the RCIP metadata cached by the preceding
+compressed solve and interpolates the corner density back to the locally
+refined panels for target evaluation.
 
 ## Chunkgraphs And Multi-Region Problems
 
@@ -178,6 +180,7 @@ uv run python examples/accelerated_flam_laplace.py
 ```
 
 The demos print relative or absolute errors against manufactured solutions.
-The nonsmooth BVP demos also write solution and log-error PNG files next to the
-script, using sparse corrected quadrature matrices for near-boundary target
-evaluation. Each script is self-contained and covers one case.
+The nonsmooth BVP demos solve on a coarse square chunkgraph with `depth=2`,
+`nsub=20`, and default RCIP corner compression, then write solution and
+log-error PNG files next to the script. Each script is self-contained and
+covers one case.

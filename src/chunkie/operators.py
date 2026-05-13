@@ -54,6 +54,32 @@ class _BlockKernelLayout:
     col_offsets: np.ndarray
 
 
+@dataclass
+class RCIPContext:
+    """Corner compression metadata produced by chunkgraph RCIP assembly."""
+
+    source: Any
+    system_kernel: Callable[[Any, Any], np.ndarray]
+    saved: list[Any]
+    nsub: int
+    savedepth: int
+    ndim: int = 1
+
+
+class ChunkerRCIPMatrix(np.ndarray):
+    """Dense matrix with attached RCIP interpolation metadata."""
+
+    rcip: RCIPContext | None
+
+    def __new__(cls, input_array: ArrayLike, rcip_context: RCIPContext | None = None):
+        obj = np.asarray(input_array).view(cls)
+        obj.rcip = rcip_context
+        return obj
+
+    def __array_finalize__(self, obj: Any) -> None:
+        self.rcip = None if obj is None else getattr(obj, "rcip", None)
+
+
 @dataclass(frozen=True)
 class _OperatorOptions:
     raw: dict[str, Any]
@@ -443,7 +469,7 @@ def chunkermat(
     chnkr: Chunker,
     kern: Callable[[Any, Any], np.ndarray],
     opts: dict[str, Any] | None = None,
-) -> np.ndarray | ChunkerFMMMatrix | ChunkerFLAMMatrix:
+) -> np.ndarray | ChunkerFMMMatrix | ChunkerFLAMMatrix | tuple[np.ndarray, RCIPContext]:
     """Assemble or factor a boundary-integral operator on a chunker-like object.
 
     The default path returns a dense NumPy matrix using native or special
@@ -463,6 +489,17 @@ def chunkermat(
         if acceleration == "fmm":
             return ChunkerFMMMatrix(chnkr, kern, options)
         return _block_kernel_mat(chnkr, kern, options)
+
+    if _chunkgraph_rcip_mat_enabled(chnkr, kern, options):
+        mat, context = _chunkgraph_rcip_mat(chnkr, kern, options)
+        if _flag(options, "return_rcip"):
+            return mat, context
+        return mat
+    if _is_chunkgraph_like(chnkr) and "rcip" in options and not _rcip_option_enabled(options):
+        try:
+            setattr(chnkr, "_last_rcip_context", None)
+        except AttributeError:
+            pass
 
     chnkr = _require_chunker(chnkr)
     acceleration = _acceleration(options)
@@ -524,7 +561,11 @@ def chunkermatapply(
                 _require_fmm(item)
         else:
             _require_fmm(kern)
-    chnkobj = chnkr if _is_block_kernel_matrix(kern) else _require_chunker(chnkr)
+    chnkobj = (
+        chnkr
+        if _is_block_kernel_matrix(kern) or _chunkgraph_rcip_mat_enabled(chnkr, kern, options)
+        else _require_chunker(chnkr)
+    )
     op = chunkermat(chnkobj, kern, options)
     dens_arg = _density_matmul_arg(op.shape[1], dens)
     return op @ dens_arg
@@ -640,6 +681,10 @@ def chunkerkerneval(
 
     options = {} if opts is None else dict(opts)
     same_source_target = targobj is chnkr
+    rcip_context = _chunkgraph_rcip_eval_context(chnkr, options)
+    if rcip_context is not None and not same_source_target:
+        return _chunkgraph_rcip_eval(chnkr, kern, dens, targobj, options, rcip_context)
+
     chnkr = _require_chunker(chnkr)
     acceleration = _acceleration(options)
     if acceleration == "flam" and same_source_target and _uses_special_quadrature(kern, options):
@@ -812,6 +857,297 @@ def _require_chunker(obj: Any) -> Chunker:
     if out is None:
         raise TypeError("expected a chunker or chunkgraph-like object")
     return out
+
+
+def _is_chunkgraph_like(obj: Any) -> bool:
+    return (
+        hasattr(obj, "echnks")
+        and hasattr(obj, "vstruc")
+        and hasattr(obj, "verts")
+        and callable(getattr(obj, "merged", None))
+    )
+
+
+def _chunkgraph_nonsmooth_vertices(obj: Any, options: dict[str, Any]) -> list[int]:
+    if not _is_chunkgraph_like(obj):
+        return []
+    raw_vertices = options.get("rcip_vertices", options.get("vertices", None))
+    if raw_vertices is None:
+        candidates = range(np.asarray(obj.verts).shape[1])
+    else:
+        candidates = _normalize_vertex_indices(raw_vertices, np.asarray(obj.verts).shape[1])
+    ignored = set(
+        _normalize_vertex_indices(
+            options.get("rcip_ignore_vertices", options.get("ignore_vertices", [])),
+            np.asarray(obj.verts).shape[1],
+        ).tolist()
+    )
+    out: list[int] = []
+    for ivert in candidates:
+        if int(ivert) in ignored:
+            continue
+        edges, _ = obj.vstruc[int(ivert)]
+        if np.asarray(edges).size >= 2:
+            out.append(int(ivert))
+    return out
+
+
+def _normalize_vertex_indices(vertices: Any, nvert: int) -> np.ndarray:
+    arr = np.asarray(vertices, dtype=int).reshape(-1)
+    if arr.size and np.max(arr) >= int(nvert):
+        if np.min(arr) >= 1 and np.max(arr) <= int(nvert):
+            arr = arr - 1
+        else:
+            raise ValueError("vertex index out of range")
+    if np.any(arr < 0) or np.any(arr >= int(nvert)):
+        raise ValueError("vertex index out of range")
+    return arr
+
+
+def _rcip_option_enabled(options: dict[str, Any]) -> bool:
+    value = options.get("rcip", True)
+    if isinstance(value, RCIPContext):
+        return True
+    return _option_bool(value)
+
+
+def _chunkgraph_rcip_mat_enabled(obj: Any, kern: Callable[[Any, Any], np.ndarray], options: dict[str, Any]) -> bool:
+    if not _rcip_option_enabled(options):
+        return False
+    if not _is_chunkgraph_like(obj):
+        return False
+    if _acceleration(options) != "dense" or _l2scale(options):
+        return False
+    if not _is_rcip_second_kind_kernel(kern):
+        return False
+    merged = _as_chunker(obj)
+    if merged is None:
+        return False
+    try:
+        if _kernel_opdims(merged, kern) != (1, 1):
+            return False
+    except _KERNEL_PROBE_EXCEPTIONS:
+        return False
+    return bool(_chunkgraph_nonsmooth_vertices(obj, options))
+
+
+def _is_rcip_second_kind_kernel(kern: Callable[[Any, Any], np.ndarray]) -> bool:
+    name = str(getattr(kern, "name", "")).lower()
+    typ = str(getattr(kern, "type", "")).lower()
+    if name not in {"laplace", "helmholtz"}:
+        return False
+    return typ in {
+        "d",
+        "double",
+        "sp",
+        "sprime",
+    }
+
+
+def _chunkgraph_rcip_mat(
+    cg: Any,
+    kern: Callable[[Any, Any], np.ndarray],
+    options: dict[str, Any],
+) -> tuple[ChunkerRCIPMatrix, RCIPContext]:
+    from .chnk import rcip
+
+    merged = cg.merged()
+    base_options = _strip_rcip_options(options)
+    mat = np.asarray(chunkermat(merged, kern, base_options)).copy()
+    nsub = _rcip_nsub(options)
+    savedepth = _rcip_savedepth(options, nsub)
+    saved: list[Any] = []
+
+    for ivert in _chunkgraph_nonsmooth_vertices(cg, options):
+        edges, signs = cg.vstruc[ivert]
+        edges = np.asarray(edges, dtype=int).reshape(-1)
+        signs = np.asarray(signs, dtype=int).reshape(-1)
+        isstart = signs < 0
+        iedgechunks = _rcip_corner_edge_chunks(cg, edges, signs)
+        pbc, pwbc, star_l, circ_l, star_s, circ_s, *_ = rcip.setup(cg.k, 1, edges.size, isstart)
+        rmat, rcipsav = rcip.Rcompchunk(
+            cg.echnks,
+            iedgechunks,
+            kern,
+            1,
+            cg.verts[:, ivert],
+            Pbc=pbc,
+            PWbc=pwbc,
+            starL=star_l,
+            circL=circ_l,
+            starS=star_s,
+            circS=circ_s,
+            opts={"nsub": nsub, "rcip_savedepth": savedepth},
+        )
+        starind = _rcip_corner_star_indices(cg, edges, signs)
+        rcipsav.starind = starind
+        replacement = np.linalg.inv(rmat) - np.eye(rmat.shape[0], dtype=rmat.dtype)
+        mat[np.ix_(starind, starind)] = replacement
+        saved.append(rcipsav)
+
+    context = RCIPContext(cg, kern, saved, nsub, savedepth, 1)
+    try:
+        setattr(cg, "_last_rcip_context", context)
+    except AttributeError:
+        pass
+    return ChunkerRCIPMatrix(mat, context), context
+
+
+def _rcip_nsub(options: dict[str, Any]) -> int:
+    value = options.get("nsub", options.get("rcip_nsub", options.get("nsub_or_tol", 20)))
+    value_float = float(value)
+    if value_float <= 0:
+        raise ValueError("RCIP nsub must be positive")
+    if value_float < 1.0:
+        return max(int(np.ceil(np.log2(1.0 / value_float**2))), 20)
+    return int(value_float)
+
+
+def _rcip_savedepth(options: dict[str, Any], nsub: int) -> int:
+    savedepth = int(options.get("rcip_savedepth", options.get("save_depth", nsub)))
+    return min(max(savedepth, 0), int(nsub))
+
+
+def _strip_rcip_options(options: dict[str, Any]) -> dict[str, Any]:
+    out = dict(options)
+    for key in (
+        "rcip",
+        "return_rcip",
+        "rcip_context",
+        "rcip_saved",
+        "rcip_vertices",
+        "vertices",
+        "rcip_ignore_vertices",
+        "ignore_vertices",
+        "nsub",
+        "rcip_nsub",
+        "nsub_or_tol",
+        "rcip_savedepth",
+        "save_depth",
+        "rcip_eval_depth",
+        "rcip_ndepth",
+    ):
+        out.pop(key, None)
+    return out
+
+
+def _rcip_corner_star_indices(cg: Any, edges: np.ndarray, signs: np.ndarray) -> np.ndarray:
+    starts = np.cumsum([0] + [edge.npt for edge in cg.echnks])
+    width = 2 * int(cg.k)
+    out: list[np.ndarray] = []
+    for edge, sign in zip(np.asarray(edges, dtype=int), np.asarray(signs, dtype=int)):
+        lo = int(starts[int(edge)])
+        hi = int(starts[int(edge) + 1])
+        if hi - lo < width:
+            raise ValueError("each RCIP edge needs at least two coarse panels")
+        out.append(np.arange(lo, lo + width) if int(sign) < 0 else np.arange(hi - width, hi))
+    return np.concatenate(out)
+
+
+def _rcip_corner_edge_chunks(cg: Any, edges: np.ndarray, signs: np.ndarray) -> np.ndarray:
+    edge_arr = np.asarray(edges, dtype=int).reshape(-1)
+    sign_arr = np.asarray(signs, dtype=int).reshape(-1)
+    out = np.zeros((2, edge_arr.size), dtype=int)
+    out[0] = edge_arr
+    for idx, (edge, sign) in enumerate(zip(edge_arr, sign_arr)):
+        out[1, idx] = 0 if int(sign) < 0 else cg.echnks[int(edge)].nch - 1
+    return out
+
+
+def _chunkgraph_rcip_eval_context(obj: Any, options: dict[str, Any]) -> RCIPContext | None:
+    value = options.get("rcip", None)
+    if value is not None and not isinstance(value, RCIPContext) and not _option_bool(value):
+        return None
+    if isinstance(value, RCIPContext):
+        return value
+    context = options.get("rcip_context", None)
+    if context is not None:
+        return context
+    if "rcip_saved" in options:
+        return RCIPContext(
+            obj,
+            options.get("rcip_system_kernel", lambda s, t: np.zeros((t.r.shape[1], s.r.shape[1]))),
+            list(options["rcip_saved"]),
+            _rcip_nsub(options),
+            _rcip_savedepth(options, _rcip_nsub(options)),
+            1,
+        )
+    if not _is_chunkgraph_like(obj):
+        return None
+    return getattr(obj, "_last_rcip_context", None)
+
+
+def _chunkgraph_rcip_eval(
+    cg: Any,
+    kern: Callable[[Any, Any], np.ndarray],
+    dens: ArrayLike,
+    targobj: Chunker | dict[str, Any] | ArrayLike | PointInfo,
+    options: dict[str, Any],
+    context: RCIPContext,
+) -> np.ndarray:
+    from .chnk import rcip
+
+    if not context.saved:
+        return chunkerkerneval(cg.merged(), kern, dens, targobj, _strip_rcip_options(options))
+
+    dens_vec = np.asarray(dens).reshape(-1, order="F")
+    merged = cg.merged()
+    if dens_vec.size != merged.npt * int(context.ndim):
+        raise ValueError("density has incompatible size for RCIP context")
+
+    rho_coarse = dens_vec.copy()
+    for rcipsav in context.saved:
+        starind = np.asarray(rcipsav.starind, dtype=int).reshape(-1)
+        rho_coarse[starind] = 0.0
+
+    eval_options = _strip_rcip_options(options)
+    targinfo = pointinfo(targobj)
+    vals = chunkerkerneval(merged, kern, rho_coarse, targinfo, eval_options).reshape(-1, order="F")
+    ndepth = int(options.get("rcip_eval_depth", options.get("rcip_ndepth", context.savedepth)))
+
+    for rcipsav in context.saved:
+        starind = np.asarray(rcipsav.starind, dtype=int).reshape(-1)
+        rhocells, srcinfos, wtscells = rcip.rhohatInterp(dens_vec[starind], rcipsav, ndepth)
+        srcinfo = _merge_pointinfos([src for src in srcinfos if src is not None])
+        if srcinfo is None:
+            continue
+        rho_local = np.concatenate([np.asarray(rho).reshape(-1, order="F") for rho in rhocells])
+        wts_local = np.concatenate([np.asarray(wts).reshape(-1, order="F") for wts in wtscells if wts is not None])
+        local_targets = _shift_pointinfo(targinfo, np.asarray(rcipsav.ctr)[:, [0]])
+        local_mat = _eval_kernel(kern, srcinfo, local_targets)
+        vals = vals + local_mat @ _apply_weights_to_density(rho_local, wts_local)
+
+    return vals.reshape(-1, targinfo.r.shape[1], order="F")
+
+
+def _merge_pointinfos(infos: list[PointInfo]) -> PointInfo | None:
+    if not infos:
+        return None
+    return PointInfo(
+        r=np.column_stack([info.r for info in infos]),
+        d=None if any(info.d is None for info in infos) else np.column_stack([info.d for info in infos]),
+        d2=None if any(info.d2 is None for info in infos) else np.column_stack([info.d2 for info in infos]),
+        n=None if any(info.n is None for info in infos) else np.column_stack([info.n for info in infos]),
+        data=None if any(info.data is None for info in infos) else np.column_stack([info.data for info in infos]),
+    )
+
+
+def _shift_pointinfo(info: PointInfo, ctr: np.ndarray) -> PointInfo:
+    return PointInfo(
+        r=info.r - np.asarray(ctr).reshape(info.r.shape[0], 1),
+        d=info.d,
+        d2=info.d2,
+        n=info.n,
+        data=info.data,
+    )
+
+
+def _apply_weights_to_density(rho: np.ndarray, wts: np.ndarray) -> np.ndarray:
+    if rho.size == wts.size:
+        return rho * wts
+    if rho.size % wts.size != 0:
+        raise ValueError("RCIP local density and weights are incompatible")
+    return rho * np.repeat(wts, rho.size // wts.size)
 
 
 def _is_block_kernel_matrix(kern: Any) -> bool:
