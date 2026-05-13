@@ -8,6 +8,14 @@ MATLAB parity fixture files under `tests/golden` are ignored and generated on
 demand during tests, so the full suite requires a populated
 `external/chunkie-matlab` checkout.
 
+Each non-collection pytest run writes generated metrics logs to
+`test_logs/pytest_metrics.md` and `test_logs/pytest_metrics.jsonl` unless
+`--no-test-log` is passed. The log records each test's node id, a brief
+description derived from the test docstring or name, call duration, outcome,
+existing `record_property` values, and automatic max absolute/relative error
+aggregates from `np.testing.assert_allclose` checks. The `test_logs/` directory
+is ignored because these files are local run artifacts.
+
 ## What The Suite Is Checking
 
 The suite is a mix of analytic unit tests, dense direct boundary-integral tests,
