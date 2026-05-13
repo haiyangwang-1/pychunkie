@@ -102,12 +102,18 @@ constant-potential constraint when solving exterior or mean-sensitive problems.
 
 ## Non-Smooth Domains
 
-Use `chunkerpoly(..., dyadic=True, depth=n)` for true corners. This
-creates smaller panels near each corner and preserves a non-rounded geometry.
-The package also includes RCIP utilities in `chunkie.quadrature.rcip` for local corner
-compression on chunkgraphs. Current high-level examples keep the BVP solve
-explicit so users can see where jump terms, compatibility constraints, and
-corner refinement enter.
+Use `chunkerpoly(..., dyadic=True, depth=n)` for direct true-corner panel
+refinement. For coarse `ChunkGraph` solves with corner vertices,
+`chunkermat(cg, kern)` applies MATLAB-style RCIP compression by default for
+scalar second-kind Laplace/Helmholtz kernels such as double layer and sprime;
+pass `{"rcip": False}` to force ordinary merged-geometry assembly for now.
+`chunkerkerneval(cg, ...)` reuses the RCIP metadata cached by the preceding
+compressed solve and interpolates the corner density back to the locally
+refined panels for target evaluation. For near-boundary targets, pass
+`force_adaptive=True` and `use_panel_quadrature=True`; the Helsing-Ojala
+product-quadrature correction is applied to both the coarse non-corner panels
+and the local RCIP corner panels when side inference is available, with
+adaptive Gauss fallback for unhandled close targets.
 
 ## Chunkgraphs And Multi-Region Problems
 
@@ -170,7 +176,6 @@ uv run python examples/nonsmooth_laplace_interior_dirichlet.py
 uv run python examples/nonsmooth_laplace_exterior_dirichlet.py
 uv run python examples/nonsmooth_laplace_interior_neumann.py
 uv run python examples/nonsmooth_laplace_exterior_neumann.py
-uv run python examples/nonsmooth_laplace_rcip.py
 uv run python examples/chunkgraph_region_classification.py
 uv run python examples/chunkgraph_annular_dirichlet.py
 uv run python examples/accelerated_fmm_laplace.py
@@ -181,6 +186,7 @@ uv run python examples/accelerated_flam_laplace.py
 ```
 
 The demos print relative or absolute errors against manufactured solutions.
-The nonsmooth BVP demos also write solution and log-error PNG files next to the
-script, using sparse corrected quadrature matrices for near-boundary target
-evaluation. Each script is self-contained and covers one case.
+The nonsmooth BVP demos solve on a coarse square chunkgraph with `depth=2`,
+`nsub=20`, default RCIP corner compression, and Helsing-Ojala product
+quadrature for close target evaluation, then write solution and log-error PNG
+files next to the script. Each script is self-contained and covers one case.

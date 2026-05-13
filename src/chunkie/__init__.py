@@ -53,6 +53,8 @@ from .kernels import Kernel, kernel
 from .operators import (
     ChunkerFLAMMatrix,
     ChunkerFMMMatrix,
+    ChunkerRCIPMatrix,
+    RCIPContext,
     chunkerinterior,
     chunkerintegral,
     chunkerflam,
@@ -69,7 +71,9 @@ __all__ = [
     "Kernel",
     "ChunkerFLAMMatrix",
     "ChunkerFMMMatrix",
+    "ChunkerRCIPMatrix",
     "PointInfo",
+    "RCIPContext",
     "HypOctNode",
     "HypOctTree",
     "checkcurveparam",

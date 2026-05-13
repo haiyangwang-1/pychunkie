@@ -1,6 +1,7 @@
 import numpy as np
 
-from chunkie import chunkgraph, kernel, lege
+from chunkie import chunkerkerneval, chunkermat, chunkgraph, kernel, lege
+from chunkie.quadrature import panel as pquad
 from chunkie.quadrature import rcip
 
 
@@ -203,3 +204,46 @@ def test_chunkgraph_rcip_subselects_global_block_kernels():
     assert calls
     assert result.R[0].shape == (4 * cg.k, 4 * cg.k)
     np.testing.assert_allclose(result.R[0], np.eye(4 * cg.k), atol=1e-14)
+
+
+def test_chunkermat_defaults_to_rcip_on_nonsmooth_chunkgraph_and_evaluates_corners(monkeypatch):
+    verts = np.array([[-1.0, 1.0, 1.0, -1.0], [-1.0, -1.0, 1.0, 1.0]])
+    edges = np.array([[0, 1, 2, 3], [1, 2, 3, 0]])
+    cg = chunkgraph(verts, edges, pref={"k": 6}, cparams={"nchmin": 4})
+    chnkr = cg.merged()
+    boundary = chnkr.r.reshape(2, chnkr.npt, order="F")
+    system_kernel = -2.0 * kernel("lap", "d")
+
+    mat = chunkermat(cg, system_kernel, {"nsub": 4, "rcip_savedepth": 4})
+
+    assert mat.rcip is not None
+    assert len(mat.rcip.saved) == 4
+    assert getattr(cg, "_last_rcip_context") is mat.rcip
+    sigma = np.linalg.solve(np.eye(chnkr.npt) + mat, boundary[0])
+    targets = np.array([[0.0, 0.3, -0.2], [0.0, 0.2, 0.4]])
+    values = chunkerkerneval(cg, system_kernel, sigma, targets).reshape(-1)
+    np.testing.assert_allclose(values, targets[0], atol=2e-9)
+    near_targets = np.array([[0.99, 0.999, 0.999], [0.2, 0.0, 0.8]])
+    pquad_calls: list[tuple[int, int, str]] = []
+    original_panel_matrix = pquad.panel_matrix
+
+    def wrapped_panel_matrix(*args, **kwargs):
+        pquad_calls.append((args[0].nch, args[1], args[4]))
+        return original_panel_matrix(*args, **kwargs)
+
+    monkeypatch.setattr(pquad, "panel_matrix", wrapped_panel_matrix)
+
+    near_values = chunkerkerneval(
+        cg,
+        system_kernel,
+        sigma,
+        near_targets,
+        {"forceadap": True, "usepquad": True},
+    ).reshape(-1)
+    np.testing.assert_allclose(near_values, near_targets[0], atol=1e-6)
+    assert pquad_calls
+    assert any(nch != chnkr.nch for nch, _, _ in pquad_calls)
+
+    direct = chunkermat(cg, system_kernel, {"rcip": False})
+    assert not hasattr(direct, "rcip")
+    assert getattr(cg, "_last_rcip_context") is None

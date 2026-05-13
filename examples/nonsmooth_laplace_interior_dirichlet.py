@@ -6,39 +6,26 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-from chunkie import chunkerkerneval, chunkerkernevalmat, chunkermat, chunkerpoly, kernel
+from chunkie import chunkerkerneval, chunkermat, kernel
+from nonsmooth_laplace_rcip_common import square_graph
 
 
-depth = 40
+depth = 2
+nsub = 20
 grid_size = 80
-verts = np.array([[-1.0, 1.0, 1.0, -1.0], [-1.0, -1.0, 1.0, 1.0]])
 
-chnkr = chunkerpoly(
-    verts,
-    {"ifclosed": True, "dyadic": True, "depth": depth, "widths": 0.25},
-    {"k": 12, "nchmax": 2000},
-)
+cg = square_graph(depth=depth, k=12)
+chnkr = cg.merged()
 boundary = chnkr.r.reshape(2, chnkr.npt, order="F")
-weights = chnkr.wts.reshape(-1, order="F")
-lap_s = kernel("lap", "s")
-s_mat = chunkermat(chnkr, lap_s)
-
-system = np.block(
-    [
-        [s_mat, np.ones((chnkr.npt, 1))],
-        [weights[None, :], np.zeros((1, 1))],
-    ]
-)
-rhs = np.concatenate((boundary[0], [0.0]))
-sol = np.linalg.solve(system, rhs)
-sigma = sol[:-1]
-const = float(sol[-1])
+system_kernel = -2.0 * kernel("lap", "d")
+mat = chunkermat(cg, system_kernel, {"nsub": nsub, "rcip_savedepth": nsub})
+system = np.eye(chnkr.npt, dtype=mat.dtype) + mat
+rhs = boundary[0]
+sigma = np.linalg.solve(system, rhs)
+eval_opts = {"forceadap": True, "usepquad": True}
 
 targets = np.array([[0.0, 0.3, -0.2], [0.0, 0.2, 0.4]])
-cormat = chunkerkernevalmat(chnkr, lap_s, targets, {"corrections": True, "fac": 1.0})
-values = chunkerkerneval(
-    chnkr, lap_s, sigma, targets, {"forcesmooth": True, "cormat": cormat}
-).reshape(-1) + const
+values = chunkerkerneval(cg, system_kernel, sigma, targets, eval_opts).reshape(-1)
 
 xs = np.linspace(-1.15, 1.15, grid_size)
 ys = np.linspace(-1.15, 1.15, grid_size)
@@ -47,10 +34,7 @@ domain = (np.abs(xx) <= 0.995) & (np.abs(yy) <= 0.995)
 plot_targets = np.vstack((xx[domain], yy[domain]))
 plot_truth = np.full(xx.shape, np.nan)
 plot_truth[domain] = plot_targets[0]
-cormat = chunkerkernevalmat(chnkr, lap_s, plot_targets, {"corrections": True, "fac": 1.0})
-plot_values = chunkerkerneval(
-    chnkr, lap_s, sigma, plot_targets, {"forcesmooth": True, "cormat": cormat}
-).reshape(-1) + const
+plot_values = chunkerkerneval(cg, system_kernel, sigma, plot_targets, eval_opts).reshape(-1)
 
 solution = np.full(xx.shape, np.nan)
 solution[domain] = plot_values
@@ -83,8 +67,8 @@ fig.tight_layout()
 fig.savefig(__file__.replace(".py", "_error_log10.png"))
 plt.close(fig)
 
-print(f"dyadic square: depth {depth}, {chnkr.nch} chunks, {chnkr.npt} nodes")
-print(f"interior Dirichlet boundary residual: {np.max(np.abs(s_mat @ sigma + const - boundary[0])):.3e}")
+print(f"RCIP square: depth {depth}, nsub {nsub}, {chnkr.nch} chunks, {chnkr.npt} nodes")
+print(f"interior Dirichlet boundary residual: {np.max(np.abs(system @ sigma - rhs)):.3e}")
 print(f"interior Dirichlet target max error: {np.max(np.abs(values - targets[0])):.3e}")
 print(f"solution PNG: {__file__.replace('.py', '_solution.png')}")
 print(f"error PNG: {__file__.replace('.py', '_error_log10.png')}")
