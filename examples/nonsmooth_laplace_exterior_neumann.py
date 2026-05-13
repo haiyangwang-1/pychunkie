@@ -29,10 +29,11 @@ r2 = x**2 + y**2
 r4 = r2**2
 normal_data = -2.0 * (((y**2 - x**2) / r4) * normals[0] + (-2.0 * x * y / r4) * normals[1])
 sigma = np.linalg.solve(system, normal_data)
+eval_opts = {"forceadap": True, "usepquad": True}
 
 targets = np.array([[1.3, 2.0, -1.4, 0.2], [0.2, 0.5, -1.2, 1.5]])
 target_truth = targets[0] / np.sum(targets**2, axis=0)
-values = chunkerkerneval(cg, lap_s, sigma, targets, {"forceadap": True}).reshape(-1)
+values = chunkerkerneval(cg, lap_s, sigma, targets, eval_opts).reshape(-1)
 
 xs = np.linspace(-2.0, 2.0, grid_size)
 ys = np.linspace(-2.0, 2.0, grid_size)
@@ -41,7 +42,7 @@ domain = (np.abs(xx) >= 1.005) | (np.abs(yy) >= 1.005)
 plot_targets = np.vstack((xx[domain], yy[domain]))
 plot_truth = np.full(xx.shape, np.nan)
 plot_truth[domain] = plot_targets[0] / np.sum(plot_targets**2, axis=0)
-plot_values = chunkerkerneval(cg, lap_s, sigma, plot_targets, {"forceadap": True}).reshape(-1)
+plot_values = chunkerkerneval(cg, lap_s, sigma, plot_targets, eval_opts).reshape(-1)
 
 solution = np.full(xx.shape, np.nan)
 solution[domain] = plot_values

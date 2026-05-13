@@ -41,7 +41,7 @@ uv's source table and built from the upstream FMM2D repository during install.
   interior or exterior model problem per file.
 - `examples/nonsmooth_laplace_*_{dirichlet,neumann}.py` solve one square BVP
   per file and write corrected near-boundary solution/error PNGs next to the
-  script. `examples/nonsmooth_laplace_rcip.py` shows RCIP compression.
+  script.
 - `examples/chunkgraph_region_classification.py` and
   `examples/chunkgraph_annular_dirichlet.py` demonstrate chunkgraph regions and
   a multiply connected BVP.

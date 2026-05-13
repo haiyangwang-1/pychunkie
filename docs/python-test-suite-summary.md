@@ -1819,9 +1819,9 @@ Laplace double-layer problem on a coarse square chunkgraph with
 `chunkermat(cg, -2D)`, verifies that `ChunkerRCIPMatrix` carries cached
 `RCIPContext` metadata, then evaluates off-boundary targets through
 `chunkerkerneval(cg, ...)`, including a `forceadap=True` near-boundary strip
-that exercises adaptive evaluation of local RCIP panels. Ground truth is four
-compressed corner blocks and the manufactured solution `u(x,y)=x` at interior
-targets.
+with `usepquad=True` that confirms Helsing-Ojala pquad is used on both coarse
+and local RCIP panels. Ground truth is four compressed corner blocks and the
+manufactured solution `u(x,y)=x` at interior targets.
 
 ## `tests/test_rcip_parity.py`
 

@@ -24,9 +24,10 @@ mat = chunkermat(cg, system_kernel, {"nsub": nsub, "rcip_savedepth": nsub})
 system = np.eye(chnkr.npt, dtype=mat.dtype) + mat
 normal_data = 2.0 * normals[0]
 sigma = np.linalg.solve(system, normal_data)
+eval_opts = {"forceadap": True, "usepquad": True}
 
 targets = np.array([[0.0, 0.3, -0.2], [0.0, 0.2, 0.4]])
-values = chunkerkerneval(cg, lap_s, sigma, targets, {"forceadap": True}).reshape(-1)
+values = chunkerkerneval(cg, lap_s, sigma, targets, eval_opts).reshape(-1)
 const = float(np.mean(targets[0] - values))
 values = values + const
 
@@ -37,7 +38,7 @@ domain = (np.abs(xx) <= 0.995) & (np.abs(yy) <= 0.995)
 plot_targets = np.vstack((xx[domain], yy[domain]))
 plot_truth = np.full(xx.shape, np.nan)
 plot_truth[domain] = plot_targets[0]
-plot_values = chunkerkerneval(cg, lap_s, sigma, plot_targets, {"forceadap": True}).reshape(-1) + const
+plot_values = chunkerkerneval(cg, lap_s, sigma, plot_targets, eval_opts).reshape(-1) + const
 
 solution = np.full(xx.shape, np.nan)
 solution[domain] = plot_values
