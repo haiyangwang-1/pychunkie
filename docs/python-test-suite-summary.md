@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 377 pytest cases because several MATLAB parity tests are
+collection expands to 378 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -1287,6 +1287,11 @@ kernel assembly. The block equation is
 mixed kernel, assembles its dense evaluation matrix, and compares matrix-vector
 application to `chunkerkerneval`; it also checks the FMM path. Ground truth is
 the explicit weighted matrix product and equality with the non-FMM evaluation.
+
+`test_interleaved_helmholtz_fmm_preserves_complex_output_for_real_density`
+checks interleaved FMM dtype handling when complex Helmholtz blocks are applied
+to a real density. The method compares direct and FMM evaluation and verifies
+the FMM result remains complex instead of discarding imaginary parts.
 
 ## `tests/test_kernels.py`
 

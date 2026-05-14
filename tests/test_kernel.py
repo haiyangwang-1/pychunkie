@@ -372,3 +372,25 @@ def test_kernel_interleave_builds_mixed_block_systems():
 
     np.testing.assert_allclose(vals.reshape(-1, order="F"), mat @ (dens * np.repeat(chnkr.wts.reshape(-1, order="F"), 2)))
     np.testing.assert_allclose(chunkerkerneval(chnkr, mixed, dens, target, {"acceleration": "fmm"}), vals, atol=1e-14)
+
+
+def test_interleaved_helmholtz_fmm_preserves_complex_output_for_real_density():
+    chnkr, _ = chunkerfunc(circle, min_chunks=4, order=8)
+    target = PointInfo(
+        r=np.array([[0.25, -0.4], [0.1, 0.3]]),
+        n=np.array([[1.0, 0.0], [0.0, 1.0]]),
+    )
+    zk = 1.2 + 0.3j
+    mixed = kernel(
+        [
+            [kernel("helm", "d", zk), kernel("helm", "s", zk)],
+            [kernel("lap", "d"), kernel("lap", "s")],
+        ]
+    )
+    dens = np.vstack((np.ones(chnkr.npt), 0.5 * np.ones(chnkr.npt))).reshape(-1, order="F")
+
+    direct = chunkerkerneval(chnkr, mixed, dens, target)
+    via_fmm = chunkerkerneval(chnkr, mixed, dens, target, acceleration="fmm", tol=1e-12)
+
+    assert np.iscomplexobj(via_fmm)
+    np.testing.assert_allclose(via_fmm, direct, rtol=5e-9, atol=5e-10)

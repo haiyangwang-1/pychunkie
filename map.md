@@ -16,7 +16,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 ## Current Snapshot
 
 - Verification snapshot: `uv run pytest` on 2026-05-14 with Python 3.11.9
-  collected 377 tests: `377 passed`. Full MATLAB parity runs generate ignored
+  collected 378 tests: `378 passed`. Full MATLAB parity runs generate ignored
   `tests/golden/*.mat` files on demand and require a populated
   `external/chunkie-matlab` checkout.
 - The implemented surface covers core chunkers/chunkgraphs, domain helpers, kernel factories, dense/FMM/FLAM operator paths, GGQ/adaptive quadrature, RCIP helpers, Legendre utilities, and the lightweight rounded-polygon smoother.
@@ -324,8 +324,8 @@ src/
 | `biharm2d_kernel` | ✅ 🧪 🎯 | `fmm2d/src/biharmonic/*`, `+chnk/+flex2d/bhgreen.m` concepts | Biharmonic Green-kernel factory and selectors are compared against MATLAB `bhgreen`-derived fixture data; FMM wiring remains Python direct/FMM-tested. |
 | `stok2d_kernel` | ✅ 🧪 🎯 | `@kernel/stok2d.m`, `+chnk/+stok2d/kern.m`, `+chnk/+stok2d/fmm.m` concepts | String dispatch plus `fmm2dpy` velocity, pressure, gradient, traction, and combined Stokes paths tested against dense direct evaluation or FMM wiring tests; MATLAB fixture checks `@kernel` metadata/eval. |
 | `elast2d_kernel` | ✅ 🧪 🎯 | `@kernel/elast2d.m`, `+chnk/+elast2d/kern.m` | Elasticity single, gradient, traction, double, alternate double, alternate gradient, and alternate traction selectors have FMM wiring through Laplace/Stokes decompositions and MATLAB fixture eval parity; Python keeps correct `sgrad` opdims where MATLAB `@kernel` metadata omits the gradient row count. |
-| `interleave` | ✅ 🧪 🎯 | MATLAB block kernel composition patterns | Builds mixed block systems from kernel arrays; direct interleaved metadata/eval is MATLAB-fixture tested, compact Helmholtz block-system dense solve/evaluation parity covers `kernel_interleaveTest.m`, and FMM paths remain Python direct/FMM-tested. |
-| `_lap2d_fmm`, `_helm2d_fmm`, `_biharm2d_fmm`, `_stok2d_fmm`, `_elast2d_fmm`, `_direct_fmm`, `_sum_fmm`, `_interleave_fmm`, `_interleave_indices`, `_target_count` | 🧩 ✅ 🧪 | FMM-backed MATLAB kernel conventions | Implemented Laplace/Helmholtz/Biharmonic/Stokes/Elasticity selectors call `fmm2dpy` or algebraic combinations of `fmm2dpy` outputs; dense-direct fallback callables remain available for custom or unsupported kernels and are marked so explicit FMM requests warn before using the O(NM) fallback. |
+| `interleave` | ✅ 🧪 🎯 | MATLAB block kernel composition patterns | Builds mixed block systems from kernel arrays; direct interleaved metadata/eval is MATLAB-fixture tested, compact Helmholtz block-system dense solve/evaluation parity covers `kernel_interleaveTest.m`, and FMM paths remain Python direct/FMM-tested, including complex Helmholtz block output with real densities. |
+| `_lap2d_fmm`, `_helm2d_fmm`, `_biharm2d_fmm`, `_stok2d_fmm`, `_elast2d_fmm`, `_direct_fmm`, `_sum_fmm`, `_interleave_fmm`, `_interleave_indices`, `_target_count` | 🧩 ✅ 🧪 | FMM-backed MATLAB kernel conventions | Implemented Laplace/Helmholtz/Biharmonic/Stokes/Elasticity selectors call `fmm2dpy` or algebraic combinations of `fmm2dpy` outputs; dense-direct fallback callables remain available for custom or unsupported kernels and are marked so explicit FMM requests warn before using the O(NM) fallback; interleaved FMM widens output dtype when block outputs are complex. |
 
 Scope note: FMM integration for the currently implemented 2D kernel families is
 wired where the existing kernel selector surface applies. Axisymmetric,

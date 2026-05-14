@@ -1084,7 +1084,8 @@ def _interleave_fmm(
         src = PointInfo.from_any(srcinfo)
         targ = PointInfo.from_any(targinfo)
         sig = np.asarray(sigma).reshape(-1, order="F")
-        out = np.zeros(opdims[0] * targ.r.shape[1], dtype=np.result_type(sig, complex if any(np.iscomplexobj(item.params) for item in items.flat) else float))
+        has_complex_params = any(_contains_complex_value(item.params) for item in items.flat)
+        out = np.zeros(opdims[0] * targ.r.shape[1], dtype=np.result_type(sig, complex if has_complex_params else float))
         for i in range(items.shape[0]):
             ridx = _interleave_indices(targ.r.shape[1], opdims[0], rowstarts[i], rowdims[i])
             accum = np.zeros(ridx.size, dtype=out.dtype)
@@ -1094,10 +1095,23 @@ def _interleave_fmm(
                 if isinstance(vals, tuple):
                     vals = vals[0]
                 accum = accum + np.asarray(vals).reshape(-1, order="F")
+            if np.result_type(out.dtype, accum.dtype) != out.dtype:
+                out = out.astype(np.result_type(out.dtype, accum.dtype), copy=False)
             out[ridx] = accum
         return out
 
     return _derived_fmm(fmm_eval, *(item.fmm for item in items.flat))
+
+
+def _contains_complex_value(value: Any) -> bool:
+    if isinstance(value, dict):
+        return any(_contains_complex_value(item) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(_contains_complex_value(item) for item in value)
+    try:
+        return bool(np.iscomplexobj(value))
+    except TypeError:
+        return False
 
 
 def _infer_opdims(func: Callable[[Any, Any], np.ndarray]) -> tuple[int, int]:
