@@ -211,7 +211,12 @@ def chunkermatapply_graph_from_fixture(fixture):
         edge_chunks = [chunker_from_fields(edge) for edge in np.asarray(fixture.echnks).reshape(-1, order="F")]
         return chunkgraph(fixture.verts, edges, edge_chunks)
     edge_specs = [lambda t, amp=float(fixture.amp), frq=float(fixture.frq): sinearc(t, amp, frq) for _ in range(edges.shape[1])]
-    return chunkgraph(fixture.verts, edges, edge_specs, {"nover": max(int(fixture.nover) - 1, 0)})
+    return chunkgraph(
+        fixture.verts,
+        edges,
+        edge_specs,
+        {"_chunkie_normalized_geometry_options": True, "nover": max(int(fixture.nover) - 1, 0)},
+    )
 
 
 def loop_curve(t):
@@ -248,7 +253,7 @@ def chunkgraph_lastlength_graph(fixture):
         ctr=np.asarray(fixture.closed_ctr, dtype=float).reshape(2),
         scale=float(fixture.closed_scale): curves.starfish(t, narm, amp, ctr, 0.0, scale)
     )
-    cparams = [{"eps": 1e-8} for _ in edge_specs]
+    cparams = [{"_chunkie_normalized_geometry_options": True, "eps": 1e-8} for _ in edge_specs]
     cparams[-1].update({"ta": 0.0, "tb": 2 * np.pi})
     return chunkgraph(fixture.verts, np.asarray(fixture.edge2verts_with_closed, dtype=float), edge_specs, cparams)
 
@@ -262,7 +267,7 @@ def chunkgraph_region_graph(fixture):
         ctr=np.asarray(fixture.center, dtype=float).reshape(2),
         scale=float(fixture.scale): curves.starfish(t, narm, amp, ctr, 0.0, scale)
     )
-    cparams = [{} for _ in edge_specs]
+    cparams = [{"_chunkie_normalized_geometry_options": True} for _ in edge_specs]
     cparams[-1].update({"ta": float(fixture.closed_ta), "tb": float(fixture.closed_tb)})
     edges = np.asarray(fixture.edgesendverts, dtype=float).copy()
     finite = np.isfinite(edges)
@@ -286,7 +291,12 @@ def packed_matlab_regions_to_python(fixture) -> list[list[list[int]]]:
 
 
 def chunkgraph_opdim_graph(fixture):
-    return chunkgraph(fixture.verts, dense_int_array(fixture.edge2verts), None, {"maxchunklen": float(fixture.maxchunklen)})
+    return chunkgraph(
+        fixture.verts,
+        dense_int_array(fixture.edge2verts),
+        None,
+        {"_chunkie_normalized_geometry_options": True, "maxchunklen": float(fixture.maxchunklen)},
+    )
 
 
 def chunkgraph_opdim_kernels(fixture):
@@ -653,17 +663,17 @@ def test_chunkerfunc_devtools_outputs_match_matlab():
 
     starfish, _ = chunkerfunc(
         lambda t: curves.starfish(t, int(fixture.narms), float(fixture.amp)),
-        cparams,
-        pref,
+        tol=1.0e-4,
+        pref=pref,
     )
     starfish_nout, _ = chunkerfunc(
         lambda t: curves.starfish(t, int(fixture.narms), float(fixture.amp)),
-        {**cparams, "nout": 3},
-        pref,
+        tol=1.0e-4,
+        pref=pref,
     )
     bymode, _ = chunkerfunc(
         lambda t: curves.bymode(t, fixture.modes, fixture.mode_ctr),
-        {**cparams, "nout": 3},
+        tol=1.0e-4,
     )
     bymode_reversed = bymode.reverse()
 
@@ -672,8 +682,8 @@ def test_chunkerfunc_devtools_outputs_match_matlab():
         ctr = np.asarray(fixture.circle_ctr).reshape(2)
         return np.vstack((ctr[0] + radius * np.cos(t), ctr[1] + radius * np.sin(t)))
 
-    circle_chunker, _ = chunkerfunc(circle, {**cparams, "nout": 3})
-    circle_refined = circle_chunker.refine({"nover": 1})
+    circle_chunker, _ = chunkerfunc(circle, tol=1.0e-4)
+    circle_refined = circle_chunker.refine(oversample=1)
 
     assert int(fixture.starfish_ier) == 0
     assert int(fixture.starfish_nout_ier) == 0
@@ -719,7 +729,7 @@ def test_chunkerclassunit_devtools_outputs_match_matlab():
         t, w, *_ = lege.exps(8)
         Chunker({"k": 9}, t, w)
     with pytest.raises(ValueError):
-        chunkerfunc(lambda t: curves.starfish(t), {"nchmin": 101}, {"k": 4, "nchmax": 100})
+        chunkerfunc(lambda t: curves.starfish(t), min_chunks=101, pref={"nchmax": 100}, order=4)
 
     chnkr = chunker_from_fields(fixture.chunker)
     for j in range(chnkr.nch):
@@ -759,8 +769,8 @@ def test_chunkerfit_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().chunkerfit
     r, _, _ = curves.bymode(fixture.tt, fixture.modes)
 
-    closed = chunkerfit(r, {"ifclosed": True, "cparams": {"eps": 1.0e-6}, "pref": {"k": 16}})
-    open_chnkr = chunkerfit(r[:, :10], {"ifclosed": False, "cparams": {"eps": 1.0e-6}, "pref": {"k": 16}})
+    closed = chunkerfit(r, closed=True, tol=1.0e-6, order=16)
+    open_chnkr = chunkerfit(r[:, :10], closed=False, tol=1.0e-6, order=16)
 
     np.testing.assert_allclose(r, fixture.r, atol=1e-13)
     assert int(fixture.closed_ier) == 0
@@ -840,7 +850,13 @@ def test_chunkgraph_basic_devtools_outputs_match_matlab():
 
     multi = chunkgraph(np.array([[1, 0, -1, 2, 0, -2], [0, 1, 0, -0.5, 2, -0.5]], dtype=float), np.array([[1, 2, 3, 4, 5, 6], [2, 3, 1, 5, 6, 4]]))
     bridge = chunkgraph(np.array([[1, 0, -1, 4, 3, 2], [0, 1, 0, 0, 1, 0]], dtype=float), np.array([[1, 2, 3, 4, 5, 6, 1], [3, 1, 2, 6, 4, 5, 6]]))
-    loop = chunkgraph(np.array([[2.0], [1.0]]), np.array([[1], [1]]), [loop_curve], {"ta": 0.0, "tb": 2 * np.pi}, {"k": 12})
+    loop = chunkgraph(
+        np.array([[2.0], [1.0]]),
+        np.array([[1], [1]]),
+        [loop_curve],
+        {"_chunkie_normalized_geometry_options": True, "ta": 0.0, "tb": 2 * np.pi},
+        {"k": 12},
+    )
     nested = chunkgraph(np.array([[1, 0, -1, 2, 0, -2], [0, 1, 0, -1, 2, -1]], dtype=float), np.array([[1, 2, 3, 4, 5, 6], [2, 3, 1, 5, 6, 4]]))
     assert len(multi.regions) == int(fixture.multiconnected_region_count)
     assert len(bridge.regions) == int(fixture.bridge_region_count)
@@ -880,7 +896,7 @@ def test_chunkgraph_basic_devtools_outputs_match_matlab():
     np.testing.assert_array_equal(nested_ids, np.asarray(fixture.nested_ids, dtype=int).reshape(-1))
     np.testing.assert_array_equal(nested_ids, np.asarray(fixture.nested_idstrue, dtype=int).reshape(-1))
 
-    refined = adj.refine({"nover": 1})
+    refined = adj.refine(oversample=1)
     np.testing.assert_array_equal([edge.nch for edge in adj.echnks], np.asarray(fixture.refine_nchs_before, dtype=int).reshape(-1))
     np.testing.assert_array_equal([edge.nch for edge in refined.echnks], np.asarray(fixture.refine_nchs_after, dtype=int).reshape(-1))
     np.testing.assert_array_equal(np.asarray(fixture.refine_nchs_after, dtype=int).reshape(-1), 2 * np.asarray(fixture.refine_nchs_before, dtype=int).reshape(-1))
@@ -902,7 +918,7 @@ def test_chunkrgrph_opdim_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().chunkrgrph_opdim
     graph = chunkgraph_opdim_graph(fixture)
     kernels = chunkgraph_opdim_kernels(fixture)
-    mat = chunkermat(graph, kernels, {"nonsmoothonly": False, "rcip": True})
+    mat = chunkermat(graph, kernels, {"_chunkie_normalized_operator_options": True, "nonsmoothonly": False, "rcip": True})
 
     np.testing.assert_array_equal([edge.npt for edge in graph.echnks], np.asarray(fixture.edge_npts, dtype=int).reshape(-1))
     np.testing.assert_array_equal(mat.shape, np.asarray(fixture.sysmat_shape, dtype=int).reshape(-1))
@@ -929,16 +945,16 @@ def test_chunkgraph_lastlength_devtools_outputs_match_matlab():
     assert np.isnan(np.asarray(fixture.edge2verts_with_closed, dtype=float)[:, -1]).all()
     assert graph.edgesendverts[0, -1] == graph.edgesendverts[1, -1]
 
-    dlist_refined = graph.refine({"nover": 1, "dlist": [1]})
+    dlist_refined = graph.refine(oversample=1, refine_edges=[1])
     np.testing.assert_array_equal([edge.nch for edge in dlist_refined.echnks], np.asarray(fixture.dlist_nchs, dtype=int).reshape(-1))
 
     splitchunks = [[] for _ in graph.echnks]
     splitchunks[2] = [2]
-    split_refined = graph.refine({"splitchunks": splitchunks})
+    split_refined = graph.refine(split_chunks=splitchunks)
     np.testing.assert_array_equal([edge.nch for edge in split_refined.echnks], np.asarray(fixture.splitchunks_nchs, dtype=int).reshape(-1))
 
     last_len = float(fixture.last_len)
-    last_refined = graph.refine({"last_len": last_len})
+    last_refined = graph.refine(last_length=last_len)
     arcs, degrees = graph_vertex_endpoint_arcs(
         last_refined,
         int(fixture.ncircedge),
@@ -984,25 +1000,29 @@ def test_chunkerinterior_devtools_outputs_match_matlab():
     chnkr = chunker_from_fields(fixture.chunker)
 
     expected = np.asarray(fixture.expected_scal, dtype=bool).reshape(-1)
-    direct = chunkerinterior(chnkr, fixture.targs, {"acceleration": "dense"})
-    fmm = chunkerinterior(chnkr, fixture.targs, {"acceleration": "fmm"})
+    direct = chunkerinterior(chnkr, fixture.targs, acceleration="dense")
+    fmm = chunkerinterior(chnkr, fixture.targs, acceleration="fmm")
 
     np.testing.assert_array_equal(np.asarray(getattr(fixture, "in"), dtype=bool).reshape(-1), expected)
     np.testing.assert_array_equal(np.asarray(fixture.in_flam, dtype=bool).reshape(-1), expected)
     np.testing.assert_array_equal(np.asarray(fixture.in_fmm, dtype=bool).reshape(-1), expected)
     np.testing.assert_array_equal(direct, expected)
     np.testing.assert_array_equal(fmm, expected)
-    flam = chunkerinterior(chnkr, fixture.targs, {"acceleration": "flam", "occ": 32, "rank_or_tol": 1.0e-8, "useproxy": False})
+    flam = chunkerinterior(
+        chnkr,
+        fixture.targs,
+        {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "rank_or_tol": 1.0e-8, "useproxy": False},
+    )
     np.testing.assert_array_equal(flam, expected)
 
     inner = chunker_from_fields(fixture.inner_chunker)
-    in_chunker = chunkerinterior(chnkr, inner, {"acceleration": "fmm"})
+    in_chunker = chunkerinterior(chnkr, inner, acceleration="fmm")
     np.testing.assert_array_equal(np.asarray(fixture.in_chunker, dtype=bool).reshape(-1), True)
     np.testing.assert_array_equal(in_chunker, True)
 
     axis = chunker_from_fields(fixture.axis_chunker)
     axis_expected = np.asarray(fixture.axis_expected, dtype=bool).reshape(-1)
-    axis_actual = chunkerinterior(axis, fixture.axis_targs, {"axissym": True})
+    axis_actual = chunkerinterior(axis, fixture.axis_targs, axis_symmetric=True)
     np.testing.assert_array_equal(np.asarray(fixture.axis_in, dtype=bool).reshape(-1), axis_expected)
     np.testing.assert_array_equal(axis_actual, axis_expected)
 
@@ -1018,26 +1038,23 @@ def test_chunkerpoly_devtools_outputs_match_matlab():
     nverts = np.asarray(fixture.verts).shape[1]
     rounded = chunkerpoly(
         fixture.verts,
-        {"rounded": True, "widths": 0.1 * np.ones(nverts), "eps": 1.0e-8},
-        {"k": 16, "dim": 2},
-        fixture.edgevals,
+        edgevals=fixture.edgevals,
+        rounded=True,
+        widths=0.1 * np.ones(nverts),
+        order=16,
     ).sort()[0]
     truepoly = chunkerpoly(
         fixture.verts,
-        {"rounded": False, "depth": 8},
-        {"k": 16, "dim": 2},
-        fixture.edgevals,
+        edgevals=fixture.edgevals,
+        rounded=False,
+        depth=8,
+        order=16,
     ).sort()[0]
     open_chnkr = chunkerpoly(
         fixture.open_verts,
-        {
-            "widths": 0.1 * np.ones(np.asarray(fixture.open_verts).shape[1]),
-            "autowidths": True,
-            "autowidthsfac": 0.1,
-            "ifclosed": False,
-            "eps": 1.0e-3,
-        },
-        {"k": 16, "dim": 2},
+        widths=0.1 * np.ones(np.asarray(fixture.open_verts).shape[1]),
+        closed=False,
+        order=16,
     )
 
     assert int(fixture.rounded_ier) == 0
@@ -1086,7 +1103,7 @@ def test_flagnear_devtools_output_matches_matlab():
     fixture = load_devtools_easy().flagnear
     chnkr = chunker_from_fields(fixture.chunker)
 
-    actual = chnkr.flagnear(fixture.targs, {"fac": float(fixture.fac)})
+    actual = chnkr.flagnear(fixture.targs, fac=float(fixture.fac))
     expected = np.asarray(fixture.flag, dtype=bool)
     expected_bruteforce = np.asarray(fixture.flag_bruteforce, dtype=bool)
 
@@ -1298,11 +1315,11 @@ def test_kernel_interleave_devtools_dense_solve_matches_matlab():
     ubdry = skp(src, pointinfo(chnkr)) @ strengths
     rhs = np.zeros(nsys, dtype=complex)
     rhs[0::rowdim] = ubdry * sqrt_weights
-    sys = np.asarray(chunkermat(chnkr, system, {"l2scale": bool(fixture.l2scale)})) + np.eye(nsys)
+    sys = np.asarray(chunkermat(chnkr, system, l2scale=bool(fixture.l2scale))) + np.eye(nsys)
     sol_scaled = np.linalg.solve(sys, rhs)
     sol = sol_scaled / np.repeat(sqrt_weights, rowdim)
     utarg = sk(src, PointInfo(r=targets)) @ strengths
-    dsol = chunkerkerneval(chnkr, eval_kernel, sol, targets, {"forceadap": True, "usepquad": False}).reshape(-1, order="F")
+    dsol = chunkerkerneval(chnkr, eval_kernel, sol, targets, force_adaptive=True, use_panel_quadrature=False).reshape(-1, order="F")
     relerr = np.linalg.norm(utarg - dsol) / (np.sqrt(chnkr.nch) * np.linalg.norm(utarg))
     relerr2 = np.linalg.norm(utarg - dsol, ord=np.inf) / np.dot(np.abs(sol), np.repeat(weights, rowdim))
 
@@ -1369,7 +1386,7 @@ def test_chunkermat_stok2d_devtools_solve_matches_matlab():
     sys = -0.5 * np.eye(D.shape[0]) + D + chnkr.normonesmat() / np.sum(chnkr.wts)
     rhs = ubdry.reshape(-1, order="F")
     sol = np.linalg.solve(sys, rhs)
-    Dsol = chunkerkerneval(chnkr, cvel, matlab_sol, targets, {"acceleration": "fmm", "eps": 1e-11}).reshape(-1, order="F")
+    Dsol = chunkerkerneval(chnkr, cvel, matlab_sol, targets, acceleration="fmm", tol=1e-11).reshape(-1, order="F")
 
     np.testing.assert_allclose(ubdry, np.asarray(fixture.ubdry).reshape(-1, order="F"), rtol=1e-11, atol=1e-11)
     np.testing.assert_allclose(utarg, np.asarray(fixture.utarg).reshape(-1, order="F"), rtol=1e-11, atol=1e-11)
@@ -1382,7 +1399,7 @@ def test_chunkermat_stok2d_devtools_solve_matches_matlab():
     assert np.linalg.norm(utarg - Dsol) / (np.sqrt(chnkr.nch) * np.linalg.norm(utarg)) < 2e-10
 
     svel = kernel("stok", "svel", mu)
-    Ssol = chunkerkerneval(chnkr, svel, matlab_sol, targets, {"acceleration": "fmm", "eps": 1e-11}).reshape(-1, order="F")
+    Ssol = chunkerkerneval(chnkr, svel, matlab_sol, targets, acceleration="fmm", tol=1e-11).reshape(-1, order="F")
     Ssys = chunkerkernevalmat(chnkr, svel, targets)
     np.testing.assert_allclose(Ssys, np.asarray(fixture.Ssys), rtol=1e-11, atol=1e-12)
     np.testing.assert_allclose(Ssol, np.asarray(fixture.Ssol).reshape(-1, order="F"), rtol=5e-10, atol=5e-11)
@@ -1395,12 +1412,12 @@ def test_chunkermat_stok2d_devtools_solve_matches_matlab():
         ("spres", "Spres", 5e-10, 5e-11),
         ("dpres", "Dpres", 5e-8, 2e-8),
     ]:
-        vals = chunkerkerneval(chnkr, kernel("stok", selector, mu), matlab_sol, targets, {"acceleration": "fmm", "eps": 1e-11}).reshape(-1, order="F")
+        vals = chunkerkerneval(chnkr, kernel("stok", selector, mu), matlab_sol, targets, acceleration="fmm", tol=1e-11).reshape(-1, order="F")
         np.testing.assert_allclose(vals, np.asarray(getattr(fixture, field)).reshape(-1, order="F"), rtol=rtol, atol=atol)
 
-    pressure = chunkerkerneval(chnkr, kernel("stok", "cpres", mu, coefs), matlab_sol, targets, {"acceleration": "fmm", "eps": 1e-11}).reshape(-1, order="F")
+    pressure = chunkerkerneval(chnkr, kernel("stok", "cpres", mu, coefs), matlab_sol, targets, acceleration="fmm", tol=1e-11).reshape(-1, order="F")
     pressure = pressure - pressure[0]
-    grad = chunkerkerneval(chnkr, kernel("stok", "cgrad", mu, coefs), matlab_sol, targets, {"acceleration": "fmm", "eps": 1e-11}).reshape(-1, order="F")
+    grad = chunkerkerneval(chnkr, kernel("stok", "cgrad", mu, coefs), matlab_sol, targets, acceleration="fmm", tol=1e-11).reshape(-1, order="F")
     np.testing.assert_allclose(pressure, np.asarray(fixture.pressure_direct).reshape(-1, order="F"), rtol=5e-10, atol=5e-11)
     np.testing.assert_allclose(grad, np.asarray(fixture.grad_direct).reshape(-1, order="F"), rtol=5e-9, atol=5e-10)
     assert np.linalg.norm(pressure - np.asarray(fixture.pressure_exact).reshape(-1, order="F")) / np.linalg.norm(fixture.pressure_exact) < 2e-10
@@ -1428,7 +1445,7 @@ def test_chunkermat_stok_traction_devtools_solve_matches_matlab():
     sys = 0.5 * np.eye(D.shape[0]) + D
     rhs = ubdry.reshape(-1, order="F")
     sol = np.linalg.solve(sys, rhs)
-    Dsol = chunkerkerneval(chnkr, svel, matlab_sol, targets, {"acceleration": "fmm", "eps": 1e-11}).reshape(-1, order="F")
+    Dsol = chunkerkerneval(chnkr, svel, matlab_sol, targets, acceleration="fmm", tol=1e-11).reshape(-1, order="F")
 
     tperp = np.vstack((targets[1], -targets[0])).reshape(-1, order="F")
     nt = targets.shape[1]
@@ -1523,11 +1540,11 @@ def test_kernelclass_devtools_green_identity_matches_matlab():
     fixture = load_devtools_easy().kernelclass
     chnkr, lap_s, lap_d, densu, densun, utarg = laplace_green_identity_quantities(fixture)
 
-    opts = {"forceadap": True, "usepquad": False}
+    opts = {"_chunkie_normalized_operator_options": True, "forceadap": True, "usepquad": False}
     Du = chunkerkerneval(chnkr, lap_d, densu, fixture.targets, opts).reshape(-1, order="F")
     Sun = chunkerkerneval(chnkr, lap_s, densun, fixture.targets, opts).reshape(-1, order="F")
     identity = Sun - Du
-    fmm_opts = {"acceleration": "fmm", "forceadap": True, "eps": 1.0e-12, "usepquad": False}
+    fmm_opts = {"_chunkie_normalized_operator_options": True, "acceleration": "fmm", "forceadap": True, "eps": 1.0e-12, "usepquad": False}
     Du_fmm = chunkerkerneval(chnkr, lap_d, densu, fixture.targets, fmm_opts).reshape(-1, order="F")
     Sun_fmm = chunkerkerneval(chnkr, lap_s, densun, fixture.targets, fmm_opts).reshape(-1, order="F")
     identity_fmm = Sun_fmm - Du_fmm
@@ -1561,15 +1578,16 @@ def test_chunkerkerneval_greenlap_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().chunkerkerneval_greenlap
     chnkr, lap_s, lap_d, densu, densun, utarg = laplace_green_identity_quantities(fixture)
 
-    opts = {"forceadap": True, "usepquad": False}
+    opts = {"_chunkie_normalized_operator_options": True, "forceadap": True, "usepquad": False}
     Du_direct = chunkerkerneval(chnkr, lap_d, densu, fixture.targets, opts).reshape(-1, order="F")
     Sun_direct = chunkerkerneval(chnkr, lap_s, densun, fixture.targets, opts).reshape(-1, order="F")
     identity_direct = Sun_direct - Du_direct
-    fmm_opts = {"acceleration": "fmm", "forceadap": True, "eps": 1.0e-12, "usepquad": False}
+    fmm_opts = {"_chunkie_normalized_operator_options": True, "acceleration": "fmm", "forceadap": True, "eps": 1.0e-12, "usepquad": False}
     Du_fmm = chunkerkerneval(chnkr, lap_d, densu, fixture.targets, fmm_opts).reshape(-1, order="F")
     Sun_fmm = chunkerkerneval(chnkr, lap_s, densun, fixture.targets, fmm_opts).reshape(-1, order="F")
     identity_fmm = Sun_fmm - Du_fmm
     flam_opts = {
+        "_chunkie_normalized_operator_options": True,
         "acceleration": "flam",
         "forceadap": True,
         "occ": 32,
@@ -1614,7 +1632,7 @@ def test_chunkerkernevalmat_greenlap_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().chunkerkernevalmat_greenlap
     chnkr, lap_s, lap_d, densu, densun, utarg = laplace_green_identity_quantities(fixture)
 
-    opts = {"forceadap": True, "usepquad": False}
+    opts = {"_chunkie_normalized_operator_options": True, "forceadap": True, "usepquad": False}
     Dmat = chunkerkernevalmat(chnkr, lap_d, fixture.targets, opts)
     Smat = chunkerkernevalmat(chnkr, lap_s, fixture.targets, opts)
     Du = Dmat @ densu
@@ -1638,7 +1656,7 @@ def test_chunkerkerneval_greenhelm_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().chunkerkerneval_greenhelm
     chnkr, helm_s, helm_d, densu, densun, utarg = helmholtz_green_identity_quantities(fixture)
 
-    opts = {"forceadap": True, "usepquad": False}
+    opts = {"_chunkie_normalized_operator_options": True, "forceadap": True, "usepquad": False}
     Du = chunkerkerneval(chnkr, helm_d, densu, fixture.targets, opts).reshape(-1, order="F")
     Sun = chunkerkerneval(chnkr, helm_s, densun, fixture.targets, opts).reshape(-1, order="F")
     identity = Sun - Du
@@ -1667,10 +1685,10 @@ def test_chunkerkerneval_corrections_devtools_outputs_match_matlab():
     sys = -0.5 * np.eye(chnkr.npt) + chunkermat(chnkr, helm_d)
     sol = np.linalg.solve(sys, rhs)
     utrue = helm_s(srcinfo, PointInfo(r=targets)) @ strengths
-    cormat = chunkerkernevalmat(chnkr, helm_d, targets, {"corrections": True, "usepquad": False})
+    cormat = chunkerkernevalmat(chnkr, helm_d, targets, corrections=True, use_panel_quadrature=False)
     assert sparse.issparse(cormat)
-    u_eval_cor = chunkerkerneval(chnkr, helm_d, sol, targets, {"forcesmooth": True, "cormat": cormat}).reshape(-1, order="F")
-    u_eval = chunkerkerneval(chnkr, helm_d, sol, targets, {"forcesmooth": True}).reshape(-1, order="F")
+    u_eval_cor = chunkerkerneval(chnkr, helm_d, sol, targets, {"_chunkie_normalized_operator_options": True, "forcesmooth": True, "cormat": cormat}).reshape(-1, order="F")
+    u_eval = chunkerkerneval(chnkr, helm_d, sol, targets, quadrature="smooth").reshape(-1, order="F")
 
     np.testing.assert_allclose(rhs, np.asarray(fixture.rhs).reshape(-1, order="F"), rtol=1e-12, atol=1e-13)
     np.testing.assert_allclose(sys, np.asarray(fixture.sys), rtol=1e-8, atol=5e-9)
@@ -1694,11 +1712,17 @@ def test_chunkerkerneval_gaussid_devtools_outputs_match_matlab():
     dens = np.asarray(fixture.density)
     targets = point_array(fixture.targets)
 
-    values = chunkerkerneval(chnkr, lap_d, dens, targets, {"forceadap": True, "fac": 1.0, "usepquad": False}).reshape(-1, order="F")
+    values = chunkerkerneval(
+        chnkr,
+        lap_d,
+        dens,
+        targets,
+        {"_chunkie_normalized_operator_options": True, "forceadap": True, "fac": 1.0, "usepquad": False},
+    ).reshape(-1, order="F")
     expected = np.asarray(fixture.values).reshape(-1, order="F")
     identity_err = np.minimum(np.abs(values), np.abs(values + 1.0))
     expected_inside = np.asarray(fixture.inside, dtype=bool).reshape(-1)
-    interior = chunkerinterior(chnkr, targets, {"acceleration": "dense"})
+    interior = chunkerinterior(chnkr, targets, acceleration="dense")
 
     np.testing.assert_allclose(values, expected, rtol=1e-8, atol=5e-8)
     np.testing.assert_allclose(identity_err, np.asarray(fixture.identity_err).reshape(-1, order="F"), rtol=1e-7, atol=5e-8)
@@ -1837,7 +1861,7 @@ def test_chunkermat_quadadap_closetotouching_devtools_solve_matches_matlab():
 
     ubdry = lap_s(src, pointinfo(chnkr)) @ strengths
     utarg = lap_s(src, PointInfo(r=targets)) @ strengths
-    mat_adap = chunkermat(chnkr, combined, {"adaptive_correction": True, "robust": True})
+    mat_adap = chunkermat(chnkr, combined, {"_chunkie_normalized_operator_options": True, "adaptive_correction": True, "robust": True})
     mat_original = chunkermat(chnkr, combined)
     probe = np.asarray(fixture.sysa_probe_rhs)
     rhs = np.asarray(fixture.rhs).reshape(-1, order="F")
@@ -1845,8 +1869,8 @@ def test_chunkermat_quadadap_closetotouching_devtools_solve_matches_matlab():
     sys_original = 0.5 * np.eye(chnkr.npt) + mat_original
     sol_adap = np.linalg.solve(sys_adap, rhs)
     sol_original = np.linalg.solve(sys_original, rhs)
-    layer_adap = chunkerkerneval(chnkr, combined, sol_adap, targets, {"forceadap": True, "usepquad": False}).reshape(-1, order="F")
-    layer_original = chunkerkerneval(chnkr, combined, sol_original, targets, {"forceadap": True, "usepquad": False}).reshape(-1, order="F")
+    layer_adap = chunkerkerneval(chnkr, combined, sol_adap, targets, force_adaptive=True, use_panel_quadrature=False).reshape(-1, order="F")
+    layer_original = chunkerkerneval(chnkr, combined, sol_original, targets, force_adaptive=True, use_panel_quadrature=False).reshape(-1, order="F")
     relerr_adap = np.linalg.norm(utarg - layer_adap) / (np.sqrt(chnkr.nch) * np.linalg.norm(utarg))
     relerr_original = np.linalg.norm(utarg - layer_original) / (np.sqrt(chnkr.nch) * np.linalg.norm(utarg))
     relerr2_adap = np.linalg.norm(utarg - layer_adap, ord=np.inf) / np.dot(np.abs(sol_adap), chnkr.wts.reshape(-1, order="F"))
@@ -1984,7 +2008,7 @@ def test_chunkermat_laplace_solve_devtools_outputs_match_matlab():
     sys = -0.5 * np.eye(chnkr.npt) + dmat
     rhs = ubdry.reshape(-1, order="F")
     sol = np.linalg.solve(sys, rhs)
-    dsol = chunkerkerneval(chnkr, lap_d, sol, targets, {"forceadap": True, "usepquad": False}).reshape(-1, order="F")
+    dsol = chunkerkerneval(chnkr, lap_d, sol, targets, force_adaptive=True, use_panel_quadrature=False).reshape(-1, order="F")
     relerr = np.linalg.norm(utarg - dsol) / (np.sqrt(chnkr.nch) * np.linalg.norm(utarg))
     relerr2 = np.linalg.norm(utarg - dsol, ord=np.inf) / np.dot(np.abs(sol), chnkr.wts.reshape(-1, order="F"))
 
@@ -2017,7 +2041,7 @@ def test_chunkermat_helm2d_solve_devtools_outputs_match_matlab():
     sys = -0.5 * np.eye(chnkr.npt) + dmat
     rhs = ubdry.reshape(-1, order="F")
     sol = np.linalg.solve(sys, rhs)
-    dsol = chunkerkerneval(chnkr, helm_d, sol, targets, {"forceadap": True, "usepquad": False}).reshape(-1, order="F")
+    dsol = chunkerkerneval(chnkr, helm_d, sol, targets, force_adaptive=True, use_panel_quadrature=False).reshape(-1, order="F")
     relerr = np.linalg.norm(utarg - dsol) / (np.sqrt(chnkr.nch) * np.linalg.norm(utarg))
     relerr2 = np.linalg.norm(utarg - dsol, ord=np.inf) / np.dot(np.abs(sol), chnkr.wts.reshape(-1, order="F"))
 
@@ -2042,7 +2066,7 @@ def test_chunkermat_l2scale_devtools_outputs_match_matlab():
     chnkr = chunkerfuncuni(
         lambda t: curves.bymode(t, modes, [0.0, 0.0], [1.2, 1.0]),
         int(fixture.nch),
-        {"nover": 0, "ifclosed": True, "eps": 1.0e-10},
+        {"_chunkie_normalized_geometry_options": True, "nover": 0, "ifclosed": True, "eps": 1.0e-10},
     ).sort()[0]
     assert chnkr.npt == int(fixture.npt)
 
@@ -2074,7 +2098,7 @@ def test_chunkermat_l2scale_devtools_outputs_match_matlab():
     manual[1::2, 0::2] = dd @ (chunkermat(chnkr, kdp) / (1j * zk0 + 1j * zk1) * 2) @ ddinv
     manual[1::2, 1::2] = dd @ (chunkermat(chnkr, ksp) / (1j * zk0 + 1j * zk1) * 2 + np.eye(npt)) @ ddinv
 
-    opts = {"l2scale": "true"}
+    opts = {"_chunkie_normalized_operator_options": True, "l2scale": "true"}
     scaled = np.zeros_like(manual)
     scaled[0::2, 0::2] = chunkermat(chnkr, kd, opts) + np.eye(npt)
     scaled[0::2, 1::2] = chunkermat(chnkr, ks, opts)
@@ -2169,8 +2193,8 @@ def test_datafield_devtools_target_data_flam_matches_matlab():
     unbdry = spkern(srcinfo, pointinfo(chnkr)).reshape(-1, order="F")
     mu = np.asarray(fixture.mu).reshape(-1, order="F")
     deru = chunkerkerneval(chnkr, directional_derivative_kernel, mu, targinfo).reshape(-1, order="F")
-    deru_adap = chunkerkerneval(chnkr, directional_derivative_kernel, mu, targinfo, {"forceadap": True, "usepquad": False}).reshape(-1, order="F")
-    flam_opts = {"acceleration": "flam", "occ": 32, "rank_or_tol": 1.0e-10}
+    deru_adap = chunkerkerneval(chnkr, directional_derivative_kernel, mu, targinfo, force_adaptive=True, use_panel_quadrature=False).reshape(-1, order="F")
+    flam_opts = {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "occ": 32, "rank_or_tol": 1.0e-10}
     deru_flam = chunkerkerneval(chnkr, directional_derivative_kernel, mu, targinfo, flam_opts).reshape(-1, order="F")
     gradutrue = kernel("lap", "sg")(srcinfo, targinfo).reshape(2, -1, order="F")
     derutrue = np.sum(gradutrue * v[:, None], axis=0)
@@ -2214,7 +2238,7 @@ def test_datafield_devtools_hilbert_data_flam_matches_matlab():
     f2_flam = chunkermat(
         chnkr,
         hkern,
-        {"acceleration": "flam", "occ": 64, "rank_or_tol": 1.0e-10, "useproxy": False},
+        {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "occ": 64, "rank_or_tol": 1.0e-10, "useproxy": False},
     ) @ f1 / length
 
     np.testing.assert_allclose(f2, np.asarray(fixture.f2).reshape(-1, order="F"), rtol=2e-6, atol=1e-8)

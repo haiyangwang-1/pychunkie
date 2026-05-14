@@ -58,7 +58,7 @@ def test_biharmonic_kernel_selectors_and_factory_shapes():
 
 
 def test_biharmonic_layer_evaluation_uses_special_quadrature():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 6}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=6, order=8)
     kern = kernel("biharmonic", "s")
     target = np.array([[0.25], [0.1]])
     vals = chunkerkerneval(chnkr, kern, np.ones(chnkr.npt), target)

@@ -193,7 +193,7 @@ def test_chunker_spectral_helpers_on_circle():
 
 
 def test_intmat_integrates_in_chunk_order():
-    chnkr = circle_chunker(20).refine({"nover": 1})
+    chnkr = circle_chunker(20).refine(oversample=1)
     imat = chnkr.intmat()
     ones = np.ones(chnkr.npt)
     integrated = imat @ ones
@@ -215,7 +215,7 @@ def test_onesmat_and_normonesmat_shapes():
 
 
 def test_centroids_and_adjacency_info():
-    chnkr = circle_chunker(8).refine({"nover": 1})
+    chnkr = circle_chunker(8).refine(oversample=1)
     ctrs = chnkr.centroids()
     inds, adjs, info = chnkr.sortinfo()
     expected_ctrs = np.sum(chnkr.r * chnkr.wstor[None, :, None], axis=1) / 2.0
@@ -253,7 +253,7 @@ def test_upsample_preserves_circle_geometry_and_density_values():
 
 def test_refine_oversamples_by_splitting_chunks():
     chnkr = circle_chunker(16)
-    refined = chnkr.refine({"nover": 1})
+    refined = chnkr.refine(oversample=1)
     h = np.pi / 2.0
 
     assert refined.nch == 2
@@ -276,11 +276,16 @@ def test_refine_oversamples_by_splitting_chunks():
 def test_refine_enforces_arc_length_level_restriction():
     chnkr = chunkerfunc(
         lambda t: curves.linefunc(t, [0.0, 0.0], [1.0, 0.0]),
-        {"ta": 0.0, "tb": 1.0, "ifclosed": False, "tsplits": [0.05, 0.1], "ifrefine": False, "lvlr": "n"},
-        {"k": 8, "nchmax": 64},
+        interval=(0.0, 1.0),
+        closed=False,
+        split_points=[0.05, 0.1],
+        refine=False,
+        level_restrict="n",
+        pref={"nchmax": 64},
+        order=8,
     )[0]
 
-    refined = chnkr.refine({"lvlr": "a", "lvlrfac": 2.1, "stype": "t"})
+    refined = chnkr.refine(level_restrict="a", level_restrict_factor=2.1, split_type="t")
     lengths = refined.chunklen()
 
     assert refined.nch > chnkr.nch
@@ -300,7 +305,7 @@ def test_refine_enforces_arc_length_level_restriction():
 
 def test_chunkerpoints_builds_from_nodes_and_optional_derivatives():
     base = circle_chunker(18)
-    rebuilt = chunkerpoints(base.r, {"ifclosed": True})
+    rebuilt = chunkerpoints(base.r, closed=True)
 
     np.testing.assert_allclose(rebuilt.r, base.r)
     np.testing.assert_allclose(rebuilt.d, base.d, atol=1e-11)
@@ -332,11 +337,11 @@ def test_datares_flags_high_order_data_coefficients():
 
 
 def test_merge_combines_chunkers_and_pads_data_rows():
-    first = chunkerpoly(np.array([[0.0, 1.0], [0.0, 0.0]]), {"ifclosed": False}, {"k": 8})
+    first = chunkerpoly(np.array([[0.0, 1.0], [0.0, 0.0]]), closed=False, order=8)
     first.makedatarows(1)
     first.data = np.ones((1, first.k, first.nch))
 
-    second = chunkerpoly(np.array([[2.0, 2.0], [0.0, 1.0]]), {"ifclosed": False}, {"k": 8})
+    second = chunkerpoly(np.array([[2.0, 2.0], [0.0, 1.0]]), closed=False, order=8)
     second.makedatarows(2)
     second.data = 2.0 * np.ones((2, second.k, second.nch))
 

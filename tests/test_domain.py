@@ -137,7 +137,7 @@ def test_chunkgraph_region_helpers_count_inside_and_merge_nested_regions():
             [1, 2, 3, 0, 5, 6, 7, 4],
         ]
     )
-    cg = chunkgraph(verts, edges, pref={"k": 6}, cparams={"nchmin": 1})
+    cg = chunkgraph(verts, edges, pref={"k": 6}, cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 1})
     outer = [[], [[0, 1, 2, 3]]]
     inner = [[[4, 5, 6, 7]]]
 

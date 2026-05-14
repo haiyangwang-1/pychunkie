@@ -155,7 +155,7 @@ def test_domain_tree_and_region_helpers_match_matlab_fixture():
     np.testing.assert_array_equal(padded_indices([node.chld for node in tree.nodes], fixture.tree_chld.shape[1]), fixture.tree_chld)
     np.testing.assert_array_equal(padded_indices([node.nbor for node in tree.nodes], fixture.tree_nbor.shape[1]), fixture.tree_nbor)
 
-    cg = chunkgraph(fixture.verts, np.asarray(fixture.edges, dtype=int) - 1, cparams={"nchmin": 4}, pref={"k": 6})
+    cg = chunkgraph(fixture.verts, np.asarray(fixture.edges, dtype=int) - 1, cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 4}, pref={"k": 6})
     outer = [[], [[0, 1, 2, 3]]]
     inner = [[[4, 5, 6, 7]]]
 
@@ -205,15 +205,16 @@ def test_chunker_flag_nearest_translate_and_uniform_helpers_match_matlab_fixture
     fixture = load_geometry_core().chunker
     base = chunker_from_fields(fixture.base)
 
-    flag_opts = {"fac": float(fixture.flag_fac)}
     expected_flagnear = np.asarray(fixture.flagnear, dtype=bool)
-    np.testing.assert_array_equal(base.flagnear(fixture.flag_targets, flag_opts), expected_flagnear)
+    np.testing.assert_array_equal(base.flagnear(fixture.flag_targets, fac=float(fixture.flag_fac)), expected_flagnear)
 
-    rect_opts = {"rho": float(fixture.rect_rho)}
     expected_rect = np.asarray(fixture.flagnear_rectangle, dtype=bool)
     expected_grid = np.asarray(fixture.flagnear_rectangle_grid, dtype=bool)
-    np.testing.assert_array_equal(base.flagnear_rectangle(fixture.rect_targets, rect_opts), expected_rect)
-    np.testing.assert_array_equal(base.flagnear_rectangle_grid(fixture.rect_x, fixture.rect_y, rect_opts), expected_grid)
+    np.testing.assert_array_equal(base.flagnear_rectangle(fixture.rect_targets, rho=float(fixture.rect_rho)), expected_rect)
+    np.testing.assert_array_equal(
+        base.flagnear_rectangle_grid(fixture.rect_x, fixture.rect_y, rho=float(fixture.rect_rho)),
+        expected_grid,
+    )
 
     rn, dn, d2n, dist, tn, ichn = base.nearest(fixture.nearest_targets)
     np.testing.assert_allclose(rn, fixture.nearest_r, atol=2e-12)
@@ -233,12 +234,9 @@ def test_chunker_flag_nearest_translate_and_uniform_helpers_match_matlab_fixture
     uniform = chunkerfuncuni(
         lambda t: starfish(t, 4, 0.15, [0.05, -0.1], 0.2, 0.9),
         int(fixture.chunkerfuncuni_nch),
-        {
-            "ta": float(fixture.chunkerfuncuni_cparams.ta),
-            "tb": float(fixture.chunkerfuncuni_cparams.tb),
-            "ifclosed": bool(fixture.chunkerfuncuni_cparams.ifclosed),
-        },
-        {"k": int(fixture.chunkerfuncuni_pref.k)},
+        interval=(float(fixture.chunkerfuncuni_cparams.ta), float(fixture.chunkerfuncuni_cparams.tb)),
+        closed=bool(fixture.chunkerfuncuni_cparams.ifclosed),
+        order=int(fixture.chunkerfuncuni_pref.k),
     )
     assert_chunker_matches_fields(uniform, fixture.chunkerfuncuni, atol=2e-12)
 
@@ -250,7 +248,7 @@ def test_chunker_refinement_and_reconstruction_helpers_match_matlab_fixture():
 
     assert_chunker_matches_fields(base.copy().split(1, stype="t"), fixture.split_param, atol=2e-12)
     assert_chunker_matches_fields(
-        base.refine({"splitchunks": [1], "lvlr": "n", "stype": "t", "nover": 1}),
+        base.refine(split_chunks=[1], level_restrict="n", split_type="t", oversample=1),
         fixture.refined,
         atol=2e-12,
     )
@@ -267,9 +265,9 @@ def test_chunker_refinement_and_reconstruction_helpers_match_matlab_fixture():
     assert_chunker_matches_fields(base.rotate(0.37, [0.2, -0.1], [-0.3, 0.4]), fixture.rotated, atol=2e-12)
     assert_chunker_matches_fields(base.reflect(-0.2, [0.1, 0.2], [0.25, -0.35]), fixture.reflected, atol=2e-12)
     assert_chunker_matches_fields(base.reverse(), fixture.reversed, atol=2e-12)
-    assert_chunker_matches_fields(chunkerpoints(base.r, {"ifclosed": True}), fixture.points_from_r, atol=2e-12)
+    assert_chunker_matches_fields(chunkerpoints(base.r, closed=True), fixture.points_from_r, atol=2e-12)
     assert_chunker_matches_fields(
-        chunkerpoints({"r": base.r, "d": 2.0 * base.d, "d2": 3.0 * base.d2}, {"ifclosed": True}),
+        chunkerpoints({"r": base.r, "d": 2.0 * base.d, "d2": 3.0 * base.d2}, closed=True),
         fixture.points_explicit,
         atol=2e-12,
     )
@@ -309,7 +307,7 @@ def test_arcparam_helpers_match_matlab_fixture():
 
 def test_chunkgraph_helpers_match_matlab_fixture():
     fixture = load_geometry_core().chunkgraph
-    cg = chunkgraph(fixture.verts, np.asarray(fixture.edges, dtype=int) - 1, cparams={"nchmin": 4}, pref={"k": 6})
+    cg = chunkgraph(fixture.verts, np.asarray(fixture.edges, dtype=int) - 1, cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 4}, pref={"k": 6})
 
     np.testing.assert_array_equal(cg.edgesendverts + 1, np.asarray(fixture.edgesendverts, dtype=int))
     np.testing.assert_array_equal(cg.v2emat, np.asarray(fixture.v2emat, dtype=int))
@@ -354,7 +352,7 @@ def test_chunkgraph_helpers_match_matlab_fixture():
 
 def test_chunkgraph_region_flag_operator_and_conversion_helpers_match_matlab_fixture():
     fixture = load_geometry_core().chunkgraph
-    cg = chunkgraph(fixture.verts, np.asarray(fixture.edges, dtype=int) - 1, cparams={"nchmin": 4}, pref={"k": 6})
+    cg = chunkgraph(fixture.verts, np.asarray(fixture.edges, dtype=int) - 1, cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 4}, pref={"k": 6})
 
     for ivert, (edges, signs) in enumerate(cg.procverts()):
         count = int(np.asarray(fixture.procverts_counts, dtype=int).reshape(-1)[ivert])
@@ -366,19 +364,20 @@ def test_chunkgraph_region_flag_operator_and_conversion_helpers_match_matlab_fix
     np.testing.assert_array_equal(np.asarray(regions[0][0], dtype=int) + 1, np.asarray(fixture.region_first_loop, dtype=int))
     np.testing.assert_array_equal(np.asarray(regions[1][0], dtype=int), np.asarray(fixture.region_second_loop, dtype=int))
 
-    refined = cg.refine({"nover": int(fixture.refine_opts.nover), "lvlr": str(fixture.refine_opts.lvlr)})
+    refined = cg.refine(oversample=int(fixture.refine_opts.nover), level_restrict=str(fixture.refine_opts.lvlr))
     assert_chunkgraph_matches_fields(refined, fixture.refined, atol=2e-12)
 
-    flag_opts = {"fac": float(fixture.flag_fac)}
-    np.testing.assert_array_equal(cg.flagnear(fixture.flag_targets, flag_opts), np.asarray(fixture.flagnear, dtype=bool))
-
-    rect_opts = {"rho": float(fixture.rect_rho)}
     np.testing.assert_array_equal(
-        cg.flagnear_rectangle(fixture.rect_targets, rect_opts),
+        cg.flagnear(fixture.flag_targets, fac=float(fixture.flag_fac)),
+        np.asarray(fixture.flagnear, dtype=bool),
+    )
+
+    np.testing.assert_array_equal(
+        cg.flagnear_rectangle(fixture.rect_targets, rho=float(fixture.rect_rho)),
         np.asarray(fixture.flagnear_rectangle, dtype=bool),
     )
     np.testing.assert_array_equal(
-        cg.flagnear_rectangle_grid(fixture.rect_x, fixture.rect_y, rect_opts),
+        cg.flagnear_rectangle_grid(fixture.rect_x, fixture.rect_y, rho=float(fixture.rect_rho)),
         np.asarray(fixture.flagnear_rectangle_grid, dtype=bool),
     )
 
@@ -391,8 +390,12 @@ def test_chunkgraph_region_flag_operator_and_conversion_helpers_match_matlab_fix
     closed = chunker_from_fields(load_geometry_core().chunker.circ1)
     open_line, _ = chunkerfunc(
         lambda t: curves.linefunc(t, [2.0, -0.5], [3.0, 0.2]),
-        {"ifclosed": False, "ifrefine": False, "nchmin": 2, "eps": 1.0e-3, "ta": 0.0, "tb": 1.0},
-        {"k": 8},
+        interval=(0.0, 1.0),
+        closed=False,
+        refine=False,
+        min_chunks=2,
+        tol=1.0e-3,
+        order=8,
     )
     assert int(fixture.tochunkgraph_closed_edge_count) == 1
     assert int(fixture.tochunkgraph_open_edge_count) == 1

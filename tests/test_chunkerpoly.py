@@ -24,7 +24,7 @@ def assert_line_panel(chnkr, ich, start, end, atol=1e-14):
 
 def test_chunkerpoly_closed_square_area_length_and_adjacency():
     verts = np.array([[0.0, 1.0, 1.0, 0.0], [0.0, 0.0, 1.0, 1.0]])
-    chnkr = chunkerpoly(verts, {"rounded": False}, {"k": 8})
+    chnkr = chunkerpoly(verts, rounded=False, order=8)
 
     assert chnkr.nch == 4
     np.testing.assert_allclose(chnkr.area(), 1.0, atol=1e-14)
@@ -39,9 +39,10 @@ def test_chunkerpoly_open_polyline_and_edge_data():
     verts = np.array([[0.0, 2.0, 2.0], [0.0, 0.0, 3.0]])
     chnkr = chunkerpoly(
         verts,
-        {"rounded": False, "ifclosed": False},
-        {"k": 6},
         edgevals=np.array([[10.0, 20.0], [30.0, 40.0]]),
+        rounded=False,
+        closed=False,
+        order=6,
     )
 
     assert chnkr.nch == 2
@@ -56,7 +57,7 @@ def test_chunkerpoly_open_polyline_and_edge_data():
 
 def test_chunkerpoly_rounded_builds_trimmed_edges_and_corner_panels():
     verts = np.array([[0.0, 1.0, 1.0, 0.0], [0.0, 0.0, 1.0, 1.0]])
-    chnkr = chunkerpoly(verts, {"rounded": True, "widths": 0.1}, {"k": 8})
+    chnkr = chunkerpoly(verts, rounded=True, widths=0.1, order=8)
     u = (chnkr.tstor + 1.0) / 2.0
     first_edge = np.vstack((0.1 + 0.8 * u, np.zeros_like(u)))
     first_corner = (
@@ -81,9 +82,11 @@ def test_chunkerpoly_rounded_open_polyline_and_edge_data():
     verts = np.array([[0.0, 1.0, 1.0], [0.0, 0.0, 1.0]])
     chnkr = chunkerpoly(
         verts,
-        {"rounded": True, "ifclosed": False, "widths": [0.0, 0.2, 0.0]},
-        {"k": 6},
         edgevals=np.array([2.0, 4.0]),
+        rounded=True,
+        closed=False,
+        widths=[0.0, 0.2, 0.0],
+        order=6,
     )
 
     assert chnkr.nch == 3
@@ -108,7 +111,7 @@ def test_chunkerpoly_rounded_open_polyline_and_edge_data():
 
 def test_reverse_and_move_preserve_expected_geometry():
     verts = np.array([[0.0, 1.0, 1.0, 0.0], [0.0, 0.0, 1.0, 1.0]])
-    chnkr = chunkerpoly(verts, {"rounded": False}, {"k": 8})
+    chnkr = chunkerpoly(verts, rounded=False, order=8)
 
     rev = chnkr.reverse()
     np.testing.assert_allclose(rev.area(), -1.0, atol=1e-14)

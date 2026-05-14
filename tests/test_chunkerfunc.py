@@ -28,7 +28,7 @@ def assert_circle_panels(chnkr, ab, radius, center=(0.0, 0.0), atol=1e-12):
 
 
 def test_chunkerfunc_builds_closed_circle_with_area_and_adjacency():
-    chnkr, ab = chunkerfunc(lambda t: circle(t, radius=2.5), {"nchmin": 4}, {"k": 16})
+    chnkr, ab = chunkerfunc(lambda t: circle(t, radius=2.5), min_chunks=4, order=16)
 
     assert chnkr.nch == 4
     np.testing.assert_allclose(ab[:, 0], [0.0, np.pi / 2.0])
@@ -42,8 +42,10 @@ def test_chunkerfunc_builds_closed_circle_with_area_and_adjacency():
 def test_chunkerfunc_open_curve_marks_free_ends():
     chnkr, ab = chunkerfunc(
         lambda t: curves.linefunc(t, [0.0, 0.0], [2.0, 0.0]),
-        {"ta": 0.0, "tb": 1.0, "ifclosed": False, "nchmin": 2},
-        {"k": 8},
+        interval=(0.0, 1.0),
+        closed=False,
+        min_chunks=2,
+        order=8,
     )
 
     assert chnkr.nch == 2
@@ -76,7 +78,7 @@ def test_chunkerfunc_can_spectrally_differentiate_position_only_curve():
     def position_only(t):
         return np.vstack((np.cos(t), np.sin(t)))
 
-    chnkr, ab = chunkerfunc(position_only, {"nchmin": 4}, {"k": 16})
+    chnkr, ab = chunkerfunc(position_only, min_chunks=4, order=16)
     for ich, (a, b) in enumerate(ab.T):
         theta = a + (b - a) * (chnkr.tstor + 1.0) / 2.0
         h = (b - a) / 2.0
@@ -101,13 +103,23 @@ def test_chunkerfunc_adaptively_refines_unresolved_curve():
 
     coarse, _ = chunkerfunc(
         wavy,
-        {"ta": 0.0, "tb": 1.0, "ifclosed": False, "nchmin": 1, "ifrefine": False, "lvlr": "n"},
-        {"k": 8, "nchmax": 256},
+        interval=(0.0, 1.0),
+        closed=False,
+        min_chunks=1,
+        refine=False,
+        level_restrict="n",
+        pref={"nchmax": 256},
+        order=8,
     )
     refined, ab = chunkerfunc(
         wavy,
-        {"ta": 0.0, "tb": 1.0, "ifclosed": False, "nchmin": 1, "eps": 1e-6, "lvlr": "n"},
-        {"k": 8, "nchmax": 256},
+        interval=(0.0, 1.0),
+        closed=False,
+        min_chunks=1,
+        tol=1e-6,
+        level_restrict="n",
+        pref={"nchmax": 256},
+        order=8,
     )
 
     assert coarse.nch == 1

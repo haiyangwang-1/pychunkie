@@ -42,7 +42,7 @@ def test_laplace_green_matches_direct_formula():
 
 def test_laplace_direct_layer_evaluation_on_circle():
     radius = 2.0
-    chnkr, _ = chunkerfunc(lambda t: circle(t, radius), {"nchmin": 8}, {"k": 16})
+    chnkr, _ = chunkerfunc(lambda t: circle(t, radius), min_chunks=8, order=16)
     target = np.array([[0.0], [0.0]])
 
     single = chunkerkerneval(chnkr, lambda s, t: lap2d.kern(s, t, "s"), np.ones(chnkr.npt), target)
@@ -53,7 +53,7 @@ def test_laplace_direct_layer_evaluation_on_circle():
 
 
 def test_laplace_kernel_selectors_have_expected_shapes():
-    chnkr, _ = chunkerfunc(lambda t: circle(t, 1.0), {"nchmin": 4}, {"k": 8})
+    chnkr, _ = chunkerfunc(lambda t: circle(t, 1.0), min_chunks=4, order=8)
     info = pointinfo(chnkr)
     target = {"r": np.array([[0.25, 0.5], [0.1, -0.2]]), "n": np.array([[1.0, 0.0], [0.0, 1.0]])}
 
@@ -126,7 +126,7 @@ def test_helmdiff_single_layer_smooth_diagonal_is_finite():
 
 
 def test_helmholtz_kernel_selectors_have_expected_shapes():
-    chnkr, _ = chunkerfunc(lambda t: circle(t, 1.0), {"nchmin": 4}, {"k": 8})
+    chnkr, _ = chunkerfunc(lambda t: circle(t, 1.0), min_chunks=4, order=8)
     info = pointinfo(chnkr)
     target = {
         "r": np.array([[0.25, 0.5], [0.1, -0.2]]),

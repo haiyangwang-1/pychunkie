@@ -59,10 +59,10 @@ def test_matlab_log_quadrature_tables_load_for_each_legendre_node():
 
 
 def test_quadggq_buildmat_removes_laplace_single_layer_diagonal_infinities():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 8}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=8, order=8)
     lap_s = kernel("lap", "s")
 
-    smooth = chunkermat(chnkr, lap_s, {"forcesmooth": True})
+    smooth = chunkermat(chnkr, lap_s, quadrature="smooth")
     special = quadggq.buildmat(chnkr, lap_s, lap_s.opdims)
 
     assert np.isinf(np.diag(smooth)).all()
@@ -83,7 +83,7 @@ def test_quadggq_rejects_unexpected_nonfinite_kernel_values():
 
 
 def test_chunkermat_uses_special_quadrature_for_log_kernels_by_default():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 8}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=8, order=8)
     lap_s = kernel("lap", "s")
     dens = np.ones(chnkr.npt)
 
@@ -96,7 +96,7 @@ def test_chunkermat_uses_special_quadrature_for_log_kernels_by_default():
 
 
 def test_quadggq_handles_complex_helmholtz_single_layer_blocks():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 6}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=6, order=8)
     helm_s = kernel("helm", "s", 1.3 + 0.2j)
 
     mat = quadggq.buildmat(chnkr, helm_s, helm_s.opdims)
@@ -107,7 +107,7 @@ def test_quadggq_handles_complex_helmholtz_single_layer_blocks():
 
 
 def test_nearbuildmat_matches_buildmat_neighbor_block_and_correction():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 6}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=6, order=8)
     lap_s = kernel("lap", "s")
     aux = quadggq.setup(chnkr.k, "log")
     src_chunk = 0
@@ -137,12 +137,12 @@ def test_nearbuildmat_matches_buildmat_neighbor_block_and_correction():
 
 
 def test_buildmat_ilist_skips_bad_neighbor_and_self_special_blocks():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 6}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=6, order=8)
     lap_s = kernel("lap", "s")
 
     special = quadggq.buildmat(chnkr, lap_s, lap_s.opdims)
     skipped = quadggq.buildmat(chnkr, lap_s, lap_s.opdims, ilist=np.array([0, 1]))
-    smooth = chunkermat(chnkr, lap_s, {"forcesmooth": True})
+    smooth = chunkermat(chnkr, lap_s, quadrature="smooth")
 
     block = lambda mat, i, j: mat[i * chnkr.k : (i + 1) * chnkr.k, j * chnkr.k : (j + 1) * chnkr.k]
     np.testing.assert_allclose(block(skipped, 1, 0), block(smooth, 1, 0))
@@ -151,7 +151,7 @@ def test_buildmat_ilist_skips_bad_neighbor_and_self_special_blocks():
 
 
 def test_buildmattd_returns_sparse_special_blocks_only():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 6}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=6, order=8)
     lap_s = kernel("lap", "s")
 
     td = quadggq.buildmattd(chnkr, lap_s, lap_s.opdims)
@@ -203,7 +203,7 @@ def test_setup_accepts_pv_and_hs_singularities():
 
 
 def test_chunkermat_uses_special_quadrature_for_pv_and_hs_kernels():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 6}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=6, order=8)
     lap_sgrad = kernel("lap", "sgrad")
     lap_dgrad = kernel("lap", "dgrad")
 
@@ -211,8 +211,8 @@ def test_chunkermat_uses_special_quadrature_for_pv_and_hs_kernels():
     hs_mat = chunkermat(chnkr, lap_dgrad)
     pv_td = quadggq.buildmattd(chnkr, lap_sgrad, lap_sgrad.opdims, type="pv").toarray()
     hs_td = quadggq.buildmattd(chnkr, lap_dgrad, lap_dgrad.opdims, type="hs").toarray()
-    pv_smooth = chunkermat(chnkr, lap_sgrad, {"forcesmooth": True})
-    hs_smooth = chunkermat(chnkr, lap_dgrad, {"forcesmooth": True})
+    pv_smooth = chunkermat(chnkr, lap_sgrad, quadrature="smooth")
+    hs_smooth = chunkermat(chnkr, lap_dgrad, quadrature="smooth")
 
     block = lambda mat, i, j, op0=2: mat[
         i * chnkr.k * op0 : (i + 1) * chnkr.k * op0,
@@ -232,7 +232,7 @@ def test_chunkermat_uses_special_quadrature_for_pv_and_hs_kernels():
 
 
 def test_quadadap_buildmat_uses_adaptive_neighbor_blocks(monkeypatch):
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 6}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=6, order=8)
     lap_s = kernel("lap", "s")
     calls = []
     original = quadadap.adapgausswts
@@ -252,14 +252,14 @@ def test_quadadap_buildmat_uses_adaptive_neighbor_blocks(monkeypatch):
 
 
 def test_quadadap_robust_mode_repairs_non_neighbor_close_blocks(monkeypatch):
-    left, _ = chunkerfunc(lambda t: circle(t), {"nchmin": 8}, {"k": 8})
+    left, _ = chunkerfunc(lambda t: circle(t), min_chunks=8, order=8)
 
     def shifted(t):
         r, d, d2 = circle(t)
         r = r + np.array([[2.05], [0.0]])
         return r, d, d2
 
-    right, _ = chunkerfunc(shifted, {"nchmin": 8}, {"k": 8})
+    right, _ = chunkerfunc(shifted, min_chunks=8, order=8)
     chnkr = merge([left, right])
     lap_s = kernel("lap", "s")
     calls = []

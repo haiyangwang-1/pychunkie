@@ -49,7 +49,7 @@ def test_low_level_pquad_weights_match_oversampled_legendre_moments(record_prope
 
 
 def test_pquad_panel_weights_can_compose_to_original_nodes(record_property):
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 8}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=8, order=8)
     src_chunk = 0
     product_nodes, product_weights = lege.exps(2 * chnkr.k)[:2]
     interp = lege.matrin(chnkr.k, product_nodes)[0]
@@ -102,7 +102,7 @@ def test_pquad_panel_weights_can_compose_to_original_nodes(record_property):
     ],
 )
 def test_pquad_split_panel_matrix_matches_oversampled_legendre(kernel_args, side, normal_sign, record_property):
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 8}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=8, order=8)
     src_chunk = 0
     mid = lege.matrin(chnkr.k, [0.0])[0]
     rmid = (mid @ chnkr.r[:, :, src_chunk].T).T[:, 0]
@@ -123,7 +123,7 @@ def test_pquad_split_panel_matrix_matches_oversampled_legendre(kernel_args, side
 
 
 def test_pquad_splitinfo_respects_scaled_kernel():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 8}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=8, order=8)
     src_chunk = 0
     mid = lege.matrin(chnkr.k, [0.0])[0]
     rmid = (mid @ chnkr.r[:, :, src_chunk].T).T[:, 0]
@@ -139,7 +139,7 @@ def test_pquad_splitinfo_respects_scaled_kernel():
 
 
 def test_forceadap_target_matrix_prefers_pquad_when_side_is_inferred(monkeypatch):
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 8}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=8, order=8)
     src_chunk = 0
     mid = lege.matrin(chnkr.k, [0.0])[0]
     rmid = (mid @ chnkr.r[:, :, src_chunk].T).T[:, 0]
@@ -155,15 +155,15 @@ def test_forceadap_target_matrix_prefers_pquad_when_side_is_inferred(monkeypatch
 
     monkeypatch.setattr(pquad, "panel_matrix", wrapped)
 
-    actual = chunkerkernevalmat(chnkr, kern, targets, {"forceadap": True, "usepquad": True})
-    expected = chunkerkernevalmat(chnkr, kern, targets, {"forceadap": True, "usepquad": False})
+    actual = chunkerkernevalmat(chnkr, kern, targets, force_adaptive=True, use_panel_quadrature=True)
+    expected = chunkerkernevalmat(chnkr, kern, targets, force_adaptive=True, use_panel_quadrature=False)
 
     assert (src_chunk, "e") in calls
     np.testing.assert_allclose(actual, expected, rtol=2e-6, atol=5e-7)
 
 
 def test_forceadap_sparse_correction_prefers_pquad_and_matches_matrix(monkeypatch):
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 8}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=8, order=8)
     src_chunk = 1
     mid = lege.matrin(chnkr.k, [0.0])[0]
     rmid = (mid @ chnkr.r[:, :, src_chunk].T).T[:, 0]
@@ -180,17 +180,17 @@ def test_forceadap_sparse_correction_prefers_pquad_and_matches_matrix(monkeypatc
 
     monkeypatch.setattr(pquad, "panel_matrix", wrapped)
 
-    correction = chunkerkernevalmat(chnkr, kern, targets, {"corrections": True, "usepquad": True})
-    smooth = chunkerkerneval(chnkr, kern, dens, targets, {"forcesmooth": True}).reshape(-1, order="F")
+    correction = chunkerkernevalmat(chnkr, kern, targets, corrections=True, use_panel_quadrature=True)
+    smooth = chunkerkerneval(chnkr, kern, dens, targets, quadrature="smooth").reshape(-1, order="F")
     corrected = smooth + correction @ dens
-    direct = chunkerkerneval(chnkr, kern, dens, targets, {"forceadap": True, "usepquad": True}).reshape(-1, order="F")
+    direct = chunkerkerneval(chnkr, kern, dens, targets, force_adaptive=True, use_panel_quadrature=True).reshape(-1, order="F")
 
     assert (src_chunk, "i") in calls
     np.testing.assert_allclose(corrected, direct, rtol=1e-10, atol=1e-11)
 
 
 def test_quadggq_neighbor_block_uses_pquad_when_side_is_explicit(monkeypatch):
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 8}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=8, order=8)
     kern = kernel("helm", "s", 1.3)
     calls = []
     original = pquad.panel_matrix
@@ -210,7 +210,7 @@ def test_quadggq_neighbor_block_uses_pquad_when_side_is_explicit(monkeypatch):
 
 
 def test_chunkermat_side_option_uses_pquad_for_special_neighbors(monkeypatch):
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 8}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=8, order=8)
     kern = kernel("helm", "s", 1.3)
     calls = []
     original = pquad.panel_matrix
@@ -221,8 +221,8 @@ def test_chunkermat_side_option_uses_pquad_for_special_neighbors(monkeypatch):
 
     monkeypatch.setattr(pquad, "panel_matrix", wrapped)
 
-    pquad_mat = chunkermat(chnkr, kern, {"side": "e", "usepquad": True})
-    fallback = chunkermat(chnkr, kern, {"side": "e", "usepquad": False})
+    pquad_mat = chunkermat(chnkr, kern, side="e", use_panel_quadrature=True)
+    fallback = chunkermat(chnkr, kern, side="e", use_panel_quadrature=False)
 
     assert calls
     assert set(side for _, side in calls) == {"e"}
@@ -230,7 +230,7 @@ def test_chunkermat_side_option_uses_pquad_for_special_neighbors(monkeypatch):
 
 
 def test_quadadap_neighbor_blocks_use_pquad_when_side_is_explicit(monkeypatch):
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 8}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=8, order=8)
     kern = kernel("lap", "s")
     pquad_calls = []
     adap_calls = []

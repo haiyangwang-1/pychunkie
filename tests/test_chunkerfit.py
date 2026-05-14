@@ -9,7 +9,9 @@ def test_chunkerfit_open_line_with_split_points():
 
     chnkr = chunkerfit(
         xy,
-        {"ifclosed": False, "splitatpoints": True, "pref": {"k": 8}},
+        closed=False,
+        split_at_points=True,
+        order=8,
     )
 
     assert chnkr.nch == 3
@@ -33,7 +35,9 @@ def test_chunkerfit_closed_circle_spline_area():
 
     chnkr = chunkerfit(
         xy,
-        {"ifclosed": True, "splitatpoints": True, "pref": {"k": 12}},
+        closed=True,
+        split_at_points=True,
+        order=12,
     )
 
     assert chnkr.nch == 16
@@ -49,4 +53,4 @@ def test_chunkerfit_closed_circle_spline_area():
 def test_chunkerfit_rejects_unsupported_methods():
     xy = np.array([[0.0, 1.0, 2.0], [0.0, 0.0, 0.0]])
     with pytest.raises(ValueError):
-        chunkerfit(xy, {"method": "linear", "ifclosed": False})
+        chunkerfit(xy, {"_chunkie_normalized_geometry_options": True, "method": "linear", "ifclosed": False})

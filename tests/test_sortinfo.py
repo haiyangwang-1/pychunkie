@@ -5,7 +5,7 @@ from chunkie import chunkerpoly
 
 def test_sort_reorders_two_open_segments_and_remaps_adjacency():
     verts = np.array([[0.0, 1.0, 2.0], [0.0, 0.0, 0.0]])
-    chnkr = chunkerpoly(verts, {"rounded": False, "ifclosed": False}, {"k": 4})
+    chnkr = chunkerpoly(verts, rounded=False, closed=False, order=4)
     shuffled = chnkr.copy()
     shuffled.r = chnkr.r[:, :, [1, 0]]
     shuffled.d = chnkr.d[:, :, [1, 0]]

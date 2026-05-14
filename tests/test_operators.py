@@ -45,7 +45,7 @@ probe_fragile_kernel.opdims = (1, 1)
 
 
 def test_chunkermat_matches_chunkerkerneval_on_boundary_for_smooth_kernel():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=4, order=8)
     dens = np.cos(chnkr.r[0].reshape(-1, order="F"))
     info = pointinfo(chnkr)
     weights = chnkr.wts.reshape(-1, order="F")
@@ -59,7 +59,7 @@ def test_chunkermat_matches_chunkerkerneval_on_boundary_for_smooth_kernel():
 
 
 def test_chunkermat_allows_dtype_probe_fallback_for_custom_kernel():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=4, order=8)
 
     actual = chunkermat(chnkr, probe_fragile_kernel)
     expected = smooth_kernel(pointinfo(chnkr), pointinfo(chnkr)) * chnkr.wts.reshape(-1, order="F")[None, :]
@@ -68,7 +68,7 @@ def test_chunkermat_allows_dtype_probe_fallback_for_custom_kernel():
 
 
 def test_chunkermat_does_not_swallow_real_custom_kernel_errors():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=4, order=8)
 
     def broken_kernel(src: PointInfo, targ: PointInfo):
         raise RuntimeError("custom kernel failed")
@@ -79,12 +79,12 @@ def test_chunkermat_does_not_swallow_real_custom_kernel_errors():
 
 
 def test_chunkermatapply_fmm_matches_special_matrix_application():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 6}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=6, order=8)
     lap_s = kernel("lap", "s")
     dens = np.cos(chnkr.r[0].reshape(-1, order="F"))
 
     direct = chunkermat(chnkr, lap_s) @ dens
-    via_fmm = chunkermatapply(chnkr, lap_s, dens, {"acceleration": "fmm", "eps": 1e-12})
+    via_fmm = chunkermatapply(chnkr, lap_s, dens, acceleration="fmm", tol=1e-12)
 
     np.testing.assert_allclose(via_fmm, direct, rtol=1e-9, atol=1e-10)
 
@@ -111,7 +111,7 @@ def test_chunkerkerneval_same_source_fmm_uses_smooth_fmm_plus_correction(monkeyp
 
 
 def test_chunkermat_fmm_returns_matrix_free_operator_matching_dense_application():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 6}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=6, order=8)
     lap_s = kernel("lap", "s")
     x = chnkr.r[0].reshape(-1, order="F")
     y = chnkr.r[1].reshape(-1, order="F")
@@ -119,7 +119,7 @@ def test_chunkermat_fmm_returns_matrix_free_operator_matching_dense_application(
     rhs = np.column_stack((dens, np.sin(y)))
 
     dense = chunkermat(chnkr, lap_s)
-    via_fmm = chunkermat(chnkr, lap_s, {"acceleration": "fmm", "eps": 1e-12})
+    via_fmm = chunkermat(chnkr, lap_s, acceleration="fmm", tol=1e-12)
 
     assert isinstance(via_fmm, ChunkerFMMMatrix)
     assert via_fmm.shape == dense.shape
@@ -140,7 +140,7 @@ def test_fmm_request_warns_when_kernel_uses_direct_fallback():
 
 
 def test_block_chunkermat_fmm_matches_dense_application_and_l2scale():
-    first, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
+    first, _ = chunkerfunc(circle, min_chunks=4, order=8)
     second = first.translate(np.array([2.8, 0.15]))
     chunkers = [first, second]
     lap_s = kernel("lap", "s")
@@ -150,10 +150,10 @@ def test_block_chunkermat_fmm_matches_dense_application_and_l2scale():
     rhs2 = np.column_stack((rhs, np.cos(0.11 * np.arange(rhs.size))))
 
     dense = chunkermat(chunkers, blocks)
-    via_fmm = chunkermat(chunkers, blocks, {"acceleration": "fmm", "eps": 1e-12})
-    applied = chunkermatapply(chunkers, blocks, rhs2, {"acceleration": "fmm", "eps": 1e-12})
-    dense_l2 = chunkermat(chunkers, blocks, {"l2scale": True})
-    via_fmm_l2 = chunkermat(chunkers, blocks, {"acceleration": "fmm", "eps": 1e-12, "l2scale": True})
+    via_fmm = chunkermat(chunkers, blocks, acceleration="fmm", tol=1e-12)
+    applied = chunkermatapply(chunkers, blocks, rhs2, acceleration="fmm", tol=1e-12)
+    dense_l2 = chunkermat(chunkers, blocks, l2scale=True)
+    via_fmm_l2 = chunkermat(chunkers, blocks, acceleration="fmm", tol=1e-12, l2scale=True)
 
     assert isinstance(via_fmm, ChunkerFMMMatrix)
     assert via_fmm.shape == dense.shape
@@ -180,7 +180,7 @@ def test_block_chunkermat_fmm_applies_self_special_corrections_once():
 
 
 def test_block_chunkermat_reuses_special_quadrature_for_self_blocks():
-    first, _ = chunkerfunc(circle, {"nchmin": 3}, {"k": 6})
+    first, _ = chunkerfunc(circle, min_chunks=3, order=6)
     second = first.translate(np.array([2.8, 0.15]))
     lap_s = kernel("lap", "s")
     dense = chunkermat([first, second], [[lap_s, lap_s], [lap_s, lap_s]])
@@ -192,7 +192,7 @@ def test_block_chunkermat_reuses_special_quadrature_for_self_blocks():
 
 
 def test_pointinfo_uses_matlab_chunk_contiguous_ordering():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 3}, {"k": 5})
+    chnkr, _ = chunkerfunc(circle, min_chunks=3, order=5)
     info = pointinfo(chnkr)
 
     np.testing.assert_allclose(info.r, chnkr.r.reshape(chnkr.dim, -1, order="F"))
@@ -202,7 +202,7 @@ def test_pointinfo_uses_matlab_chunk_contiguous_ordering():
 
 
 def test_chunkerkernevalmat_matches_direct_target_evaluation():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=4, order=8)
     dens = np.sin(chnkr.r[1].reshape(-1, order="F"))
     targets = np.array([[0.0, 2.0], [0.0, -0.25]])
     weights = chnkr.wts.reshape(-1, order="F")
@@ -216,32 +216,32 @@ def test_chunkerkernevalmat_matches_direct_target_evaluation():
 
 
 def test_chunkerkernevalmat_fmm_materializes_target_eval_matrix():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=4, order=8)
     lap_s = kernel("lap", "s")
     targets = np.array([[0.0, 1.6, -1.35], [0.0, -0.4, 0.8]])
     dens = np.cos(chnkr.r[0].reshape(-1, order="F"))
 
     dense_mat = chunkerkernevalmat(chnkr, lap_s, targets)
-    fmm_mat = chunkerkernevalmat(chnkr, lap_s, targets, {"acceleration": "fmm", "eps": 1e-12})
-    fmm_vals = chunkerkerneval(chnkr, lap_s, dens, targets, {"acceleration": "fmm", "eps": 1e-12}).reshape(-1, order="F")
+    fmm_mat = chunkerkernevalmat(chnkr, lap_s, targets, acceleration="fmm", tol=1e-12)
+    fmm_vals = chunkerkerneval(chnkr, lap_s, dens, targets, acceleration="fmm", tol=1e-12).reshape(-1, order="F")
 
     np.testing.assert_allclose(fmm_mat, dense_mat, rtol=1e-9, atol=1e-10)
     np.testing.assert_allclose(fmm_mat @ dens, fmm_vals, rtol=1e-10, atol=1e-11)
 
 
 def test_chunkerkernevalmat_fmm_materializes_same_source_special_matrix():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=4, order=8)
     lap_s = kernel("lap", "s")
     dens = np.cos(chnkr.r[0].reshape(-1, order="F"))
 
     dense_mat = chunkermat(chnkr, lap_s)
-    fmm_mat = chunkerkernevalmat(chnkr, lap_s, chnkr, {"acceleration": "fmm", "eps": 1e-12})
+    fmm_mat = chunkerkernevalmat(chnkr, lap_s, chnkr, acceleration="fmm", tol=1e-12)
 
     np.testing.assert_allclose(fmm_mat @ dens, dense_mat @ dens, rtol=1e-9, atol=1e-10)
 
 
 def test_chunkermat_accepts_kernel_objects():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=4, order=8)
     zero = kernel("zero")
     mat = chunkermat(chnkr, zero)
 
@@ -250,7 +250,7 @@ def test_chunkermat_accepts_kernel_objects():
 
 
 def test_quadnative_buildmat_matches_dense_chunkermat():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 3}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=3, order=8)
     weights = chnkr.wts.reshape(-1, order="F")
     expected = smooth_kernel(pointinfo(chnkr), pointinfo(chnkr)) * weights[None, :]
 
@@ -262,7 +262,7 @@ def test_quadnative_buildmat_matches_dense_chunkermat():
 
 
 def test_chunkerintegral_accepts_values_and_callables():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 16})
+    chnkr, _ = chunkerfunc(circle, min_chunks=4, order=16)
 
     np.testing.assert_allclose(chunkerintegral(chnkr, np.ones(chnkr.npt)), 2.0 * np.pi, atol=1e-13)
     np.testing.assert_allclose(
@@ -275,8 +275,8 @@ def test_chunkerintegral_accepts_values_and_callables():
 def test_chunkerinterior_classifies_points_and_grids():
     square = chunkerpoly(
         np.array([[0.0, 1.0, 1.0, 0.0], [0.0, 0.0, 1.0, 1.0]]),
-        {"ifclosed": True},
-        {"k": 8},
+        closed=True,
+        order=8,
     )
 
     pts = np.array([[0.5, 1.5, 0.25], [0.5, 0.5, 1.25]])
@@ -287,7 +287,7 @@ def test_chunkerinterior_classifies_points_and_grids():
 
 
 def test_chunkerinterior_fmm_matches_direct_with_close_correction(monkeypatch):
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 8}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=8, order=8)
     pts = np.array([[0.0, 1.25, 0.999999, 1.000001], [0.0, 0.0, 0.0, 0.0]])
     expected = np.array([True, False, True, False])
     calls = []
@@ -300,7 +300,7 @@ def test_chunkerinterior_fmm_matches_direct_with_close_correction(monkeypatch):
     monkeypatch.setattr(operators_mod, "chunkerkerneval", wrapped)
 
     direct = operators_mod.chunkerinterior(chnkr, pts)
-    via_fmm = operators_mod.chunkerinterior(chnkr, pts, {"acceleration": "fmm", "near_fac": 0.25})
+    via_fmm = operators_mod.chunkerinterior(chnkr, pts, acceleration="fmm", near_factor=0.25)
 
     assert calls and calls[0]["acceleration"] == "fmm"
     np.testing.assert_array_equal(direct, expected)

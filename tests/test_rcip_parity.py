@@ -84,7 +84,7 @@ def test_corner_refine_matches_matlab_corner_topology_fixture():
         np.asarray(case.verts, dtype=float),
         np.asarray(case.edgesendverts0, dtype=int),
         pref={"k": scalar_int(case.k)},
-        cparams={"nchmin": scalar_int(case.nchmin)},
+        cparams={"_chunkie_normalized_geometry_options": True, "nchmin": scalar_int(case.nchmin)},
     )
     vertex = scalar_int(case.vertex0)
     depth = scalar_int(case.depth)
@@ -115,7 +115,7 @@ def test_chunkgraph_rcip_driver_matches_matlab_fixture(driver):
         kernel("lap", "d"),
         scalar_int(case.ndim),
         vertices=as_1d(case.vertices0, int),
-        opts={"nsub": scalar_int(case.nsub), "rcip_savedepth": scalar_int(case.rcip_savedepth)},
+        opts={"_chunkie_normalized_operator_options": True, "nsub": scalar_int(case.nsub), "rcip_savedepth": scalar_int(case.rcip_savedepth)},
     )
 
     assert isinstance(result, rcip.RCIPChunkGraphResult)

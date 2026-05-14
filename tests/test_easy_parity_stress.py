@@ -68,7 +68,7 @@ def _wobbly_curve(t):
 
 
 def _wobbly_chunker(k=8, nchmin=7):
-    chnkr, _ = chunkerfunc(_wobbly_curve, {"nchmin": nchmin, "ifrefine": False}, {"k": k})
+    chnkr, _ = chunkerfunc(_wobbly_curve, min_chunks=nchmin, refine=False, order=k)
     return chnkr
 
 
@@ -247,7 +247,7 @@ def test_schurbana_stress_matches_independent_block_update():
 def test_chunkgraph_rcip_stress_nonorthogonal_vertex_and_global_blocks():
     verts = np.array([[0.0, 1.25, 1.75, 0.55, -0.35], [0.0, -0.15, 0.9, 1.55, 0.75]])
     edges = np.vstack((np.arange(verts.shape[1]), np.roll(np.arange(verts.shape[1]), -1)))
-    cg = chunkgraph(verts, edges, pref={"k": 4}, cparams={"nchmin": 2})
+    cg = chunkgraph(verts, edges, pref={"k": 4}, cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 2})
     nedge = len(cg.echnks)
     blocks = np.empty((nedge, nedge), dtype=object)
     lap_d = kernel("lap", "d")
@@ -261,7 +261,7 @@ def test_chunkgraph_rcip_stress_nonorthogonal_vertex_and_global_blocks():
         1,
         vertices=[1, 3],
         ignore_vertices=[3],
-        opts={"nsub": 2, "rcip_savedepth": 2},
+        opts={"_chunkie_normalized_operator_options": True, "nsub": 2, "rcip_savedepth": 2},
     )
     expected_edges = np.asarray(cg.vstruc[1][0], dtype=int)
 
@@ -307,7 +307,7 @@ def test_interleaved_fmm_stress_matches_direct_on_wobbly_curve():
     ).reshape(-1, order="F")
 
     direct = chunkerkerneval(chnkr, mixed, density, targets)
-    via_fmm = chunkerkerneval(chnkr, mixed, density, targets, {"acceleration": "fmm", "eps": 1e-12})
+    via_fmm = chunkerkerneval(chnkr, mixed, density, targets, acceleration="fmm", tol=1e-12)
 
     np.testing.assert_allclose(via_fmm, direct, rtol=5e-9, atol=5e-10)
 

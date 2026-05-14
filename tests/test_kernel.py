@@ -16,7 +16,7 @@ def circle(t):
 
 
 def test_laplace_kernel_wrapper_evaluates_directly():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=4, order=8)
     kern = kernel("laplace", "d")
 
     vals = chunkerkerneval(chnkr, kern, np.ones(chnkr.npt), np.array([[0.0], [0.0]]))
@@ -27,7 +27,7 @@ def test_laplace_kernel_wrapper_evaluates_directly():
 
 
 def test_kernel_add_scale_zero_and_nan_behaviors():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=4, order=8)
     target = np.array([[0.0], [0.0]])
 
     zero = kernel("zero")
@@ -42,7 +42,7 @@ def test_kernel_add_scale_zero_and_nan_behaviors():
 
 
 def test_kernel_subtract_negate_divide_and_conjugate():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=4, order=8)
     target = np.array([[0.0], [0.0]])
     dens = np.ones(chnkr.npt)
 
@@ -57,20 +57,20 @@ def test_kernel_subtract_negate_divide_and_conjugate():
 
 
 def test_kernel_fmm_fallback_matches_direct_layer_evaluation():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=4, order=8)
     target = np.array([[0.25, -0.4], [0.1, 0.3]])
     dens = np.cos(chnkr.r.reshape(2, -1, order="F")[0])
     kern = kernel("lap", "s")
 
     direct = chunkerkerneval(chnkr, kern, dens, target)
-    via_fmm = chunkerkerneval(chnkr, kern, dens, target, {"acceleration": "fmm"})
+    via_fmm = chunkerkerneval(chnkr, kern, dens, target, acceleration="fmm")
 
     assert kern.fmm is not None
     np.testing.assert_allclose(via_fmm, direct)
 
 
 def test_fmm2dpy_laplace_gradient_and_helmholtz_layers_match_direct():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 5}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=5, order=8)
     target = np.array([[0.25, -0.4, 1.5], [0.1, 0.3, -0.2]])
     dens = np.cos(chnkr.r.reshape(2, -1, order="F")[0])
 
@@ -83,14 +83,14 @@ def test_fmm2dpy_laplace_gradient_and_helmholtz_layers_match_direct():
         kernel("helm", "sgrad", 1.3 + 0.2j),
     ):
         direct = chunkerkerneval(chnkr, kern, dens, target)
-        via_fmm = chunkerkerneval(chnkr, kern, dens, target, {"acceleration": "fmm", "eps": 1e-12})
+        via_fmm = chunkerkerneval(chnkr, kern, dens, target, acceleration="fmm", tol=1e-12)
 
         assert kern.fmm is not None
         np.testing.assert_allclose(via_fmm, direct, rtol=1e-9, atol=1e-10)
 
 
 def test_fmm2dpy_laplace_derived_selectors_match_direct():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 5}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=5, order=8)
     target = PointInfo(
         r=np.array([[0.25, -0.4, 1.5], [0.1, 0.3, -0.2]]),
         n=np.array([[1.0, 0.0, 0.6], [0.0, 1.0, 0.8]]),
@@ -106,14 +106,14 @@ def test_fmm2dpy_laplace_derived_selectors_match_direct():
         kernel("lap", "cg", [0.4, -0.7]),
     ):
         direct = chunkerkerneval(chnkr, kern, dens, target)
-        via_fmm = chunkerkerneval(chnkr, kern, dens, target, {"acceleration": "fmm", "eps": 1e-12})
+        via_fmm = chunkerkerneval(chnkr, kern, dens, target, acceleration="fmm", tol=1e-12)
 
         assert kern.fmm is not None
         np.testing.assert_allclose(via_fmm, direct, rtol=1e-9, atol=1e-10)
 
 
 def test_fmm2dpy_helmholtz_derived_selectors_match_direct():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 5}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=5, order=8)
     target = PointInfo(
         r=np.array([[0.25, -0.4, 1.5], [0.1, 0.3, -0.2]]),
         n=np.array([[1.0, 0.0, 0.6], [0.0, 1.0, 0.8]]),
@@ -128,7 +128,7 @@ def test_fmm2dpy_helmholtz_derived_selectors_match_direct():
         kernel("helm", "cp", 1.3 + 0.2j, [0.4, -0.7]),
     ):
         direct = chunkerkerneval(chnkr, kern, dens, target)
-        via_fmm = chunkerkerneval(chnkr, kern, dens, target, {"acceleration": "fmm", "eps": 1e-12})
+        via_fmm = chunkerkerneval(chnkr, kern, dens, target, acceleration="fmm", tol=1e-12)
 
         assert kern.fmm is not None
         np.testing.assert_allclose(via_fmm, direct, rtol=1e-9, atol=1e-10)
@@ -235,7 +235,7 @@ def test_biharmonic_laplacian_fmm_reuses_laplace_single_layer(monkeypatch):
 
 
 def test_fmm2dpy_biharmonic_selectors_match_direct():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 5}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=5, order=8)
     target = PointInfo(
         r=np.array([[0.25, -0.4, 1.5], [0.1, 0.3, -0.2]]),
         n=np.array([[1.0, 0.0, 0.6], [0.0, 1.0, 0.8]]),
@@ -251,14 +251,14 @@ def test_fmm2dpy_biharmonic_selectors_match_direct():
         kernel("biharm", "sp"),
     ):
         direct = chunkerkerneval(chnkr, kern, dens, target)
-        via_fmm = chunkerkerneval(chnkr, kern, dens, target, {"acceleration": "fmm", "eps": 1e-12})
+        via_fmm = chunkerkerneval(chnkr, kern, dens, target, acceleration="fmm", tol=1e-12)
 
         assert kern.fmm is not None
         np.testing.assert_allclose(via_fmm, direct, rtol=1e-9, atol=1e-10)
 
 
 def test_fmm2dpy_stokes_layers_match_direct():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 5}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=5, order=8)
     target = np.array([[0.25, -0.4, 1.5], [0.1, 0.3, -0.2]])
     pts = chnkr.r.reshape(2, -1, order="F")
     dens = np.vstack((np.cos(pts[0]), np.sin(pts[1]))).reshape(-1, order="F")
@@ -275,7 +275,7 @@ def test_fmm2dpy_stokes_layers_match_direct():
         kernel("stok", "cgrad", 1.7, [0.4, -0.2]),
     ):
         direct = chunkerkerneval(chnkr, kern, dens, target)
-        via_fmm = chunkerkerneval(chnkr, kern, dens, target, {"acceleration": "fmm", "eps": 1e-12})
+        via_fmm = chunkerkerneval(chnkr, kern, dens, target, acceleration="fmm", tol=1e-12)
 
         assert kern.fmm is not None
         np.testing.assert_allclose(via_fmm, direct, rtol=1e-9, atol=1e-10)
@@ -319,7 +319,7 @@ def test_stokes_traction_fmm_reconstructs_stress_from_pressure_and_gradient(monk
 
 
 def test_fmm2dpy_elasticity_selectors_match_direct():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 5}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=5, order=8)
     target = PointInfo(
         r=np.array([[0.25, -0.4, 1.5], [0.1, 0.3, -0.2]]),
         n=np.array([[1.0, 0.0, 0.6], [0.0, 1.0, 0.8]]),
@@ -337,27 +337,27 @@ def test_fmm2dpy_elasticity_selectors_match_direct():
         kernel("elast", "dalttrac", 1.5, 2.1),
     ):
         direct = chunkerkerneval(chnkr, kern, dens, target)
-        via_fmm = chunkerkerneval(chnkr, kern, dens, target, {"acceleration": "fmm", "eps": 1e-12})
+        via_fmm = chunkerkerneval(chnkr, kern, dens, target, acceleration="fmm", tol=1e-12)
 
         assert kern.fmm is not None
         np.testing.assert_allclose(via_fmm, direct, rtol=1e-9, atol=1e-10)
 
 
 def test_kernel_fmm_fallback_tracks_kernel_algebra():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=4, order=8)
     target = np.array([[0.25], [0.1]])
     dens = np.ones(chnkr.npt)
     combined = 2.0 * kernel("lap", "s") - kernel("lap", "d")
 
     direct = chunkerkerneval(chnkr, combined, dens, target)
-    via_fmm = chunkerkerneval(chnkr, combined, dens, target, {"acceleration": "fmm"})
+    via_fmm = chunkerkerneval(chnkr, combined, dens, target, acceleration="fmm")
 
     assert combined.fmm is not None
     np.testing.assert_allclose(via_fmm, direct)
 
 
 def test_kernel_interleave_builds_mixed_block_systems():
-    chnkr, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
+    chnkr, _ = chunkerfunc(circle, min_chunks=4, order=8)
     target = np.array([[0.25, -0.4], [0.1, 0.3]])
     dens = np.vstack((np.ones(chnkr.npt), 2.0 * np.ones(chnkr.npt))).reshape(-1, order="F")
 
@@ -371,7 +371,7 @@ def test_kernel_interleave_builds_mixed_block_systems():
     vals = chunkerkerneval(chnkr, mixed, dens, target)
 
     np.testing.assert_allclose(vals.reshape(-1, order="F"), mat @ (dens * np.repeat(chnkr.wts.reshape(-1, order="F"), 2)))
-    np.testing.assert_allclose(chunkerkerneval(chnkr, mixed, dens, target, {"acceleration": "fmm"}), vals, atol=1e-14)
+    np.testing.assert_allclose(chunkerkerneval(chnkr, mixed, dens, target, acceleration="fmm"), vals, atol=1e-14)
 
 
 def test_interleaved_helmholtz_fmm_preserves_complex_output_for_real_density():

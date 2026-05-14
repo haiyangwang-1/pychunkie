@@ -14,8 +14,8 @@ def circle(t, radius=1.0, center=(0.0, 0.0)):
 
 
 def test_arcparam_evaluates_original_chunk_nodes():
-    a, _ = chunkerfunc(lambda t: circle(t, 1.0), {"nchmin": 4}, {"k": 16})
-    b, _ = chunkerfunc(lambda t: circle(t, 0.5, (3.0, 0.0)), {"nchmin": 4}, {"k": 16})
+    a, _ = chunkerfunc(lambda t: circle(t, 1.0), min_chunks=4, order=16)
+    b, _ = chunkerfunc(lambda t: circle(t, 0.5, (3.0, 0.0)), min_chunks=4, order=16)
     chnkr = merge([a, b])
 
     pdata = arcparam.init(chnkr)
@@ -35,7 +35,7 @@ def test_arcparam_evaluates_original_chunk_nodes():
 
 
 def test_arcparam_derivatives_are_consistent_on_circle():
-    chnkr, _ = chunkerfunc(lambda t: circle(t, 2.0), {"nchmin": 4}, {"k": 18})
+    chnkr, _ = chunkerfunc(lambda t: circle(t, 2.0), min_chunks=4, order=18)
     pdata = arcparam.init(chnkr)
     s = np.linspace(0.1, np.sum(chnkr.wts) - 0.1, 25)
     r, d, d2 = arcparam.eval(s, pdata)
@@ -53,7 +53,7 @@ def test_arcparam_derivatives_are_consistent_on_circle():
 
 
 def test_arcresample_makes_panel_speed_constant():
-    chnkr, _ = chunkerfunc(lambda t: circle(t, 1.5), {"nchmin": 5}, {"k": 16})
+    chnkr, _ = chunkerfunc(lambda t: circle(t, 1.5), min_chunks=5, order=16)
 
     resampled, eps = chnkr.arcresample()
 

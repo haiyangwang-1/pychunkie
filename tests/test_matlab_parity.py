@@ -611,7 +611,7 @@ def test_accelerated_operator_paths_match_matlab_fixture():
     np.testing.assert_allclose(dense, fixture.lap_s_mat, rtol=1e-12, atol=1e-13)
     np.testing.assert_allclose(dense @ rhs, fixture.lap_s_apply, rtol=1e-12, atol=1e-13)
 
-    fmm_opts = {"acceleration": "fmm", "eps": 1e-12}
+    fmm_opts = {"_chunkie_normalized_operator_options": True, "acceleration": "fmm", "eps": 1e-12}
     fmm_op = chunkermat(chnkr, lap_s, fmm_opts)
     fmm_apply = chunkermatapply(chnkr, lap_s, rhs, fmm_opts)
     assert isinstance(fmm_op, ChunkerFMMMatrix)
@@ -620,6 +620,7 @@ def test_accelerated_operator_paths_match_matlab_fixture():
     np.testing.assert_allclose(fmm_op @ rhs, fixture.lap_s_apply, rtol=5e-10, atol=5e-11)
 
     flam_opts = {
+        "_chunkie_normalized_operator_options": True,
         "acceleration": "flam",
         "dval": 1.0,
         "occ": 8,
@@ -636,6 +637,7 @@ def test_accelerated_operator_paths_match_matlab_fixture():
     np.testing.assert_allclose(shifted @ sol, rhs, rtol=2e-8, atol=2e-10)
 
     flam_proxy_opts = {
+        "_chunkie_normalized_operator_options": True,
         "acceleration": "flam",
         "dval": 1.0,
         "occ": 8,
@@ -654,7 +656,7 @@ def test_accelerated_operator_paths_match_matlab_fixture():
         lap_s,
         np.asarray(fixture.density_scalar).reshape(-1, order="F"),
         fixture.targets,
-        {"acceleration": "flam", "rank_or_tol": 1e-10, "proxybylevel": True},
+        {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "rank_or_tol": 1e-10, "proxybylevel": True},
     )
     np.testing.assert_allclose(
         np.asarray(proxy_eval).reshape(-1, order="F"),
@@ -669,7 +671,7 @@ def test_accelerated_operator_paths_match_matlab_fixture():
         [block_12_kernel, block_scalar_kernel],
     ]
     block_rhs = np.asarray(fixture.block_rhs).reshape(-1, order="F")
-    block_dense = chunkermat(block_chunkers, block_kernels, {"quad": "native"})
+    block_dense = chunkermat(block_chunkers, block_kernels, {"_chunkie_normalized_operator_options": True, "quad": "native"})
     block_shifted = block_dense + float(fixture.block_dval) * np.eye(block_dense.shape[0])
 
     np.testing.assert_allclose(block_dense, fixture.block_dense, rtol=1e-12, atol=1e-13)
@@ -677,6 +679,7 @@ def test_accelerated_operator_paths_match_matlab_fixture():
         block_chunkers,
         block_kernels,
         {
+            "_chunkie_normalized_operator_options": True,
             "acceleration": "flam",
             "dval": float(fixture.block_dval),
             "quad": "native",
@@ -827,7 +830,7 @@ def test_rcip_recursive_compression_matches_matlab_fixture():
         kernel("lap", "d"),
         1,
         fixture.vert0,
-        opts={"nsub": 2, "rcip_savedepth": 2},
+        opts={"_chunkie_normalized_operator_options": True, "nsub": 2, "rcip_savedepth": 2},
     )
 
     np.testing.assert_allclose(rmat, fixture.R, rtol=1e-12, atol=1e-13)

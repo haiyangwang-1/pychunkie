@@ -26,7 +26,7 @@ def square_graph():
         ]
     )
     edges = np.array([[0, 1, 2, 3], [1, 2, 3, 0]])
-    return chunkgraph(verts, edges, pref={"k": 8}, cparams={"nchmin": 1})
+    return chunkgraph(verts, edges, pref={"k": 8}, cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 1})
 
 
 def test_chunkgraph_constructs_edges_and_vertex_incidence():
@@ -97,7 +97,7 @@ def test_chunkgraph_accepts_incidence_matrix_edges():
         ]
     )
 
-    cg = chunkgraph(verts, incidence, pref={"k": 6}, cparams={"nchmin": 1})
+    cg = chunkgraph(verts, incidence, pref={"k": 6}, cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 1})
 
     np.testing.assert_array_equal(cg.edgesendverts, np.array([[0, 1, 2, 3], [1, 2, 3, 0]]))
     np.testing.assert_array_equal(cg.v2emat, incidence)
@@ -159,13 +159,13 @@ def test_chunkgraph_works_with_dense_operator_helpers():
 def test_tochunkgraph_preserves_closed_and_open_components():
     closed = chunkerpoly(
         np.array([[0.0, 1.0, 1.0, 0.0], [0.0, 0.0, 1.0, 1.0]]),
-        {"ifclosed": True},
-        {"k": 8},
+        closed=True,
+        order=8,
     )
     open_line = chunkerpoly(
         np.array([[2.0, 3.0], [0.0, 0.0]]),
-        {"ifclosed": False},
-        {"k": 8},
+        closed=False,
+        order=8,
     )
 
     closed_graph = tochunkgraph(closed)
