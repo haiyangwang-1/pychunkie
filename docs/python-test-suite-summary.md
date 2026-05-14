@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 378 pytest cases because several MATLAB parity tests are
+collection expands to 379 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -1674,6 +1674,11 @@ normalization. The method compares force-smooth native assembly, which has
 infinite diagonal entries, to `quadggq.buildmat`, which uses special
 quadrature. Ground truth is finite special matrix entries and near-zero
 application to ones.
+
+`test_quadggq_rejects_unexpected_nonfinite_kernel_values` checks that GGQ
+special assembly no longer silently converts arbitrary nonfinite kernel output
+to zero. The method uses a log-special custom kernel returning `NaN` away from
+coincident source/target points and expects a `ValueError`.
 
 `test_chunkermat_uses_special_quadrature_for_log_kernels_by_default` checks
 public dispatch to log GGQ for singular kernels. The method calls

@@ -5,7 +5,7 @@ import pytest
 from scipy import sparse
 
 import chunkie.operators as operators_mod
-from chunkie import chunkerfunc, chunkerkerneval, chunkerkernevalmat, chunkermat, kernel, merge
+from chunkie import Kernel, chunkerfunc, chunkerkerneval, chunkerkernevalmat, chunkermat, kernel, merge
 from chunkie.quadrature import adaptive as quadadap
 from chunkie.quadrature import ggq as quadggq
 
@@ -68,6 +68,18 @@ def test_quadggq_buildmat_removes_laplace_single_layer_diagonal_infinities():
     assert np.isinf(np.diag(smooth)).all()
     assert np.isfinite(special).all()
     np.testing.assert_allclose(special @ np.ones(chnkr.npt), 0.0, atol=5e-5)
+
+
+def test_quadggq_rejects_unexpected_nonfinite_kernel_values():
+    chnkr, _ = chunkerfunc(circle, min_chunks=4, order=8)
+
+    def bad_kernel(src, targ):
+        return np.full((targ.r.shape[1], src.r.shape[1]), np.nan)
+
+    bad = Kernel(eval=bad_kernel, opdims=(1, 1), sing="log")
+
+    with pytest.raises(ValueError, match="non-finite values away from coincident"):
+        quadggq.buildmat(chnkr, bad)
 
 
 def test_chunkermat_uses_special_quadrature_for_log_kernels_by_default():

@@ -332,15 +332,15 @@ def diagbuildmat(
             data=dd[:, inode : inode + 1] if dd is not None else None,
         )
         weights = np.sqrt(np.sum(np.abs(src.d) ** 2, axis=0)) * aux.wts0[inode]
-        kvals = np.nan_to_num(_eval_kernel(kern, src, targ), nan=0.0, posinf=0.0, neginf=0.0)
+        kvals = _zero_coincident_nonfinite(_eval_kernel(kern, src, targ), src, targ, opdims, "GGQ self block")
         block = kvals * np.repeat(weights, int(opdims[1]))[None, :]
         rows = slice(int(opdims[0]) * inode, int(opdims[0]) * (inode + 1))
         out[rows, :] = block @ np.kron(interp, np.eye(int(opdims[1])))
     if corrections:
         src0 = PointInfo(r=rs, d=ds, d2=d2s, n=ns, data=dd)
-        smooth = np.array(_eval_kernel(kern, src0, src0), copy=True)
         op0 = int(opdims[0])
         op1 = int(opdims[1])
+        smooth = _zero_coincident_nonfinite(_eval_kernel(kern, src0, src0), src0, src0, opdims, "GGQ correction block")
         for inode in range(k):
             row = slice(op0 * inode, op0 * (inode + 1))
             col = slice(op1 * inode, op1 * (inode + 1))
@@ -393,7 +393,7 @@ def nearbuildmat(
         interp,
     )
     weights = np.sqrt(np.sum(np.abs(src.d) ** 2, axis=0)) * aux.wts1
-    kvals = np.nan_to_num(_eval_kernel(kern, src, targ), nan=0.0, posinf=0.0, neginf=0.0)
+    kvals = _zero_coincident_nonfinite(_eval_kernel(kern, src, targ), src, targ, opdims, "GGQ near block")
     mat = kvals * np.repeat(weights, int(opdims[1]))[None, :]
     out = mat @ np.kron(interp, np.eye(int(opdims[1])))
     if corrections:
@@ -443,6 +443,49 @@ def _native_panel_block(
     )
     smooth = _eval_kernel(kern, src, targ)
     return smooth * np.repeat(wtss_arr[:, src_chunk], int(opdims[1]))[None, :]
+
+
+def _zero_coincident_nonfinite(
+    values: np.ndarray,
+    src: PointInfo,
+    targ: PointInfo,
+    opdims: tuple[int, int],
+    context: str,
+) -> np.ndarray:
+    arr = np.array(values, copy=True)
+    nonfinite = ~np.isfinite(arr)
+    if not np.any(nonfinite):
+        return arr
+
+    expected = _coincident_kernel_mask(src, targ, opdims, arr.shape)
+    unexpected = nonfinite & ~expected
+    if np.any(unexpected):
+        raise ValueError(f"{context} kernel evaluation returned non-finite values away from coincident source/target points")
+    arr[nonfinite] = 0.0
+    return arr
+
+
+def _coincident_kernel_mask(
+    src: PointInfo,
+    targ: PointInfo,
+    opdims: tuple[int, int],
+    shape: tuple[int, ...],
+) -> np.ndarray:
+    op0 = int(opdims[0])
+    op1 = int(opdims[1])
+    nt = targ.r.shape[1]
+    ns = src.r.shape[1]
+    expected_shape = (op0 * nt, op1 * ns)
+    if tuple(shape) != expected_shape:
+        return np.zeros(shape, dtype=bool)
+    tol = 16.0 * np.finfo(float).eps * max(
+        1.0,
+        float(np.max(np.abs(src.r))) if src.r.size else 0.0,
+        float(np.max(np.abs(targ.r))) if targ.r.size else 0.0,
+    )
+    dist2 = np.sum((targ.r[:, :, None] - src.r[:, None, :]) ** 2, axis=0)
+    coincident = dist2 <= tol**2
+    return np.repeat(np.repeat(coincident, op0, axis=0), op1, axis=1)
 
 
 def _interpolated_pointinfo(

@@ -16,7 +16,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 ## Current Snapshot
 
 - Verification snapshot: `uv run pytest` on 2026-05-14 with Python 3.11.9
-  collected 378 tests: `378 passed`. Full MATLAB parity runs generate ignored
+  collected 379 tests: `379 passed`. Full MATLAB parity runs generate ignored
   `tests/golden/*.mat` files on demand and require a populated
   `external/chunkie-matlab` checkout.
 - The implemented surface covers core chunkers/chunkgraphs, domain helpers, kernel factories, dense/FMM/FLAM operator paths, GGQ/adaptive quadrature, RCIP helpers, Legendre utilities, and the lightweight rounded-polygon smoother.
@@ -411,9 +411,9 @@ their matching `@kernel` factories.
 | `buildmattd` | ✅ 🧪 🎯 | `+chnk/+quadggq/buildmattd.m` | Sparse special-block matrix, correction matrix, and `ilist` skipping are MATLAB-fixture tested. |
 | `setup` | ✅ 🧪 🎯 | `+chnk/+quadggq/setup.m` | Supports `log`, `removable`, `pv`, and `hs`; aux tables are MATLAB-fixture tested. |
 | `getlogquad` | ✅ 🧪 🎯 | `+chnk/+quadggq/getlogquad.m`, `ggqnear*`, `ggqself_*` | Reads packaged NumPy log near/self tables, with generated fallback for unavailable orders. |
-| `buildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/buildmat.m` | Log/PV/HS matrix assembly and `ilist` skipping are MATLAB-fixture tested. |
-| `diagbuildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/diagbuildmat.m` | Self-block and correction-block outputs are MATLAB-fixture tested. |
-| `nearbuildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/nearbuildmat.m` | Oversampled neighbor block and MATLAB-style correction subtraction are fixture-tested; operator dispatch can request pquad replacement for eligible split kernels, with oversampled GGQ/Gauss fallback. |
+| `buildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/buildmat.m` | Log/PV/HS matrix assembly and `ilist` skipping are MATLAB-fixture tested; unexpected nonfinite kernel output away from coincident source/target points is rejected instead of zero-filled. |
+| `diagbuildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/diagbuildmat.m` | Self-block and correction-block outputs are MATLAB-fixture tested; only coincident singular samples are zeroed during special assembly. |
+| `nearbuildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/nearbuildmat.m` | Oversampled neighbor block and MATLAB-style correction subtraction are fixture-tested; operator dispatch can request pquad replacement for eligible split kernels, with oversampled GGQ/Gauss fallback, and noncoincident nonfinite kernel values are rejected. |
 
 Log/PV/HS support tables are packaged as `.npz` assets and loaded with `importlib.resources`; runtime no longer depends on a MATLAB reference checkout for GGQ tables. `quadrature.adaptive` covers MATLAB-style log self, neighbor, and robust close replacement, and the operator path can request `quadrature.panel` for eligible close panels while retaining adaptive Gauss fallback. `quadrature.panel` now backs eligible close-target/correction matrices and opt-in GGQ/adaptive neighbor blocks; `quadba` is an explicit non-goal for this port.
 
