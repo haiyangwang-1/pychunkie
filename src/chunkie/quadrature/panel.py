@@ -584,7 +584,7 @@ def _normalize_side(side: str | None) -> str | None:
 def _default_side_tol(chnkr: Chunker, src_chunk: int) -> float:
     try:
         scale = float(chnkr.chunklen()[src_chunk])
-    except Exception:
+    except (AttributeError, IndexError, TypeError, ValueError, FloatingPointError):
         scale = 1.0
     return 1.0e-13 * max(1.0, scale)
 
