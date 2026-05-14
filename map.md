@@ -16,7 +16,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 ## Current Snapshot
 
 - Verification snapshot: `uv run pytest` on 2026-05-14 with Python 3.11.9
-  collected 380 tests: `380 passed`. Full MATLAB parity runs generate ignored
+  collected 381 tests: `381 passed`. Full MATLAB parity runs generate ignored
   `tests/golden/*.mat` files on demand and require a populated
   `external/chunkie-matlab` checkout.
 - The implemented surface covers core chunkers/chunkgraphs, domain helpers, kernel factories, dense/FMM/FLAM operator paths, GGQ/adaptive quadrature, RCIP helpers, Legendre utilities, and the lightweight rounded-polygon smoother.
@@ -358,7 +358,7 @@ their matching `@kernel` factories.
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
 | private kernel helpers | 🧩 ✅ | Internal Python helpers | Interleaving and validation helpers. |
-| `biharm2d.green` | ✅ 🧪 🎯 | `fmm2d/src/biharmonic/bhkernels2d.f`, `+chnk/+flex2d/bhgreen.m` concepts | Biharmonic Green value, gradient, Hessian, and Laplacian are compared against MATLAB `bhgreen`; gradient also checked by finite differences. |
+| `biharm2d.green` | ✅ 🧪 🎯 | `fmm2d/src/biharmonic/bhkernels2d.f`, `+chnk/+flex2d/bhgreen.m` concepts | Biharmonic Green value, gradient, Hessian, and Laplacian are compared against MATLAB `bhgreen`; gradient also checked by finite differences, and coincident points fill only removable value/gradient limits while preserving singular second-derivative nonfinite values. |
 | `biharm2d.kern` | ✅ 🧪 🎯 | Biharmonic/flex kernel concepts in MATLAB reference | Selectors for single, double, normal derivative, gradient, Hessian, and Laplacian are compared against MATLAB `bhgreen`-derived fixture data. |
 | `lap2d.green` | ✅ 🧪 🎯 | `+chnk/+lap2d/green.m` | Direct formula and derivatives are MATLAB-fixture tested. |
 | `helm2d.green`, `helm2d.helmdiffgreen` | ✅ 🧪 🎯 | `+chnk/+helm2d/green.m`, `helmdiffgreen.m` | Helmholtz value/gradient/Hessian and nonsingular Helmholtz-minus-Laplace Green data are MATLAB-fixture tested; coincident value and gradient limits for the Helmholtz-minus-Laplace kernel are filled analytically. |

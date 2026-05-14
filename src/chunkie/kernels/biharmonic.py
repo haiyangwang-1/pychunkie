@@ -27,10 +27,9 @@ def green(src: ArrayLike, targ: ArrayLike) -> tuple[np.ndarray, np.ndarray, np.n
         hess[:, :, 1] = x * y / (4.0 * np.pi * r2)
         hess[:, :, 2] = (logr2 + 1.0 + 2.0 * y**2 / r2) / (8.0 * np.pi)
         lap = (logr2 + 2.0) / (4.0 * np.pi)
-    val = np.nan_to_num(val, nan=0.0, neginf=0.0, posinf=0.0)
-    grad = np.nan_to_num(grad, nan=0.0, neginf=0.0, posinf=0.0)
-    hess = np.nan_to_num(hess, nan=0.0, neginf=0.0, posinf=0.0)
-    lap = np.nan_to_num(lap, nan=0.0, neginf=0.0, posinf=0.0)
+    coincident = r2 == 0.0
+    val[coincident] = 0.0
+    grad[coincident, :] = 0.0
     return val, grad, hess, lap
 
 

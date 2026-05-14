@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 380 pytest cases because several MATLAB parity tests are
+collection expands to 381 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -158,6 +158,12 @@ biharmonic Green's function `G = r^2 log(r) / (8 pi)`, implemented as
 `r2 log(r2) / (16 pi)`. The method evaluates `green` and compares the target
 `x` derivative to a centered finite difference with step `1e-6`. Ground truth
 is the finite-difference gradient and the identity `lap(G) = G_xx + G_yy`.
+
+`test_biharmonic_green_coincident_limits_preserve_singular_second_derivatives`
+checks coincident-source behavior in `biharm2d.green`. The method evaluates
+matching source/target points. Ground truth is zero value/gradient for the
+removable limits while Hessian and Laplacian entries remain nonfinite instead
+of being silently zero-filled.
 
 `test_biharmonic_kernel_selectors_and_factory_shapes` checks the selector
 surface for biharmonic single layer, double layer, target-normal derivative,

@@ -27,6 +27,18 @@ def test_biharmonic_green_gradient_matches_finite_difference():
     np.testing.assert_allclose(hess[:, :, 0] + hess[:, :, 2], lap)
 
 
+def test_biharmonic_green_coincident_limits_preserve_singular_second_derivatives():
+    pts = np.array([[0.0, 0.5], [0.0, -0.25]])
+
+    val, grad, hess, lap = biharm2d.green(pts, pts)
+    diag = np.diag_indices(pts.shape[1])
+
+    np.testing.assert_allclose(val[diag], 0.0)
+    np.testing.assert_allclose(grad[diag[0], diag[1], :], 0.0)
+    assert not np.isfinite(hess[diag[0], diag[1], :]).all()
+    assert not np.isfinite(lap[diag]).all()
+
+
 def test_biharmonic_kernel_selectors_and_factory_shapes():
     src = PointInfo(r=np.array([[0.0, 1.0], [0.0, 0.0]]), n=np.array([[1.0, 0.0], [0.0, 1.0]]))
     targ = PointInfo(r=np.array([[0.2, -0.4, 0.7], [1.0, 0.3, -0.2]]), n=np.array([[0.0, 1.0, 0.0], [1.0, 0.0, 1.0]]))
