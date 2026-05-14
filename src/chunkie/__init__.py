@@ -22,19 +22,6 @@ explicitly when forming a particular interior or exterior BVP equation.
 """
 
 from . import lege
-from .domain import (
-    HypOctNode,
-    HypOctTree,
-    checkcurveparam,
-    ellipse,
-    hypoct_uni,
-    mergeregions,
-    nonflatinterface,
-    pointinregion,
-    redblue,
-    regioninside,
-    starfish,
-)
 from .geometry import PointInfo
 from .geometry.chunker import (
     Chunker,
@@ -47,6 +34,19 @@ from .geometry.chunker import (
     merge,
 )
 from .geometry.chunkgraph import ChunkGraph, chunkgraphinregion, find_edge_regions, tochunkgraph
+from .geometry.domain import (
+    HypOctNode,
+    HypOctTree,
+    checkcurveparam,
+    ellipse,
+    hypoct_uni,
+    mergeregions,
+    nonflatinterface,
+    pointinregion,
+    redblue,
+    regioninside,
+    starfish,
+)
 from .kernels import Kernel, kernel
 from .operators import (
     ChunkerFLAMMatrix,

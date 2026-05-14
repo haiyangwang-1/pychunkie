@@ -34,12 +34,6 @@ src/
     ├── __init__.py
     ├── _layout.py
     │   └── private boundary vector/tensor adapter helpers
-    ├── domain.py
-    │   ├── checkcurveparam, ellipse, starfish, nonflatinterface
-    │   ├── redblue, hypoct_uni
-    │   ├── pointinregion, regioninside, mergeregions
-    │   ├── class HypOctNode, class HypOctTree
-    │   └── private helpers
     ├── operators.py
     │   ├── class ChunkerFMMMatrix
     │   ├── class ChunkerFLAMMatrix
@@ -56,6 +50,12 @@ src/
     │       └── proxyfun, proxyfunr
     ├── geometry/
     │   ├── __init__.py
+    │   ├── domain.py
+    │   │   ├── checkcurveparam, ellipse, starfish, nonflatinterface
+    │   │   ├── redblue, hypoct_uni
+    │   │   ├── pointinregion, regioninside, mergeregions
+    │   │   ├── class HypOctNode, class HypOctTree
+    │   │   └── private helpers
     │   ├── chunker.py
     │   │   ├── class ChunkerPref, class Chunker
     │   │   ├── chunkerfunc, chunkerfuncuni, chunkerfit, chunkerpoly, chunkerpoints
@@ -144,8 +144,8 @@ src/
 - ✅ [src/chunkie/__init__.py](src/chunkie/__init__.py) exports the public Python API. MATLAB has no direct single-file equivalent; it is a Python package facade over MATLAB class folders and package folders, with Python-first shape/naming guidance documented in `CONTRIBUTING.md`.
 - 🧩 ✅ 🧪 [src/chunkie/_layout.py](src/chunkie/_layout.py) centralizes flat boundary-vector, point-matrix, chunk-tensor, weighted-density, and component-interleaved kernel-matrix adapter conversions used at solver/backend, sparse, FMM, FLAM, and fixture boundaries.
 - ✅ 🧪 [src/chunkie/acceleration/__init__.py](src/chunkie/acceleration/__init__.py) exposes FLAM callback/proxy helper modules.
-- ✅ 🧪 [src/chunkie/domain.py](src/chunkie/domain.py) implements top-level MATLAB geometry/domain helpers exported from the Python package facade.
-- ✅ 🧪 [src/chunkie/geometry/__init__.py](src/chunkie/geometry/__init__.py) exposes `Chunker`, `ChunkerPref`, `ChunkGraph`, chunker constructors, graph helpers, `PointInfo`, curve helpers, and the geometry submodules. Pure MATLAB-style class-constructor aliases (`chunker`, `chunkerpref`, `chunkgraph`) have been removed from the package facade; use `Chunker`, `ChunkerPref.from_any`, and `ChunkGraph`.
+- ✅ 🧪 [src/chunkie/geometry/domain.py](src/chunkie/geometry/domain.py) implements top-level MATLAB geometry/domain helpers exported from the Python package facade and the geometry package.
+- ✅ 🧪 [src/chunkie/geometry/__init__.py](src/chunkie/geometry/__init__.py) exposes `Chunker`, `ChunkerPref`, `ChunkGraph`, chunker constructors, graph helpers, `PointInfo`, curve helpers, domain helpers, and the geometry submodules. Pure MATLAB-style class-constructor aliases (`chunker`, `chunkerpref`, `chunkgraph`) have been removed from the package facade; use `Chunker`, `ChunkerPref.from_any`, and `ChunkGraph`.
 - ✅ 🧪 [src/chunkie/kernels/__init__.py](src/chunkie/kernels/__init__.py) exposes the `Kernel` factory/algebra layer plus concrete Laplace, Helmholtz, Stokes, biharmonic, and elasticity kernel-family modules.
 - ✅ 🧪 [src/chunkie/misc/__init__.py](src/chunkie/misc/__init__.py) exposes arclength parametrization, lightweight smoother, and `absconvgauss` helper modules.
 - ✅ 🧪 [src/chunkie/quadrature/__init__.py](src/chunkie/quadrature/__init__.py) exposes Python-native quadrature modules for native, GGQ, adaptive, panel-product, and RCIP workflows.
@@ -249,9 +249,9 @@ src/
 | `translate`, `transform`, `rotate`, `reflect` | ✅ 🧪 🎯 | `@chunkgraph/plus.m`, `mtimes.m`, `rotate.m`, `reflect.m` | Translation/transform graph workflows have MATLAB fixture parity. |
 | `onesmat`, `normonesmat` | ✅ 🧪 🎯 | `@chunkgraph/onesmat.m`, `normonesmat.m` | Dense helper tests plus MATLAB fixture parity. |
 
-#### `domain.py`
+#### `geometry/domain.py`
 
-- ✅ 🧪 🎯 [src/chunkie/domain.py](src/chunkie/domain.py) maps top-level MATLAB geometry/domain helpers.
+- ✅ 🧪 🎯 [src/chunkie/geometry/domain.py](src/chunkie/geometry/domain.py) maps top-level MATLAB geometry/domain helpers.
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |

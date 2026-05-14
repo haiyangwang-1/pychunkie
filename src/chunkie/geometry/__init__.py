@@ -16,9 +16,22 @@ from .chunker import (
     merge,
 )
 from .chunkgraph import ChunkGraph, chunkgraphinregion, find_edge_regions, tochunkgraph
+from .domain import (
+    HypOctNode,
+    HypOctTree,
+    checkcurveparam,
+    ellipse,
+    hypoct_uni,
+    mergeregions,
+    nonflatinterface,
+    pointinregion,
+    redblue,
+    regioninside,
+    starfish,
+)
 from .pointinfo import PointInfo
 
-_SUBMODULES = {"chunker", "chunkgraph", "curves", "pointinfo"}
+_SUBMODULES = {"chunker", "chunkgraph", "curves", "domain", "pointinfo"}
 
 
 def __getattr__(name: str) -> Any:
@@ -33,6 +46,9 @@ __all__ = [
     "Chunker",
     "ChunkerPref",
     "ChunkGraph",
+    "HypOctNode",
+    "HypOctTree",
+    "checkcurveparam",
     "chunkerfit",
     "chunkerfunc",
     "chunkerfuncuni",
@@ -42,8 +58,17 @@ __all__ = [
     "chunkgraph",
     "chunkgraphinregion",
     "curves",
+    "domain",
+    "ellipse",
     "find_edge_regions",
+    "hypoct_uni",
+    "mergeregions",
     "merge",
+    "nonflatinterface",
     "PointInfo",
+    "pointinregion",
+    "redblue",
+    "regioninside",
+    "starfish",
     "tochunkgraph",
 ]

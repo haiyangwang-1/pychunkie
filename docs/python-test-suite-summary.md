@@ -135,7 +135,8 @@ responsibility packages expose stable names while lazily loading heavier
 submodules only when accessed. These tests restore any temporarily unloaded
 modules so later monkeypatch tests observe the same module objects used by
 operator dispatch. The geometry package still exposes `chunker` and
-`chunkgraph` as submodules, not as constructor aliases.
+`chunkgraph` as submodules, not as constructor aliases, and now owns the
+domain-helper submodule exported through the top-level facade.
 
 ## `tests/test_arcparam.py`
 

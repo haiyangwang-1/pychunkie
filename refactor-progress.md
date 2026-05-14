@@ -440,3 +440,39 @@ Remaining work:
 
 - None for this refactor. Delete or rewrite future docs when their subject no
   longer has a clear living-doc purpose.
+
+## Stage 8: Responsibility Package Split
+
+Status: in progress
+
+Goals:
+
+- Move domain helpers under `chunkie.geometry` while preserving the top-level
+  facade names.
+- Move RCIP out of `chunkie.quadrature` into its own responsibility package.
+- Convert the large operator coordinator into a package and peel off stable
+  support modules without changing numerical behavior.
+- Decide whether FMM adapter code has a clean `chunkie.acceleration` boundary.
+- Avoid adding a kernel ABC unless it removes real complexity beyond the
+  existing `Kernel` wrapper.
+
+Acceptance:
+
+- Public tests import the new responsibility packages directly.
+- Existing top-level facade APIs continue to serve the documented Python-first
+  public surface.
+- `uv run ruff check .`, `uv run mypy`, and relevant pytest runs pass after
+  each structural step.
+
+Completed notes:
+
+- Domain helpers moved from `src/chunkie/domain.py` to
+  `src/chunkie/geometry/domain.py`; `chunkie.geometry` now exports the domain
+  helper names, and the top-level facade imports them from the geometry package.
+
+Remaining work:
+
+- RCIP package split.
+- Operators package split.
+- FMM acceleration boundary decision and any small adapter move that follows
+  from it.

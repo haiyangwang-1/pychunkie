@@ -7,7 +7,8 @@ notes, but Python code no longer mirrors those package names.
 ## Summary
 
 - `chunkie.geometry`: `Chunker`, `ChunkerPref`, `ChunkGraph`, chunker
-  constructors, polygon helpers, `PointInfo`, and curve helpers.
+  constructors, polygon helpers, `PointInfo`, curve helpers, and domain
+  helpers.
 - `chunkie.misc`: arclength parametrization, smoother helpers, and
   `absconvgauss`.
 - `chunkie.quadrature`: native dense assembly, GGQ, adaptive correction, panel
@@ -27,6 +28,7 @@ have compatibility wrappers.
 | `src/chunkie/chnk/__init__.py` | removed | The `chunkie.chnk` namespace was deleted. |
 | `src/chunkie/chunker.py` | `src/chunkie/geometry/chunker.py` | `Chunker`, `ChunkerPref`, chunker constructors, merge helpers, and keyword-only option APIs. |
 | `src/chunkie/chunkgraph.py` | `src/chunkie/geometry/chunkgraph.py` | `ChunkGraph`, graph constructors, region helpers, graph refinement, and graph near-flag methods. |
+| `src/chunkie/domain.py` | `src/chunkie/geometry/domain.py` | Top-level curve, region, and hyperoctree domain helpers. |
 | `src/chunkie/_chunker_polygon.py` | `src/chunkie/geometry/_chunker_polygon.py` | Private polygon construction helpers used by `chunkerpoly`. |
 | `src/chunkie/geometry/predicates.py` | removed | Dead public helpers were deleted. The nearest-panel routine is now private in `geometry/_nearest.py`. |
 | `src/chunkie/operators.py::PointInfo` | `src/chunkie/geometry/pointinfo.py` | Public construction is through `PointInfo.from_chunker`, `from_points`, and `from_mapping`. |
@@ -56,6 +58,7 @@ have compatibility wrappers.
 | `from chunkie import Chunker, ChunkGraph, chunkerfunc` | unchanged top-level facade, backed by `chunkie.geometry` |
 | `from chunkie.chunker import Chunker` | `from chunkie.geometry import Chunker` |
 | `from chunkie.chunkgraph import ChunkGraph` | `from chunkie.geometry import ChunkGraph` |
+| `from chunkie import ellipse, pointinregion` | unchanged top-level facade, backed by `chunkie.geometry.domain` |
 | `from chunkie.geometry import flagself` | removed |
 | `from chunkie.geometry import perp, normal2d, curvature2d` | removed; use direct NumPy expressions or `Chunker.normals()` / `Chunker.signed_curvature()` where applicable |
 | `from chunkie.geometry import chunk_nearparam` | removed public API; use `Chunker.nearest(...)` |

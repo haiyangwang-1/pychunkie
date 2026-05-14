@@ -91,6 +91,7 @@ def test_geometry_public_exports_are_stable_and_lazy():
         "chunkie.geometry.chunker",
         "chunkie.geometry.chunkgraph",
         "chunkie.geometry.curves",
+        "chunkie.geometry.domain",
         "chunkie.geometry.pointinfo",
         "chunkie.geometry",
     ):
@@ -99,6 +100,9 @@ def test_geometry_public_exports_are_stable_and_lazy():
             "Chunker",
             "ChunkerPref",
             "ChunkGraph",
+            "HypOctNode",
+            "HypOctTree",
+            "checkcurveparam",
             "chunker",
             "chunkerfit",
             "chunkerfunc",
@@ -108,9 +112,18 @@ def test_geometry_public_exports_are_stable_and_lazy():
             "chunkgraph",
             "chunkgraphinregion",
             "curves",
+            "domain",
+            "ellipse",
             "find_edge_regions",
+            "hypoct_uni",
+            "mergeregions",
             "merge",
+            "nonflatinterface",
             "PointInfo",
+            "pointinregion",
+            "redblue",
+            "regioninside",
+            "starfish",
             "tochunkgraph",
         }
         assert set(geometry.__all__) == expected
@@ -118,6 +131,7 @@ def test_geometry_public_exports_are_stable_and_lazy():
             PointInfo,
             chunkerfunc,
             curves,
+            domain,
         )
         from chunkie.geometry import (
             chunker as chunker_module,
@@ -129,6 +143,7 @@ def test_geometry_public_exports_are_stable_and_lazy():
         assert chunker_module.__name__ == "chunkie.geometry.chunker"
         assert chunkgraph_module.__name__ == "chunkie.geometry.chunkgraph"
         assert curves.__name__ == "chunkie.geometry.curves"
+        assert domain.__name__ == "chunkie.geometry.domain"
         assert PointInfo.__name__ == "PointInfo"
         assert callable(chunkerfunc)
 

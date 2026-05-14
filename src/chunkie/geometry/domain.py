@@ -11,7 +11,7 @@ from numpy.typing import ArrayLike
 
 from chunkie._layout import as_boundary_point_matrix
 
-from .geometry.chunkgraph import ChunkGraph
+from .chunkgraph import ChunkGraph
 
 
 def checkcurveparam(fcurve: Callable[[np.ndarray], Any], ta: ArrayLike, nout: int = 3) -> int:
