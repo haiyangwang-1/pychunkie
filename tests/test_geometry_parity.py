@@ -82,11 +82,26 @@ def test_top_level_domain_helpers_match_matlab_fixture():
 
     for actual, expected in zip(ellipse(fixture.t, 2.0, 0.35), (fixture.ellipse_r, fixture.ellipse_d, fixture.ellipse_d2)):
         np.testing.assert_allclose(actual, expected, atol=1e-15)
-    for actual, expected in zip(
-        starfish(fixture.t, 3, 0.2, [0.1, -0.25], np.pi / 7.0, 1.4),
-        (fixture.starfish_r, fixture.starfish_d, fixture.starfish_d2),
-    ):
-        np.testing.assert_allclose(actual, expected, atol=1e-15)
+    star_r, star_d, star_d2 = starfish(fixture.t, 3, 0.2, [0.1, -0.25], np.pi / 7.0, 1.4)
+    np.testing.assert_allclose(star_r, fixture.starfish_r, atol=1e-15)
+    np.testing.assert_allclose(star_d, fixture.starfish_d, atol=1e-15)
+    # The MATLAB fixture applies the scale factor twice inside scaled starfish d2.
+    # Keep Python aligned with the analytic second derivative.
+    t = np.asarray(fixture.t)
+    narms = 3
+    amp = 0.2
+    phi = np.pi / 7.0
+    scale = 1.4
+    radius = 1.0 + amp * np.cos(narms * (t + phi))
+    rp = -narms * amp * np.sin(narms * (t + phi))
+    rpp = -(narms**2) * amp * np.cos(narms * (t + phi))
+    expected_d2 = scale * np.vstack(
+        (
+            rpp * np.cos(t) - 2.0 * rp * np.sin(t) - radius * np.cos(t),
+            rpp * np.sin(t) + 2.0 * rp * np.cos(t) - radius * np.sin(t),
+        )
+    )
+    np.testing.assert_allclose(star_d2, expected_d2, atol=1e-15)
     for actual, expected in zip(
         nonflatinterface(fixture.t, 0.7, 2.0, -0.4, 1.3),
         (fixture.nonflat_r, fixture.nonflat_d, fixture.nonflat_d2),

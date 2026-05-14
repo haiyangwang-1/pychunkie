@@ -41,6 +41,9 @@ _KERNEL_PROBE_EXCEPTIONS = (
 )
 
 
+_DIRECT_FMM_FALLBACK_ATTR = "_chunkie_direct_fmm_fallback"
+
+
 @dataclass
 class Kernel:
     """Callable PDE layer kernel with assembly metadata.
@@ -110,11 +113,17 @@ class Kernel:
             return nans(*self.opdims)
         params = self.params.copy()
         params["_scale"] = params.get("_scale", 1.0) * scalar
+        scaled_fmm = None
+        if self.fmm is not None:
+            scaled_fmm = _derived_fmm(
+                lambda eps, s, t, sigma: _scale_fmm(self.fmm(eps, s, t, sigma), scalar),
+                self.fmm,
+            )
         return Kernel(
             name=self.name,
             type=self.type,
             eval=lambda s, t: scalar * self(s, t),
-            fmm=None if self.fmm is None else lambda eps, s, t, sigma: _scale_fmm(self.fmm(eps, s, t, sigma), scalar),
+            fmm=scaled_fmm,
             opdims=self.opdims,
             sing=self.sing,
             params=params,
@@ -138,11 +147,17 @@ class Kernel:
         params = self.params.copy()
         if "_scale" in params:
             params["_scale"] = np.conj(params["_scale"])
+        conj_fmm = None
+        if self.fmm is not None:
+            conj_fmm = _derived_fmm(
+                lambda eps, s, t, sigma: _conj_fmm(self.fmm(eps, s, t, sigma)),
+                self.fmm,
+            )
         return Kernel(
             name=self.name,
             type=self.type,
             eval=lambda s, t: np.conj(self(s, t)),
-            fmm=None if self.fmm is None else lambda eps, s, t, sigma: _conj_fmm(self.fmm(eps, s, t, sigma)),
+            fmm=conj_fmm,
             opdims=self.opdims,
             sing=self.sing,
             params=params,
@@ -546,7 +561,27 @@ def _direct_fmm(func: Callable[[Any, Any], np.ndarray]) -> Callable[[float, Any,
         targ = PointInfo.from_any(targinfo)
         return func(src, targ) @ np.asarray(sigma).reshape(-1, order="F")
 
-    return fmm_eval
+    return _mark_direct_fmm_fallback(fmm_eval)
+
+
+def _mark_direct_fmm_fallback(
+    fmm: Callable[[float, Any, Any, np.ndarray], Any],
+) -> Callable[[float, Any, Any, np.ndarray], Any]:
+    setattr(fmm, _DIRECT_FMM_FALLBACK_ATTR, True)
+    return fmm
+
+
+def _is_direct_fmm_fallback(fmm: Callable[[float, Any, Any, np.ndarray], Any] | None) -> bool:
+    return bool(getattr(fmm, _DIRECT_FMM_FALLBACK_ATTR, False))
+
+
+def _derived_fmm(
+    fmm: Callable[[float, Any, Any, np.ndarray], Any],
+    *parents: Callable[[float, Any, Any, np.ndarray], Any] | None,
+) -> Callable[[float, Any, Any, np.ndarray], Any]:
+    if any(_is_direct_fmm_fallback(parent) for parent in parents):
+        _mark_direct_fmm_fallback(fmm)
+    return fmm
 
 
 def _lap2d_fmm(kind: str, coefs: Any | None = None) -> Callable[[float, Any, Any, np.ndarray], np.ndarray] | None:
@@ -970,7 +1005,7 @@ def _sum_raw_fmm(
     def fmm_eval(eps: float, srcinfo: Any, targinfo: Any, sigma: np.ndarray) -> np.ndarray:
         return left_scale * left(eps, srcinfo, targinfo, sigma) + right_scale * right(eps, srcinfo, targinfo, sigma)
 
-    return fmm_eval
+    return _derived_fmm(fmm_eval, left, right)
 
 
 def _target_count(targinfo: Any) -> int:
@@ -984,7 +1019,7 @@ def _sum_fmm(left: Kernel, right: Kernel, sign: float) -> Callable[[float, Any, 
     def fmm_eval(eps: float, srcinfo: Any, targinfo: Any, sigma: np.ndarray) -> Any:
         return _add_fmm(left.fmm(eps, srcinfo, targinfo, sigma), right.fmm(eps, srcinfo, targinfo, sigma), sign)
 
-    return fmm_eval
+    return _derived_fmm(fmm_eval, left.fmm, right.fmm)
 
 
 def _add_fmm(left: Any, right: Any, sign: float) -> Any:
@@ -1062,7 +1097,7 @@ def _interleave_fmm(
             out[ridx] = accum
         return out
 
-    return fmm_eval
+    return _derived_fmm(fmm_eval, *(item.fmm for item in items.flat))
 
 
 def _infer_opdims(func: Callable[[Any, Any], np.ndarray]) -> tuple[int, int]:

@@ -68,10 +68,12 @@ def starfish(
 
     xs = center[0] + radius * ct * scale
     ys = center[1] + radius * st * scale
-    dxs = (-(radius) * st - narms * amp * snt * ct) * scale
-    dys = (radius * ct - narms * amp * snt * st) * scale
-    d2xs = (-dys - narms * amp * (narms * cnt * ct - snt * st)) * scale
-    d2ys = (dxs - narms * amp * (narms * cnt * st + snt * ct)) * scale
+    dx = -(radius) * st - narms * amp * snt * ct
+    dy = radius * ct - narms * amp * snt * st
+    dxs = dx * scale
+    dys = dy * scale
+    d2xs = (-dy - narms * amp * (narms * cnt * ct - snt * st)) * scale
+    d2ys = (dx - narms * amp * (narms * cnt * st + snt * ct)) * scale
     r = np.vstack((xs, ys))
     d = np.vstack((dxs, dys))
     d2 = np.vstack((d2xs, d2ys))

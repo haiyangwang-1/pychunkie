@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 369 pytest cases because several MATLAB parity tests are
+collection expands to 373 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -83,7 +83,8 @@ Current test-backed coverage includes:
 - Core geometry/domain/chunkgraph behavior, Legendre helpers, point-kernel
   evaluators, dense/native operators, scalar and block-kernel FMM
   acceleration, FMM target-evaluation materialization, PyFLAM acceleration,
-  special quadrature, RCIP helper/compression workflows, and default
+  FMM dense-fallback warnings, special quadrature, adaptive failure warnings,
+  RCIP helper/compression workflows, and default
   chunkgraph RCIP integration in dense operator assembly/evaluation.
 - Public API contract guards for top-level `chunkie` exports and lazy
   responsibility-package exports under `acceleration`, `geometry`, `kernels`,
@@ -460,6 +461,11 @@ coordinates.
 curve helpers. The method evaluates `ellipse` and `starfish`; ground truth is
 the analytic ellipse formula and equality with the existing
 `geometry.curves.starfish` implementation for a shifted/scaled starfish.
+
+`test_scaled_starfish_second_derivatives_scale_linearly` checks the scaled
+starfish second derivative formula in both the top-level domain helper and
+`geometry.curves.starfish`. Ground truth is the analytic polar-curve second
+derivative, which scales linearly with the starfish `scale` parameter.
 
 `test_checkcurveparam_validates_dimension_and_output_shapes` checks the
 MATLAB-style curve callback validator. The method calls `checkcurveparam` on a
@@ -1551,6 +1557,12 @@ off-diagonal Laplace single-layer blocks and zero diagonal blocks, then compares
 vector, multiple-right-hand-side, and l2-scaled FMM products against dense
 block matrices.
 
+`test_fmm_request_warns_when_kernel_uses_direct_fallback` checks explicit FMM
+requests for kernels that only have the compatibility dense matvec fallback.
+The method wraps a smooth custom kernel with the public kernel factory, requests
+`chunkermatapply(..., acceleration="fmm")`, and expects a `RuntimeWarning`
+while preserving equality with the dense matrix product.
+
 `test_block_chunkermat_reuses_special_quadrature_for_self_blocks` checks dense
 block-kernel assembly when diagonal blocks are singular kernels. The method
 builds a two-chunker block matrix with Laplace single-layer kernels on every
@@ -1695,6 +1707,16 @@ enables `quadadap.buildmat(..., robust=True)`, and verifies adaptive correction
 calls for target subsets outside the self/neighbor blocks. Ground truth is a
 finite matrix, at least one non-panel-sized adaptive target set, and a
 measurable difference from the non-robust matrix.
+
+`test_target_adaptive_matrix_warns_on_maxdepth_failure` forces target adaptive
+quadrature to exceed `maxdepth`. Ground truth is a `RuntimeWarning` identifying
+the `maxdepth` failure mode and a measurably different partial matrix from the
+default converged adaptive result.
+
+`test_target_adaptive_matrix_warns_on_maxints_failure` forces target adaptive
+quadrature to exhaust `maxints`. Ground truth is a `RuntimeWarning` identifying
+the `maxints` failure mode and a measurably different partial matrix from the
+default converged adaptive result.
 
 ## `tests/test_pquad.py`
 

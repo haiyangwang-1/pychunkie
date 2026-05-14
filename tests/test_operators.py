@@ -106,6 +106,18 @@ def test_chunkermat_fmm_returns_matrix_free_operator_matching_dense_application(
     np.testing.assert_allclose(via_fmm @ rhs, dense @ rhs, rtol=1e-9, atol=1e-10)
 
 
+def test_fmm_request_warns_when_kernel_uses_direct_fallback():
+    chnkr, _ = chunkerfunc(circle, min_chunks=4, order=8)
+    custom = kernel(smooth_kernel)
+    dens = np.cos(chnkr.r[0].reshape(-1, order="F"))
+
+    with pytest.warns(RuntimeWarning, match="direct dense matrix-vector fallback"):
+        via_fmm = chunkermatapply(chnkr, custom, dens, acceleration="fmm")
+    dense = chunkermat(chnkr, custom) @ dens
+
+    np.testing.assert_allclose(via_fmm, dense, rtol=1e-13, atol=1e-13)
+
+
 def test_block_chunkermat_fmm_matches_dense_application_and_l2scale():
     first, _ = chunkerfunc(circle, {"nchmin": 4}, {"k": 8})
     second = first.translate(np.array([2.8, 0.15]))

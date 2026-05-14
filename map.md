@@ -15,8 +15,8 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 
 ## Current Snapshot
 
-- Verification snapshot: `uv run pytest` on 2026-05-13 with Python 3.11.9
-  collected 369 tests: `369 passed`. Full MATLAB parity runs generate ignored
+- Verification snapshot: `uv run pytest` on 2026-05-14 with Python 3.11.9
+  collected 373 tests: `373 passed`. Full MATLAB parity runs generate ignored
   `tests/golden/*.mat` files on demand and require a populated
   `external/chunkie-matlab` checkout.
 - The implemented surface covers core chunkers/chunkgraphs, domain helpers, kernel factories, dense/FMM/FLAM operator paths, GGQ/adaptive quadrature, RCIP helpers, Legendre utilities, and the lightweight rounded-polygon smoother.
@@ -100,7 +100,8 @@ src/
     ├── quadrature/
     │   ├── __init__.py
     │   ├── adaptive.py
-    │   │   └── buildmat
+    │   │   ├── buildmat, adapgausswts
+    │   │   └── warn_adaptive_failures
     │   ├── ggq.py
     │   │   ├── class AuxQuad
     │   │   ├── setup, getlogquad, logavail, hqsuppavail
@@ -256,7 +257,7 @@ src/
 | private helpers | 🧩 ✅ | Internal Python helpers | Edge decoding, polygon tests, hyperoctree neighbor construction. |
 | `checkcurveparam` | ✅ 🧪 🎯 | `checkcurveparam.m` | Validates callback output dimensions and input-size compatibility. |
 | `ellipse` | ✅ 🧪 🎯 | `ellipse.m` | Ellipse position, first derivative, and second derivative helper. |
-| `starfish` | ✅ 🧪 🎯 | `starfish.m` | Top-level export matching the existing `geometry.curves.starfish` implementation. |
+| `starfish` | ⚠️ ✅ 🧪 🎯 | `starfish.m` | Top-level export matching `geometry.curves.starfish`; position and first derivative retain MATLAB fixture parity, while scaled second derivatives intentionally use the analytic linearly scaled formula instead of MATLAB's legacy double-scale expression. |
 | `nonflatinterface` | ✅ 🧪 🎯 | `nonflatinterface.m` | Perturbed interface graph with analytic first and second derivatives. |
 | `redblue` | ✅ 🧪 🎯 | `redblue.m` | MATLAB-style red-white-blue colormap. |
 | `HypOctNode`, `HypOctTree`, `hypoct_uni` | ✅ 🧪 🎯 | `hypoct_uni.m` | Zero-based Python hyperoctree dataclasses and uniform tree builder. |
@@ -324,7 +325,7 @@ src/
 | `stok2d_kernel` | ✅ 🧪 🎯 | `@kernel/stok2d.m`, `+chnk/+stok2d/kern.m`, `+chnk/+stok2d/fmm.m` concepts | String dispatch plus `fmm2dpy` velocity, pressure, gradient, traction, and combined Stokes paths tested against dense direct evaluation or FMM wiring tests; MATLAB fixture checks `@kernel` metadata/eval. |
 | `elast2d_kernel` | ✅ 🧪 🎯 | `@kernel/elast2d.m`, `+chnk/+elast2d/kern.m` | Elasticity single, gradient, traction, double, alternate double, alternate gradient, and alternate traction selectors have FMM wiring through Laplace/Stokes decompositions and MATLAB fixture eval parity; Python keeps correct `sgrad` opdims where MATLAB `@kernel` metadata omits the gradient row count. |
 | `interleave` | ✅ 🧪 🎯 | MATLAB block kernel composition patterns | Builds mixed block systems from kernel arrays; direct interleaved metadata/eval is MATLAB-fixture tested, compact Helmholtz block-system dense solve/evaluation parity covers `kernel_interleaveTest.m`, and FMM paths remain Python direct/FMM-tested. |
-| `_lap2d_fmm`, `_helm2d_fmm`, `_biharm2d_fmm`, `_stok2d_fmm`, `_elast2d_fmm`, `_direct_fmm`, `_sum_fmm`, `_interleave_fmm`, `_interleave_indices`, `_target_count` | 🧩 ✅ 🧪 | FMM-backed MATLAB kernel conventions | Implemented Laplace/Helmholtz/Biharmonic/Stokes/Elasticity selectors call `fmm2dpy` or algebraic combinations of `fmm2dpy` outputs; dense-direct fallback callables remain available for custom or unsupported kernels. |
+| `_lap2d_fmm`, `_helm2d_fmm`, `_biharm2d_fmm`, `_stok2d_fmm`, `_elast2d_fmm`, `_direct_fmm`, `_sum_fmm`, `_interleave_fmm`, `_interleave_indices`, `_target_count` | 🧩 ✅ 🧪 | FMM-backed MATLAB kernel conventions | Implemented Laplace/Helmholtz/Biharmonic/Stokes/Elasticity selectors call `fmm2dpy` or algebraic combinations of `fmm2dpy` outputs; dense-direct fallback callables remain available for custom or unsupported kernels and are marked so explicit FMM requests warn before using the O(NM) fallback. |
 
 Scope note: FMM integration for the currently implemented 2D kernel families is
 wired where the existing kernel selector surface applies. Axisymmetric,
@@ -369,7 +370,7 @@ their matching `@kernel` factories.
 | `stok2d.kern` | ✅ 🧪 🎯 | `+chnk/+stok2d/kern.m` | Stokes variants parity-tested, including pressure/traction/gradient combined paths; `cgrad` parity uses MATLAB's saved `dgrad`/`sgrad` component blocks because the saved MATLAB combined `cgrad` value combines `sgrad` twice. |
 | `elast2d.kern` | ✅ 🧪 🎯 | `+chnk/+elast2d/kern.m` | Elasticity variants parity-tested, including `sgrad`, `dalttrac`, and `daltgrad`. |
 
-✅ External FMM acceleration is wired through `fmm2dpy` for the implemented 2D selector surface: Laplace single/double/normal/tangential/Hilbert/prime/gradient/combined paths; Helmholtz single/double/normal/tangential/prime/gradient/combined-prime/combined-gradient paths, with dense-direct fallback for Helmholtz transmission-representation selectors; biharmonic single/double/normal derivative/gradient/Hessian/Laplacian paths via Laplace moment decompositions; Stokes velocity/pressure/gradient/traction/combined paths; and elasticity single/gradient/traction/double/alternate-double workflows via Laplace/Stokes decompositions. Dense-direct fallbacks remain available for custom or unsupported kernels, optional dependency absence, and compatibility tests.
+✅ External FMM acceleration is wired through `fmm2dpy` for the implemented 2D selector surface: Laplace single/double/normal/tangential/Hilbert/prime/gradient/combined paths; Helmholtz single/double/normal/tangential/prime/gradient/combined-prime/combined-gradient paths, with dense-direct fallback for Helmholtz transmission-representation selectors; biharmonic single/double/normal derivative/gradient/Hessian/Laplacian paths via Laplace moment decompositions; Stokes velocity/pressure/gradient/traction/combined paths; and elasticity single/gradient/traction/double/alternate-double workflows via Laplace/Stokes decompositions. Dense-direct fallbacks remain available for custom or unsupported kernels, optional dependency absence, and compatibility tests; explicit `acceleration="fmm"` calls now warn when they use that fallback.
 
 
 ### III QUADRATURES
@@ -383,8 +384,8 @@ their matching `@kernel` factories.
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
-| `buildmat` | ✅ 🧪 🎯 | `+chnk/+quadadap/buildmat.m` | MATLAB fixture checks log self blocks, adaptive Gauss neighbor blocks, and robust close non-neighbor replacement; eligible close blocks can use Helsing-Ojala pquad when requested by the operator path or `usepquad=True`, while adaptive weights remain the low-level default/fallback and use MATLAB's translation-invariant recentering by default. Other singularity types delegate to `quadggq`. |
-| `adapgausswts` | ✅ 🧪 🎯 | `+chnk/adapgausswts.m` | Direct adaptive Gauss weight construction is devtools-fixture tested on the starfish Helmholtz double-layer neighbor block, including recursion metadata and agreement with the GGQ reference matrix block. |
+| `buildmat` | ✅ 🧪 🎯 | `+chnk/+quadadap/buildmat.m` | MATLAB fixture checks log self blocks, adaptive Gauss neighbor blocks, and robust close non-neighbor replacement; eligible close blocks can use Helsing-Ojala pquad when requested by the operator path or `usepquad=True`, while adaptive weights remain the low-level default/fallback and use MATLAB's translation-invariant recentering by default. Public close-panel assembly warns when adaptive recursion returns max-depth or max-interval failure statuses. Other singularity types delegate to `quadggq`. |
+| `adapgausswts` | ✅ 🧪 🎯 | `+chnk/adapgausswts.m` | Direct adaptive Gauss weight construction is devtools-fixture tested on the starfish Helmholtz double-layer neighbor block, including recursion metadata and agreement with the GGQ reference matrix block; callers now preserve and report nonzero status through warning helpers instead of silently discarding it. |
 
 #### `quadrature/panel.py`
 

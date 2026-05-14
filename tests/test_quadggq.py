@@ -1,9 +1,11 @@
 from importlib import resources
 
 import numpy as np
+import pytest
 from scipy import sparse
 
-from chunkie import chunkerfunc, chunkerkerneval, chunkermat, kernel, merge
+import chunkie.operators as operators_mod
+from chunkie import chunkerfunc, chunkerkerneval, chunkerkernevalmat, chunkermat, kernel, merge
 from chunkie.quadrature import adaptive as quadadap
 from chunkie.quadrature import ggq as quadggq
 
@@ -263,3 +265,37 @@ def test_quadadap_robust_mode_repairs_non_neighbor_close_blocks(monkeypatch):
     assert np.isfinite(robust).all()
     assert any(ntarg != chnkr.k for _, ntarg in calls)
     assert np.linalg.norm(robust - standard) > 1e-10
+
+
+def test_target_adaptive_matrix_warns_on_maxdepth_failure():
+    chnkr, _ = chunkerfunc(circle, min_chunks=4, order=8)
+    lap_s = kernel("lap", "s")
+    targets = np.array([[1.02], [0.01]])
+    base_opts = {
+        operators_mod._NORMALIZED_OPTIONS_MARKER: True,
+        "forceadap": True,
+        "usepquad": False,
+    }
+
+    reference = chunkerkernevalmat(chnkr, lap_s, targets, base_opts)
+    with pytest.warns(RuntimeWarning, match="maxdepth reached"):
+        limited = chunkerkernevalmat(chnkr, lap_s, targets, {**base_opts, "maxdepth": 0})
+
+    assert np.linalg.norm(reference - limited) > 1.0e-3
+
+
+def test_target_adaptive_matrix_warns_on_maxints_failure():
+    chnkr, _ = chunkerfunc(circle, min_chunks=4, order=8)
+    lap_s = kernel("lap", "s")
+    targets = np.array([[1.02], [0.01]])
+    base_opts = {
+        operators_mod._NORMALIZED_OPTIONS_MARKER: True,
+        "forceadap": True,
+        "usepquad": False,
+    }
+
+    reference = chunkerkernevalmat(chnkr, lap_s, targets, base_opts)
+    with pytest.warns(RuntimeWarning, match="maxints exhausted"):
+        limited = chunkerkernevalmat(chnkr, lap_s, targets, {**base_opts, "maxints": 0})
+
+    assert np.linalg.norm(reference - limited) > 1.0e-3

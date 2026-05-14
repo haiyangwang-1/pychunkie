@@ -872,9 +872,8 @@ def chunkerkernevalmat(
     for diagnostics, custom solvers, and adaptive correction matrices. Ordinary
     evaluation matrices are dense; ``corrections=True`` returns the sparse
     near-target correction matrix accepted by legacy ``cormat`` evaluation
-    calls. FMM is a
-    matrix-free path and is intentionally unavailable here; use
-    :func:`chunkerkerneval` or :func:`chunkermatapply` for FMM application.
+    calls. With ``acceleration="fmm"``, this routine materializes the target
+    evaluation matrix by applying the kernel FMM evaluator to basis densities.
     """
 
     same_source_target = targobj is chnkr
@@ -1642,8 +1641,19 @@ def _boundary_pquad_enabled(options: dict[str, Any] | _OperatorOptions) -> bool:
 
 
 def _require_fmm(kern: Callable[[Any, Any], np.ndarray]) -> None:
-    if getattr(kern, "fmm", None) is None:
+    fmm = getattr(kern, "fmm", None)
+    if fmm is None:
         raise NotImplementedError("FMM acceleration requested, but the kernel has no FMM evaluator")
+    if bool(getattr(fmm, "_chunkie_direct_fmm_fallback", False)):
+        name = getattr(kern, "name", "custom")
+        typ = getattr(kern, "type", "")
+        label = f"{name} {typ}".strip()
+        warnings.warn(
+            f"FMM acceleration requested for {label}, but no accelerated FMM evaluator is available; "
+            "using a direct dense matrix-vector fallback",
+            RuntimeWarning,
+            stacklevel=3,
+        )
 
 
 def _require_pyflam():
@@ -2158,12 +2168,16 @@ def _target_close_panel_matrix(
     if pquad_mat is not None and np.all(handled):
         return np.real_if_close(pquad_mat)
 
-    adaptive = quadadap.adapgausswts(chnkr, src_chunk, targinfo, kern, opdims, opts=options)[0]
+    adaptive, _, _, iers = quadadap.adapgausswts(chnkr, src_chunk, targinfo, kern, opdims, opts=options)
+    warn_iers = iers
     if pquad_mat is not None and np.any(handled):
         op0 = int(opdims[0])
         rows = _target_rows(np.flatnonzero(handled), op0)
         adaptive = np.asarray(adaptive, dtype=np.result_type(adaptive.dtype, pquad_mat.dtype))
         adaptive[rows, :] = pquad_mat[rows, :]
+        warn_iers = iers.copy()
+        warn_iers[handled] = 0
+    quadadap.warn_adaptive_failures(warn_iers, src_chunk=src_chunk, context="target adaptive quadrature", stacklevel=3)
     return adaptive
 
 

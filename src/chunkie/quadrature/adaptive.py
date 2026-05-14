@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from typing import Any
+import warnings
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -26,6 +27,12 @@ from ..geometry import PointInfo
 from . import ggq as quadggq
 from . import native as quadnative
 from . import panel as pquad
+
+
+_ADAPTIVE_FAILURE_REASONS = {
+    8: "maxdepth reached",
+    16: "maxints exhausted",
+}
 
 
 def buildmat(
@@ -361,12 +368,16 @@ def _close_panel_matrix(
     if pquad_mat is not None and np.all(handled):
         return np.real_if_close(pquad_mat)
 
-    adaptive = adapgausswts(chnkr, src_chunk, targinfo, kern, opdims, nodes, weights, bary, options)[0]
+    adaptive, _, _, iers = adapgausswts(chnkr, src_chunk, targinfo, kern, opdims, nodes, weights, bary, options)
+    warn_iers = iers
     if pquad_mat is not None and np.any(handled):
         op0 = int(opdims[0])
         rows = _target_rows(np.flatnonzero(handled), op0)
         adaptive = np.asarray(adaptive, dtype=np.result_type(adaptive.dtype, pquad_mat.dtype))
         adaptive[rows, :] = pquad_mat[rows, :]
+        warn_iers = iers.copy()
+        warn_iers[handled] = 0
+    warn_adaptive_failures(warn_iers, src_chunk=src_chunk, context="adaptive close-panel quadrature", stacklevel=3)
     return adaptive
 
 
@@ -413,6 +424,32 @@ def _option_bool(value: Any) -> bool:
     if isinstance(value, str):
         return value.strip().lower() in {"1", "true", "t", "yes", "y", "on"}
     return bool(value)
+
+
+def warn_adaptive_failures(
+    iers: ArrayLike,
+    *,
+    src_chunk: int | None = None,
+    context: str = "adaptive quadrature",
+    stacklevel: int = 2,
+) -> None:
+    """Warn when adaptive quadrature returned partial weights."""
+
+    statuses = np.asarray(iers, dtype=int).reshape(-1)
+    failed = statuses[statuses != 0]
+    if failed.size == 0:
+        return
+    parts = []
+    for code in np.unique(failed):
+        reason = _ADAPTIVE_FAILURE_REASONS.get(int(code), f"status {int(code)}")
+        parts.append(f"{reason}: {int(np.count_nonzero(failed == code))}")
+    source = "" if src_chunk is None else f" on source chunk {int(src_chunk)}"
+    warnings.warn(
+        f"{context} did not converge for {failed.size} target(s){source} "
+        f"({', '.join(parts)}); returning partially accumulated quadrature weights",
+        RuntimeWarning,
+        stacklevel=stacklevel,
+    )
 
 
 def _target_rows(indices: np.ndarray, op0: int) -> np.ndarray:

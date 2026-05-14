@@ -30,6 +30,31 @@ def test_ellipse_and_starfish_helpers_match_expected_formulas():
         np.testing.assert_allclose(actual, expected, atol=1e-15)
 
 
+def test_scaled_starfish_second_derivatives_scale_linearly():
+    t = np.array([-0.7, 0.2, 1.3])
+    narms = 4
+    amp = 0.25
+    phi = 0.31
+    scale = 1.8
+    ct = np.cos(t)
+    st = np.sin(t)
+    cnt = np.cos(narms * (t + phi))
+    snt = np.sin(narms * (t + phi))
+    radius = 1.0 + amp * cnt
+    rp = -narms * amp * snt
+    rpp = -(narms**2) * amp * cnt
+    expected_d2 = scale * np.vstack(
+        (
+            rpp * ct - 2.0 * rp * st - radius * ct,
+            rpp * st + 2.0 * rp * ct - radius * st,
+        )
+    )
+
+    for curve in (starfish, curves.starfish):
+        _, _, d2 = curve(t, narms, amp, [0.1, -0.2], phi, scale)
+        np.testing.assert_allclose(d2, expected_d2, rtol=1e-14, atol=1e-14)
+
+
 def test_checkcurveparam_validates_dimension_and_output_shapes():
     assert checkcurveparam(lambda t: ellipse(t, 2.0, 1.0), np.array([0.0, 0.5])) == 2
 
