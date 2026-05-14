@@ -2,6 +2,7 @@ import numpy as np
 
 import chunkie.operators as operators_mod
 from chunkie import chunkerfunc, chunkerinterior, chunkerkerneval, chunkermat, chunkerpoly, kernel
+from chunkie.operators import core as operators_core
 
 
 def circle(t):
@@ -55,7 +56,7 @@ def test_chunkerinterior_forwards_accelerated_keyword_options(monkeypatch):
         captured.update(kwargs)
         return -np.ones(target.r.shape[1])
 
-    monkeypatch.setattr(operators_mod, "chunkerkerneval", fake_eval)
+    monkeypatch.setattr(operators_core, "chunkerkerneval", fake_eval)
 
     actual = operators_mod.chunkerinterior(
         boundary,
@@ -84,7 +85,7 @@ def test_operator_python_first_keywords_map_to_backend_options(monkeypatch):
         captured["kwargs"] = dict(kwargs)
         return object()
 
-    monkeypatch.setattr(operators_mod, "chunkerflam", fake_chunkerflam)
+    monkeypatch.setattr(operators_core, "chunkerflam", fake_chunkerflam)
 
     chunkermat(
         boundary,

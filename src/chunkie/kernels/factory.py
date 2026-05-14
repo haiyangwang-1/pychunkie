@@ -17,6 +17,7 @@ import numpy as np
 
 from chunkie._layout import as_boundary_field_matrix, as_boundary_vector
 
+from ..acceleration.fmm import fmm2dpy as _fmm2dpy
 from ..geometry import PointInfo
 from . import (
     biharmonic as biharm2d,
@@ -36,12 +37,6 @@ from . import (
 from . import (
     stokes as stok2d,
 )
-
-try:  # pragma: no cover - exercised when the optional compiled package imports.
-    import fmm2dpy as _fmm2dpy
-except (ImportError, OSError):  # pragma: no cover - keep source installs usable without FMM2D.
-    _fmm2dpy = None
-
 
 _KERNEL_PROBE_EXCEPTIONS = (
     AttributeError,

@@ -139,7 +139,8 @@ operator dispatch. The geometry package still exposes `chunker` and
 `chunkgraph` as submodules, not as constructor aliases, and now owns the
 domain-helper submodule exported through the top-level facade. The quadrature
 package no longer exports RCIP because RCIP is a separate corner-compression
-package rather than a generic quadrature module.
+package rather than a generic quadrature module. The acceleration package
+exposes both the optional FMM2D loader and the FLAM helper module.
 
 ## `tests/test_arcparam.py`
 
@@ -1343,14 +1344,16 @@ polyline.
 `test_chunkerinterior_forwards_accelerated_keyword_options` checks that
 `chunkerinterior` does not merely accept accelerated keyword options but also
 forwards them to its internal layer-potential evaluation. The method monkeypatches
-`chunkerkerneval` and calls `chunkerinterior` with FLAM rank/proxy and near-factor
-keywords. Ground truth is that the normalized options reach the evaluator.
+`operators.core.chunkerkerneval` and calls `chunkerinterior` with FLAM
+rank/proxy and near-factor keywords. Ground truth is that the normalized options
+reach the evaluator.
 
 `test_operator_python_first_keywords_map_to_backend_options` checks that public
 operator keywords no longer require backend dictionary names. The method
-monkeypatches `chunkerflam`, calls `chunkermat(..., acceleration="flam")` with
-`flam_occupancy`, `rank_or_tol`, and `proxy`, and verifies the normalized
-backend options passed to the factorization boundary.
+monkeypatches `operators.core.chunkerflam`, calls
+`chunkermat(..., acceleration="flam")` with `flam_occupancy`, `rank_or_tol`,
+and `proxy`, and verifies the normalized backend options passed to the
+factorization boundary.
 
 `test_rcip_keyword_options_normalize_to_internal_names` checks the Python-first
 RCIP option aliases. The method normalizes `rcip_subdivisions`,

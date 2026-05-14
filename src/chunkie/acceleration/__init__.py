@@ -5,7 +5,7 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Any
 
-_SUBMODULES = {"flam"}
+_SUBMODULES = {"flam", "fmm"}
 
 
 def __getattr__(name: str) -> Any:
@@ -16,4 +16,4 @@ def __getattr__(name: str) -> Any:
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-__all__ = ["flam"]
+__all__ = ["flam", "fmm"]

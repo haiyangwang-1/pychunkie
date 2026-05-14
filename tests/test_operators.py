@@ -16,6 +16,7 @@ from chunkie import (
     chunkerpoly,
     kernel,
 )
+from chunkie.operators import core as operators_core
 from chunkie.quadrature import native as quadnative
 
 pointinfo = PointInfo.from_any
@@ -335,13 +336,13 @@ def test_chunkerinterior_fmm_matches_direct_with_close_correction(monkeypatch):
     pts = np.array([[0.0, 1.25, 0.999999, 1.000001], [0.0, 0.0, 0.0, 0.0]])
     expected = np.array([True, False, True, False])
     calls = []
-    original = operators_mod.chunkerkerneval
+    original = operators_core.chunkerkerneval
 
     def wrapped(*args, **kwargs):
         calls.append(args[4] if len(args) > 4 else kwargs.get("options", kwargs.get("opts")))
         return original(*args, **kwargs)
 
-    monkeypatch.setattr(operators_mod, "chunkerkerneval", wrapped)
+    monkeypatch.setattr(operators_core, "chunkerkerneval", wrapped)
 
     direct = operators_mod.chunkerinterior(chnkr, pts)
     via_fmm = operators_mod.chunkerinterior(chnkr, pts, acceleration="fmm", near_factor=0.25)

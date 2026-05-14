@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Callable
-from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -13,8 +12,8 @@ from scipy import sparse
 from scipy.sparse import spmatrix
 from scipy.sparse.linalg import LinearOperator
 
-from . import lege
-from ._layout import (
+from .. import lege
+from .._layout import (
     as_boundary_chunk_tensor,
     as_boundary_field_matrix,
     as_boundary_point_matrix,
@@ -24,8 +23,15 @@ from ._layout import (
     density_matmul_argument,
     weighted_density_for_boundary,
 )
-from .geometry.chunker import Chunker, ChunkerPref, merge
-from .geometry.pointinfo import PointInfo
+from ..geometry.chunker import Chunker, ChunkerPref, merge
+from ..geometry.pointinfo import PointInfo
+from .options import (
+    _normalize_public_options,
+    _OperatorOptions,
+    _option_bool,
+    _set_option,
+)
+from .types import ChunkerRCIPMatrix, RCIPContext, _BlockKernelLayout
 
 _KERNEL_PROBE_EXCEPTIONS = (
     AttributeError,
@@ -35,189 +41,6 @@ _KERNEL_PROBE_EXCEPTIONS = (
     FloatingPointError,
     NotImplementedError,
 )
-
-
-_NORMALIZED_OPTIONS_MARKER = "_chunkie_normalized_operator_options"
-
-
-def _normalize_public_options(
-    raw_options: dict[str, Any] | None,
-    *,
-    acceleration: str | None = None,
-    quadrature: str | None = None,
-    use_panel_quadrature: bool | None = None,
-    l2scale: bool | None = None,
-    dval: ArrayLike | float | complex | None = None,
-    tol: float | None = None,
-    flam_type: str | None = None,
-    flam_occupancy: int | None = None,
-    rank_or_tol: int | float | None = None,
-    proxy: bool | None = None,
-    force_adaptive: bool | None = None,
-    corrections: bool | None = None,
-    correction_matrix: ArrayLike | sparse.spmatrix | None = None,
-    side: str | None = None,
-    near_factor: float | None = None,
-    rcip: Any | None = None,
-    return_rcip: bool | None = None,
-    rcip_context: Any | None = None,
-    rcip_subdivisions: int | float | None = None,
-    rcip_save_depth: int | None = None,
-    rcip_eval_depth: int | None = None,
-    rcip_vertices: ArrayLike | None = None,
-    rcip_ignore_vertices: ArrayLike | None = None,
-) -> dict[str, Any]:
-    if raw_options is None:
-        options: dict[str, Any] = {}
-    elif bool(raw_options.get(_NORMALIZED_OPTIONS_MARKER, False)):
-        options = dict(raw_options)
-    else:
-        warnings.warn(
-            "operator option dictionaries are deprecated; use keyword-only arguments instead",
-            DeprecationWarning,
-            stacklevel=3,
-        )
-        options = dict(raw_options)
-    _set_option(options, "acceleration", acceleration)
-    _set_option(options, "usepquad", use_panel_quadrature)
-    _set_option(options, "l2scale", l2scale)
-    _set_option(options, "dval", dval)
-    _set_option(options, "tol", tol)
-    _set_option(options, "flamtype", flam_type)
-    _set_option(options, "occ", flam_occupancy)
-    _set_option(options, "rank_or_tol", rank_or_tol)
-    _set_option(options, "useproxy", proxy)
-    _set_option(options, "forceadap", force_adaptive)
-    _set_option(options, "corrections", corrections)
-    _set_option(options, "cormat", correction_matrix)
-    _set_option(options, "side", side)
-    _set_option(options, "fac", near_factor)
-    _set_option(options, "rcip", rcip)
-    _set_option(options, "return_rcip", return_rcip)
-    _set_option(options, "rcip_context", rcip_context)
-    _set_option(options, "nsub", rcip_subdivisions)
-    _set_option(options, "rcip_savedepth", rcip_save_depth)
-    _set_option(options, "rcip_eval_depth", rcip_eval_depth)
-    _set_option(options, "rcip_vertices", rcip_vertices)
-    _set_option(options, "rcip_ignore_vertices", rcip_ignore_vertices)
-    if quadrature is not None:
-        qmode = str(quadrature).lower()
-        if qmode == "smooth":
-            options["forcesmooth"] = True
-        elif qmode == "adaptive":
-            options["forceadap"] = True
-            options["adaptive_correction"] = True
-        elif qmode != "auto":
-            options["sing"] = qmode
-    options[_NORMALIZED_OPTIONS_MARKER] = True
-    return options
-
-
-def _set_option(options: dict[str, Any], key: str, value: Any) -> None:
-    if value is not None:
-        options[key] = value
-
-
-@dataclass
-class _BlockKernelLayout:
-    chunkers: list[Chunker]
-    kernels: np.ndarray
-    opdims_mat: np.ndarray
-    rowdims: np.ndarray
-    coldims: np.ndarray
-    row_offsets: np.ndarray
-    col_offsets: np.ndarray
-
-
-@dataclass
-class RCIPContext:
-    """Corner compression metadata produced by chunkgraph RCIP assembly."""
-
-    source: Any
-    system_kernel: Callable[[Any, Any], np.ndarray]
-    saved: list[Any]
-    nsub: int
-    savedepth: int
-    ndim: int = 1
-
-
-class ChunkerRCIPMatrix(np.ndarray):
-    """Dense matrix with attached RCIP interpolation metadata."""
-
-    rcip: RCIPContext | None
-
-    def __new__(cls, input_array: ArrayLike, rcip_context: RCIPContext | None = None):
-        obj = np.asarray(input_array).view(cls)
-        obj.rcip = rcip_context
-        return obj
-
-    def __array_finalize__(self, obj: Any) -> None:
-        self.rcip = None if obj is None else getattr(obj, "rcip", None)
-
-
-@dataclass(frozen=True)
-class _OperatorOptions:
-    raw: dict[str, Any]
-
-    @classmethod
-    def from_any(cls, options: dict[str, Any] | _OperatorOptions | None) -> _OperatorOptions:
-        if isinstance(options, cls):
-            return options
-        return cls({} if options is None else dict(options))
-
-    @property
-    def acceleration(self) -> str:
-        value = self.raw.get("acceleration", "dense")
-        if value is None:
-            return "dense"
-        acceleration = str(value).lower()
-        if acceleration not in {"dense", "fmm", "flam"}:
-            raise ValueError("acceleration must be one of 'dense', 'fmm', or 'flam'")
-        return acceleration
-
-    def flag(self, name: str, default: bool = False) -> bool:
-        return _option_bool(self.raw.get(name, default))
-
-    @property
-    def l2scale(self) -> bool:
-        return self.flag("l2scale")
-
-    @property
-    def flamtype(self) -> str:
-        return str(self.raw.get("flamtype", "rskelf")).lower()
-
-    @property
-    def flam_occ(self) -> int:
-        return int(self.raw.get("occ", 200))
-
-    @property
-    def flam_rank_or_tol(self) -> int | float:
-        value = self.raw.get("rank_or_tol", self.raw.get("eps", self.raw.get("tol", 1.0e-14)))
-        value_float = float(value)
-        return int(value) if value_float.is_integer() and value_float >= 1 else value_float
-
-    def flam_options(self, *, store_default: str | None = None) -> dict[str, Any]:
-        raw_options = {
-            "verb": int(self.flag("verb")),
-            "lvlmax": self.raw.get("lvlmax", np.inf),
-        }
-        if store_default is not None:
-            raw_options["store"] = self.raw.get("store", store_default)
-        return raw_options
-
-    def fmm_tol(self, default: float = 1.0e-12) -> float:
-        return float(self.raw.get("eps", self.raw.get("tol", default)))
-
-    def uses_special_quadrature(self, kernel: Callable[[Any, Any], np.ndarray]) -> bool:
-        if self.flag("forcesmooth") or self.flag("usesmooth"):
-            return False
-        if self.flag("forceadap"):
-            return True
-        return getattr(kernel, "sing", "") in {"log", "pv", "hs"}
-
-    def special_quadrature_type(self, kernel: Callable[[Any, Any], np.ndarray]) -> str:
-        qtype = str(self.raw.get("sing", getattr(kernel, "sing", "log") or "log")).lower()
-        return "log" if qtype == "smooth" else qtype
 
 
 class ChunkerFMMMatrix(LinearOperator):
@@ -466,7 +289,7 @@ def chunkerflam(
         spmat = spmat.tocsr() if sparse.issparse(spmat) else sparse.csr_matrix(spmat)
     has_dval = bool(np.any(dval_vec != 0))
 
-    from .acceleration import flam
+    from ..acceleration import flam
 
     l2scale = _l2scale(operator_options)
 
@@ -519,7 +342,7 @@ def _chunkerflam_block(
         spmat = spmat.tocsr() if sparse.issparse(spmat) else sparse.csr_matrix(spmat)
     has_dval = bool(np.any(dval_vec != 0))
 
-    from .acceleration import flam
+    from ..acceleration import flam
 
     l2scale = _l2scale(options)
 
@@ -646,14 +469,14 @@ def chunkermat(
         return ChunkerFMMMatrix(boundary, kernel, operator_options)
     if _uses_special_quadrature(kernel, operator_options):
         if _flag(operator_options, "adaptive_correction"):
-            from .quadrature import adaptive as quadadap
+            from ..quadrature import adaptive as quadadap
 
             adap_options = dict(operator_options)
             adap_options.setdefault("sing", _special_quadrature_type(kernel, operator_options))
             adap_options.setdefault("usepquad", _boundary_pquad_enabled(operator_options))
             mat = quadadap.buildmat(boundary, kernel, getattr(kernel, "opdims", None), adap_options)
         else:
-            from .quadrature import ggq as quadggq
+            from ..quadrature import ggq as quadggq
 
             mat = quadggq.buildmat(
                 boundary,
@@ -838,7 +661,7 @@ def chunkerinterior(
 
     acceleration = _acceleration(operator_options)
     if acceleration in {"fmm", "flam"}:
-        from .kernels import kernel
+        from ..kernels import kernel
 
         lap_d = kernel("lap", "d")
         density = np.ones(boundary.npt)
@@ -1297,7 +1120,7 @@ def _chunkgraph_rcip_mat(
     kernel: Callable[[Any, Any], np.ndarray],
     options: dict[str, Any],
 ) -> tuple[ChunkerRCIPMatrix, RCIPContext]:
-    from . import rcip
+    from .. import rcip
 
     merged = cg.merged()
     base_options = _strip_rcip_options(options)
@@ -1433,7 +1256,7 @@ def _chunkgraph_rcip_eval(
     options: dict[str, Any],
     context: RCIPContext,
 ) -> np.ndarray:
-    from . import rcip
+    from .. import rcip
 
     if not context.saved:
         return chunkerkerneval(cg.merged(), kernel, density, target, _strip_rcip_options(options))
@@ -2023,7 +1846,7 @@ def _special_overwrite_matrix(
     if not _uses_special_quadrature(kernel, options):
         opdims = _kernel_opdims(chunker, kernel)
         return sparse.csr_matrix((chunker.npt * int(opdims[0]), chunker.npt * int(opdims[1])))
-    from .quadrature import ggq as quadggq
+    from ..quadrature import ggq as quadggq
 
     qtype = _special_quadrature_type(kernel, options)
     spmat = quadggq.buildmattd(
@@ -2105,12 +1928,6 @@ def _block_special_correction_matrix(
     )
 
 
-def _option_bool(value: Any) -> bool:
-    if isinstance(value, str):
-        return value.strip().lower() in {"1", "true", "t", "yes", "y", "on"}
-    return bool(value)
-
-
 def _apply_l2scale_matrix(chunker: Chunker, mat: np.ndarray | spmatrix) -> np.ndarray | spmatrix:
     npt = chunker.npt
     if mat.shape[0] % npt != 0 or mat.shape[1] % npt != 0:
@@ -2153,7 +1970,7 @@ def _chunkerflam_proxyfun(
     opdims: tuple[int, int],
     options: dict[str, Any],
 ):
-    from .acceleration import flam
+    from ..acceleration import flam
 
     rank_or_tol = _flam_rank_or_tol(options)
     optsnpxy = {"rank_or_tol": float(rank_or_tol), "nsrc": _flam_occ(options)}
@@ -2264,7 +2081,7 @@ def _chunkerkerneval_flam_factor(
     options: dict[str, Any],
 ):
     pyflam = _require_pyflam()
-    from .acceleration import flam
+    from ..acceleration import flam
 
     targinfo = PointInfo.from_any(target)
     op0, op1 = _kernel_opdims(chunker, kernel, targinfo)
@@ -2295,7 +2112,7 @@ def _chunkerkerneval_proxyfun(
     opdims: tuple[int, int],
     options: dict[str, Any],
 ):
-    from .acceleration import flam
+    from ..acceleration import flam
 
     rank_or_tol = _flam_rank_or_tol(options)
     optsnpxy = {"rank_or_tol": float(rank_or_tol), "nsrc": _flam_occ(options)}
@@ -2507,7 +2324,7 @@ def _special_correction_matrix(
     kernel: Callable[[Any, Any], np.ndarray],
     options: dict[str, Any],
 ) -> spmatrix:
-    from .quadrature import ggq as quadggq
+    from ..quadrature import ggq as quadggq
 
     qtype = _special_quadrature_type(kernel, options)
     return quadggq.buildmattd(
@@ -2638,7 +2455,7 @@ def _target_close_panel_matrix(
     opdims: tuple[int, int],
     options: dict[str, Any],
 ) -> np.ndarray:
-    from .quadrature import adaptive as quadadap
+    from ..quadrature import adaptive as quadadap
 
     pquad_mat, handled = _target_pquad_panel_matrix(
         chunker, src_chunk, targinfo, kernel, opdims, options
@@ -2673,7 +2490,7 @@ def _target_pquad_panel_matrix(
 ) -> tuple[np.ndarray | None, np.ndarray]:
     if not _pquad_enabled(options):
         return None, np.zeros(targinfo.r.shape[1], dtype=bool)
-    from .quadrature import panel as pquad
+    from ..quadrature import panel as pquad
 
     split_info = pquad.splitinfo_for_kernel(kernel=kernel)
     if split_info is None or tuple(split_info.opdims) != (int(opdims[0]), int(opdims[1])):

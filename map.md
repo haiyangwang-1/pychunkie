@@ -34,14 +34,19 @@ src/
     ├── __init__.py
     ├── _layout.py
     │   └── private boundary vector/tensor adapter helpers
-    ├── operators.py
-    │   ├── class ChunkerFMMMatrix
-    │   ├── class ChunkerFLAMMatrix
-    │   ├── class ChunkerRCIPMatrix, class RCIPContext
-    │   ├── chunkermat, chunkermatapply, chunkerflam
-    │   ├── chunkerintegral, chunkerinterior
-    │   ├── chunkerkerneval, chunkerkernevalmat
-    │   └── private helpers
+    ├── operators/
+    │   ├── __init__.py
+    │   ├── core.py
+    │   │   ├── class ChunkerFMMMatrix
+    │   │   ├── class ChunkerFLAMMatrix
+    │   │   ├── chunkermat, chunkermatapply, chunkerflam
+    │   │   ├── chunkerintegral, chunkerinterior
+    │   │   ├── chunkerkerneval, chunkerkernevalmat
+    │   │   └── private dense/FMM/FLAM/RCIP helpers
+    │   ├── options.py
+    │   │   └── public keyword-option normalizer and typed internal accessors
+    │   └── types.py
+    │       └── class ChunkerRCIPMatrix, class RCIPContext
     ├── rcip/
     │   ├── __init__.py
     │   ├── algebra.py
@@ -53,6 +58,8 @@ src/
     │       └── private local-corner helpers
     ├── acceleration/
     │   ├── __init__.py
+    │   ├── fmm.py
+    │   │   └── optional fmm2dpy loader
     │   └── flam.py
     │       ├── kernbyindex, kernbyindexr
     │       ├── proxy_square_pts, proxy_circ_pts, proxy_rect_pts, nproxy_square
@@ -147,11 +154,12 @@ src/
 
 - ✅ [src/chunkie/__init__.py](src/chunkie/__init__.py) exports the public Python API. MATLAB has no direct single-file equivalent; it is a Python package facade over MATLAB class folders and package folders, with Python-first shape/naming guidance documented in `CONTRIBUTING.md`.
 - 🧩 ✅ 🧪 [src/chunkie/_layout.py](src/chunkie/_layout.py) centralizes flat boundary-vector, point-matrix, chunk-tensor, weighted-density, and component-interleaved kernel-matrix adapter conversions used at solver/backend, sparse, FMM, FLAM, and fixture boundaries.
-- ✅ 🧪 [src/chunkie/acceleration/__init__.py](src/chunkie/acceleration/__init__.py) exposes FLAM callback/proxy helper modules.
+- ✅ 🧪 [src/chunkie/acceleration/__init__.py](src/chunkie/acceleration/__init__.py) exposes FMM optional-backend loading plus FLAM callback/proxy helper modules.
 - ✅ 🧪 [src/chunkie/geometry/domain.py](src/chunkie/geometry/domain.py) implements top-level MATLAB geometry/domain helpers exported from the Python package facade and the geometry package.
 - ✅ 🧪 [src/chunkie/geometry/__init__.py](src/chunkie/geometry/__init__.py) exposes `Chunker`, `ChunkerPref`, `ChunkGraph`, chunker constructors, graph helpers, `PointInfo`, curve helpers, domain helpers, and the geometry submodules. Pure MATLAB-style class-constructor aliases (`chunker`, `chunkerpref`, `chunkgraph`) have been removed from the package facade; use `Chunker`, `ChunkerPref.from_any`, and `ChunkGraph`.
 - ✅ 🧪 [src/chunkie/kernels/__init__.py](src/chunkie/kernels/__init__.py) exposes the `Kernel` factory/algebra layer plus concrete Laplace, Helmholtz, Stokes, biharmonic, and elasticity kernel-family modules.
 - ✅ 🧪 [src/chunkie/misc/__init__.py](src/chunkie/misc/__init__.py) exposes arclength parametrization, lightweight smoother, and `absconvgauss` helper modules.
+- ✅ 🧪 [src/chunkie/operators/__init__.py](src/chunkie/operators/__init__.py) exposes dense, FMM, FLAM, and RCIP-aware operator assembly/application helpers through a package facade.
 - ✅ 🧪 [src/chunkie/quadrature/__init__.py](src/chunkie/quadrature/__init__.py) exposes Python-native quadrature modules for native, GGQ, adaptive, and panel-product workflows.
 - ✅ 🧪 [src/chunkie/rcip/__init__.py](src/chunkie/rcip/__init__.py) exposes RCIP corner-compression workflows as their own responsibility package.
 - ✅ [src/chunkie/lege/__init__.py](src/chunkie/lege/__init__.py) mirrors MATLAB `+lege` package exports.
@@ -331,7 +339,7 @@ src/
 | `stok2d_kernel` | ✅ 🧪 🎯 | `@kernel/stok2d.m`, `+chnk/+stok2d/kern.m`, `+chnk/+stok2d/fmm.m` concepts | String dispatch plus `fmm2dpy` velocity, pressure, gradient, traction, and combined Stokes paths tested against dense direct evaluation or FMM wiring tests; MATLAB fixture checks `@kernel` metadata/eval. |
 | `elast2d_kernel` | ✅ 🧪 🎯 | `@kernel/elast2d.m`, `+chnk/+elast2d/kern.m` | Elasticity single, gradient, traction, double, alternate double, alternate gradient, and alternate traction selectors have FMM wiring through Laplace/Stokes decompositions and MATLAB fixture eval parity; Python keeps correct `sgrad` opdims where MATLAB `@kernel` metadata omits the gradient row count. |
 | `interleave` | ✅ 🧪 🎯 | MATLAB block kernel composition patterns | Builds mixed block systems from kernel arrays; direct interleaved metadata/eval is MATLAB-fixture tested, compact Helmholtz block-system dense solve/evaluation parity covers `kernel_interleaveTest.m`, and FMM paths remain Python direct/FMM-tested, including complex Helmholtz block output with real densities. |
-| `_lap2d_fmm`, `_helm2d_fmm`, `_biharm2d_fmm`, `_stok2d_fmm`, `_elast2d_fmm`, `_direct_fmm`, `_sum_fmm`, `_interleave_fmm`, `_interleave_indices`, `_target_count` | 🧩 ✅ 🧪 | FMM-backed MATLAB kernel conventions | Implemented Laplace/Helmholtz/Biharmonic/Stokes/Elasticity selectors call `fmm2dpy` or algebraic combinations of `fmm2dpy` outputs; FMM callback boundaries use `source_info` and `target_info`; dense-direct fallback callables remain available for custom or unsupported kernels and are marked so explicit FMM requests warn before using the O(NM) fallback; interleaved FMM widens output dtype when block outputs are complex. |
+| `_lap2d_fmm`, `_helm2d_fmm`, `_biharm2d_fmm`, `_stok2d_fmm`, `_elast2d_fmm`, `_direct_fmm`, `_sum_fmm`, `_interleave_fmm`, `_interleave_indices`, `_target_count` | 🧩 ✅ 🧪 | FMM-backed MATLAB kernel conventions | Implemented Laplace/Helmholtz/Biharmonic/Stokes/Elasticity selectors call `fmm2dpy` or algebraic combinations of `fmm2dpy` outputs; the optional `fmm2dpy` loader lives in `chunkie.acceleration.fmm`, while selector-specific FMM formulas stay with kernel metadata in `kernels.factory`; FMM callback boundaries use `source_info` and `target_info`; dense-direct fallback callables remain available for custom or unsupported kernels and are marked so explicit FMM requests warn before using the O(NM) fallback; interleaved FMM widens output dtype when block outputs are complex. |
 
 Scope note: FMM integration for the currently implemented 2D kernel families is
 wired where the existing kernel selector surface applies. Axisymmetric,
@@ -339,9 +347,9 @@ quasiperiodic, and flexural kernel families are explicit non-goals for this
 port: `axissymhelm2d`, `axissymhelm2ddiff`, `helm2dquas`, most of `flex2d`, and
 their matching `@kernel` factories.
 
-#### `operators.py`
+#### `operators/core.py`
 
-- ✅ 🧪 🎯 [src/chunkie/operators.py](src/chunkie/operators.py) maps dense/direct operator assembly and evaluation helpers. Public operator signatures are Python-first (`chunker`, `kernel`, `density`, `target`/`points`, and `options`), while backend adapter internals may still use legacy dictionary keys at explicit boundaries.
+- ✅ 🧪 🎯 [src/chunkie/operators/core.py](src/chunkie/operators/core.py) maps dense/direct operator assembly and evaluation helpers behind the [src/chunkie/operators/__init__.py](src/chunkie/operators/__init__.py) package facade. Public operator signatures are Python-first (`chunker`, `kernel`, `density`, `target`/`points`, and `options`), while backend adapter internals may still use legacy dictionary keys at explicit boundaries. [src/chunkie/operators/options.py](src/chunkie/operators/options.py) owns option normalization/accessors, and [src/chunkie/operators/types.py](src/chunkie/operators/types.py) owns small operator data wrappers.
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |

@@ -75,16 +75,19 @@ def test_top_level_public_exports_are_stable():
 def test_acceleration_public_exports_are_stable_and_lazy():
     with temporarily_unloaded(
         "chunkie.acceleration.flam",
+        "chunkie.acceleration.fmm",
         "chunkie.acceleration",
     ):
         acceleration = importlib.import_module("chunkie.acceleration")
-        expected = {"flam"}
+        expected = {"flam", "fmm"}
         assert set(acceleration.__all__) == expected
         assert "chunkie.acceleration.flam" not in sys.modules
+        assert "chunkie.acceleration.fmm" not in sys.modules
 
-        from chunkie.acceleration import flam
+        from chunkie.acceleration import flam, fmm
 
         assert flam.__name__ == "chunkie.acceleration.flam"
+        assert fmm.__name__ == "chunkie.acceleration.fmm"
 
 
 def test_geometry_public_exports_are_stable_and_lazy():

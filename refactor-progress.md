@@ -443,7 +443,7 @@ Remaining work:
 
 ## Stage 8: Responsibility Package Split
 
-Status: in progress
+Status: complete
 
 Goals:
 
@@ -474,9 +474,16 @@ Completed notes:
   corner-compression package. `src/chunkie/rcip/algebra.py` now owns the
   prolongation/Schur setup helpers, and `src/chunkie/rcip/types.py` owns the
   saved-data containers. Quadrature now exports only generic quadrature modules.
+- Operators moved from `src/chunkie/operators.py` to the `src/chunkie/operators/`
+  package. `core.py` keeps the heavy dense/FMM/FLAM assembly and evaluation
+  coordinator, `options.py` owns keyword-option normalization/accessors, and
+  `types.py` owns small operator wrappers/context containers.
+- The FMM boundary is split conservatively: optional `fmm2dpy` loading now lives
+  in `src/chunkie/acceleration/fmm.py`, while physics-specific FMM selector
+  formulas remain in `src/chunkie/kernels/factory.py` with the kernel metadata.
 
 Remaining work:
 
-- Operators package split.
-- FMM acceleration boundary decision and any small adapter move that follows
-  from it.
+- None for this structural pass. Future work can further split
+  `operators/core.py` or kernel FMM dispatch when a stable ownership boundary
+  becomes clearer.
