@@ -111,6 +111,8 @@ class Kernel:
             raise TypeError("kernel multiplication only supports scalars")
         if np.isnan(scalar):
             return nans(*self.opdims)
+        if scalar == 0:
+            return zeros(*self.opdims)
         params = self.params.copy()
         params["_scale"] = params.get("_scale", 1.0) * scalar
         scaled_fmm = None

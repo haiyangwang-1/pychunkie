@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 381 pytest cases because several MATLAB parity tests are
+collection expands to 383 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -1298,6 +1298,25 @@ the explicit weighted matrix product and equality with the non-FMM evaluation.
 checks interleaved FMM dtype handling when complex Helmholtz blocks are applied
 to a real density. The method compares direct and FMM evaluation and verifies
 the FMM result remains complex instead of discarding imaginary parts.
+
+## `tests/test_kernel_algebra.py`
+
+`test_zero_scaled_kernel_evaluates_as_zero_even_at_singular_points` checks
+zero scalar multiplication of kernel objects. The method scales a singular
+Laplace single-layer kernel and a NaN placeholder kernel by zero, then
+evaluates them at a coincident source/target point. Ground truth is zero-kernel
+metadata and finite zero evaluation, not `0 * inf` or `0 * NaN` propagation.
+
+## `tests/test_keyword_options.py`
+
+`test_keyword_migration_forms_for_geometry_and_operator_helpers` checks
+keyword-style compatibility for APIs that historically accepted MATLAB-style
+option dictionaries. The method calls `chunkerinterior` with FLAM keyword
+options, `chunkerkerneval` with `force_adaptive` plus `near_factor`, and
+`chunkerpoly` with positional edge values plus keyword geometry options.
+Ground truth is agreement with direct interior classification, a correctly
+shaped adaptive evaluation, and edge data preserved on the generated open
+polyline.
 
 ## `tests/test_kernels.py`
 

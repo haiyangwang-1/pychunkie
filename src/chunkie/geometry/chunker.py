@@ -1615,6 +1615,11 @@ def chunkerpoly(
     propagation.
     """
 
+    if cparams is not None and not isinstance(cparams, dict):
+        if edgevals is not None:
+            raise TypeError("edgevals may be supplied positionally or by keyword, not both")
+        edgevals = cparams
+        cparams = None
     cparams = _legacy_options(cparams, "chunkerpoly cparams")
     _set_option(cparams, "ifclosed", closed)
     _set_option(cparams, "dyadic", dyadic)
