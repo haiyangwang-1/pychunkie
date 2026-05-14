@@ -60,6 +60,7 @@ def test_top_level_public_exports_are_stable():
         "pointinregion",
         "redblue",
         "regioninside",
+        "rcip",
         "starfish",
         "tochunkgraph",
     }
@@ -187,20 +188,19 @@ def test_quadrature_public_exports_are_stable_and_lazy():
     with temporarily_unloaded(
         "chunkie.quadrature.adaptive",
         "chunkie.quadrature.ggq",
+        "chunkie.quadrature.native",
         "chunkie.quadrature.panel",
-        "chunkie.quadrature.rcip",
         "chunkie.quadrature",
     ):
         quadrature = importlib.import_module("chunkie.quadrature")
-        expected = {"adaptive", "ggq", "native", "panel", "rcip"}
+        expected = {"adaptive", "ggq", "native", "panel"}
         assert set(quadrature.__all__) == expected
         assert "chunkie.quadrature.ggq" not in sys.modules
-        assert "chunkie.quadrature.rcip" not in sys.modules
 
-        from chunkie.quadrature import ggq, rcip
+        from chunkie.quadrature import ggq, panel
 
         assert ggq.__name__ == "chunkie.quadrature.ggq"
-        assert rcip.__name__ == "chunkie.quadrature.rcip"
+        assert panel.__name__ == "chunkie.quadrature.panel"
 
 
 def test_misc_public_exports_are_stable_and_lazy():

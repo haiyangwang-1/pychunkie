@@ -1297,7 +1297,7 @@ def _chunkgraph_rcip_mat(
     kernel: Callable[[Any, Any], np.ndarray],
     options: dict[str, Any],
 ) -> tuple[ChunkerRCIPMatrix, RCIPContext]:
-    from .quadrature import rcip
+    from . import rcip
 
     merged = cg.merged()
     base_options = _strip_rcip_options(options)
@@ -1433,7 +1433,7 @@ def _chunkgraph_rcip_eval(
     options: dict[str, Any],
     context: RCIPContext,
 ) -> np.ndarray:
-    from .quadrature import rcip
+    from . import rcip
 
     if not context.saved:
         return chunkerkerneval(cg.merged(), kernel, density, target, _strip_rcip_options(options))

@@ -469,10 +469,14 @@ Completed notes:
 - Domain helpers moved from `src/chunkie/domain.py` to
   `src/chunkie/geometry/domain.py`; `chunkie.geometry` now exports the domain
   helper names, and the top-level facade imports them from the geometry package.
+- RCIP moved from `src/chunkie/quadrature/rcip.py` to
+  `src/chunkie/rcip/core.py` with `chunkie.rcip` as the public
+  corner-compression package. `src/chunkie/rcip/algebra.py` now owns the
+  prolongation/Schur setup helpers, and `src/chunkie/rcip/types.py` owns the
+  saved-data containers. Quadrature now exports only generic quadrature modules.
 
 Remaining work:
 
-- RCIP package split.
 - Operators package split.
 - FMM acceleration boundary decision and any small adapter move that follows
   from it.

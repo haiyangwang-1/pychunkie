@@ -11,8 +11,9 @@ notes, but Python code no longer mirrors those package names.
   helpers.
 - `chunkie.misc`: arclength parametrization, smoother helpers, and
   `absconvgauss`.
-- `chunkie.quadrature`: native dense assembly, GGQ, adaptive correction, panel
-  product quadrature, and RCIP helpers.
+- `chunkie.quadrature`: native dense assembly, GGQ, adaptive correction, and
+  panel product quadrature.
+- `chunkie.rcip`: corner-compression and recursive local-refinement helpers.
 - `chunkie.kernels`: concrete kernel families plus the `Kernel` wrapper and
   `kernel(...)` factory.
 - `chunkie.acceleration`: FLAM callback and proxy helpers.
@@ -41,7 +42,7 @@ have compatibility wrappers.
 | `src/chunkie/chnk/quadggq.py` | `src/chunkie/quadrature/ggq.py` | Generalized Gaussian quadrature setup and assembly. |
 | `src/chunkie/chnk/quadadap.py` | `src/chunkie/quadrature/adaptive.py` | Adaptive close-evaluation corrections. |
 | `src/chunkie/chnk/pquad.py` | `src/chunkie/quadrature/panel.py` | Panel product quadrature helpers. |
-| `src/chunkie/chnk/rcip.py` | `src/chunkie/quadrature/rcip.py` | RCIP and corner-compression helpers. |
+| `src/chunkie/chnk/rcip.py` | `src/chunkie/rcip/core.py`, `src/chunkie/rcip/algebra.py`, `src/chunkie/rcip/types.py` | RCIP and corner-compression helpers. |
 | `src/chunkie/chnk/lap2d.py` | `src/chunkie/kernels/laplace.py` | Laplace formulas and FMM wiring. |
 | `src/chunkie/chnk/helm2d.py` | `src/chunkie/kernels/helmholtz.py` | 2D Helmholtz formulas and FMM wiring. |
 | `src/chunkie/chnk/helm1d.py` | `src/chunkie/kernels/helmholtz_1d.py` | 1D Helmholtz helpers. |
@@ -71,7 +72,7 @@ have compatibility wrappers.
 | `from chunkie.chnk import quadggq` | `from chunkie.quadrature import ggq as quadggq` |
 | `from chunkie.chnk import quadadap` | `from chunkie.quadrature import adaptive as quadadap` |
 | `from chunkie.chnk import pquad` | `from chunkie.quadrature import panel as pquad` |
-| `from chunkie.chnk import rcip` | `from chunkie.quadrature import rcip` |
+| `from chunkie.chnk import rcip` | `from chunkie import rcip` |
 | `from chunkie.chnk import lap2d` | `from chunkie.kernels import laplace as lap2d` |
 | `from chunkie.chnk import helm2d` | `from chunkie.kernels import helmholtz as helm2d` |
 | `from chunkie.chnk import helm1d` | `from chunkie.kernels import helmholtz_1d as helm1d` |
@@ -100,7 +101,8 @@ Examples:
 | --- | --- |
 | `chunkie.geometry` | operators, domain helpers, quadrature, geometry tests, parity tests. |
 | `chunkie.misc` | chunker arclength resampling, smoother tests, arclength parity tests, special-function tests. |
-| `chunkie.quadrature` | operators, quadrature tests, RCIP examples and parity tests. |
+| `chunkie.quadrature` | operators, quadrature tests, and special-quadrature parity tests. |
+| `chunkie.rcip` | operators, RCIP tests, RCIP parity tests, and nonsmooth chunkgraph workflows. |
 | `chunkie.kernels` | operators, kernel tests, operator tests, MATLAB parity tests. |
 | `chunkie.acceleration` | operators, FLAM tests, devtools parity tests. |
 

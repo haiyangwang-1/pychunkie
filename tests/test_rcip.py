@@ -1,9 +1,8 @@
 import numpy as np
 import pytest
 
-from chunkie import ChunkGraph, chunkerkerneval, chunkermat, kernel, lege
+from chunkie import ChunkGraph, chunkerkerneval, chunkermat, kernel, lege, rcip
 from chunkie.quadrature import panel as pquad
-from chunkie.quadrature import rcip
 
 
 def test_ipinit_interpolates_to_half_panels_and_preserves_weights():

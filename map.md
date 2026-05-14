@@ -42,6 +42,15 @@ src/
     │   ├── chunkerintegral, chunkerinterior
     │   ├── chunkerkerneval, chunkerkernevalmat
     │   └── private helpers
+    ├── rcip/
+    │   ├── __init__.py
+    │   ├── algebra.py
+    │   │   └── IPinit, Pbcinit, setup, SchurBana
+    │   ├── types.py
+    │   │   └── class RCIPSaved, class RCIPChunkGraphResult
+    │   └── core.py
+    │       ├── Rcompchunk, rhohatInterp, corner_refine, chunkgraph_rcip
+    │       └── private local-corner helpers
     ├── acceleration/
     │   ├── __init__.py
     │   └── flam.py
@@ -118,11 +127,6 @@ src/
     │   │   ├── pquadwts, panel_pquadwts, panel_matrix, panel_matrix_auto_side
     │   │   ├── sd_special_quad, splitinfo_for_kernel
     │   │   └── private helpers
-    │   └── rcip.py
-    │       ├── class RCIPSaved, class RCIPChunkGraphResult
-    │       ├── IPinit, Pbcinit, setup, SchurBana
-    │       ├── Rcompchunk, rhohatInterp, corner_refine, chunkgraph_rcip
-    │       └── lowercase MATLAB-style aliases
     ├── data/
     │   └── quadggq/
     │       ├── metadata.npz
@@ -148,7 +152,8 @@ src/
 - ✅ 🧪 [src/chunkie/geometry/__init__.py](src/chunkie/geometry/__init__.py) exposes `Chunker`, `ChunkerPref`, `ChunkGraph`, chunker constructors, graph helpers, `PointInfo`, curve helpers, domain helpers, and the geometry submodules. Pure MATLAB-style class-constructor aliases (`chunker`, `chunkerpref`, `chunkgraph`) have been removed from the package facade; use `Chunker`, `ChunkerPref.from_any`, and `ChunkGraph`.
 - ✅ 🧪 [src/chunkie/kernels/__init__.py](src/chunkie/kernels/__init__.py) exposes the `Kernel` factory/algebra layer plus concrete Laplace, Helmholtz, Stokes, biharmonic, and elasticity kernel-family modules.
 - ✅ 🧪 [src/chunkie/misc/__init__.py](src/chunkie/misc/__init__.py) exposes arclength parametrization, lightweight smoother, and `absconvgauss` helper modules.
-- ✅ 🧪 [src/chunkie/quadrature/__init__.py](src/chunkie/quadrature/__init__.py) exposes Python-native quadrature modules for native, GGQ, adaptive, panel-product, and RCIP workflows.
+- ✅ 🧪 [src/chunkie/quadrature/__init__.py](src/chunkie/quadrature/__init__.py) exposes Python-native quadrature modules for native, GGQ, adaptive, and panel-product workflows.
+- ✅ 🧪 [src/chunkie/rcip/__init__.py](src/chunkie/rcip/__init__.py) exposes RCIP corner-compression workflows as their own responsibility package.
 - ✅ [src/chunkie/lege/__init__.py](src/chunkie/lege/__init__.py) mirrors MATLAB `+lege` package exports.
 
 
@@ -418,7 +423,9 @@ their matching `@kernel` factories.
 
 Log/PV/HS support tables are packaged as `.npz` assets and loaded with `importlib.resources`; runtime no longer depends on a MATLAB reference checkout for GGQ tables. `quadrature.adaptive` covers MATLAB-style log self, neighbor, and robust close replacement, and the operator path can request `quadrature.panel` for eligible close panels while retaining adaptive Gauss fallback. `quadrature.panel` now backs eligible close-target/correction matrices and opt-in GGQ/adaptive neighbor blocks; lower-level quadrature adapter helpers touched by the Python-first pass use `chunker`, `kernel`, `source`, `target`, and `quadrature_order` names where they are not compact formula locals. `quadba` is an explicit non-goal for this port.
 
-#### `quadrature/rcip.py`
+#### `rcip/core.py`
+
+- ✅ 🧪 🎯 [src/chunkie/rcip/core.py](src/chunkie/rcip/core.py) maps RCIP corner-compression helpers into a dedicated responsibility package rather than treating them as generic quadrature. [src/chunkie/rcip/algebra.py](src/chunkie/rcip/algebra.py) owns the prolongation and Schur-Banachiewicz setup algebra, and [src/chunkie/rcip/types.py](src/chunkie/rcip/types.py) owns the small saved-data containers.
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |

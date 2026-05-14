@@ -21,7 +21,7 @@ such as ``+/- 1/2 I`` are not hidden in kernel objects; callers add them
 explicitly when forming a particular interior or exterior BVP equation.
 """
 
-from . import lege
+from . import lege, rcip
 from .geometry import PointInfo
 from .geometry.chunker import (
     Chunker,
@@ -99,6 +99,7 @@ __all__ = [
     "pointinregion",
     "redblue",
     "regioninside",
+    "rcip",
     "starfish",
     "tochunkgraph",
 ]

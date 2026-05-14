@@ -1,7 +1,7 @@
-"""Quadrature and corner-compression routines.
+"""Quadrature routines.
 
 This package is the Python-facing home for native smooth assembly, GGQ/adaptive
-special quadrature, panel product quadrature, and RCIP helpers.
+special quadrature, and panel product quadrature.
 """
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Any
 
-_SUBMODULES = {"adaptive", "ggq", "native", "panel", "rcip"}
+_SUBMODULES = {"adaptive", "ggq", "native", "panel"}
 
 
 def __getattr__(name: str) -> Any:
@@ -25,5 +25,4 @@ __all__ = [
     "ggq",
     "native",
     "panel",
-    "rcip",
 ]

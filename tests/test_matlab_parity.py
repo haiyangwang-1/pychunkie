@@ -21,6 +21,7 @@ from chunkie import (
     chunkermatapply,
     kernel,
     lege,
+    rcip,
 )
 from chunkie.kernels import biharmonic as biharm2d
 from chunkie.kernels import elasticity as elast2d
@@ -31,7 +32,6 @@ from chunkie.kernels import stokes as stok2d
 from chunkie.quadrature import adaptive as quadadap
 from chunkie.quadrature import ggq as quadggq
 from chunkie.quadrature import native as quadnative
-from chunkie.quadrature import rcip
 
 pytestmark = [pytest.mark.slow, pytest.mark.requires_matlab]
 pointinfo = PointInfo.from_any

@@ -2,8 +2,7 @@ import numpy as np
 import pytest
 
 from _fixture_generation import chunker_from_fields, load_generated_mat_fixture
-from chunkie import ChunkGraph, kernel
-from chunkie.quadrature import rcip
+from chunkie import ChunkGraph, kernel, rcip
 
 pytestmark = [pytest.mark.slow, pytest.mark.requires_matlab]
 

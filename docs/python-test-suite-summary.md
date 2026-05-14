@@ -96,7 +96,7 @@ Current test-backed coverage includes:
   chunkgraph RCIP integration in dense operator assembly/evaluation.
 - Public API contract guards for top-level `chunkie` exports and lazy
   responsibility-package exports under `acceleration`, `geometry`, `kernels`,
-  `misc`, and `quadrature`.
+  `misc`, and `quadrature`, with RCIP exposed as its own top-level package.
 - MATLAB golden parity for compact fixtures under `tests/golden`, including
   geometry, kernel/operator, quadrature, and RCIP fixtures.
 - MATLAB devtools parity for 54 focused comparisons in
@@ -121,7 +121,8 @@ Open or intentionally limited areas:
 
 `test_top_level_public_exports_are_stable` checks that the documented
 top-level `chunkie.__all__` facade continues to expose the same public names
-after internal refactors, including the exported RCIP matrix/context helpers.
+after internal refactors, including the exported RCIP package plus RCIP
+matrix/context helpers.
 It also guards that removed MATLAB-style class-constructor aliases
 `chunker`, `chunkerpref`, and `chunkgraph` do not leak back into the top-level
 facade.
@@ -136,7 +137,9 @@ submodules only when accessed. These tests restore any temporarily unloaded
 modules so later monkeypatch tests observe the same module objects used by
 operator dispatch. The geometry package still exposes `chunker` and
 `chunkgraph` as submodules, not as constructor aliases, and now owns the
-domain-helper submodule exported through the top-level facade.
+domain-helper submodule exported through the top-level facade. The quadrature
+package no longer exports RCIP because RCIP is a separate corner-compression
+package rather than a generic quadrature module.
 
 ## `tests/test_arcparam.py`
 
