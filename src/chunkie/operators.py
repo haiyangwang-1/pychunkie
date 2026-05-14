@@ -780,7 +780,7 @@ def chunkerkerneval(
 
     chnkr = _require_chunker(chnkr)
     acceleration = _acceleration(options)
-    if same_source_target and _uses_special_quadrature(kern, options):
+    if same_source_target and _uses_special_quadrature(kern, options) and acceleration != "fmm":
         mat_options = dict(options)
         mat_options.pop("acceleration", None)
         vals = chunkermat(chnkr, kern, mat_options) @ np.asarray(dens).reshape(-1, order="F")
@@ -802,13 +802,15 @@ def chunkerkerneval(
     use_fmm = acceleration == "fmm"
     if use_fmm:
         _require_fmm(kern)
-    if same_source_target and _uses_special_quadrature(kern, options) and not use_fmm:
-        vals = chunkermat(chnkr, kern, options) @ np.asarray(dens).reshape(-1, order="F")
-        opdims = getattr(kern, "opdims", (1, 1))[0]
-        return vals.reshape(opdims, chnkr.npt, order="F")
 
     srcinfo = PointInfo.from_any(chnkr)
     targinfo = PointInfo.from_any(targobj)
+    if same_source_target and _uses_special_quadrature(kern, options):
+        smooth_options = _smooth_fmm_options(options)
+        smooth_options["acceleration"] = "fmm"
+        vals = chunkerkerneval(chnkr, kern, dens, chnkr, smooth_options).reshape(-1, order="F")
+        vals = vals + _special_correction_matrix(chnkr, kern, options) @ np.asarray(dens).reshape(-1, order="F")
+        return vals.reshape(-1, targinfo.r.shape[1], order="F")
     cormat = options.get("cormat", None)
     if cormat is not None:
         mat = _eval_kernel(kern, srcinfo, targinfo)

@@ -89,6 +89,27 @@ def test_chunkermatapply_fmm_matches_special_matrix_application():
     np.testing.assert_allclose(via_fmm, direct, rtol=1e-9, atol=1e-10)
 
 
+def test_chunkerkerneval_same_source_fmm_uses_smooth_fmm_plus_correction(monkeypatch):
+    chnkr, _ = chunkerfunc(circle, min_chunks=4, order=8)
+    lap_s = kernel("lap", "s")
+    dens = np.cos(chnkr.r[0].reshape(-1, order="F"))
+    calls = 0
+    original_fmm = lap_s.fmm
+
+    def counting_fmm(eps, srcinfo, targinfo, sigma):
+        nonlocal calls
+        calls += 1
+        return original_fmm(eps, srcinfo, targinfo, sigma)
+
+    monkeypatch.setattr(lap_s, "fmm", counting_fmm)
+
+    direct = chunkermat(chnkr, lap_s) @ dens
+    via_fmm = chunkerkerneval(chnkr, lap_s, dens, chnkr, acceleration="fmm", tol=1e-12).reshape(-1, order="F")
+
+    assert calls == 1
+    np.testing.assert_allclose(via_fmm, direct, rtol=1e-9, atol=1e-10)
+
+
 def test_chunkermat_fmm_returns_matrix_free_operator_matching_dense_application():
     chnkr, _ = chunkerfunc(circle, {"nchmin": 6}, {"k": 8})
     lap_s = kernel("lap", "s")

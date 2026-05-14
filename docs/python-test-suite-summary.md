@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 376 pytest cases because several MATLAB parity tests are
+collection expands to 377 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -1551,6 +1551,12 @@ Laplace single-layer kernel through
 `chunkermatapply(..., acceleration="fmm")`, then compares against the
 dense special-quadrature matrix product. Ground truth is agreement after sparse
 self/neighbor GGQ corrections are added to the FMM result.
+
+`test_chunkerkerneval_same_source_fmm_uses_smooth_fmm_plus_correction` checks
+that same-source boundary evaluation honors explicit FMM acceleration for a
+singular Laplace single-layer kernel. The method instruments the kernel FMM
+callback, compares against the dense special-quadrature product, and verifies
+the FMM callback is used before the sparse correction is added.
 
 `test_chunkermat_fmm_returns_matrix_free_operator_matching_dense_application`
 checks the explicit FMM return path on `chunkermat`. The method requests
