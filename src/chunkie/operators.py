@@ -1962,18 +1962,14 @@ def _chunkermatapply_fmm(
     op0, op1 = _kernel_opdims(chnkr, kern)
     use_l2scale = _l2scale(options)
     eval_dens = dens_vec * _chunker_l2_col_scale(chnkr, op1) if use_l2scale else dens_vec
-    if _uses_special_quadrature(kern, options):
-        mat_options = dict(options)
-        mat_options.pop("acceleration", None)
-        mat_options.pop("l2scale", None)
-        vals = chunkermat(chnkr, kern, mat_options) @ eval_dens
-        if use_l2scale:
-            vals = _chunker_l2_row_scale(chnkr, op0) * vals
-        return vals
-    fmm_options = dict(options)
+    special = _uses_special_quadrature(kern, options)
+    fmm_options = _smooth_fmm_options(options) if special else dict(options)
     fmm_options["acceleration"] = "fmm"
     fmm_options.pop("l2scale", None)
     vals = chunkerkerneval(chnkr, kern, eval_dens, chnkr, fmm_options).reshape(-1, order="F")
+    if special:
+        corr = _special_correction_matrix(chnkr, kern, options) if correction is None else correction
+        vals = vals + corr @ eval_dens
     if use_l2scale:
         vals = _chunker_l2_row_scale(chnkr, op0) * vals
     return vals
@@ -1993,7 +1989,7 @@ def _block_chunkermatapply_fmm(
     eval_dens = dens_vec * _block_l2_col_scale(layout) if use_l2scale else dens_vec
     nrows = int(layout.row_offsets[-1])
     out = np.zeros(nrows, dtype=np.result_type(_block_operator_dtype(layout), eval_dens.dtype))
-    fmm_options = dict(options)
+    fmm_options = _smooth_fmm_options(options) if _block_uses_special_quadrature(layout, options) else dict(options)
     fmm_options["acceleration"] = "fmm"
     fmm_options.pop("l2scale", None)
 
@@ -2011,6 +2007,14 @@ def _block_chunkermatapply_fmm(
         out = out + corr @ eval_dens
     if use_l2scale:
         out = _block_l2_row_scale(layout) * out
+    return out
+
+
+def _smooth_fmm_options(options: dict[str, Any]) -> dict[str, Any]:
+    out = dict(options)
+    out["forcesmooth"] = True
+    out.pop("forceadap", None)
+    out.pop("adaptive_correction", None)
     return out
 
 

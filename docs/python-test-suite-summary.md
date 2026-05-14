@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 375 pytest cases because several MATLAB parity tests are
+collection expands to 376 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -1566,6 +1566,12 @@ builds a two-component block matrix over two separated chunkers using
 off-diagonal Laplace single-layer blocks and zero diagonal blocks, then compares
 vector, multiple-right-hand-side, and l2-scaled FMM products against dense
 block matrices.
+
+`test_block_chunkermat_fmm_applies_self_special_corrections_once` checks the
+block-kernel FMM path when singular Laplace single-layer kernels appear on
+diagonal self blocks. The method compares vector and multiple-RHS products
+against the dense special-quadrature block matrix, catching double application
+of self-block GGQ corrections.
 
 `test_fmm_request_warns_when_kernel_uses_direct_fallback` checks explicit FMM
 requests for kernels that only have the compatibility dense matvec fallback.

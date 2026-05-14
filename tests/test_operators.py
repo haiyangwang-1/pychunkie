@@ -142,6 +142,22 @@ def test_block_chunkermat_fmm_matches_dense_application_and_l2scale():
     np.testing.assert_allclose(via_fmm_l2 @ rhs, dense_l2 @ rhs, rtol=1e-9, atol=1e-10)
 
 
+def test_block_chunkermat_fmm_applies_self_special_corrections_once():
+    first, _ = chunkerfunc(circle, min_chunks=3, order=6)
+    second = first.translate(np.array([2.8, 0.15]))
+    chunkers = [first, second]
+    lap_s = kernel("lap", "s")
+    blocks = [[lap_s, lap_s], [lap_s, lap_s]]
+    rhs = np.sin(0.17 * np.arange(first.npt + second.npt))
+    rhs2 = np.column_stack((rhs, np.cos(0.11 * np.arange(rhs.size))))
+
+    dense = chunkermat(chunkers, blocks)
+    via_fmm = chunkermat(chunkers, blocks, acceleration="fmm", tol=1e-12)
+
+    np.testing.assert_allclose(via_fmm @ rhs, dense @ rhs, rtol=1e-9, atol=1e-10)
+    np.testing.assert_allclose(via_fmm @ rhs2, dense @ rhs2, rtol=1e-9, atol=1e-10)
+
+
 def test_block_chunkermat_reuses_special_quadrature_for_self_blocks():
     first, _ = chunkerfunc(circle, {"nchmin": 3}, {"k": 6})
     second = first.translate(np.array([2.8, 0.15]))
