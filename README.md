@@ -1,17 +1,20 @@
 # pychunkie
 
-A Python port of the MATLAB [chunkIE](https://github.com/fastalgorithms/chunkie)
-package.
+A Python-first boundary-integral toolkit inspired by the MATLAB
+[chunkIE](https://github.com/fastalgorithms/chunkie) package.
 
-The port is intentionally conservative:
+The MATLAB codebase remains the numerical reference and fixture source, but it
+is not the public API contract for this package. The repo now favors ordinary
+NumPy semantics, clear domain names, and explicit adapter boundaries for
+solver/backend layouts.
 
-- keep MATLAB numerical behavior recognizable while using Python-centered
-  package boundaries under `src/chunkie`;
+- keep MATLAB numerical parity where relevant while using Python-centered
+  package boundaries and APIs under `src/chunkie`;
 - use `uv` and the project-local `.venv`;
-- keep runtime dependencies focused on `numpy`, `scipy`, `fmm2dpy`, and
-  `matplotlib` for demo figures;
-- add FMM2D acceleration incrementally while dense/direct functionality remains
-  the reference path;
+- keep runtime dependencies focused on `numpy`, `scipy`, `fmm2dpy`, `pyflam`,
+  and `matplotlib` for demo figures;
+- keep dense/direct functionality as the correctness reference for FMM/FLAM
+  acceleration;
 - test behavior against MATLAB-generated golden fixtures as the port grows.
 
 ## Installation
@@ -52,8 +55,13 @@ from Git repositories in `pyproject.toml`.
 git submodule update --init --recursive
 uv sync
 uv run pytest
+uv run ruff check .
+uv run mypy
 uv run python scripts/clean_test_data.py
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the Python-first design philosophy,
+tensor notation, naming standard, testing policy, and living-doc rules.
 
 See [docs/fmm2dpy-install.md](docs/fmm2dpy-install.md) for macOS, Windows, and
 Linux notes on installing the upstream `fmm2dpy` dependency.
@@ -80,3 +88,6 @@ uv's source table and built from the upstream FMM2D repository during install.
   a multiply connected BVP.
 - `examples/accelerated_fmm_*.py` and `examples/accelerated_flam_laplace.py`
   show one accelerated physics/backend combination per file.
+
+The examples intentionally use Python-first variable names and keyword options
+instead of MATLAB-layout dictionary keys.

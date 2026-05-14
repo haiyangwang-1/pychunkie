@@ -11,8 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
 
-from chunkie import chunkerkerneval, chunkerkernevalmat, chunkerpoly, kernel
-
+from chunkie import PointInfo, chunkerkerneval, chunkerkernevalmat, chunkerpoly, kernel
 
 DEFAULT_DEPTH = 40
 DEFAULT_GRID_SIZE = 80
@@ -48,12 +47,16 @@ def make_square(depth: int = DEFAULT_DEPTH):
     )
 
 
-def boundary_nodes(chnkr) -> np.ndarray:
-    return chnkr.r.reshape(chnkr.dim, chnkr.npt, order="F")
+def boundary_nodes(boundary) -> np.ndarray:
+    return PointInfo.from_any(boundary).r
 
 
-def boundary_normals(chnkr) -> np.ndarray:
-    return chnkr.n.reshape(chnkr.dim, chnkr.npt, order="F")
+def boundary_normals(boundary) -> np.ndarray:
+    return PointInfo.from_any(boundary).n
+
+
+def boundary_weights(boundary) -> np.ndarray:
+    return boundary.quadrature_weights.T.reshape(-1)
 
 
 def interior_solution(targets: np.ndarray) -> np.ndarray:
@@ -80,30 +83,35 @@ def exterior_gradient(targets: np.ndarray) -> np.ndarray:
     return np.vstack(((y**2 - x**2) / r4, -2.0 * x * y / r4))
 
 
-def corrected_single_layer(chnkr, sigma: np.ndarray, const: float, targets: np.ndarray) -> np.ndarray:
-    """Evaluate S sigma + const using MATLAB-style sparse near corrections."""
+def corrected_single_layer(
+    boundary, sigma: np.ndarray, const: float, targets: np.ndarray
+) -> np.ndarray:
+    """Evaluate S sigma + const using sparse near corrections."""
 
     lap_s = kernel("lap", "s")
-    cormat = chunkerkernevalmat(chnkr, lap_s, targets, {"corrections": True, "fac": 1.0})
+    correction_matrix = chunkerkernevalmat(
+        boundary, lap_s, targets, corrections=True, near_factor=1.0
+    )
     vals = chunkerkerneval(
-        chnkr,
+        boundary,
         lap_s,
         sigma,
         targets,
-        {"forcesmooth": True, "cormat": cormat},
+        quadrature="smooth",
+        correction_matrix=correction_matrix,
     )
     return vals.reshape(-1) + const
 
 
-def constant_fit(chnkr, sigma: np.ndarray, targets: np.ndarray, truth: np.ndarray) -> float:
+def constant_fit(boundary, sigma: np.ndarray, targets: np.ndarray, truth: np.ndarray) -> float:
     """Fit the additive constant left undetermined by a Neumann solve."""
 
-    vals = corrected_single_layer(chnkr, sigma, 0.0, targets)
+    vals = corrected_single_layer(boundary, sigma, 0.0, targets)
     return float(np.mean(truth - vals))
 
 
-def target_error(chnkr, sigma: np.ndarray, const: float, targets: np.ndarray, truth_fn) -> float:
-    vals = corrected_single_layer(chnkr, sigma, const, targets)
+def target_error(boundary, sigma: np.ndarray, const: float, targets: np.ndarray, truth_fn) -> float:
+    vals = corrected_single_layer(boundary, sigma, const, targets)
     return float(np.max(np.abs(vals - truth_fn(targets))))
 
 
@@ -111,7 +119,7 @@ def write_solution_plots(
     output_dir: Path,
     stem: str,
     title: str,
-    chnkr,
+    boundary,
     sigma: np.ndarray,
     const: float,
     side: str,
@@ -122,7 +130,7 @@ def write_solution_plots(
 
     xs, ys, domain, targets, truth = _grid(side, truth_fn, grid_size)
     values = np.full(domain.shape, np.nan)
-    values[domain] = corrected_single_layer(chnkr, sigma, const, targets)
+    values[domain] = corrected_single_layer(boundary, sigma, const, targets)
     error = np.log10(np.maximum(np.abs(values - truth), 1e-16))
 
     paths = {

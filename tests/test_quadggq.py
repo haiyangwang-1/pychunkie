@@ -5,7 +5,15 @@ import pytest
 from scipy import sparse
 
 import chunkie.operators as operators_mod
-from chunkie import Kernel, chunkerfunc, chunkerkerneval, chunkerkernevalmat, chunkermat, kernel, merge
+from chunkie import (
+    Kernel,
+    chunkerfunc,
+    chunkerkerneval,
+    chunkerkernevalmat,
+    chunkermat,
+    kernel,
+    merge,
+)
 from chunkie.quadrature import adaptive as quadadap
 from chunkie.quadrature import ggq as quadggq
 
@@ -49,7 +57,7 @@ def test_matlab_log_quadrature_tables_load_for_each_legendre_node():
 
     assert len(aux.xs0) == 8
     assert aux.ainterp1.shape[1] == 8
-    for node, xs, wts, interp in zip(xleg, aux.xs0, aux.wts0, aux.ainterps0):
+    for node, xs, wts, interp in zip(xleg, aux.xs0, aux.wts0, aux.ainterps0, strict=False):
         assert xs.shape == wts.shape
         assert interp.shape == (xs.size, 8)
         assert np.all(xs >= -1.0)
@@ -100,7 +108,7 @@ def test_quadggq_handles_complex_helmholtz_single_layer_blocks():
     helm_s = kernel("helm", "s", 1.3 + 0.2j)
 
     mat = quadggq.buildmat(chnkr, helm_s, helm_s.opdims)
-    adap = quadadap.buildmat(chnkr, helm_s, opts={"sing": "log", "eps": 1e-9})
+    adap = quadadap.buildmat(chnkr, helm_s, options={"sing": "log", "eps": 1e-9})
 
     assert np.iscomplexobj(mat)
     np.testing.assert_allclose(mat, adap, rtol=5e-8, atol=5e-9)
@@ -113,7 +121,7 @@ def test_nearbuildmat_matches_buildmat_neighbor_block_and_correction():
     src_chunk = 0
     targ_chunk = int(chnkr.adj[1, src_chunk]) - 1
 
-    full = quadggq.buildmat(chnkr, lap_s, lap_s.opdims, type="log", auxquads=aux)
+    full = quadggq.buildmat(chnkr, lap_s, lap_s.opdims, singularity="log", auxquads=aux)
     near = quadggq.nearbuildmat(chnkr, targ_chunk, src_chunk, lap_s, lap_s.opdims, aux)
     rows = slice(targ_chunk * chnkr.k, (targ_chunk + 1) * chnkr.k)
     cols = slice(src_chunk * chnkr.k, (src_chunk + 1) * chnkr.k)
@@ -129,10 +137,23 @@ def test_nearbuildmat_matches_buildmat_neighbor_block_and_correction():
         aux,
         corrections=True,
     )
-    native = lap_s(
-        {"r": chnkr.r[:, :, src_chunk], "d": chnkr.d[:, :, src_chunk], "d2": chnkr.d2[:, :, src_chunk], "n": chnkr.n[:, :, src_chunk]},
-        {"r": chnkr.r[:, :, targ_chunk], "d": chnkr.d[:, :, targ_chunk], "d2": chnkr.d2[:, :, targ_chunk], "n": chnkr.n[:, :, targ_chunk]},
-    ) * chnkr.wts[:, src_chunk][None, :]
+    native = (
+        lap_s(
+            {
+                "r": chnkr.r[:, :, src_chunk],
+                "d": chnkr.d[:, :, src_chunk],
+                "d2": chnkr.d2[:, :, src_chunk],
+                "n": chnkr.n[:, :, src_chunk],
+            },
+            {
+                "r": chnkr.r[:, :, targ_chunk],
+                "d": chnkr.d[:, :, targ_chunk],
+                "d2": chnkr.d2[:, :, targ_chunk],
+                "n": chnkr.n[:, :, targ_chunk],
+            },
+        )
+        * chnkr.wts[:, src_chunk][None, :]
+    )
     np.testing.assert_allclose(corrected, near - native)
 
 
@@ -144,7 +165,9 @@ def test_buildmat_ilist_skips_bad_neighbor_and_self_special_blocks():
     skipped = quadggq.buildmat(chnkr, lap_s, lap_s.opdims, ilist=np.array([0, 1]))
     smooth = chunkermat(chnkr, lap_s, quadrature="smooth")
 
-    block = lambda mat, i, j: mat[i * chnkr.k : (i + 1) * chnkr.k, j * chnkr.k : (j + 1) * chnkr.k]
+    def block(mat, i, j):
+        return mat[i * chnkr.k : (i + 1) * chnkr.k, j * chnkr.k : (j + 1) * chnkr.k]
+
     np.testing.assert_allclose(block(skipped, 1, 0), block(smooth, 1, 0))
     np.testing.assert_allclose(block(skipped, 0, 0), block(smooth, 0, 0))
     np.testing.assert_allclose(block(skipped, 2, 1), block(special, 2, 1))
@@ -160,7 +183,9 @@ def test_buildmattd_returns_sparse_special_blocks_only():
     assert sparse.issparse(td)
     dense_td = td.toarray()
 
-    block = lambda mat, i, j: mat[i * chnkr.k : (i + 1) * chnkr.k, j * chnkr.k : (j + 1) * chnkr.k]
+    def block(mat, i, j):
+        return mat[i * chnkr.k : (i + 1) * chnkr.k, j * chnkr.k : (j + 1) * chnkr.k]
+
     np.testing.assert_allclose(block(dense_td, 0, 0), block(full, 0, 0))
     np.testing.assert_allclose(block(dense_td, 1, 0), block(full, 1, 0))
     np.testing.assert_allclose(block(dense_td, 3, 0), 0.0)
@@ -209,15 +234,16 @@ def test_chunkermat_uses_special_quadrature_for_pv_and_hs_kernels():
 
     pv_mat = chunkermat(chnkr, lap_sgrad)
     hs_mat = chunkermat(chnkr, lap_dgrad)
-    pv_td = quadggq.buildmattd(chnkr, lap_sgrad, lap_sgrad.opdims, type="pv").toarray()
-    hs_td = quadggq.buildmattd(chnkr, lap_dgrad, lap_dgrad.opdims, type="hs").toarray()
+    pv_td = quadggq.buildmattd(chnkr, lap_sgrad, lap_sgrad.opdims, singularity="pv").toarray()
+    hs_td = quadggq.buildmattd(chnkr, lap_dgrad, lap_dgrad.opdims, singularity="hs").toarray()
     pv_smooth = chunkermat(chnkr, lap_sgrad, quadrature="smooth")
     hs_smooth = chunkermat(chnkr, lap_dgrad, quadrature="smooth")
 
-    block = lambda mat, i, j, op0=2: mat[
-        i * chnkr.k * op0 : (i + 1) * chnkr.k * op0,
-        j * chnkr.k : (j + 1) * chnkr.k,
-    ]
+    def block(mat, i, j, op0=2):
+        return mat[
+            i * chnkr.k * op0 : (i + 1) * chnkr.k * op0,
+            j * chnkr.k : (j + 1) * chnkr.k,
+        ]
 
     assert pv_mat.shape == (2 * chnkr.npt, chnkr.npt)
     assert hs_mat.shape == (2 * chnkr.npt, chnkr.npt)
@@ -243,8 +269,8 @@ def test_quadadap_buildmat_uses_adaptive_neighbor_blocks(monkeypatch):
 
     monkeypatch.setattr(quadadap, "adapgausswts", wrapped)
 
-    adap = quadadap.buildmat(chnkr, lap_s, opts={"sing": "log"})
-    ggq = quadggq.buildmat(chnkr, lap_s, lap_s.opdims, type="log")
+    adap = quadadap.buildmat(chnkr, lap_s, options={"sing": "log"})
+    ggq = quadggq.buildmat(chnkr, lap_s, lap_s.opdims, singularity="log")
 
     assert len(calls) == 2 * chnkr.nch
     assert {ntarg for _, ntarg in calls} == {chnkr.k}
@@ -271,8 +297,8 @@ def test_quadadap_robust_mode_repairs_non_neighbor_close_blocks(monkeypatch):
 
     monkeypatch.setattr(quadadap, "adapgausswts", wrapped)
 
-    standard = quadadap.buildmat(chnkr, lap_s, opts={"sing": "log", "robust": False})
-    robust = quadadap.buildmat(chnkr, lap_s, opts={"sing": "log", "robust": True})
+    standard = quadadap.buildmat(chnkr, lap_s, options={"sing": "log", "robust": False})
+    robust = quadadap.buildmat(chnkr, lap_s, options={"sing": "log", "robust": True})
 
     assert np.isfinite(robust).all()
     assert any(ntarg != chnkr.k for _, ntarg in calls)

@@ -9,25 +9,29 @@ from chunkie.geometry import PointInfo
 
 
 def green(
-    src: ArrayLike,
-    targ: ArrayLike,
+    source: ArrayLike,
+    target: ArrayLike,
     nolog: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Evaluate the 2D Laplace Green's function, gradient, and Hessian."""
 
-    src_arr = np.asarray(src, dtype=float).reshape(2, -1)
-    targ_arr = np.asarray(targ, dtype=float).reshape(2, -1)
-    rx = targ_arr[0, :, None] - src_arr[0, None, :]
-    ry = targ_arr[1, :, None] - src_arr[1, None, :]
+    source_points = np.asarray(source, dtype=float).reshape(2, -1)
+    target_points = np.asarray(target, dtype=float).reshape(2, -1)
+    rx = target_points[0, :, None] - source_points[0, None, :]
+    ry = target_points[1, :, None] - source_points[1, None, :]
     r2 = rx**2 + ry**2
 
     with np.errstate(divide="ignore", invalid="ignore"):
-        val = np.empty((targ_arr.shape[1], src_arr.shape[1])) if nolog else -np.log(r2) / (4.0 * np.pi)
-        grad = np.empty((targ_arr.shape[1], src_arr.shape[1], 2))
+        val = (
+            np.empty((target_points.shape[1], source_points.shape[1]))
+            if nolog
+            else -np.log(r2) / (4.0 * np.pi)
+        )
+        grad = np.empty((target_points.shape[1], source_points.shape[1], 2))
         grad[:, :, 0] = -rx / (2.0 * np.pi * r2)
         grad[:, :, 1] = -ry / (2.0 * np.pi * r2)
         r4 = r2**2
-        hess = np.empty((targ_arr.shape[1], src_arr.shape[1], 3))
+        hess = np.empty((target_points.shape[1], source_points.shape[1], 3))
         hess[:, :, 0] = rx**2 / (np.pi * r4) - 1.0 / (2.0 * np.pi * r2)
         hess[:, :, 1] = rx * ry / (np.pi * r4)
         hess[:, :, 2] = ry**2 / (np.pi * r4) - 1.0 / (2.0 * np.pi * r2)
@@ -36,9 +40,9 @@ def green(
     return val, grad, hess
 
 
-def kern(
-    srcinfo: PointInfo | dict | ArrayLike,
-    targinfo: PointInfo | dict | ArrayLike,
+def kernel(
+    source: PointInfo | dict | ArrayLike,
+    target: PointInfo | dict | ArrayLike,
     kind: str,
     coefs: ArrayLike | None = None,
 ) -> np.ndarray:
@@ -51,49 +55,71 @@ def kern(
     ``"c"``, ``"cp"``, and ``"cgrad"``.
     """
 
-    src = PointInfo.from_any(srcinfo)
-    targ = PointInfo.from_any(targinfo)
+    source_info = PointInfo.from_any(source)
+    target_info = PointInfo.from_any(target)
     typ = kind.lower()
-    val, grad, hess = green(src.r, targ.r, nolog=typ not in {"s", "single", "c", "combined"})
+    val, grad, hess = green(
+        source_info.r,
+        target_info.r,
+        nolog=typ not in {"s", "single", "c", "combined"},
+    )
 
     if typ in {"s", "single"}:
         return val
     if typ in {"d", "double"}:
-        _require(src.n, "source normals")
-        return -(grad[:, :, 0] * src.n[0, None, :] + grad[:, :, 1] * src.n[1, None, :])
-    if typ in {"sp", "sprime"}:
-        _require(targ.n, "target normals")
-        return grad[:, :, 0] * targ.n[0, :, None] + grad[:, :, 1] * targ.n[1, :, None]
-    if typ == "stau":
-        _require(targ.n, "target normals")
-        return -grad[:, :, 0] * targ.n[1, :, None] + grad[:, :, 1] * targ.n[0, :, None]
-    if typ in {"hilb"}:
-        _require(src.n, "source normals")
-        return 2.0 * (grad[:, :, 0] * src.n[1, None, :] - grad[:, :, 1] * src.n[0, None, :])
-    if typ in {"sgrad", "sg"}:
-        return grad.transpose(0, 2, 1).reshape(2 * targ.r.shape[1], src.r.shape[1])
-    if typ in {"dgrad", "dg"}:
-        _require(src.n, "source normals")
-        sub = -(hess[:, :, 0:2] * src.n[0, None, :, None] + hess[:, :, 1:3] * src.n[1, None, :, None])
-        return sub.transpose(0, 2, 1).reshape(2 * targ.r.shape[1], src.r.shape[1])
-    if typ in {"dp", "dprime"}:
-        _require(src.n, "source normals")
-        _require(targ.n, "target normals")
+        _require(source_info.n, "source normals")
         return -(
-            hess[:, :, 0] * src.n[0, None, :] * targ.n[0, :, None]
+            grad[:, :, 0] * source_info.n[0, None, :] + grad[:, :, 1] * source_info.n[1, None, :]
+        )
+    if typ in {"sp", "sprime"}:
+        _require(target_info.n, "target normals")
+        return grad[:, :, 0] * target_info.n[0, :, None] + grad[:, :, 1] * target_info.n[1, :, None]
+    if typ == "stau":
+        _require(target_info.n, "target normals")
+        return (
+            -grad[:, :, 0] * target_info.n[1, :, None] + grad[:, :, 1] * target_info.n[0, :, None]
+        )
+    if typ in {"hilb"}:
+        _require(source_info.n, "source normals")
+        return 2.0 * (
+            grad[:, :, 0] * source_info.n[1, None, :] - grad[:, :, 1] * source_info.n[0, None, :]
+        )
+    if typ in {"sgrad", "sg"}:
+        return grad.transpose(0, 2, 1).reshape(2 * target_info.r.shape[1], source_info.r.shape[1])
+    if typ in {"dgrad", "dg"}:
+        _require(source_info.n, "source normals")
+        sub = -(
+            hess[:, :, 0:2] * source_info.n[0, None, :, None]
+            + hess[:, :, 1:3] * source_info.n[1, None, :, None]
+        )
+        return sub.transpose(0, 2, 1).reshape(2 * target_info.r.shape[1], source_info.r.shape[1])
+    if typ in {"dp", "dprime"}:
+        _require(source_info.n, "source normals")
+        _require(target_info.n, "target normals")
+        return -(
+            hess[:, :, 0] * source_info.n[0, None, :] * target_info.n[0, :, None]
             + hess[:, :, 1]
-            * (src.n[1, None, :] * targ.n[0, :, None] + src.n[0, None, :] * targ.n[1, :, None])
-            + hess[:, :, 2] * src.n[1, None, :] * targ.n[1, :, None]
+            * (
+                source_info.n[1, None, :] * target_info.n[0, :, None]
+                + source_info.n[0, None, :] * target_info.n[1, :, None]
+            )
+            + hess[:, :, 2] * source_info.n[1, None, :] * target_info.n[1, :, None]
         )
     if typ in {"c", "combined"}:
         c = np.ones(2) if coefs is None else np.asarray(coefs)
-        return c[0] * kern(src, targ, "d") + c[1] * kern(src, targ, "s")
+        return c[0] * kernel(source_info, target_info, "d") + c[1] * kernel(
+            source_info, target_info, "s"
+        )
     if typ in {"cp", "cprime"}:
         c = np.ones(2) if coefs is None else np.asarray(coefs)
-        return c[0] * kern(src, targ, "dp") + c[1] * kern(src, targ, "sp")
+        return c[0] * kernel(source_info, target_info, "dp") + c[1] * kernel(
+            source_info, target_info, "sp"
+        )
     if typ in {"cg", "cgrad"}:
         c = np.ones(2) if coefs is None else np.asarray(coefs)
-        return c[0] * kern(src, targ, "dg") + c[1] * kern(src, targ, "sg")
+        return c[0] * kernel(source_info, target_info, "dg") + c[1] * kernel(
+            source_info, target_info, "sg"
+        )
     raise ValueError(f"Unknown Laplace kernel type {kind!r}.")
 
 

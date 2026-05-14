@@ -2,8 +2,8 @@ import numpy as np
 import pytest
 
 from chunkie import (
+    ChunkGraph,
     checkcurveparam,
-    chunkgraph,
     ellipse,
     hypoct_uni,
     mergeregions,
@@ -26,7 +26,7 @@ def test_ellipse_and_starfish_helpers_match_expected_formulas():
 
     top = starfish(t, 3, 0.2, [0.1, -0.2], np.pi / 7.0, 1.4)
     nested = curves.starfish(t, 3, 0.2, [0.1, -0.2], np.pi / 7.0, 1.4)
-    for actual, expected in zip(top, nested):
+    for actual, expected in zip(top, nested, strict=False):
         np.testing.assert_allclose(actual, expected, atol=1e-15)
 
 
@@ -78,8 +78,13 @@ def test_nonflatinterface_derivatives_and_redblue_colormap():
     phase = 2.0 * t - 0.4
     expected_y = 1.3 * expfac * np.sin(phase)
     expected_dy = 1.3 * expfac * (2.0 * np.cos(phase) - 0.7 * t * np.sin(phase))
-    expected_d2y = 1.3 * expfac * (
-        -2.0 * 0.7 * 2.0 * t * np.cos(phase) + (0.7 * 0.7 * t**2 - 0.7 - 2.0 * 2.0) * np.sin(phase)
+    expected_d2y = (
+        1.3
+        * expfac
+        * (
+            -2.0 * 0.7 * 2.0 * t * np.cos(phase)
+            + (0.7 * 0.7 * t**2 - 0.7 - 2.0 * 2.0) * np.sin(phase)
+        )
     )
 
     np.testing.assert_allclose(r[0], t)
@@ -107,7 +112,11 @@ def test_hypoct_uni_builds_zero_based_uniform_tree():
             [0.1, 0.1, 0.9, 0.9],
         ]
     )
-    tree = hypoct_uni(pts, 0.4, ext=np.array([[0.0, 1.0], [0.0, 1.0]]))
+    tree = hypoct_uni(
+        points=pts,
+        box_size=0.4,
+        extent=np.array([[0.0, 1.0], [0.0, 1.0]]),
+    )
 
     assert tree.nlvl == 2
     np.testing.assert_array_equal(tree.lvp, [0, 1, 5])
@@ -137,7 +146,12 @@ def test_chunkgraph_region_helpers_count_inside_and_merge_nested_regions():
             [1, 2, 3, 0, 5, 6, 7, 4],
         ]
     )
-    cg = chunkgraph(verts, edges, pref={"k": 6}, cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 1})
+    cg = ChunkGraph(
+        verts,
+        edges,
+        pref={"k": 6},
+        cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 1},
+    )
     outer = [[], [[0, 1, 2, 3]]]
     inner = [[[4, 5, 6, 7]]]
 

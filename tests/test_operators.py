@@ -2,12 +2,13 @@ import numpy as np
 import pytest
 
 import chunkie.operators as operators_mod
+from _performance import record_backend_metrics, timed_call
 from chunkie import (
     ChunkerFMMMatrix,
     PointInfo,
     chunkerfunc,
-    chunkerinterior,
     chunkerintegral,
+    chunkerinterior,
     chunkerkerneval,
     chunkerkernevalmat,
     chunkermat,
@@ -62,7 +63,10 @@ def test_chunkermat_allows_dtype_probe_fallback_for_custom_kernel():
     chnkr, _ = chunkerfunc(circle, min_chunks=4, order=8)
 
     actual = chunkermat(chnkr, probe_fragile_kernel)
-    expected = smooth_kernel(pointinfo(chnkr), pointinfo(chnkr)) * chnkr.wts.reshape(-1, order="F")[None, :]
+    expected = (
+        smooth_kernel(pointinfo(chnkr), pointinfo(chnkr))
+        * chnkr.wts.reshape(-1, order="F")[None, :]
+    )
 
     np.testing.assert_allclose(actual, expected)
 
@@ -78,15 +82,29 @@ def test_chunkermat_does_not_swallow_real_custom_kernel_errors():
         chunkermat(chnkr, broken_kernel)
 
 
-def test_chunkermatapply_fmm_matches_special_matrix_application():
+def test_chunkermatapply_fmm_matches_special_matrix_application(test_metrics):
     chnkr, _ = chunkerfunc(circle, min_chunks=6, order=8)
     lap_s = kernel("lap", "s")
     dens = np.cos(chnkr.r[0].reshape(-1, order="F"))
 
-    direct = chunkermat(chnkr, lap_s) @ dens
-    via_fmm = chunkermatapply(chnkr, lap_s, dens, acceleration="fmm", tol=1e-12)
+    direct, direct_elapsed = timed_call(lambda: chunkermat(chnkr, lap_s) @ dens)
+    via_fmm, fmm_elapsed = timed_call(
+        lambda: chunkermatapply(chnkr, lap_s, dens, acceleration="fmm", tol=1e-12)
+    )
 
     np.testing.assert_allclose(via_fmm, direct, rtol=1e-9, atol=1e-10)
+    record_backend_metrics(
+        test_metrics,
+        "chunkermatapply_fmm",
+        backend="fmm",
+        problem_size={"source_nodes": chnkr.npt, "target_nodes": chnkr.npt, "rhs_columns": 1},
+        elapsed_s=fmm_elapsed,
+        reference_elapsed_s=direct_elapsed,
+        actual=via_fmm,
+        expected=direct,
+        abs_tol=1e-10,
+        rel_tol=1e-9,
+    )
 
 
 def test_chunkerkerneval_same_source_fmm_uses_smooth_fmm_plus_correction(monkeypatch):
@@ -104,13 +122,15 @@ def test_chunkerkerneval_same_source_fmm_uses_smooth_fmm_plus_correction(monkeyp
     monkeypatch.setattr(lap_s, "fmm", counting_fmm)
 
     direct = chunkermat(chnkr, lap_s) @ dens
-    via_fmm = chunkerkerneval(chnkr, lap_s, dens, chnkr, acceleration="fmm", tol=1e-12).reshape(-1, order="F")
+    via_fmm = chunkerkerneval(chnkr, lap_s, dens, chnkr, acceleration="fmm", tol=1e-12).reshape(
+        -1, order="F"
+    )
 
     assert calls == 1
     np.testing.assert_allclose(via_fmm, direct, rtol=1e-9, atol=1e-10)
 
 
-def test_chunkermat_fmm_returns_matrix_free_operator_matching_dense_application():
+def test_chunkermat_fmm_returns_matrix_free_operator_matching_dense_application(test_metrics):
     chnkr, _ = chunkerfunc(circle, min_chunks=6, order=8)
     lap_s = kernel("lap", "s")
     x = chnkr.r[0].reshape(-1, order="F")
@@ -118,13 +138,35 @@ def test_chunkermat_fmm_returns_matrix_free_operator_matching_dense_application(
     dens = np.cos(x)
     rhs = np.column_stack((dens, np.sin(y)))
 
-    dense = chunkermat(chnkr, lap_s)
-    via_fmm = chunkermat(chnkr, lap_s, acceleration="fmm", tol=1e-12)
+    dense, dense_elapsed = timed_call(lambda: chunkermat(chnkr, lap_s))
+    via_fmm, fmm_setup_elapsed = timed_call(
+        lambda: chunkermat(chnkr, lap_s, acceleration="fmm", tol=1e-12)
+    )
+    fmm_applied, fmm_apply_elapsed = timed_call(lambda: via_fmm @ rhs)
+    dense_applied, dense_apply_elapsed = timed_call(lambda: dense @ rhs)
 
     assert isinstance(via_fmm, ChunkerFMMMatrix)
     assert via_fmm.shape == dense.shape
     np.testing.assert_allclose(via_fmm @ dens, dense @ dens, rtol=1e-9, atol=1e-10)
-    np.testing.assert_allclose(via_fmm @ rhs, dense @ rhs, rtol=1e-9, atol=1e-10)
+    np.testing.assert_allclose(fmm_applied, dense_applied, rtol=1e-9, atol=1e-10)
+    test_metrics.record("chunkermat_fmm_setup_elapsed_s", fmm_setup_elapsed)
+    test_metrics.record("chunkermat_fmm_dense_build_elapsed_s", dense_elapsed)
+    record_backend_metrics(
+        test_metrics,
+        "chunkermat_fmm_matmat",
+        backend="fmm",
+        problem_size={
+            "source_nodes": chnkr.npt,
+            "target_nodes": chnkr.npt,
+            "rhs_columns": rhs.shape[1],
+        },
+        elapsed_s=fmm_apply_elapsed,
+        reference_elapsed_s=dense_apply_elapsed,
+        actual=fmm_applied,
+        expected=dense_applied,
+        abs_tol=1e-10,
+        rel_tol=1e-9,
+    )
 
 
 def test_fmm_request_warns_when_kernel_uses_direct_fallback():
@@ -223,7 +265,9 @@ def test_chunkerkernevalmat_fmm_materializes_target_eval_matrix():
 
     dense_mat = chunkerkernevalmat(chnkr, lap_s, targets)
     fmm_mat = chunkerkernevalmat(chnkr, lap_s, targets, acceleration="fmm", tol=1e-12)
-    fmm_vals = chunkerkerneval(chnkr, lap_s, dens, targets, acceleration="fmm", tol=1e-12).reshape(-1, order="F")
+    fmm_vals = chunkerkerneval(chnkr, lap_s, dens, targets, acceleration="fmm", tol=1e-12).reshape(
+        -1, order="F"
+    )
 
     np.testing.assert_allclose(fmm_mat, dense_mat, rtol=1e-9, atol=1e-10)
     np.testing.assert_allclose(fmm_mat @ dens, fmm_vals, rtol=1e-10, atol=1e-11)
@@ -294,7 +338,7 @@ def test_chunkerinterior_fmm_matches_direct_with_close_correction(monkeypatch):
     original = operators_mod.chunkerkerneval
 
     def wrapped(*args, **kwargs):
-        calls.append(args[4] if len(args) > 4 else kwargs.get("opts"))
+        calls.append(args[4] if len(args) > 4 else kwargs.get("options", kwargs.get("opts")))
         return original(*args, **kwargs)
 
     monkeypatch.setattr(operators_mod, "chunkerkerneval", wrapped)

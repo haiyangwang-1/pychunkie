@@ -1,11 +1,11 @@
 import numpy as np
 import pytest
 
-from chunkie import Chunker, chunker, chunkerfunc, chunkerpoints, chunkerpoly, chunkerpref, lege, merge
+from chunkie import Chunker, ChunkerPref, chunkerfunc, chunkerpoints, chunkerpoly, lege, merge
 from chunkie.geometry import curves
 
 
-def circle_chunker(k=16):
+def circle_Chunker(k=16):
     chnkr = Chunker({"k": k, "nchstor": 1, "nchmax": 8}).addchunk()
     t = chnkr.tstor
     theta = np.pi * (t + 1.0)
@@ -19,13 +19,17 @@ def circle_chunker(k=16):
 
 
 def test_chunker_constructor_defaults_and_validation():
-    pref = chunkerpref({"k": 8, "nchmax": 3, "nchstor": 1})
-    chnkr = chunker(pref)
+    pref = ChunkerPref.from_any({"k": 8, "nchmax": 3, "nchstor": 1})
+    chnkr = Chunker(pref)
 
     assert chnkr.k == 8
+    assert chnkr.quadrature_order == 8
     assert chnkr.dim == 2
+    assert chnkr.coordinate_dim == 2
     assert chnkr.nch == 0
     assert chnkr.npt == 0
+    assert chnkr.point_count == 0
+    assert chnkr.positions.shape == chnkr.r.shape
 
     with pytest.raises(ValueError):
         Chunker({"k": 1})
@@ -39,6 +43,12 @@ def test_addchunk_resizes_storage_and_exposes_live_slices():
     assert chnkr.nchstor >= 2
     assert chnkr.r.shape == (2, 4, 2)
     assert chnkr.wts.shape == (4, 2)
+    assert chnkr.positions.shape == chnkr.r.shape
+    assert chnkr.derivatives.shape == chnkr.d.shape
+    assert chnkr.second_derivatives.shape == chnkr.d2.shape
+    assert chnkr.normal_vectors.shape == chnkr.n.shape
+    assert chnkr.quadrature_weights.shape == chnkr.wts.shape
+    assert chnkr.adjacency.shape == chnkr.adj.shape
 
     chnkr.r = np.ones((2, 4, 2))
     chnkr.d = 2.0 * np.ones((2, 4, 2))
@@ -51,9 +61,12 @@ def test_addchunk_resizes_storage_and_exposes_live_slices():
     np.testing.assert_allclose(chnkr.nstor[:, :, :2], 4.0)
     np.testing.assert_allclose(chnkr.wtsstor[:, :2], 5.0)
 
+    chnkr.positions = np.zeros((2, 4, 2))
+    np.testing.assert_allclose(chnkr.r, 0.0)
+
 
 def test_resize_chunkends_min_max_and_cleardata_helpers():
-    chnkr = circle_chunker(12)
+    chnkr = circle_Chunker(12)
     chnkr.resize(4)
     assert chnkr.nchstor == 4
 
@@ -72,7 +85,7 @@ def test_resize_chunkends_min_max_and_cleardata_helpers():
 
 
 def test_circle_weights_normals_tangents_area_and_length():
-    chnkr = circle_chunker(24)
+    chnkr = circle_Chunker(24)
 
     np.testing.assert_allclose(chnkr.chunklen(), [2 * np.pi], atol=1e-13)
     np.testing.assert_allclose(chnkr.area(), np.pi, atol=1e-13)
@@ -83,7 +96,7 @@ def test_circle_weights_normals_tangents_area_and_length():
 
 
 def test_translation_and_scaling_match_matlab_style_operations():
-    chnkr = circle_chunker()
+    chnkr = circle_Chunker()
     center = chnkr.r.reshape(2, -1) @ chnkr.wts.ravel() / np.sum(chnkr.wts)
 
     moved = np.array([1.0, -2.0]) + chnkr
@@ -115,7 +128,7 @@ def test_translation_and_scaling_match_matlab_style_operations():
 
 
 def test_matrix_transform_updates_derivatives_normals_and_weights():
-    chnkr = circle_chunker()
+    chnkr = circle_Chunker()
     mat = np.array([[1.0, 2.0], [2.0, 3.0]])
 
     transformed = mat @ chnkr
@@ -137,7 +150,7 @@ def test_matrix_transform_updates_derivatives_normals_and_weights():
 
 
 def test_rotate_and_reflect_match_matlab_transform_formulas():
-    chnkr = circle_chunker()
+    chnkr = circle_Chunker()
     theta = np.pi / 3.0
     r0 = np.array([0.25, -0.5])
     r1 = np.array([1.0, 2.0])
@@ -169,7 +182,7 @@ def test_rotate_and_reflect_match_matlab_transform_formulas():
 
 
 def test_chunker_spectral_helpers_on_circle():
-    chnkr = circle_chunker(20)
+    chnkr = circle_Chunker(20)
     rc, dc, d2c = chnkr.exps()
 
     assert rc.shape == (2, 20, 1)
@@ -193,7 +206,7 @@ def test_chunker_spectral_helpers_on_circle():
 
 
 def test_intmat_integrates_in_chunk_order():
-    chnkr = circle_chunker(20).refine(oversample=1)
+    chnkr = circle_Chunker(20).refine(oversample=1)
     imat = chnkr.intmat()
     ones = np.ones(chnkr.npt)
     integrated = imat @ ones
@@ -203,7 +216,7 @@ def test_intmat_integrates_in_chunk_order():
 
 
 def test_onesmat_and_normonesmat_shapes():
-    chnkr = circle_chunker(8)
+    chnkr = circle_Chunker(8)
     weights = chnkr.wts.reshape(-1, order="F")
     normals = chnkr.n.reshape(-1, order="F")
 
@@ -215,7 +228,7 @@ def test_onesmat_and_normonesmat_shapes():
 
 
 def test_centroids_and_adjacency_info():
-    chnkr = circle_chunker(8).refine(oversample=1)
+    chnkr = circle_Chunker(8).refine(oversample=1)
     ctrs = chnkr.centroids()
     inds, adjs, info = chnkr.sortinfo()
     expected_ctrs = np.sum(chnkr.r * chnkr.wstor[None, :, None], axis=1) / 2.0
@@ -230,7 +243,7 @@ def test_centroids_and_adjacency_info():
 
 
 def test_upsample_preserves_circle_geometry_and_density_values():
-    chnkr = circle_chunker(16)
+    chnkr = circle_Chunker(16)
     sigma = (1.0 + chnkr.tstor - 2.0 * chnkr.tstor**3).reshape(1, chnkr.k, chnkr.nch)
 
     up, sigmaup = chnkr.upsample(24, sigma)
@@ -252,7 +265,7 @@ def test_upsample_preserves_circle_geometry_and_density_values():
 
 
 def test_refine_oversamples_by_splitting_chunks():
-    chnkr = circle_chunker(16)
+    chnkr = circle_Chunker(16)
     refined = chnkr.refine(oversample=1)
     h = np.pi / 2.0
 
@@ -304,8 +317,8 @@ def test_refine_enforces_arc_length_level_restriction():
 
 
 def test_chunkerpoints_builds_from_nodes_and_optional_derivatives():
-    base = circle_chunker(18)
-    rebuilt = chunkerpoints(base.r, closed=True)
+    base = circle_Chunker(18)
+    rebuilt = chunkerpoints(source=base.r, closed=True)
 
     np.testing.assert_allclose(rebuilt.r, base.r)
     np.testing.assert_allclose(rebuilt.d, base.d, atol=1e-11)
@@ -313,13 +326,13 @@ def test_chunkerpoints_builds_from_nodes_and_optional_derivatives():
     np.testing.assert_allclose(rebuilt.area(), base.area(), atol=1e-12)
     np.testing.assert_array_equal(rebuilt.adj, [[1], [1]])
 
-    explicit = chunkerpoints({"r": base.r, "d": 2.0 * base.d, "d2": 3.0 * base.d2})
+    explicit = chunkerpoints(source={"r": base.r, "d": 2.0 * base.d, "d2": 3.0 * base.d2})
     np.testing.assert_allclose(explicit.d, 2.0 * base.d)
     np.testing.assert_allclose(explicit.d2, 3.0 * base.d2)
 
 
 def test_datares_flags_high_order_data_coefficients():
-    chnkr = circle_chunker(12)
+    chnkr = circle_Chunker(12)
     chnkr.makedatarows(2)
     _, _, _, v = lege.exps(chnkr.k)
     chnkr.data = np.stack(
@@ -330,10 +343,10 @@ def test_datares_flags_high_order_data_coefficients():
         axis=0,
     )[:, :, None]
 
-    flags = chnkr.datares({"tol": 1e-10})
+    flags = chnkr.datares(options={"tol": 1e-10})
 
     np.testing.assert_array_equal(flags, [[True], [False]])
-    np.testing.assert_array_equal(chnkr.datares({"idata": [1], "tol": 1e-10}), [[False]])
+    np.testing.assert_array_equal(chnkr.datares(options={"idata": [1], "tol": 1e-10}), [[False]])
 
 
 def test_merge_combines_chunkers_and_pads_data_rows():

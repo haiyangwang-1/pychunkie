@@ -56,8 +56,12 @@ def test_chunkerfunc_open_curve_marks_free_ends():
     for ich, (a, b) in enumerate(ab.T):
         t = a + (b - a) * (chnkr.tstor + 1.0) / 2.0
         h = (b - a) / 2.0
-        np.testing.assert_allclose(chnkr.r[:, :, ich], np.vstack((2.0 * t, np.zeros_like(t))), atol=1e-15)
-        np.testing.assert_allclose(chnkr.d[:, :, ich], np.repeat([[2.0 * h], [0.0]], chnkr.k, axis=1))
+        np.testing.assert_allclose(
+            chnkr.r[:, :, ich], np.vstack((2.0 * t, np.zeros_like(t))), atol=1e-15
+        )
+        np.testing.assert_allclose(
+            chnkr.d[:, :, ich], np.repeat([[2.0 * h], [0.0]], chnkr.k, axis=1)
+        )
         np.testing.assert_allclose(chnkr.d2[:, :, ich], 0.0, atol=1e-15)
         np.testing.assert_allclose(chnkr.n[:, :, ich], np.repeat([[0.0], [-1.0]], chnkr.k, axis=1))
         np.testing.assert_allclose(chnkr.wts[:, ich], 2.0 * h * chnkr.wstor)

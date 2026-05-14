@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from chunkie import chunkgraph
-
+from chunkie import ChunkGraph, PointInfo
 
 SAMPLE_TARGETS = np.array(
     [
@@ -30,8 +29,8 @@ def make_square_annulus():
             [1, 2, 3, 0, 5, 6, 7, 4],
         ]
     )
-    return chunkgraph(verts, edges, pref={"k": 12, "nchmax": 2000}, cparams={"nchmin": 8})
+    return ChunkGraph(verts, edges, pref={"k": 12, "nchmax": 2000}, cparams={"nchmin": 8})
 
 
 def boundary_nodes(cg) -> np.ndarray:
-    return cg.r.reshape(2, cg.npt, order="F")
+    return PointInfo.from_any(cg).r

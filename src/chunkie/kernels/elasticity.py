@@ -5,26 +5,27 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import ArrayLike
 
+from chunkie._layout import boundary_matrix_from_kernel_tensor
 from chunkie.geometry import PointInfo
 
 
-def kern(
+def kernel(
     lam: float,
     mu: float,
-    srcinfo: PointInfo | dict | ArrayLike,
-    targinfo: PointInfo | dict | ArrayLike,
+    source: PointInfo | dict | ArrayLike,
+    target: PointInfo | dict | ArrayLike,
     kind: str = "s",
 ) -> np.ndarray:
-    src = PointInfo.from_any(srcinfo)
-    targ = PointInfo.from_any(targinfo)
+    source_info = PointInfo.from_any(source)
+    target_info = PointInfo.from_any(target)
     typ = kind.lower()
     beta = (lam + 3.0 * mu) / (4.0 * np.pi * mu * (lam + 2.0 * mu))
     gamma = -(lam + mu) / (4.0 * np.pi * mu * (lam + 2.0 * mu))
     eta = mu / (2.0 * np.pi * (lam + 2.0 * mu))
     zeta = (lam + mu) / (np.pi * (lam + 2.0 * mu))
 
-    x = targ.r[0, :, None] - src.r[0, None, :]
-    y = targ.r[1, :, None] - src.r[1, None, :]
+    x = target_info.r[0, :, None] - source_info.r[0, None, :]
+    y = target_info.r[1, :, None] - source_info.r[1, None, :]
     r2 = x**2 + y**2
     r4 = r2**2
     nt, ns = x.shape
@@ -37,9 +38,9 @@ def kern(
             kyy = logr + gamma / 2.0 + gamma * y**2 / r2
             return _interleave(kxx, kxy, kxy, kyy, nt, ns)
         if typ == "strac":
-            _require(targ.n, "target normals")
-            nx = targ.n[0, :, None]
-            ny = targ.n[1, :, None]
+            _require(target_info.n, "target normals")
+            nx = target_info.n[0, :, None]
+            ny = target_info.n[1, :, None]
             rn = x * nx + y * ny
             term = zeta * rn / r4
             kxx = eta * rn / r2 + term * x**2
@@ -66,9 +67,9 @@ def kern(
             out[3::4, 1::2] += gamma * (2.0 * r2 * y - 2.0 * y**3) / r4
             return out
         if typ in {"d", "double"}:
-            _require(src.n, "source normals")
-            nx = src.n[0, None, :]
-            ny = src.n[1, None, :]
+            _require(source_info.n, "source normals")
+            nx = source_info.n[0, None, :]
+            ny = source_info.n[1, None, :]
             rn = x * nx + y * ny
             term = zeta * rn / r4
             kxx = -(eta * rn / r2 + term * x**2)
@@ -77,8 +78,8 @@ def kern(
             kyy = -(eta * rn / r2 + term * y**2)
             return _interleave(kxx, kxy, kyx, kyy, nt, ns)
         if typ == "dalt":
-            _require(src.n, "source normals")
-            rn = x * src.n[0, None, :] + y * src.n[1, None, :]
+            _require(source_info.n, "source normals")
+            rn = x * source_info.n[0, None, :] + y * source_info.n[1, None, :]
             term = -zeta * rn / r4
             diag = -2.0 * eta * rn / r2
             kxx = diag + term * x**2
@@ -86,28 +87,36 @@ def kern(
             kyy = diag + term * y**2
             return _interleave(kxx, kxy, kxy, kyy, nt, ns)
         if typ in {"daltgrad", "daltg", "dalttrac"}:
-            _require(src.n, "source normals")
-            nx = src.n[0, None, :]
-            ny = src.n[1, None, :]
+            _require(source_info.n, "source normals")
+            nx = source_info.n[0, None, :]
+            ny = source_info.n[1, None, :]
             rn = x * nx + y * ny
             r6 = r4 * r2
             grad = np.zeros((4 * nt, 2 * ns), dtype=np.result_type(x, y, lam, mu))
 
-            grad[0::4, 0::2] = -zeta * (-4.0 * x**3 * rn / r6 + (2.0 * x * rn + x**2 * nx) / r4) - 2.0 * eta * (nx / r2 - 2.0 * rn * x / r4)
-            grad[1::4, 0::2] = -zeta * (-4.0 * x**2 * y * rn / r6 + x**2 * ny / r4) - 2.0 * eta * (ny / r2 - 2.0 * rn * y / r4)
+            grad[0::4, 0::2] = -zeta * (
+                -4.0 * x**3 * rn / r6 + (2.0 * x * rn + x**2 * nx) / r4
+            ) - 2.0 * eta * (nx / r2 - 2.0 * rn * x / r4)
+            grad[1::4, 0::2] = -zeta * (-4.0 * x**2 * y * rn / r6 + x**2 * ny / r4) - 2.0 * eta * (
+                ny / r2 - 2.0 * rn * y / r4
+            )
             grad[2::4, 0::2] = -zeta * (-4.0 * x**2 * y * rn / r6 + (y * rn + x * y * nx) / r4)
             grad[3::4, 0::2] = -zeta * (-4.0 * x * y**2 * rn / r6 + (x * rn + x * y * ny) / r4)
             grad[0::4, 1::2] = -zeta * (-4.0 * x**2 * y * rn / r6 + (y * rn + x * y * nx) / r4)
             grad[1::4, 1::2] = -zeta * (-4.0 * x * y**2 * rn / r6 + (x * rn + x * y * ny) / r4)
-            grad[2::4, 1::2] = -zeta * (-4.0 * y**2 * x * rn / r6 + y**2 * nx / r4) - 2.0 * eta * (nx / r2 - 2.0 * rn * x / r4)
-            grad[3::4, 1::2] = -zeta * (-4.0 * y**3 * rn / r6 + (2.0 * y * rn + y**2 * ny) / r4) - 2.0 * eta * (ny / r2 - 2.0 * rn * y / r4)
+            grad[2::4, 1::2] = -zeta * (-4.0 * y**2 * x * rn / r6 + y**2 * nx / r4) - 2.0 * eta * (
+                nx / r2 - 2.0 * rn * x / r4
+            )
+            grad[3::4, 1::2] = -zeta * (
+                -4.0 * y**3 * rn / r6 + (2.0 * y * rn + y**2 * ny) / r4
+            ) - 2.0 * eta * (ny / r2 - 2.0 * rn * y / r4)
 
             if typ in {"daltgrad", "daltg"}:
                 return grad
 
-            _require(targ.n, "target normals")
-            n1 = targ.n[0, :, None]
-            n2 = targ.n[1, :, None]
+            _require(target_info.n, "target normals")
+            n1 = target_info.n[0, :, None]
+            n2 = target_info.n[1, :, None]
             out = np.zeros((2 * nt, 2 * ns), dtype=grad.dtype)
             div = grad[0::4, :] + grad[3::4, :]
             shear = mu * (grad[1::4, :] + grad[2::4, :])
@@ -118,12 +127,12 @@ def kern(
 
 
 def _interleave(kxx, kxy, kyx, kyy, nt, ns):
-    out = np.zeros((2 * nt, 2 * ns), dtype=np.result_type(kxx, kxy, kyx, kyy))
-    out[0::2, 0::2] = kxx
-    out[0::2, 1::2] = kxy
-    out[1::2, 0::2] = kyx
-    out[1::2, 1::2] = kyy
-    return out
+    kernel_values = np.empty((2, nt, 2, ns), dtype=np.result_type(kxx, kxy, kyx, kyy))
+    kernel_values[0, :, 0, :] = kxx
+    kernel_values[0, :, 1, :] = kxy
+    kernel_values[1, :, 0, :] = kyx
+    kernel_values[1, :, 1, :] = kyy
+    return boundary_matrix_from_kernel_tensor(kernel_values, name="elasticity kernel values")
 
 
 def _require(value: object, label: str) -> None:

@@ -1,13 +1,14 @@
 import numpy as np
 
+from _performance import record_backend_metrics, timed_call
 from chunkie import (
+    ChunkGraph,
     Kernel,
     PointInfo,
     chunkerfunc,
     chunkerkerneval,
     chunkerkernevalmat,
     chunkermat,
-    chunkgraph,
     kernel,
     merge,
 )
@@ -39,9 +40,7 @@ def _stress_pointinfo():
             [0.15, -0.42, 0.88, -0.05],
         ]
     )
-    src_n = _unit_columns(
-        np.array([[0.8, -0.25, 0.5, -0.7, 0.1], [0.6, 0.97, -0.86, 0.71, -0.99]])
-    )
+    src_n = _unit_columns(np.array([[0.8, -0.25, 0.5, -0.7, 0.1], [0.6, 0.97, -0.86, 0.71, -0.99]]))
     targ_n = _unit_columns(np.array([[0.3, -0.82, 0.68, -0.55], [0.95, 0.57, -0.73, 0.84]]))
     src_d = np.vstack((-src_n[1], src_n[0]))
     targ_d = np.vstack((-targ_n[1], targ_n[0]))
@@ -67,7 +66,7 @@ def _wobbly_curve(t):
     return r, d, d2
 
 
-def _wobbly_chunker(k=8, nchmin=7):
+def _wobbly_Chunker(k=8, nchmin=7):
     chnkr, _ = chunkerfunc(_wobbly_curve, min_chunks=nchmin, refine=False, order=k)
     return chnkr
 
@@ -102,27 +101,31 @@ def test_point_kernels_stress_combined_selectors_and_green_gradients():
     helm_coefs = (-0.4 + 0.2j, 1.1 - 0.15j)
     zk = 1.4 + 0.35j
 
-    lap_s = lap2d.kern(src, targ, "s")
-    lap_d = lap2d.kern(src, targ, "d")
-    lap_sp = lap2d.kern(src, targ, "sp")
-    lap_dp = lap2d.kern(src, targ, "dp")
-    lap_sgrad = lap2d.kern(src, targ, "sgrad")
-    lap_dgrad = lap2d.kern(src, targ, "dgrad")
-    np.testing.assert_allclose(lap2d.kern(src, targ, "c", lap_coefs), lap_coefs[0] * lap_d + lap_coefs[1] * lap_s)
-    np.testing.assert_allclose(lap2d.kern(src, targ, "cp", lap_coefs), lap_coefs[0] * lap_dp + lap_coefs[1] * lap_sp)
+    lap_s = lap2d.kernel(src, targ, "s")
+    lap_d = lap2d.kernel(src, targ, "d")
+    lap_sp = lap2d.kernel(src, targ, "sp")
+    lap_dp = lap2d.kernel(src, targ, "dp")
+    lap_sgrad = lap2d.kernel(src, targ, "sgrad")
+    lap_dgrad = lap2d.kernel(src, targ, "dgrad")
     np.testing.assert_allclose(
-        lap2d.kern(src, targ, "cgrad", lap_coefs),
+        lap2d.kernel(src, targ, "c", lap_coefs), lap_coefs[0] * lap_d + lap_coefs[1] * lap_s
+    )
+    np.testing.assert_allclose(
+        lap2d.kernel(src, targ, "cp", lap_coefs), lap_coefs[0] * lap_dp + lap_coefs[1] * lap_sp
+    )
+    np.testing.assert_allclose(
+        lap2d.kernel(src, targ, "cgrad", lap_coefs),
         lap_coefs[0] * lap_dgrad + lap_coefs[1] * lap_sgrad,
     )
     np.testing.assert_allclose(
-        helm2d.kern(zk, src, targ, "c", helm_coefs),
-        helm_coefs[0] * helm2d.kern(zk, src, targ, "d")
-        + helm_coefs[1] * helm2d.kern(zk, src, targ, "s"),
+        helm2d.kernel(zk, src, targ, "c", helm_coefs),
+        helm_coefs[0] * helm2d.kernel(zk, src, targ, "d")
+        + helm_coefs[1] * helm2d.kernel(zk, src, targ, "s"),
     )
     np.testing.assert_allclose(
-        helm2d.kern(zk, src, targ, "cp", helm_coefs),
-        helm_coefs[0] * helm2d.kern(zk, src, targ, "dp")
-        + helm_coefs[1] * helm2d.kern(zk, src, targ, "sp"),
+        helm2d.kernel(zk, src, targ, "cp", helm_coefs),
+        helm_coefs[0] * helm2d.kernel(zk, src, targ, "dp")
+        + helm_coefs[1] * helm2d.kernel(zk, src, targ, "sp"),
     )
 
     eps = 2.0e-6
@@ -142,7 +145,7 @@ def test_point_kernels_stress_combined_selectors_and_green_gradients():
 
 
 def test_dense_native_operator_stress_on_wobbly_curve_matches_manual_weighting():
-    chnkr = _wobbly_chunker(k=8, nchmin=7)
+    chnkr = _wobbly_Chunker(k=8, nchmin=7)
     vec_kernel = Kernel(eval=_smooth_vector_kernel, opdims=(2, 1), sing="smooth")
     src = pointinfo(chnkr)
     weights = chnkr.wts.reshape(-1, order="F")
@@ -165,11 +168,16 @@ def test_dense_native_operator_stress_on_wobbly_curve_matches_manual_weighting()
 
 
 def test_quadggq_stress_noncircle_complex_special_blocks_and_robust_close_eval():
-    chnkr = _wobbly_chunker(k=8, nchmin=7)
+    chnkr = _wobbly_Chunker(k=8, nchmin=7)
     helm_s = kernel("helm", "s", 1.15 + 0.25j)
 
-    full = quadggq.buildmat(chnkr, helm_s, helm_s.opdims, "log")
-    topological = quadggq.buildmattd(chnkr, helm_s, helm_s.opdims, "log").toarray()
+    full = quadggq.buildmat(chunker=chnkr, kernel=helm_s, opdims=helm_s.opdims, singularity="log")
+    topological = quadggq.buildmattd(
+        chunker=chnkr,
+        kernel=helm_s,
+        opdims=helm_s.opdims,
+        singularity="log",
+    ).toarray()
     source_chunk = 2
     neighbor_chunk = int(chnkr.adj[1, source_chunk] - 1)
     excluded = {source_chunk, int(chnkr.adj[0, source_chunk] - 1), neighbor_chunk}
@@ -187,23 +195,29 @@ def test_quadggq_stress_noncircle_complex_special_blocks_and_robust_close_eval()
     )
     np.testing.assert_allclose(_block(topological, chnkr, far_chunk, source_chunk), 0.0, atol=1e-14)
 
-    skipped = quadggq.buildmattd(chnkr, helm_s, helm_s.opdims, "log", ilist=[source_chunk]).toarray()
+    skipped = quadggq.buildmattd(
+        chunker=chnkr,
+        kernel=helm_s,
+        opdims=helm_s.opdims,
+        singularity="log",
+        ilist=[source_chunk],
+    ).toarray()
     np.testing.assert_allclose(_block(skipped, chnkr, source_chunk, source_chunk), 0.0, atol=1e-14)
     assert np.linalg.norm(_block(skipped, chnkr, neighbor_chunk, source_chunk)) > 1e-8
 
-    close_left = _wobbly_chunker(k=6, nchmin=4)
+    close_left = _wobbly_Chunker(k=6, nchmin=4)
     close_right = close_left + np.array([2.05, 0.04])
     close_pair = merge([close_left, close_right])
     lap_s = kernel("lap", "s")
     standard = quadadap.buildmat(
-        close_pair,
-        lap_s,
-        opts={"sing": "log", "robust": False, "eps": 1e-9},
+        chunker=close_pair,
+        kernel=lap_s,
+        options={"sing": "log", "robust": False, "eps": 1e-9},
     )
     robust = quadadap.buildmat(
-        close_pair,
-        lap_s,
-        opts={"sing": "log", "robust": True, "eps": 1e-9},
+        chunker=close_pair,
+        kernel=lap_s,
+        options={"sing": "log", "robust": True, "eps": 1e-9},
     )
 
     assert np.isfinite(robust).all()
@@ -247,7 +261,12 @@ def test_schurbana_stress_matches_independent_block_update():
 def test_chunkgraph_rcip_stress_nonorthogonal_vertex_and_global_blocks():
     verts = np.array([[0.0, 1.25, 1.75, 0.55, -0.35], [0.0, -0.15, 0.9, 1.55, 0.75]])
     edges = np.vstack((np.arange(verts.shape[1]), np.roll(np.arange(verts.shape[1]), -1)))
-    cg = chunkgraph(verts, edges, pref={"k": 4}, cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 2})
+    cg = ChunkGraph(
+        verts,
+        edges,
+        pref={"k": 4},
+        cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 2},
+    )
     nedge = len(cg.echnks)
     blocks = np.empty((nedge, nedge), dtype=object)
     lap_d = kernel("lap", "d")
@@ -256,12 +275,12 @@ def test_chunkgraph_rcip_stress_nonorthogonal_vertex_and_global_blocks():
             blocks[iedge, jedge] = (1.0 + 0.07 * iedge - 0.03 * jedge) * lap_d
 
     result = rcip.chunkgraph_rcip(
-        cg,
-        blocks,
-        1,
+        graph=cg,
+        kernel=blocks,
+        dimension=1,
         vertices=[1, 3],
         ignore_vertices=[3],
-        opts={"_chunkie_normalized_operator_options": True, "nsub": 2, "rcip_savedepth": 2},
+        options={"_chunkie_normalized_operator_options": True, "nsub": 2, "rcip_savedepth": 2},
     )
     expected_edges = np.asarray(cg.vstruc[1][0], dtype=int)
 
@@ -283,8 +302,8 @@ def test_chunkgraph_rcip_stress_nonorthogonal_vertex_and_global_blocks():
     assert all(weight.shape == (4 * cg.k,) for weight in wts)
 
 
-def test_interleaved_fmm_stress_matches_direct_on_wobbly_curve():
-    chnkr = _wobbly_chunker(k=8, nchmin=7)
+def test_interleaved_fmm_stress_matches_direct_on_wobbly_curve(test_metrics):
+    chnkr = _wobbly_Chunker(k=8, nchmin=7)
     src = pointinfo(chnkr)
     targets = PointInfo(
         r=np.array([[1.65, -1.45, 0.35, -0.15, 0.95], [0.1, 0.55, -1.4, 1.35, -0.95]]),
@@ -306,16 +325,36 @@ def test_interleaved_fmm_stress_matches_direct_on_wobbly_curve():
         )
     ).reshape(-1, order="F")
 
-    direct = chunkerkerneval(chnkr, mixed, density, targets)
-    via_fmm = chunkerkerneval(chnkr, mixed, density, targets, acceleration="fmm", tol=1e-12)
+    direct, direct_elapsed = timed_call(lambda: chunkerkerneval(chnkr, mixed, density, targets))
+    via_fmm, fmm_elapsed = timed_call(
+        lambda: chunkerkerneval(chnkr, mixed, density, targets, acceleration="fmm", tol=1e-12)
+    )
 
     np.testing.assert_allclose(via_fmm, direct, rtol=5e-9, atol=5e-10)
+    record_backend_metrics(
+        test_metrics,
+        "interleaved_target_fmm",
+        backend="fmm",
+        problem_size={
+            "source_nodes": chnkr.npt,
+            "target_nodes": targets.r.shape[1],
+            "density_components": 2,
+        },
+        elapsed_s=fmm_elapsed,
+        reference_elapsed_s=direct_elapsed,
+        actual=via_fmm,
+        expected=direct,
+        abs_tol=5e-10,
+        rel_tol=5e-9,
+    )
 
 
 def test_smoother_stress_returns_valid_rounded_asymmetric_polygon():
     verts = np.array([[0.0, 1.35, 1.8, 0.8, -0.3, -0.55], [0.0, 0.12, 1.0, 1.65, 1.25, 0.45]])
     widths = np.array([0.05, 0.07, 0.06, 0.08, 0.05, 0.04])
-    chnkr, err, err_by_pt = smoother.smooth(verts, {"k": 10, "widths": widths, "return_error": True})
+    chnkr, err, err_by_pt = smoother.smooth(
+        verts, {"k": 10, "widths": widths, "return_error": True}
+    )
 
     assert chnkr.k == 10
     assert chnkr.nch == 2 * verts.shape[1]

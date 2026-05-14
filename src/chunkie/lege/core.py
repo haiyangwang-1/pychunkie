@@ -1,8 +1,9 @@
-"""Core Legendre routines ported from MATLAB ``+lege``.
+"""Core Legendre routines.
 
-The public functions intentionally keep MATLAB chunkIE names. Arrays use the
-same conceptual layout: Legendre coefficients live on the first axis, and
-point values live on the first axis for interpolation matrices.
+The public function names follow established chunkIE Legendre vocabulary, while
+parameters use Python-first names. Arrays use the same conceptual layout:
+Legendre coefficients live on the first axis, and point values live on the
+first axis for interpolation matrices.
 """
 
 from __future__ import annotations
@@ -33,9 +34,7 @@ def pol(xs: ArrayLike, n: int) -> tuple[np.ndarray, np.ndarray]:
 
     der = np.empty_like(xs_arr, dtype=float)
     mask = np.isclose(np.abs(xs_arr), 1.0)
-    der[~mask] = n * (xs_arr[~mask] * pk[~mask] - pkm1[~mask]) / (
-        xs_arr[~mask] ** 2 - 1.0
-    )
+    der[~mask] = n * (xs_arr[~mask] * pk[~mask] - pkm1[~mask]) / (xs_arr[~mask] ** 2 - 1.0)
     if np.any(mask):
         signs = np.where(xs_arr[mask] >= 0.0, 1.0, (-1.0) ** (n + 1))
         der[mask] = signs * n * (n + 1) / 2.0
@@ -64,29 +63,29 @@ def pols(xs: ArrayLike, n: int) -> tuple[np.ndarray, np.ndarray]:
         denom = flat**2 - 1.0
         endpoint = np.isclose(np.abs(flat), 1.0)
         for degree in range(2, n + 1):
-            ders[degree, ~endpoint] = degree * (
-                flat[~endpoint] * vals[degree, ~endpoint] - vals[degree - 1, ~endpoint]
-            ) / denom[~endpoint]
+            ders[degree, ~endpoint] = (
+                degree
+                * (flat[~endpoint] * vals[degree, ~endpoint] - vals[degree - 1, ~endpoint])
+                / denom[~endpoint]
+            )
             if np.any(endpoint):
-                signs = np.where(
-                    flat[endpoint] >= 0.0, 1.0, (-1.0) ** (degree + 1)
-                )
+                signs = np.where(flat[endpoint] >= 0.0, 1.0, (-1.0) ** (degree + 1))
                 ders[degree, endpoint] = signs * degree * (degree + 1) / 2.0
 
     out_shape = (n + 1,) + xs_arr.shape
     return vals.reshape(out_shape), ders.reshape(out_shape)
 
 
-def exps(k: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def exps(quadrature_order: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Return Gaussian nodes, weights, and value/coefficient transforms."""
 
-    if k <= 0:
-        raise ValueError("k must be positive")
+    if quadrature_order <= 0:
+        raise ValueError("quadrature_order must be positive")
 
-    x, w = np.polynomial.legendre.leggauss(k)
-    pvals, _ = pols(x, k - 1)
+    x, w = np.polynomial.legendre.leggauss(quadrature_order)
+    pvals, _ = pols(x, quadrature_order - 1)
     v = pvals.T
-    scale = (2.0 * np.arange(1, k + 1) - 1.0) / 2.0
+    scale = (2.0 * np.arange(1, quadrature_order + 1) - 1.0) / 2.0
     u = (v * (w[:, None] * scale[None, :])).T
     return x, w, u, v
 
@@ -127,18 +126,24 @@ def derpol(coeffs: ArrayLike) -> np.ndarray:
     if coeffs_arr.shape[0] == 0:
         return np.zeros_like(coeffs_arr)
 
-    out = np.zeros((max(coeffs_arr.shape[0] - 1, 0),) + coeffs_arr.shape[1:], dtype=coeffs_arr.dtype)
+    out = np.zeros(
+        (max(coeffs_arr.shape[0] - 1, 0),) + coeffs_arr.shape[1:], dtype=coeffs_arr.dtype
+    )
     for degree in range(1, coeffs_arr.shape[0]):
         for target in range(degree - 1, -1, -2):
             out[target] += (2 * target + 1) * coeffs_arr[degree]
     return out
 
 
-def dermat(k: int, u: ArrayLike | None = None, v: ArrayLike | None = None) -> np.ndarray:
+def dermat(
+    quadrature_order: int,
+    u: ArrayLike | None = None,
+    v: ArrayLike | None = None,
+) -> np.ndarray:
     """Return the spectral differentiation matrix on Legendre nodes."""
 
     if u is None or v is None:
-        _, _, u_arr, v_arr = exps(k)
+        _, _, u_arr, v_arr = exps(quadrature_order)
     else:
         u_arr = np.asarray(u)
         v_arr = np.asarray(v)
@@ -203,11 +208,11 @@ def matrin(
     return mat, x, w, u_arr, v
 
 
-def barywts(k: int, x: ArrayLike | None = None) -> np.ndarray:
+def barywts(quadrature_order: int, x: ArrayLike | None = None) -> np.ndarray:
     """Return barycentric Lagrange interpolation weights."""
 
     if x is None:
-        x_arr, *_ = exps(k)
+        x_arr, *_ = exps(quadrature_order)
     else:
         x_arr = np.asarray(x, dtype=float)
     diffs = x_arr[:, None] - x_arr[None, :]
@@ -254,8 +259,8 @@ def polsum(xs: ArrayLike, n: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
     endpoint = np.isclose(np.abs(xs_arr), 1.0)
     der = np.empty_like(xs_arr)
-    der[~endpoint] = n * (xs_arr[~endpoint] * val[~endpoint] - prev[~endpoint]) / (
-        xs_arr[~endpoint] ** 2 - 1.0
+    der[~endpoint] = (
+        n * (xs_arr[~endpoint] * val[~endpoint] - prev[~endpoint]) / (xs_arr[~endpoint] ** 2 - 1.0)
     )
     if np.any(endpoint):
         signs = np.where(xs_arr[endpoint] >= 0.0, 1.0, (-1.0) ** (n + 1))
@@ -269,14 +274,14 @@ def tayl(
     x: ArrayLike,
     h: ArrayLike,
     n: int,
-    k: int,
+    taylor_order: int,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Evaluate a Legendre polynomial Taylor step from ``x`` to ``x+h``."""
 
     if n < 0:
         raise ValueError("n must be non-negative")
-    if k < 0:
-        raise ValueError("k must be non-negative")
+    if taylor_order < 0:
+        raise ValueError("taylor_order must be non-negative")
 
     pol_arr, der_arr, x_arr, h_arr = np.broadcast_arrays(
         np.asarray(pol_val, dtype=float),
@@ -292,7 +297,9 @@ def tayl(
         out_der[zero_step] = der_arr[zero_step]
     if not np.all(zero_step):
         nz = ~zero_step
-        p_new, d_new = _tayl_nonzero_h(pol_arr[nz], der_arr[nz], x_arr[nz], h_arr[nz], n, k)
+        p_new, d_new = _tayl_nonzero_h(
+            pol_arr[nz], der_arr[nz], x_arr[nz], h_arr[nz], n, taylor_order
+        )
         out_pol[nz] = p_new
         out_der[nz] = d_new
     return out_pol, out_der
@@ -366,7 +373,7 @@ def _tayl_nonzero_h(
     x_arr: np.ndarray,
     h_arr: np.ndarray,
     n: int,
-    k: int,
+    taylor_order: int,
 ) -> tuple[np.ndarray, np.ndarray]:
     q0 = pol_arr
     q1 = der_arr * h_arr
@@ -375,12 +382,12 @@ def _tayl_nonzero_h(
 
     pol_new = q0 + q1 + q2
     der_new = q1 / h_arr + (q2 * 2.0) / h_arr
-    if k <= 2:
+    if taylor_order <= 2:
         return pol_new, der_new
 
     qi = q1
     qip1 = q2
-    for order in range(1, k - 1):
+    for order in range(1, taylor_order - 1):
         d = 2 * (x_arr * (order + 1) ** 2) / h_arr * qip1
         d = d - (n * (n + 1) - order * (order + 1)) * qi
         d = d / (order + 1) / (order + 2) * h_arr**2 / (1 - x_arr**2)

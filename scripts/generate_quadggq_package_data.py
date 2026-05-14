@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import re
+from pathlib import Path
 
 import numpy as np
-
 
 CELL_TABLE_RE = re.compile(r"(xs0|ws0)\{\s*(\d+)\s*\}\s*=\s*\[(.*?)\];", flags=re.S)
 SKIPPED_TABLES = {
@@ -85,7 +84,7 @@ def _write_cell_table(path: Path, out_path: Path, source_commit: str) -> None:
         "source_file": np.array(path.name),
         "source_commit": np.array(source_commit),
     }
-    for i, (x, w) in enumerate(zip(xs, ws)):
+    for i, (x, w) in enumerate(zip(xs, ws, strict=False)):
         arrays[f"xs0_{i:03d}"] = x
         arrays[f"ws0_{i:03d}"] = w
     np.savez_compressed(out_path, **arrays)

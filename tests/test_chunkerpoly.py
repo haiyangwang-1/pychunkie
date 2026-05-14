@@ -11,8 +11,12 @@ def assert_line_panel(chnkr, ich, start, end, atol=1e-14):
     half_tangent = tangent / 2.0
     speed = np.linalg.norm(half_tangent)
 
-    np.testing.assert_allclose(chnkr.r[:, :, ich], start[:, None] + tangent[:, None] * u[None, :], atol=atol)
-    np.testing.assert_allclose(chnkr.d[:, :, ich], np.repeat(half_tangent[:, None], chnkr.k, axis=1), atol=atol)
+    np.testing.assert_allclose(
+        chnkr.r[:, :, ich], start[:, None] + tangent[:, None] * u[None, :], atol=atol
+    )
+    np.testing.assert_allclose(
+        chnkr.d[:, :, ich], np.repeat(half_tangent[:, None], chnkr.k, axis=1), atol=atol
+    )
     np.testing.assert_allclose(chnkr.d2[:, :, ich], 0.0, atol=atol)
     np.testing.assert_allclose(
         chnkr.n[:, :, ich],
@@ -51,8 +55,12 @@ def test_chunkerpoly_open_polyline_and_edge_data():
     np.testing.assert_allclose(np.sum(chnkr.chunklen()), 5.0)
     assert_line_panel(chnkr, 0, verts[:, 0], verts[:, 1])
     assert_line_panel(chnkr, 1, verts[:, 1], verts[:, 2])
-    np.testing.assert_allclose(chnkr.data[:, :, 0], np.array([[10.0], [30.0]]) * np.ones((1, chnkr.k)))
-    np.testing.assert_allclose(chnkr.data[:, :, 1], np.array([[20.0], [40.0]]) * np.ones((1, chnkr.k)))
+    np.testing.assert_allclose(
+        chnkr.data[:, :, 0], np.array([[10.0], [30.0]]) * np.ones((1, chnkr.k))
+    )
+    np.testing.assert_allclose(
+        chnkr.data[:, :, 1], np.array([[20.0], [40.0]]) * np.ones((1, chnkr.k))
+    )
 
 
 def test_chunkerpoly_rounded_builds_trimmed_edges_and_corner_panels():
@@ -121,7 +129,9 @@ def test_reverse_and_move_preserve_expected_geometry():
     np.testing.assert_allclose(rev.wts, chnkr.wts[::-1, :])
 
     moved = chnkr.move(r1=[2.0, -1.0], trotat=np.pi / 2.0, scale=3.0)
-    rot = np.array([[np.cos(np.pi / 2.0), -np.sin(np.pi / 2.0)], [np.sin(np.pi / 2.0), np.cos(np.pi / 2.0)]])
+    rot = np.array(
+        [[np.cos(np.pi / 2.0), -np.sin(np.pi / 2.0)], [np.sin(np.pi / 2.0), np.cos(np.pi / 2.0)]]
+    )
     np.testing.assert_allclose(
         moved.r,
         3.0 * np.einsum("ij,jkl->ikl", rot, chnkr.r) + np.array([2.0, -1.0])[:, None, None],

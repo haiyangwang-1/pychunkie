@@ -10,7 +10,16 @@ from typing import Any
 import numpy as np
 from numpy.typing import ArrayLike
 
-from .chunker import Chunker, ChunkerPref, _legacy_options, _set_option, chunkerfunc, chunkerpoints, merge
+from chunkie._layout import as_boundary_point_matrix, as_boundary_vector
+
+from .chunker import (
+    Chunker,
+    ChunkerPref,
+    _legacy_options,
+    _set_option,
+    chunkerfunc,
+    merge,
+)
 from .curves import linefunc
 
 
@@ -42,7 +51,10 @@ class ChunkGraph:
         self,
         verts: ArrayLike | None = None,
         edgesendverts: ArrayLike | None = None,
-        fchnks: Sequence[Callable[[np.ndarray], Any] | Chunker] | Callable[[np.ndarray], Any] | Chunker | None = None,
+        fchnks: Sequence[Callable[[np.ndarray], Any] | Chunker]
+        | Callable[[np.ndarray], Any]
+        | Chunker
+        | None = None,
         cparams: Sequence[dict[str, Any]] | dict[str, Any] | None = None,
         pref: ChunkerPref | dict[str, Any] | None = None,
     ) -> None:
@@ -103,12 +115,24 @@ class ChunkGraph:
         return sum(edge.npt for edge in self.echnks)
 
     @property
+    def point_count(self) -> int:
+        return self.npt
+
+    @property
     def k(self) -> int:
         return self.echnks[0].k if self.echnks else 0
 
     @property
+    def quadrature_order(self) -> int:
+        return self.k
+
+    @property
     def dim(self) -> int:
         return 2
+
+    @property
+    def coordinate_dim(self) -> int:
+        return self.dim
 
     @property
     def datadim(self) -> int:
@@ -119,20 +143,40 @@ class ChunkGraph:
         return self.merged().r
 
     @property
+    def positions(self) -> np.ndarray:
+        return self.r
+
+    @property
     def d(self) -> np.ndarray:
         return self.merged().d
+
+    @property
+    def derivatives(self) -> np.ndarray:
+        return self.d
 
     @property
     def d2(self) -> np.ndarray:
         return self.merged().d2
 
     @property
+    def second_derivatives(self) -> np.ndarray:
+        return self.d2
+
+    @property
     def n(self) -> np.ndarray:
         return self.merged().n
 
     @property
+    def normal_vectors(self) -> np.ndarray:
+        return self.n
+
+    @property
     def wts(self) -> np.ndarray:
         return self.merged().wts
+
+    @property
+    def quadrature_weights(self) -> np.ndarray:
+        return self.wts
 
     @property
     def data(self) -> np.ndarray:
@@ -143,14 +187,18 @@ class ChunkGraph:
         return self.merged().adj
 
     @property
+    def adjacency(self) -> np.ndarray:
+        return self.adj
+
+    @property
     def sourceinfo(self) -> SourceInfo:
         chnkr = self.merged()
         return SourceInfo(
-            r=chnkr.r.reshape(chnkr.dim, chnkr.npt, order="F"),
-            n=chnkr.n.reshape(chnkr.dim, chnkr.npt, order="F"),
-            d=chnkr.d.reshape(chnkr.dim, chnkr.npt, order="F"),
-            d2=chnkr.d2.reshape(chnkr.dim, chnkr.npt, order="F"),
-            w=chnkr.wts.reshape(-1, order="F"),
+            r=as_boundary_point_matrix(chnkr.r, chnkr.dim, chnkr.npt, name="positions"),
+            n=as_boundary_point_matrix(chnkr.n, chnkr.dim, chnkr.npt, name="normals"),
+            d=as_boundary_point_matrix(chnkr.d, chnkr.dim, chnkr.npt, name="derivatives"),
+            d2=as_boundary_point_matrix(chnkr.d2, chnkr.dim, chnkr.npt, name="second derivatives"),
+            w=as_boundary_vector(chnkr.wts, name="weights"),
         )
 
     def merged(self) -> Chunker:
@@ -194,7 +242,7 @@ class ChunkGraph:
         self._signed_regions = _regions_to_matlab_indices(regions)
         return regions
 
-    def slicegraph(self, edges: ArrayLike) -> "ChunkGraph":
+    def slicegraph(self, edges: ArrayLike) -> ChunkGraph:
         keep = np.asarray(edges, dtype=int).reshape(-1)
         old_edges = self.edgesendverts[:, keep]
         old_verts = np.unique(old_edges)
@@ -213,7 +261,7 @@ class ChunkGraph:
 
     def refine(
         self,
-        opts: dict[str, Any] | None = None,
+        options: dict[str, Any] | None = None,
         *,
         refine_edges: ArrayLike | None = None,
         ignore_edges: ArrayLike | None = None,
@@ -225,41 +273,45 @@ class ChunkGraph:
         oversample: int | None = None,
         split_type: str | None = None,
         max_chunks: int | None = None,
-    ) -> "ChunkGraph":
-        opts = _legacy_options(opts, "chunkgraph refine opts")
-        _set_option(opts, "dlist", refine_edges)
-        _set_option(opts, "ilist", ignore_edges)
-        _set_option(opts, "splitchunks", split_chunks)
-        _set_option(opts, "last_len", last_length)
-        _set_option(opts, "maxchunklen", max_chunk_length)
-        _set_option(opts, "lvlr", level_restrict)
-        _set_option(opts, "lvlrfac", level_restrict_factor)
-        _set_option(opts, "nover", oversample)
-        _set_option(opts, "stype", split_type)
-        _set_option(opts, "nchmax", max_chunks)
+    ) -> ChunkGraph:
+        options = _legacy_options(options, "chunkgraph refine options")
+        _set_option(options, "dlist", refine_edges)
+        _set_option(options, "ilist", ignore_edges)
+        _set_option(options, "splitchunks", split_chunks)
+        _set_option(options, "last_len", last_length)
+        _set_option(options, "maxchunklen", max_chunk_length)
+        _set_option(options, "lvlr", level_restrict)
+        _set_option(options, "lvlrfac", level_restrict_factor)
+        _set_option(options, "nover", oversample)
+        _set_option(options, "stype", split_type)
+        _set_option(options, "nchmax", max_chunks)
         out = self.copy()
         nedge = len(out.echnks)
-        dlist = _normalize_index_list(opts.get("dlist", np.arange(nedge)), nedge)
-        ilist = set(_normalize_index_list(opts.get("ilist", []), nedge))
-        splitchunks = _graph_splitchunks(opts.get("splitchunks", []), nedge)
-        edge_opts = {key: val for key, val in opts.items() if key not in {"dlist", "ilist", "splitchunks", "last_len"}}
+        dlist = _normalize_index_list(options.get("dlist", np.arange(nedge)), nedge)
+        ilist = set(_normalize_index_list(options.get("ilist", []), nedge))
+        splitchunks = _graph_splitchunks(options.get("splitchunks", []), nedge)
+        edge_options = {
+            key: val
+            for key, val in options.items()
+            if key not in {"dlist", "ilist", "splitchunks", "last_len"}
+        }
         for iedge in dlist:
             if iedge in ilist:
                 continue
-            optsj = dict(edge_opts)
-            optsj["splitchunks"] = splitchunks[iedge]
-            out.echnks[iedge] = out.echnks[iedge].refine(optsj).sort()[0]
+            edge_options_for_refine = dict(edge_options)
+            edge_options_for_refine["splitchunks"] = splitchunks[iedge]
+            out.echnks[iedge] = out.echnks[iedge].refine(edge_options_for_refine).sort()[0]
         _balance_graph(out)
         out.vstruc = out.procverts()
         out.regions = out.findregions()
-        if "last_len" in opts and opts["last_len"] not in (None, ""):
-            _refine_graph_last_len(out, float(opts["last_len"]), edge_opts)
+        if "last_len" in options and options["last_len"] not in (None, ""):
+            _refine_graph_last_len(out, float(options["last_len"]), edge_options)
             _balance_graph(out)
             out.vstruc = out.procverts()
             out.regions = out.findregions()
         return out
 
-    def copy(self) -> "ChunkGraph":
+    def copy(self) -> ChunkGraph:
         out = ChunkGraph()
         out.verts = self.verts.copy()
         out.edgesendverts = self.edgesendverts.copy()
@@ -267,17 +319,20 @@ class ChunkGraph:
         out.v2emat = self.v2emat.copy()
         out.vstruc = [(e.copy(), s.copy()) for e, s in self.vstruc]
         out.regions = [[list(cycle) for cycle in region] for region in self.regions]
-        out._signed_regions = [[list(cycle) for cycle in region] for region in getattr(self, "_signed_regions", out.regions)]
+        out._signed_regions = [
+            [list(cycle) for cycle in region]
+            for region in getattr(self, "_signed_regions", out.regions)
+        ]
         return out
 
-    def translate(self, vector: ArrayLike) -> "ChunkGraph":
+    def translate(self, vector: ArrayLike) -> ChunkGraph:
         vec = np.asarray(vector, dtype=float).reshape(2)
         out = self.copy()
         out.verts = out.verts + vec[:, None]
         out.echnks = [edge.translate(vec) for edge in out.echnks]
         return out
 
-    def transform(self, matrix: ArrayLike) -> "ChunkGraph":
+    def transform(self, matrix: ArrayLike) -> ChunkGraph:
         mat = np.asarray(matrix, dtype=float)
         if mat.ndim == 0:
             mat = mat * np.eye(2)
@@ -286,7 +341,9 @@ class ChunkGraph:
         out.echnks = [mat @ edge for edge in out.echnks]
         return out
 
-    def rotate(self, theta: float, r0: ArrayLike | None = None, r1: ArrayLike | None = None) -> "ChunkGraph":
+    def rotate(
+        self, theta: float, r0: ArrayLike | None = None, r1: ArrayLike | None = None
+    ) -> ChunkGraph:
         center0 = np.zeros(2) if r0 is None else np.asarray(r0, dtype=float).reshape(2)
         center1 = np.zeros(2) if r1 is None else np.asarray(r1, dtype=float).reshape(2)
         rot = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
@@ -295,10 +352,17 @@ class ChunkGraph:
         out.echnks = [edge.rotate(theta, center0, center1) for edge in out.echnks]
         return out
 
-    def reflect(self, theta: float, r0: ArrayLike | None = None, r1: ArrayLike | None = None) -> "ChunkGraph":
+    def reflect(
+        self, theta: float, r0: ArrayLike | None = None, r1: ArrayLike | None = None
+    ) -> ChunkGraph:
         center0 = np.zeros(2) if r0 is None else np.asarray(r0, dtype=float).reshape(2)
         center1 = np.zeros(2) if r1 is None else np.asarray(r1, dtype=float).reshape(2)
-        mat = np.array([[np.cos(2.0 * theta), np.sin(2.0 * theta)], [np.sin(2.0 * theta), -np.cos(2.0 * theta)]])
+        mat = np.array(
+            [
+                [np.cos(2.0 * theta), np.sin(2.0 * theta)],
+                [np.sin(2.0 * theta), -np.cos(2.0 * theta)],
+            ]
+        )
         out = self.copy()
         out.verts = mat @ (out.verts - center0[:, None]) + center1[:, None]
         out.echnks = [edge.reflect(theta, center0, center1) for edge in out.echnks]
@@ -316,59 +380,59 @@ class ChunkGraph:
     def normonesmat(self) -> np.ndarray:
         return self.merged().normonesmat()
 
-    def flagnear(self, pts: ArrayLike, opts: dict[str, Any] | None = None, *, fac: float | None = None) -> np.ndarray:
-        opts = _legacy_options(opts, "chunkgraph flagnear opts")
-        _set_option(opts, "fac", fac)
-        return self.merged().flagnear(pts, opts)
+    def flagnear(
+        self,
+        points: ArrayLike,
+        options: dict[str, Any] | None = None,
+        *,
+        fac: float | None = None,
+    ) -> np.ndarray:
+        options = _legacy_options(options, "chunkgraph flagnear options")
+        _set_option(options, "fac", fac)
+        return self.merged().flagnear(points, options)
 
     def flagnear_rectangle(
         self,
-        pts: ArrayLike,
-        opts: dict[str, Any] | None = None,
+        points: ArrayLike,
+        options: dict[str, Any] | None = None,
         *,
         rho: float | None = None,
     ) -> np.ndarray:
-        opts = _legacy_options(opts, "chunkgraph flagnear_rectangle opts")
-        _set_option(opts, "rho", rho)
-        return self.merged().flagnear_rectangle(pts, opts)
+        options = _legacy_options(options, "chunkgraph flagnear_rectangle options")
+        _set_option(options, "rho", rho)
+        return self.merged().flagnear_rectangle(points, options)
 
     def flagnear_rectangle_grid(
         self,
         x: ArrayLike,
         y: ArrayLike,
-        opts: dict[str, Any] | None = None,
+        options: dict[str, Any] | None = None,
         *,
         rho: float | None = None,
     ) -> np.ndarray:
-        opts = _legacy_options(opts, "chunkgraph flagnear_rectangle_grid opts")
-        _set_option(opts, "rho", rho)
-        return self.merged().flagnear_rectangle_grid(x, y, opts)
+        options = _legacy_options(options, "chunkgraph flagnear_rectangle_grid options")
+        _set_option(options, "rho", rho)
+        return self.merged().flagnear_rectangle_grid(x, y, options)
 
-    def __add__(self, other: ArrayLike) -> "ChunkGraph":
+    def __add__(self, other: ArrayLike) -> ChunkGraph:
         return self.translate(other)
 
-    def __radd__(self, other: ArrayLike) -> "ChunkGraph":
+    def __radd__(self, other: ArrayLike) -> ChunkGraph:
         return self.translate(other)
 
-    def __mul__(self, other: Any) -> "ChunkGraph":
+    def __mul__(self, other: Any) -> ChunkGraph:
         if np.isscalar(other):
             return self.transform(other)
         raise TypeError("product of chunkgraph and matrix only defined for matrix on left")
 
-    def __rmul__(self, other: Any) -> "ChunkGraph":
+    def __rmul__(self, other: Any) -> ChunkGraph:
         return self.transform(other)
 
-    def __rmatmul__(self, other: Any) -> "ChunkGraph":
+    def __rmatmul__(self, other: Any) -> ChunkGraph:
         return self.transform(other)
 
 
-def chunkgraph(*args: Any, **kwargs: Any) -> ChunkGraph:
-    """MATLAB-style constructor alias for :class:`ChunkGraph`."""
-
-    return ChunkGraph(*args, **kwargs)
-
-
-def find_edge_regions(cg: ChunkGraph) -> np.ndarray:
+def find_edge_regions(graph: ChunkGraph) -> np.ndarray:
     """Return the region on each side of every graph edge.
 
     The output matches MATLAB's ``find_edge_regions`` shape and one-based
@@ -376,8 +440,8 @@ def find_edge_regions(cg: ChunkGraph) -> np.ndarray:
     ``-(edge + 1)`` for reversed edges.
     """
 
-    edge_regs = np.zeros((2, cg.edgesendverts.shape[1]), dtype=int)
-    for ireg, region in enumerate(cg.regions, start=1):
+    edge_regs = np.zeros((2, graph.edgesendverts.shape[1]), dtype=int)
+    for ireg, region in enumerate(graph.regions, start=1):
         for loop in region:
             for item in loop:
                 if item >= 0:
@@ -387,16 +451,16 @@ def find_edge_regions(cg: ChunkGraph) -> np.ndarray:
     return edge_regs
 
 
-def tochunkgraph(chnkr: Chunker) -> ChunkGraph:
+def tochunkgraph(chunker: Chunker) -> ChunkGraph:
     """Convert sorted open/closed chunker components into graph edges."""
 
-    sorted_chnkr, info = chnkr.sort()
+    sorted_chunker, info = chunker.sort()
     verts: list[np.ndarray] = []
     edges: list[tuple[int, int]] = []
     specs: list[Chunker] = []
     start = 0
-    for nch, closed in zip(info["nchs"], info["ifclosed"]):
-        sub = _subchunker(sorted_chnkr, start, int(nch), bool(closed))
+    for nch, closed in zip(info["nchs"], info["ifclosed"], strict=False):
+        sub = _subchunker(sorted_chunker, start, int(nch), bool(closed))
         rend, _ = sub.chunkends([0, sub.nch - 1] if sub.nch > 1 else [0])
         if closed:
             verts.append(rend[:, 0, 0])
@@ -411,24 +475,27 @@ def tochunkgraph(chnkr: Chunker) -> ChunkGraph:
     return ChunkGraph(np.column_stack(verts), np.array(edges, dtype=int).T, specs)
 
 
-def chunkgraphinregion(cg: ChunkGraph, ptsobj: ArrayLike | tuple[ArrayLike, ArrayLike] | list[ArrayLike]) -> np.ndarray:
+def chunkgraphinregion(
+    graph: ChunkGraph,
+    points: ArrayLike | tuple[ArrayLike, ArrayLike] | list[ArrayLike],
+) -> np.ndarray:
     """Return one-based MATLAB-style region ids for target points."""
 
     grid_shape = None
-    if isinstance(ptsobj, (tuple, list)) and len(ptsobj) == 2:
-        x = np.asarray(ptsobj[0], dtype=float)
-        y = np.asarray(ptsobj[1], dtype=float)
+    if isinstance(points, (tuple, list)) and len(points) == 2:
+        x = np.asarray(points[0], dtype=float)
+        y = np.asarray(points[1], dtype=float)
         xx, yy = np.meshgrid(x, y)
         pts = np.vstack((xx.ravel(), yy.ravel()))
         grid_shape = xx.shape
     else:
-        arr = np.asarray(ptsobj, dtype=float)
+        arr = np.asarray(points, dtype=float)
         pts = arr.reshape(arr.shape[0], -1)
 
-    regions = cg.regions
+    regions = graph.regions
     if regions and not regions[0]:
         ids = np.ones(pts.shape[1], dtype=int)
-        polygons = _region_polygons(cg)
+        polygons = _region_polygons(graph)
         for idx, poly in enumerate(polygons, start=2):
             inside = _points_in_poly(pts, poly)
             ids[inside] = idx
@@ -438,7 +505,7 @@ def chunkgraphinregion(cg: ChunkGraph, ptsobj: ArrayLike | tuple[ArrayLike, Arra
             inside = np.zeros(pts.shape[1], dtype=bool)
             for loop in region:
                 if loop:
-                    inside |= _points_in_poly(pts, _region_loop_points(cg, loop))
+                    inside |= _points_in_poly(pts, _region_loop_points(graph, loop))
             if idx == 1:
                 ids[~inside] = idx
             else:
@@ -494,7 +561,9 @@ def _normalize_edges_with_closed_vertices(
         if iedge in nan_cols:
             spec = edge_specs[iedge]
             if spec is None:
-                raise ValueError("NaN closed-edge notation requires a callable or Chunker edge spec")
+                raise ValueError(
+                    "NaN closed-edge notation requires a callable or Chunker edge spec"
+                )
             cp = _edge_cparams(cparams, iedge)
             cp.setdefault("ifclosed", True)
             chnkr = _edge_chunker_from_spec(spec, cp, pref)
@@ -580,29 +649,33 @@ def _normalize_index_list(value: Any, nitems: int) -> list[int]:
 def _graph_splitchunks(value: Any, nedge: int) -> list[np.ndarray]:
     if value is None:
         return [np.zeros(0, dtype=int) for _ in range(nedge)]
-    if isinstance(value, (list, tuple)) and len(value) == nedge and any(isinstance(item, (list, tuple, np.ndarray)) for item in value):
+    if (
+        isinstance(value, (list, tuple))
+        and len(value) == nedge
+        and any(isinstance(item, (list, tuple, np.ndarray)) for item in value)
+    ):
         return [np.asarray(item, dtype=int).reshape(-1) for item in value]
     chunks = np.asarray(value, dtype=int).reshape(-1)
     return [chunks.copy() for _ in range(nedge)]
 
 
-def _refine_graph_last_len(cg: ChunkGraph, last_len: float, opts: dict[str, Any]) -> None:
+def _refine_graph_last_len(graph: ChunkGraph, last_len: float, options: dict[str, Any]) -> None:
     if last_len <= 0.0:
         raise ValueError("last_len must be positive")
-    stype = str(opts.get("stype", "a"))
+    stype = str(options.get("stype", "a"))
     tol = 1e-10 * max(last_len, 1.0)
-    for _ in range(int(opts.get("maxiter_last_len", 20))):
+    for _ in range(int(options.get("maxiter_last_len", 20))):
         changed = False
-        cg.vstruc = cg.procverts()
-        for edges, signs in cg.vstruc:
+        graph.vstruc = graph.procverts()
+        for edges, signs in graph.vstruc:
             if edges.size == 0:
                 continue
             endpoint_info: list[tuple[int, int, int, float]] = []
-            for edge, sign in zip(edges, signs):
+            for edge, sign in zip(edges, signs, strict=True):
                 iedge = int(edge)
                 isign = int(sign)
-                ichunk = 0 if isign < 0 else cg.echnks[iedge].nch - 1
-                length = float(cg.echnks[iedge].chunklen([ichunk])[0])
+                ichunk = 0 if isign < 0 else graph.echnks[iedge].nch - 1
+                length = float(graph.echnks[iedge].chunklen([ichunk])[0])
                 endpoint_info.append((iedge, isign, ichunk, length))
             target = _last_len_target([item[3] for item in endpoint_info], last_len)
             for iedge, isign, ichunk, length in endpoint_info:
@@ -612,29 +685,31 @@ def _refine_graph_last_len(cg: ChunkGraph, last_len: float, opts: dict[str, Any]
                 if ratio <= 1e-8 or ratio >= 1.0 - 1e-8:
                     continue
                 frac = ratio if isign < 0 else 1.0 - ratio
-                cg.echnks[iedge] = cg.echnks[iedge].split(ichunk, frac=frac, stype=stype).sort()[0]
+                graph.echnks[iedge] = (
+                    graph.echnks[iedge].split(ichunk, frac=frac, stype=stype).sort()[0]
+                )
                 changed = True
         if not changed:
             break
     else:
         raise RuntimeError("graph last_len refinement did not converge")
-    cg.vstruc = cg.procverts()
-    cg.regions = cg.findregions()
+    graph.vstruc = graph.procverts()
+    graph.regions = graph.findregions()
 
 
-def _balance_graph(cg: ChunkGraph) -> None:
+def _balance_graph(graph: ChunkGraph) -> None:
     for _ in range(1000):
         changed = False
-        cg.vstruc = cg.procverts()
-        for edges, signs in cg.vstruc:
+        graph.vstruc = graph.procverts()
+        for edges, signs in graph.vstruc:
             if edges.size == 0:
                 continue
             endpoint_info: list[tuple[int, int, float]] = []
-            for edge, sign in zip(edges, signs):
+            for edge, sign in zip(edges, signs, strict=True):
                 iedge = int(edge)
                 isign = int(sign)
-                ichunk = 0 if isign < 0 else cg.echnks[iedge].nch - 1
-                length = float(cg.echnks[iedge].chunklen([ichunk])[0])
+                ichunk = 0 if isign < 0 else graph.echnks[iedge].nch - 1
+                length = float(graph.echnks[iedge].chunklen([ichunk])[0])
                 endpoint_info.append((iedge, isign, length))
             lengths = np.asarray([item[2] for item in endpoint_info], dtype=float)
             amin = float(np.min(lengths))
@@ -646,12 +721,12 @@ def _balance_graph(cg: ChunkGraph) -> None:
                 continue
             iedge, isign, _ = endpoint_info[amax_idx]
             for _ in range(nsplit):
-                ichunk = 0 if isign < 0 else cg.echnks[iedge].nch - 1
-                cg.echnks[iedge] = cg.echnks[iedge].split(ichunk).sort()[0]
+                ichunk = 0 if isign < 0 else graph.echnks[iedge].nch - 1
+                graph.echnks[iedge] = graph.echnks[iedge].split(ichunk).sort()[0]
             changed = True
         if not changed:
-            cg.vstruc = cg.procverts()
-            cg.regions = cg.findregions()
+            graph.vstruc = graph.procverts()
+            graph.regions = graph.findregions()
             return
     raise RuntimeError("graph balance did not converge")
 
@@ -667,26 +742,28 @@ def _last_len_target(lengths: Sequence[float], last_len: float) -> float:
     return float(last_len * 2.0 ** (-level))
 
 
-def _fit_edge_chunker(chnkr: Chunker, v0: np.ndarray, v1: np.ndarray) -> Chunker:
-    rend, _ = chnkr.chunkends([0, chnkr.nch - 1] if chnkr.nch > 1 else [0])
+def _fit_edge_chunker(chunker: Chunker, v0: np.ndarray, v1: np.ndarray) -> Chunker:
+    rend, _ = chunker.chunkends([0, chunker.nch - 1] if chunker.nch > 1 else [0])
     r0 = rend[:, 0, 0]
     r1 = rend[:, 1, -1]
     if np.linalg.norm(v1 - v0) <= 1e-14:
-        return chnkr.translate(v0 - r0)
+        return chunker.translate(v0 - r0)
     scale = np.linalg.norm(v1 - v0) / np.linalg.norm(r1 - r0)
     theta = np.arctan2(*(v1 - v0)[::-1]) - np.arctan2(*(r1 - r0)[::-1])
-    return chnkr.move(r0=r0, r1=v0, trotat=theta, scale=scale)
+    return chunker.move(r0=r0, r1=v0, trotat=theta, scale=scale)
 
 
-def _subchunker(chnkr: Chunker, start: int, nch: int, closed: bool) -> Chunker:
-    sub = Chunker({"k": chnkr.k, "dim": chnkr.dim, "nchstor": nch, "nchmax": nch}).addchunk(nch)
-    sl = slice(start, start + nch)
-    sub.r = chnkr.r[:, :, sl]
-    sub.d = chnkr.d[:, :, sl]
-    sub.d2 = chnkr.d2[:, :, sl]
-    sub.adj = np.vstack((np.arange(0, nch), np.arange(2, nch + 2)))
+def _subchunker(chunker: Chunker, start: int, chunk_count: int, closed: bool) -> Chunker:
+    sub = Chunker(
+        {"k": chunker.k, "dim": chunker.dim, "nchstor": chunk_count, "nchmax": chunk_count}
+    ).addchunk(chunk_count)
+    sl = slice(start, start + chunk_count)
+    sub.r = chunker.r[:, :, sl]
+    sub.d = chunker.d[:, :, sl]
+    sub.d2 = chunker.d2[:, :, sl]
+    sub.adj = np.vstack((np.arange(0, chunk_count), np.arange(2, chunk_count + 2)))
     if closed:
-        sub.adj[0, 0] = nch
+        sub.adj[0, 0] = chunk_count
         sub.adj[1, -1] = 1
     else:
         sub.adj[0, 0] = -1
@@ -704,11 +781,15 @@ def _bounded_face_cycles(cg: ChunkGraph) -> list[list[int]]:
 
     bounded: list[list[int]] = []
     for comp_cycles in by_component.values():
-        if len(comp_cycles) == 2 and {abs(edge) for edge in comp_cycles[0]} == {abs(edge) for edge in comp_cycles[1]}:
+        if len(comp_cycles) == 2 and {abs(edge) for edge in comp_cycles[0]} == {
+            abs(edge) for edge in comp_cycles[1]
+        }:
             chosen = max(comp_cycles, key=lambda cyc: _signed_cycle_area(cg, cyc))
             bounded.append(chosen)
             continue
-        unbounded = max(range(len(comp_cycles)), key=lambda idx: abs(_signed_cycle_area(cg, comp_cycles[idx])))
+        unbounded = max(
+            range(len(comp_cycles)), key=lambda idx: abs(_signed_cycle_area(cg, comp_cycles[idx]))
+        )
         for idx, cycle in enumerate(comp_cycles):
             if idx != unbounded:
                 bounded.append(cycle)
@@ -810,8 +891,13 @@ def _matlab_style_regions(cg: ChunkGraph) -> list[list[list[int]]]:
     for ireg in range(labels.size):
         label = labels[ireg]
         for jreg in range(labels.size - 1):
-            if label == labels[jreg] and _regioninside(cg, component_regions[jreg], component_regions[jreg + 1]):
-                component_regions[jreg], component_regions[jreg + 1] = component_regions[jreg + 1], component_regions[jreg]
+            if label == labels[jreg] and _regioninside(
+                cg, component_regions[jreg], component_regions[jreg + 1]
+            ):
+                component_regions[jreg], component_regions[jreg + 1] = (
+                    component_regions[jreg + 1],
+                    component_regions[jreg],
+                )
 
     grouped: list[list[list[int]]] = []
     for label in sorted(set(int(item) for item in labels)):
@@ -856,7 +942,7 @@ def _cycle_turning_angle(cg: ChunkGraph, cycle: list[int]) -> float:
             tangents.append(np.concatenate((-tangent_end, -tangent_start)))
 
     angle_sum = 0.0
-    for current, next_item in zip(tangents, tangents[1:] + tangents[:1]):
+    for current, next_item in zip(tangents, tangents[1:] + tangents[:1], strict=False):
         tail = current[2:4]
         head = next_item[0:2]
         angle_diff = np.arctan2(head[1], head[0]) - np.arctan2(tail[1], tail[0])
@@ -873,7 +959,10 @@ def _to_python_signed_cycle(cycle: list[int]) -> list[int]:
 
 
 def _regions_to_matlab_indices(regions: list[list[list[int]]]) -> list[list[list[int]]]:
-    return [[[_python_region_edge_to_matlab(edge) for edge in loop] for loop in region] for region in regions]
+    return [
+        [[_python_region_edge_to_matlab(edge) for edge in loop] for loop in region]
+        for region in regions
+    ]
 
 
 def _python_region_edge_to_matlab(edge: int) -> int:
@@ -967,7 +1056,7 @@ def _region_loop_points(cg: ChunkGraph, loop: list[int]) -> np.ndarray:
     for item in loop:
         edge, reversed_edge = _decode_region_edge(item)
         echnk = cg.echnks[edge].sort()[0]
-        pts = echnk.r.reshape(2, echnk.npt, order="F")
+        pts = as_boundary_point_matrix(echnk.r, 2, echnk.npt, name="edge positions")
         if reversed_edge:
             pts = pts[:, ::-1]
         pieces.append(pts)
@@ -1015,7 +1104,9 @@ def _outer_faces_first(cg: ChunkGraph, cycles: list[list[int]]) -> list[list[int
             if np.all(_points_in_poly(poly, other)):
                 depth += 1
         depths.append(depth)
-    return [cycle for _, cycle in sorted(enumerate(cycles), key=lambda item: (depths[item[0]], item[0]))]
+    return [
+        cycle for _, cycle in sorted(enumerate(cycles), key=lambda item: (depths[item[0]], item[0]))
+    ]
 
 
 def _cycle_vertices(edges: np.ndarray, cycle: list[int]) -> list[int]:
@@ -1055,7 +1146,7 @@ def _points_in_poly(pts: np.ndarray, poly: np.ndarray) -> np.ndarray:
     xp = poly[0]
     yp = poly[1]
     inside = np.zeros(pts.shape[1], dtype=bool)
-    for xa, ya, xb, yb in zip(xp, yp, np.roll(xp, -1), np.roll(yp, -1)):
+    for xa, ya, xb, yb in zip(xp, yp, np.roll(xp, -1), np.roll(yp, -1), strict=False):
         crosses = (ya > y) != (yb > y)
         xhit = (xb - xa) * (y - ya) / (yb - ya + np.finfo(float).eps) + xa
         inside ^= crosses & (x < xhit)

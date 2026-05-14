@@ -5,13 +5,14 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import ArrayLike
 
+from chunkie._layout import boundary_matrix_from_kernel_tensor
 from chunkie.geometry import PointInfo
 
 
-def kern(
+def kernel(
     mu: float,
-    srcinfo: PointInfo | dict | ArrayLike,
-    targinfo: PointInfo | dict | ArrayLike,
+    source: PointInfo | dict | ArrayLike,
+    target: PointInfo | dict | ArrayLike,
     kind: str,
     coefs: ArrayLike | None = None,
 ) -> np.ndarray:
@@ -22,11 +23,11 @@ def kern(
     ``x`` and ``y`` components alternating in both rows and columns.
     """
 
-    src = PointInfo.from_any(srcinfo)
-    targ = PointInfo.from_any(targinfo)
+    source_info = PointInfo.from_any(source)
+    target_info = PointInfo.from_any(target)
     typ = kind.lower()
-    rx = targ.r[0, :, None] - src.r[0, None, :]
-    ry = targ.r[1, :, None] - src.r[1, None, :]
+    rx = target_info.r[0, :, None] - source_info.r[0, None, :]
+    ry = target_info.r[1, :, None] - source_info.r[1, None, :]
     r2 = rx**2 + ry**2
     nt, ns = rx.shape
     with np.errstate(divide="ignore", invalid="ignore"):
@@ -42,44 +43,76 @@ def kern(
             ky = ry / (2.0 * np.pi * r2)
             return _interleave_1x2(kx, ky, nt, ns)
         if typ in {"strac", "straction"}:
-            _require(targ.n, "target normals")
+            _require(target_info.n, "target normals")
             r4 = r2**2
-            rn = rx * targ.n[0, :, None] + ry * targ.n[1, :, None]
-            kxx = -rx**2 * rn / (np.pi * r4)
-            kyy = -ry**2 * rn / (np.pi * r4)
+            rn = rx * target_info.n[0, :, None] + ry * target_info.n[1, :, None]
+            kxx = -(rx**2) * rn / (np.pi * r4)
+            kyy = -(ry**2) * rn / (np.pi * r4)
             kxy = -rx * ry * rn / (np.pi * r4)
             return _interleave_2x2(kxx, kxy, kxy, kyy, nt, ns)
         if typ in {"dvel", "dvelocity", "d", "double"}:
-            _require(src.n, "source normals")
+            _require(source_info.n, "source normals")
             r4 = r2**2
-            rn = rx * src.n[0, None, :] + ry * src.n[1, None, :]
+            rn = rx * source_info.n[0, None, :] + ry * source_info.n[1, None, :]
             kxx = rx**2 * rn / (np.pi * r4)
             kyy = ry**2 * rn / (np.pi * r4)
             kxy = rx * ry * rn / (np.pi * r4)
             return _interleave_2x2(kxx, kxy, kxy, kyy, nt, ns)
         if typ in {"dpres", "dpressure"}:
-            _require(src.n, "source normals")
+            _require(source_info.n, "source normals")
             r4 = r2**2
-            rn = rx * src.n[0, None, :] + ry * src.n[1, None, :]
-            kx = mu * (-src.n[0, None, :] / r2 + 2.0 * rx * rn / r4) / np.pi
-            ky = mu * (-src.n[1, None, :] / r2 + 2.0 * ry * rn / r4) / np.pi
+            rn = rx * source_info.n[0, None, :] + ry * source_info.n[1, None, :]
+            kx = mu * (-source_info.n[0, None, :] / r2 + 2.0 * rx * rn / r4) / np.pi
+            ky = mu * (-source_info.n[1, None, :] / r2 + 2.0 * ry * rn / r4) / np.pi
             return _interleave_1x2(kx, ky, nt, ns)
         if typ in {"dtrac", "dtraction"}:
-            _require(src.n, "source normals")
-            _require(targ.n, "target normals")
+            _require(source_info.n, "source normals")
+            _require(target_info.n, "target normals")
             r4 = r2**2
             r6 = r2**3
-            nsx = src.n[0, None, :]
-            nsy = src.n[1, None, :]
-            ntx = targ.n[0, :, None]
-            nty = targ.n[1, :, None]
+            nsx = source_info.n[0, None, :]
+            nsy = source_info.n[1, None, :]
+            ntx = target_info.n[0, :, None]
+            nty = target_info.n[1, :, None]
             rns = rx * nsx + ry * nsy
             rnt = rx * ntx + ry * nty
             nn = ntx * nsx + nty * nsy
-            kxx = mu / np.pi * (-8 * rx**2 * rnt * rns / r6 + (rx * ntx * rns + rx**2 * nn + rnt * rns + nsx * rx * rnt) / r4 + ntx * nsx / r2)
-            kyy = mu / np.pi * (-8 * ry**2 * rnt * rns / r6 + (ry * nty * rns + ry**2 * nn + rnt * rns + nsy * ry * rnt) / r4 + nty * nsy / r2)
-            kxy = mu / np.pi * (-8 * rx * ry * rnt * rns / r6 + (rx * nty * rns + rx * ry * nn + nsx * ry * rnt) / r4 + ntx * nsy / r2)
-            kyx = mu / np.pi * (-8 * ry * rx * rnt * rns / r6 + (ry * ntx * rns + ry * rx * nn + nsy * rx * rnt) / r4 + nty * nsx / r2)
+            kxx = (
+                mu
+                / np.pi
+                * (
+                    -8 * rx**2 * rnt * rns / r6
+                    + (rx * ntx * rns + rx**2 * nn + rnt * rns + nsx * rx * rnt) / r4
+                    + ntx * nsx / r2
+                )
+            )
+            kyy = (
+                mu
+                / np.pi
+                * (
+                    -8 * ry**2 * rnt * rns / r6
+                    + (ry * nty * rns + ry**2 * nn + rnt * rns + nsy * ry * rnt) / r4
+                    + nty * nsy / r2
+                )
+            )
+            kxy = (
+                mu
+                / np.pi
+                * (
+                    -8 * rx * ry * rnt * rns / r6
+                    + (rx * nty * rns + rx * ry * nn + nsx * ry * rnt) / r4
+                    + ntx * nsy / r2
+                )
+            )
+            kyx = (
+                mu
+                / np.pi
+                * (
+                    -8 * ry * rx * rnt * rns / r6
+                    + (ry * ntx * rns + ry * rx * nn + nsy * rx * rnt) / r4
+                    + nty * nsx / r2
+                )
+            )
             return _interleave_2x2(kxx, kxy, kyx, kyy, nt, ns)
         if typ in {"sgrad", "sg"}:
             r4inv = 1.0 / r2**2 / (4.0 * np.pi * mu)
@@ -96,11 +129,11 @@ def kern(
                 ns,
             )
         if typ in {"dgrad", "dg"}:
-            _require(src.n, "source normals")
+            _require(source_info.n, "source normals")
             r4 = r2**2
             r6 = r2**3
-            nsx = src.n[0, None, :]
-            nsy = src.n[1, None, :]
+            nsx = source_info.n[0, None, :]
+            nsy = source_info.n[1, None, :]
             rn = rx * nsx + ry * nsy
             op = 1.0 / np.pi
             return _interleave_grad(
@@ -117,46 +150,54 @@ def kern(
             )
         if typ in {"cvel", "cvelocity", "c", "combined"}:
             c = np.ones(2) if coefs is None else np.asarray(coefs)
-            return c[0] * kern(mu, src, targ, "d") + c[1] * kern(mu, src, targ, "s")
+            return c[0] * kernel(mu, source_info, target_info, "d") + c[1] * kernel(
+                mu, source_info, target_info, "s"
+            )
         if typ in {"cpres", "cpressure"}:
             c = np.ones(2) if coefs is None else np.asarray(coefs)
-            return c[0] * kern(mu, src, targ, "dpres") + c[1] * kern(mu, src, targ, "spres")
+            return c[0] * kernel(mu, source_info, target_info, "dpres") + c[1] * kernel(
+                mu, source_info, target_info, "spres"
+            )
         if typ in {"ctrac", "ctraction"}:
             c = np.ones(2) if coefs is None else np.asarray(coefs)
-            return c[0] * kern(mu, src, targ, "dtrac") + c[1] * kern(mu, src, targ, "strac")
+            return c[0] * kernel(mu, source_info, target_info, "dtrac") + c[1] * kernel(
+                mu, source_info, target_info, "strac"
+            )
         if typ in {"cgrad", "cg"}:
             c = np.ones(2) if coefs is None else np.asarray(coefs)
-            return c[0] * kern(mu, src, targ, "dgrad") + c[1] * kern(mu, src, targ, "sgrad")
+            return c[0] * kernel(mu, source_info, target_info, "dgrad") + c[1] * kernel(
+                mu, source_info, target_info, "sgrad"
+            )
     raise ValueError(f"Unknown Stokes kernel type {kind!r}.")
 
 
 def _interleave_2x2(kxx, kxy, kyx, kyy, nt, ns):
-    out = np.zeros((2 * nt, 2 * ns), dtype=np.result_type(kxx, kxy, kyx, kyy))
-    out[0::2, 0::2] = kxx
-    out[0::2, 1::2] = kxy
-    out[1::2, 0::2] = kyx
-    out[1::2, 1::2] = kyy
-    return out
+    kernel_values = np.empty((2, nt, 2, ns), dtype=np.result_type(kxx, kxy, kyx, kyy))
+    kernel_values[0, :, 0, :] = kxx
+    kernel_values[0, :, 1, :] = kxy
+    kernel_values[1, :, 0, :] = kyx
+    kernel_values[1, :, 1, :] = kyy
+    return boundary_matrix_from_kernel_tensor(kernel_values, name="Stokes kernel values")
 
 
 def _interleave_1x2(kx, ky, nt, ns):
-    out = np.zeros((nt, 2 * ns), dtype=np.result_type(kx, ky))
-    out[:, 0::2] = kx
-    out[:, 1::2] = ky
-    return out
+    kernel_values = np.empty((1, nt, 2, ns), dtype=np.result_type(kx, ky))
+    kernel_values[0, :, 0, :] = kx
+    kernel_values[0, :, 1, :] = ky
+    return boundary_matrix_from_kernel_tensor(kernel_values, name="Stokes pressure kernel values")
 
 
 def _interleave_grad(a, b, c, d, e, f, g, h, nt, ns):
-    out = np.zeros((4 * nt, 2 * ns), dtype=np.result_type(a, b, c, d, e, f, g, h))
-    out[0::4, 0::2] = a
-    out[0::4, 1::2] = b
-    out[1::4, 0::2] = c
-    out[1::4, 1::2] = d
-    out[2::4, 0::2] = e
-    out[2::4, 1::2] = f
-    out[3::4, 0::2] = g
-    out[3::4, 1::2] = h
-    return out
+    kernel_values = np.empty((4, nt, 2, ns), dtype=np.result_type(a, b, c, d, e, f, g, h))
+    kernel_values[0, :, 0, :] = a
+    kernel_values[0, :, 1, :] = b
+    kernel_values[1, :, 0, :] = c
+    kernel_values[1, :, 1, :] = d
+    kernel_values[2, :, 0, :] = e
+    kernel_values[2, :, 1, :] = f
+    kernel_values[3, :, 0, :] = g
+    kernel_values[3, :, 1, :] = h
+    return boundary_matrix_from_kernel_tensor(kernel_values, name="Stokes gradient kernel values")
 
 
 def _require(value: object, label: str) -> None:

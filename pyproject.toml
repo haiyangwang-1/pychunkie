@@ -17,9 +17,12 @@ dependencies = [
 [dependency-groups]
 test = [
     "pytest>=9.0.3",
+    "pytest-timeout>=2.3",
 ]
 dev = [
     { include-group = "test" },
+    "mypy>=1.13",
+    "ruff>=0.8",
 ]
 
 [tool.uv.sources]
@@ -29,6 +32,49 @@ pyflam = { git = "https://github.com/haiyangwang-1/pyflam.git", rev = "d60f74672
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+timeout = 900
+timeout_method = "thread"
+markers = [
+    "slow: expensive but ordinary correctness coverage",
+    "performance: opt-in timing or scaling checks",
+    "requires_matlab: requires a local MATLAB executable or MATLAB fixture refresh",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests", "scripts"]
+extend-exclude = ["external"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = [
+    # Existing numerical formulas include intentionally long expressions.
+    "E501",
+]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src/chunkie"]
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_unused_configs = true
+# Pragmatic first gate: keep mypy running over the package for import/name
+# regressions while the NumPy-heavy operator and kernel layers are typed
+# incrementally. These families are dominated today by ndarray shape/dtype
+# inference limits, callable protocol gaps, and dynamic kernel metadata.
+disable_error_code = [
+    "arg-type",
+    "assignment",
+    "attr-defined",
+    "index",
+    "misc",
+    "no-redef",
+    "operator",
+    "return-value",
+    "union-attr",
+    "var-annotated",
+]
 
 [build-system]
 requires = ["setuptools>=80"]

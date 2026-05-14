@@ -35,7 +35,9 @@ def test_kernel_add_scale_zero_and_nan_behaviors():
     combined = 2.0 * kernel("lap", "d") + zero
 
     np.testing.assert_allclose(chunkerkerneval(chnkr, zero, np.ones(chnkr.npt), target), 0.0)
-    np.testing.assert_allclose(chunkerkerneval(chnkr, combined, np.ones(chnkr.npt), target), -2.0, atol=1e-12)
+    np.testing.assert_allclose(
+        chunkerkerneval(chnkr, combined, np.ones(chnkr.npt), target), -2.0, atol=1e-12
+    )
     assert np.isnan(chunkerkerneval(chnkr, nan_k, np.ones(chnkr.npt), target)).all()
     assert Kernel.zeros().iszero
     assert Kernel.nans().isnan
@@ -158,7 +160,9 @@ def test_helmholtz_factory_transmission_selectors_match_direct_kernel():
     for selector, selector_coefs in cases.items():
         kern = kernel("helm", selector, zk, selector_coefs)
         actual = kern(src, targ)
-        expected = importlib.import_module("chunkie.kernels.helmholtz").kern(zk, src, targ, selector, selector_coefs)
+        expected = importlib.import_module("chunkie.kernels.helmholtz").kernel(
+            zk, src, targ, selector, selector_coefs
+        )
         np.testing.assert_allclose(actual, expected)
 
 
@@ -370,8 +374,12 @@ def test_kernel_interleave_builds_mixed_block_systems():
     mat = mixed.eval(chnkr, target)
     vals = chunkerkerneval(chnkr, mixed, dens, target)
 
-    np.testing.assert_allclose(vals.reshape(-1, order="F"), mat @ (dens * np.repeat(chnkr.wts.reshape(-1, order="F"), 2)))
-    np.testing.assert_allclose(chunkerkerneval(chnkr, mixed, dens, target, acceleration="fmm"), vals, atol=1e-14)
+    np.testing.assert_allclose(
+        vals.reshape(-1, order="F"), mat @ (dens * np.repeat(chnkr.wts.reshape(-1, order="F"), 2))
+    )
+    np.testing.assert_allclose(
+        chunkerkerneval(chnkr, mixed, dens, target, acceleration="fmm"), vals, atol=1e-14
+    )
 
 
 def test_interleaved_helmholtz_fmm_preserves_complex_output_for_real_density():

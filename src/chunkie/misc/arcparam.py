@@ -25,20 +25,22 @@ class ArcParamData:
     maxcond: float
 
 
-def init(chnkr: Chunker, ich: ArrayLike | None = None) -> ArcParamData:
+def init(chunker: Chunker, chunks: ArrayLike | None = None) -> ArcParamData:
     """Initialize an arc-length parameterization for selected chunks."""
 
-    chunks = np.arange(chnkr.nch) if ich is None else np.asarray(ich, dtype=int).reshape(-1)
-    if np.any(chunks < 0) or np.any(chunks >= chnkr.nch):
+    chunk_ids = (
+        np.arange(chunker.nch) if chunks is None else np.asarray(chunks, dtype=int).reshape(-1)
+    )
+    if np.any(chunk_ids < 0) or np.any(chunk_ids >= chunker.nch):
         raise IndexError("chunk index out of range")
 
-    rs = chnkr.r[:, :, chunks]
-    ds = chnkr.d[:, :, chunks]
-    d2s = chnkr.d2[:, :, chunks]
-    plen = np.sum(chnkr.wts[:, chunks], axis=0)
+    rs = chunker.r[:, :, chunk_ids]
+    ds = chunker.d[:, :, chunk_ids]
+    d2s = chunker.d2[:, :, chunk_ids]
+    plen = np.sum(chunker.wts[:, chunk_ids], axis=0)
     pstrt = np.concatenate(([0.0], np.cumsum(plen)))
 
-    amat = lege.intmat(chnkr.k)[0]
+    amat = lege.intmat(chunker.k)[0]
     darc = np.sqrt(np.sum(ds**2, axis=0))
     snodes = 2.0 * (amat @ darc / plen[None, :]) - 1.0
 
@@ -47,21 +49,21 @@ def init(chnkr: Chunker, ich: ArrayLike | None = None) -> ArcParamData:
     d_arc = ds / darc3
     d2_arc = d2s / darc3**2 - ds * ddarc[None, :, :] / darc3**3
 
-    nchs = chunks.size
-    cr = np.zeros((chnkr.k, chnkr.dim, nchs), dtype=rs.dtype)
+    nchs = chunk_ids.size
+    cr = np.zeros((chunker.k, chunker.dim, nchs), dtype=rs.dtype)
     cd = np.zeros_like(cr)
     cd2 = np.zeros_like(cr)
     maxcond = 0.0
     for out_idx in range(nchs):
-        vals = lege.pols(snodes[:, out_idx], chnkr.k - 1)[0].T
+        vals = lege.pols(snodes[:, out_idx], chunker.k - 1)[0].T
         cr[:, :, out_idx] = np.linalg.solve(vals, rs[:, :, out_idx].T)
         cd[:, :, out_idx] = np.linalg.solve(vals, d_arc[:, :, out_idx].T)
         cd2[:, :, out_idx] = np.linalg.solve(vals, d2_arc[:, :, out_idx].T)
         maxcond = max(maxcond, float(np.linalg.cond(vals)))
 
-    last = cr[-2:, :, :] if chnkr.k >= 2 else cr[-1:, :, :]
+    last = cr[-2:, :, :] if chunker.k >= 2 else cr[-1:, :, :]
     eps = float(np.max(last)) if last.size else 0.0
-    return ArcParamData(plen, pstrt, cr, cd, cd2, chnkr.k, chnkr.dim, nchs, eps, maxcond)
+    return ArcParamData(plen, pstrt, cr, cd, cd2, chunker.k, chunker.dim, nchs, eps, maxcond)
 
 
 def eval(s: ArrayLike, param_data: ArcParamData) -> tuple[np.ndarray, np.ndarray, np.ndarray]:

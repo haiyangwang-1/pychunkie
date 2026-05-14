@@ -1,11 +1,11 @@
 import numpy as np
 
 from chunkie import (
+    ChunkGraph,
     chunkerkerneval,
     chunkermat,
-    chunkgraph,
-    chunkgraphinregion,
     chunkerpoly,
+    chunkgraphinregion,
     find_edge_regions,
     tochunkgraph,
 )
@@ -26,7 +26,12 @@ def square_graph():
         ]
     )
     edges = np.array([[0, 1, 2, 3], [1, 2, 3, 0]])
-    return chunkgraph(verts, edges, pref={"k": 8}, cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 1})
+    return ChunkGraph(
+        verts,
+        edges,
+        pref={"k": 8},
+        cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 1},
+    )
 
 
 def test_chunkgraph_constructs_edges_and_vertex_incidence():
@@ -49,6 +54,15 @@ def test_chunkgraph_constructs_edges_and_vertex_incidence():
         ),
     )
     assert cg.npt == sum(edge.npt for edge in cg.echnks)
+    assert cg.point_count == cg.npt
+    assert cg.quadrature_order == cg.k
+    assert cg.coordinate_dim == cg.dim
+    assert cg.positions.shape == cg.r.shape
+    assert cg.derivatives.shape == cg.d.shape
+    assert cg.second_derivatives.shape == cg.d2.shape
+    assert cg.normal_vectors.shape == cg.n.shape
+    assert cg.quadrature_weights.shape == cg.wts.shape
+    assert cg.adjacency.shape == cg.adj.shape
     for iedge, edge in enumerate(cg.echnks):
         start = cg.verts[:, cg.edgesendverts[0, iedge]]
         end = cg.verts[:, cg.edgesendverts[1, iedge]]
@@ -78,7 +92,7 @@ def test_chunkgraph_constructs_edges_and_vertex_incidence():
         ([3, 2], [-1, 1]),
     ]
     assert cg.regions == [[[0, 1, 2, 3]], [[-1, -4, -3, -2]]]
-    np.testing.assert_array_equal(find_edge_regions(cg), [[1, 1, 1, 1], [2, 2, 2, 2]])
+    np.testing.assert_array_equal(find_edge_regions(graph=cg), [[1, 1, 1, 1], [2, 2, 2, 2]])
 
 
 def test_chunkgraph_accepts_incidence_matrix_edges():
@@ -97,7 +111,12 @@ def test_chunkgraph_accepts_incidence_matrix_edges():
         ]
     )
 
-    cg = chunkgraph(verts, incidence, pref={"k": 6}, cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 1})
+    cg = ChunkGraph(
+        verts,
+        incidence,
+        pref={"k": 6},
+        cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 1},
+    )
 
     np.testing.assert_array_equal(cg.edgesendverts, np.array([[0, 1, 2, 3], [1, 2, 3, 0]]))
     np.testing.assert_array_equal(cg.v2emat, incidence)
@@ -127,7 +146,9 @@ def test_chunkgraph_slice_and_edgeids_match_selected_edges():
     )
     np.testing.assert_allclose(cg.r.reshape(2, -1, order="F")[:, ids], expected)
     np.testing.assert_allclose(sub.r.reshape(2, -1, order="F"), expected)
-    np.testing.assert_allclose(sub.d.reshape(2, -1, order="F"), cg.d.reshape(2, -1, order="F")[:, ids])
+    np.testing.assert_allclose(
+        sub.d.reshape(2, -1, order="F"), cg.d.reshape(2, -1, order="F")[:, ids]
+    )
     np.testing.assert_allclose(sub.wts.reshape(-1, order="F"), cg.wts.reshape(-1, order="F")[ids])
 
 
@@ -135,10 +156,12 @@ def test_chunkgraph_region_ids_survive_translation():
     cg = square_graph()
     pts = np.array([[0.5, 1.5], [0.5, 0.5]])
 
-    np.testing.assert_array_equal(chunkgraphinregion(cg, pts), [2, 1])
+    np.testing.assert_array_equal(chunkgraphinregion(graph=cg, points=pts), [2, 1])
 
     moved = cg + np.array([2.0, -1.0])
-    np.testing.assert_array_equal(chunkgraphinregion(moved, pts + np.array([[2.0], [-1.0]])), [2, 1])
+    np.testing.assert_array_equal(
+        chunkgraphinregion(moved, pts + np.array([[2.0], [-1.0]])), [2, 1]
+    )
 
 
 def test_chunkgraph_works_with_dense_operator_helpers():
@@ -168,8 +191,8 @@ def test_tochunkgraph_preserves_closed_and_open_components():
         order=8,
     )
 
-    closed_graph = tochunkgraph(closed)
-    line_graph = tochunkgraph(open_line)
+    closed_graph = tochunkgraph(chunker=closed)
+    line_graph = tochunkgraph(chunker=open_line)
 
     assert closed_graph.edgesendverts.shape == (2, 1)
     assert closed_graph.edgesendverts[0, 0] == closed_graph.edgesendverts[1, 0]

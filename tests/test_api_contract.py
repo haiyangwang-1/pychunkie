@@ -2,7 +2,6 @@ import importlib
 import sys
 from contextlib import contextmanager
 
-
 _MISSING = object()
 
 
@@ -37,14 +36,12 @@ def test_top_level_public_exports_are_stable():
         "HypOctNode",
         "HypOctTree",
         "checkcurveparam",
-        "chunker",
         "chunkerfit",
         "chunkerflam",
         "chunkerfunc",
         "chunkerfuncuni",
         "chunkerpoints",
         "chunkerpoly",
-        "chunkgraph",
         "chunkgraphinregion",
         "find_edge_regions",
         "chunkerinterior",
@@ -53,7 +50,6 @@ def test_top_level_public_exports_are_stable():
         "chunkerkernevalmat",
         "chunkermat",
         "chunkermatapply",
-        "chunkerpref",
         "ellipse",
         "hypoct_uni",
         "kernel",
@@ -70,6 +66,9 @@ def test_top_level_public_exports_are_stable():
     assert set(chunkie.__all__) == expected
     for name in expected:
         assert hasattr(chunkie, name)
+    assert not hasattr(chunkie, "chunker")
+    assert not hasattr(chunkie, "chunkerpref")
+    assert not hasattr(chunkie, "chunkgraph")
 
 
 def test_acceleration_public_exports_are_stable_and_lazy():
@@ -106,7 +105,6 @@ def test_geometry_public_exports_are_stable_and_lazy():
             "chunkerfuncuni",
             "chunkerpoints",
             "chunkerpoly",
-            "chunkerpref",
             "chunkgraph",
             "chunkgraphinregion",
             "curves",
@@ -116,8 +114,20 @@ def test_geometry_public_exports_are_stable_and_lazy():
             "tochunkgraph",
         }
         assert set(geometry.__all__) == expected
-        from chunkie.geometry import PointInfo, chunkerfunc, curves
+        from chunkie.geometry import (
+            PointInfo,
+            chunkerfunc,
+            curves,
+        )
+        from chunkie.geometry import (
+            chunker as chunker_module,
+        )
+        from chunkie.geometry import (
+            chunkgraph as chunkgraph_module,
+        )
 
+        assert chunker_module.__name__ == "chunkie.geometry.chunker"
+        assert chunkgraph_module.__name__ == "chunkie.geometry.chunkgraph"
         assert curves.__name__ == "chunkie.geometry.curves"
         assert PointInfo.__name__ == "PointInfo"
         assert callable(chunkerfunc)
@@ -135,7 +145,17 @@ def test_kernels_public_exports_are_stable_and_lazy():
         "chunkie.kernels",
     ):
         kernels = importlib.import_module("chunkie.kernels")
-        expected = {"biharmonic", "elasticity", "factory", "helmholtz", "helmholtz_1d", "Kernel", "kernel", "laplace", "stokes"}
+        expected = {
+            "biharmonic",
+            "elasticity",
+            "factory",
+            "helmholtz",
+            "helmholtz_1d",
+            "Kernel",
+            "kernel",
+            "laplace",
+            "stokes",
+        }
         assert set(kernels.__all__) == expected
         assert "chunkie.kernels.laplace" not in sys.modules
         assert "chunkie.kernels.helmholtz" not in sys.modules
@@ -145,7 +165,7 @@ def test_kernels_public_exports_are_stable_and_lazy():
         assert laplace.__name__ == "chunkie.kernels.laplace"
         assert Kernel.__name__ == "Kernel"
         assert callable(kernel)
-        assert callable(stokes.kern)
+        assert callable(stokes.kernel)
 
 
 def test_quadrature_public_exports_are_stable_and_lazy():

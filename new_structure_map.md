@@ -87,9 +87,9 @@ Examples:
 
 - `chunkerfunc(curve, order=16, closed=True, tol=1e-6, min_chunks=8)`
 - `chunkerpoly(vertices, order=16, closed=True, dyadic=True, depth=3)`
-- `chnkr.refine(oversample=1, level_restrict="a")`
-- `chunkermat(chnkr, kern, acceleration="fmm", tol=1e-12)`
-- `chunkerkerneval(chnkr, kern, dens, targets, force_adaptive=True, use_panel_quadrature=False)`
+- `boundary.refine(oversample=1, level_restrict="a")`
+- `chunkermat(boundary, kernel_obj, acceleration="fmm", tol=1e-12)`
+- `chunkerkerneval(boundary, kernel_obj, density, targets, force_adaptive=True, use_panel_quadrature=False)`
 
 ## Internal Dependency Map
 

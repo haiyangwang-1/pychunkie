@@ -17,7 +17,7 @@ def test_flagnear_matches_bruteforce_chunk_node_distance():
     pts = np.array([[1.0, 0.0, 5.0], [0.0, 1.0, 5.0]])
     fac = 0.75
 
-    flag = chnkr.flagnear(pts, fac=fac)
+    flag = chnkr.flagnear(points=pts, fac=fac)
 
     expected = np.zeros_like(flag)
     lens = chnkr.chunklen()
@@ -33,12 +33,13 @@ def test_flagnear_rectangle_grid_matches_direct_meshgrid_order():
     x = np.linspace(-1.5, 1.5, 21)
     y = np.linspace(-1.25, 1.25, 17)
     xx, yy = np.meshgrid(x, y)
-    pts = np.vstack((xx.ravel(order="F"), yy.ravel(order="F")))
+    pts = np.vstack((xx.ravel(), yy.ravel()))
 
-    direct = chnkr.flagnear_rectangle(pts, rho=1.5)
+    direct = chnkr.flagnear_rectangle(points=pts, rho=1.5)
     grid = chnkr.flagnear_rectangle_grid(x, y, rho=1.5)
 
-    np.testing.assert_array_equal(grid, direct)
+    assert grid.shape == (y.size, x.size, chnkr.nch)
+    np.testing.assert_array_equal(grid, direct.reshape(y.size, x.size, chnkr.nch))
 
 
 def test_flagnear_rectangle_uses_per_chunk_padding_and_chunkgraph_delegates():
@@ -49,9 +50,9 @@ def test_flagnear_rectangle_uses_per_chunk_padding_and_chunkgraph_delegates():
     )
     pts = np.array([[1.0, 1.0, 2.25, 2.25], [0.1, 1.6, 0.5, 1.6]])
 
-    tight = chnkr.flagnear_rectangle(pts, rho=1.0)
-    padded = chnkr.flagnear_rectangle(pts, rho=1.8)
-    graph = tochunkgraph(chnkr)
+    tight = chnkr.flagnear_rectangle(points=pts, rho=1.0)
+    padded = chnkr.flagnear_rectangle(points=pts, rho=1.8)
+    graph = tochunkgraph(chunker=chnkr)
     expected_tight = np.array(
         [
             [False, False],
@@ -71,8 +72,10 @@ def test_flagnear_rectangle_uses_per_chunk_padding_and_chunkgraph_delegates():
 
     np.testing.assert_array_equal(tight, expected_tight)
     np.testing.assert_array_equal(padded, expected_padded)
-    np.testing.assert_array_equal(graph.flagnear(pts, fac=0.5), chnkr.flagnear(pts, fac=0.5))
-    np.testing.assert_array_equal(graph.flagnear_rectangle(pts, rho=1.8), padded)
+    np.testing.assert_array_equal(
+        graph.flagnear(points=pts, fac=0.5), chnkr.flagnear(points=pts, fac=0.5)
+    )
+    np.testing.assert_array_equal(graph.flagnear_rectangle(points=pts, rho=1.8), padded)
 
 
 def test_chunker_nearest_selects_point_and_chunk():
@@ -82,7 +85,7 @@ def test_chunker_nearest_selects_point_and_chunk():
         order=12,
     )
 
-    rn, dn, d2n, dist, tn, ichn = chnkr.nearest(np.array([1.25, 0.6]))
+    rn, dn, d2n, dist, tn, ichn = chnkr.nearest(points=np.array([1.25, 0.6]))
 
     np.testing.assert_allclose(rn, [1.25, 0.0], atol=1e-12)
     np.testing.assert_allclose(dn, [1.0, 0.0], atol=1e-12)

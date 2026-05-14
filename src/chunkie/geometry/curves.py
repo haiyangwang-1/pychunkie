@@ -6,7 +6,9 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 
-def linefunc(t: ArrayLike, v1: ArrayLike, v2: ArrayLike) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def linefunc(
+    t: ArrayLike, v1: ArrayLike, v2: ArrayLike
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     t_arr = np.asarray(t, dtype=float)
     flat = t_arr.reshape(-1)
     start = np.asarray(v1, dtype=float).reshape(2, 1)
@@ -15,7 +17,11 @@ def linefunc(t: ArrayLike, v1: ArrayLike, v2: ArrayLike) -> tuple[np.ndarray, np
     r = start + delta * flat[None, :]
     d = delta * np.ones((1, flat.size))
     d2 = np.zeros_like(d)
-    return r.reshape((2,) + t_arr.shape), d.reshape((2,) + t_arr.shape), d2.reshape((2,) + t_arr.shape)
+    return (
+        r.reshape((2,) + t_arr.shape),
+        d.reshape((2,) + t_arr.shape),
+        d2.reshape((2,) + t_arr.shape),
+    )
 
 
 def fpara(t: ArrayLike, a: float, b: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:

@@ -1,14 +1,14 @@
 import numpy as np
 import pytest
 
-from chunkie import chunkerkerneval, chunkermat, chunkgraph, kernel, lege
+from chunkie import ChunkGraph, chunkerkerneval, chunkermat, kernel, lege
 from chunkie.quadrature import panel as pquad
 from chunkie.quadrature import rcip
 
 
 def test_ipinit_interpolates_to_half_panels_and_preserves_weights():
     t, w, _, _ = lege.exps(8)
-    ip, ipw = rcip.IPinit(t, w)
+    ip, ipw = rcip.IPinit(nodes=t, weights=w)
     t2 = np.concatenate((t - 1.0, t + 1.0)) / 2.0
 
     vals = t**5 - 0.2 * t**3 + 0.7
@@ -19,10 +19,15 @@ def test_ipinit_interpolates_to_half_panels_and_preserves_weights():
 
 
 def test_setup_returns_zero_based_rcip_indices_and_block_shapes():
-    out = rcip.setup(4, 2, 3, np.array([True, False, True]))
+    out = rcip.setup(
+        quadrature_order=4,
+        dimension=2,
+        edge_count=3,
+        starts_at_corner=np.array([True, False, True]),
+    )
     pbc, pwbc, starL, circL, starS, circS, ilist, starL1, circL1 = out
     t, w, _, _ = lege.exps(4)
-    ip, ipw = rcip.IPinit(t, w)
+    ip, ipw = rcip.IPinit(nodes=t, weights=w)
     expected_pbc = np.kron(np.eye(3), np.kron(ip, np.eye(2)))
     expected_pwbc = np.kron(np.eye(3), np.kron(ipw, np.eye(2)))
 
@@ -67,7 +72,10 @@ def test_schurbana_matches_direct_block_formula_shapes():
     va = k[np.ix_(np.arange(nbad, size), np.arange(nbad))] @ expected
     pta = pw.T @ expected
     ptau = pta @ k[np.ix_(np.arange(nbad), np.arange(nbad, size))]
-    dvaui = np.linalg.inv(k[np.ix_(np.arange(nbad, size), np.arange(nbad, size))] - va @ k[np.ix_(np.arange(nbad), np.arange(nbad, size))])
+    dvaui = np.linalg.inv(
+        k[np.ix_(np.arange(nbad, size), np.arange(nbad, size))]
+        - va @ k[np.ix_(np.arange(nbad), np.arange(nbad, size))]
+    )
     dvauivap = dvaui @ (va @ p)
     expected[np.ix_(np.arange(ngood), np.arange(ngood))] = pta @ p + ptau @ dvauivap
     expected[np.ix_(np.arange(ngood, nbad), np.arange(ngood, nbad))] = dvaui
@@ -79,13 +87,24 @@ def test_schurbana_matches_direct_block_formula_shapes():
 def test_rcompchunk_identity_baseline_and_corner_refine():
     verts = np.array([[0.0, 1.0, 1.0], [0.0, 0.0, 1.0]])
     edges = np.array([[0, 1], [1, 2]])
-    cg = chunkgraph(verts, edges, pref={"k": 6}, cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 1})
+    cg = ChunkGraph(
+        verts,
+        edges,
+        pref={"k": 6},
+        cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 1},
+    )
 
     refined = rcip.corner_refine(cg, vertices=[1], depth=2)
     assert refined.echnks[0].nch == cg.echnks[0].nch + 2
     assert refined.echnks[1].nch == cg.echnks[1].nch + 2
 
-    rmat, saved = rcip.Rcompchunk(cg.echnks, np.array([0, 1]), lambda s, t: np.eye(1), 1, cg.verts[:, 1])
+    rmat, saved = rcip.Rcompchunk(
+        chunker=cg.echnks,
+        edge_chunks=np.array([0, 1]),
+        kernel=lambda source, target: np.eye(1),
+        dimension=1,
+        vertex=cg.verts[:, 1],
+    )
 
     assert rmat.shape == (2 * 2 * cg.k, 2 * 2 * cg.k)
     np.testing.assert_allclose(rmat, np.eye(rmat.shape[0]))
@@ -101,15 +120,20 @@ def test_rcompchunk_identity_baseline_and_corner_refine():
 def test_rcompchunk_runs_recursive_compression_for_corner_edges():
     verts = np.array([[0.0, 1.0, 1.0], [0.0, 0.0, 1.0]])
     edges = np.array([[0, 1], [1, 2]])
-    cg = chunkgraph(verts, edges, pref={"k": 4}, cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 2})
+    cg = ChunkGraph(
+        verts,
+        edges,
+        pref={"k": 4},
+        cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 2},
+    )
 
     rmat, saved = rcip.Rcompchunk(
-        cg.echnks,
-        np.array([0, 1]),
-        kernel("lap", "d"),
-        1,
-        cg.verts[:, 1],
-        opts={"_chunkie_normalized_operator_options": True, "nsub": 2, "rcip_savedepth": 2},
+        chunker=cg.echnks,
+        edge_chunks=np.array([0, 1]),
+        kernel=kernel("lap", "d"),
+        dimension=1,
+        vertex=cg.verts[:, 1],
+        options={"_chunkie_normalized_operator_options": True, "nsub": 2, "rcip_savedepth": 2},
     )
 
     assert rmat.shape == (2 * 2 * cg.k, 2 * 2 * cg.k)
@@ -120,7 +144,9 @@ def test_rcompchunk_runs_recursive_compression_for_corner_edges():
     assert len(saved.chnkrlocals) == 2
     assert np.linalg.norm(rmat - np.eye(rmat.shape[0])) > 1e-3
     np.testing.assert_allclose(np.trace(rmat), 16.300387693756427, rtol=1e-12, atol=1e-12)
-    np.testing.assert_allclose(np.linalg.norm(rmat, "fro"), 4.120788302796726, rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(
+        np.linalg.norm(rmat, "fro"), 4.120788302796726, rtol=1e-12, atol=1e-12
+    )
     np.testing.assert_allclose(
         rmat[0, :6],
         [
@@ -145,63 +171,82 @@ def test_rcompchunk_runs_recursive_compression_for_corner_edges():
 def test_rcompchunk_rejects_nonfinite_local_kernel_blocks():
     verts = np.array([[0.0, 1.0, 1.0], [0.0, 0.0, 1.0]])
     edges = np.array([[0, 1], [1, 2]])
-    cg = chunkgraph(verts, edges, pref={"k": 4}, cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 2})
+    cg = ChunkGraph(
+        verts,
+        edges,
+        pref={"k": 4},
+        cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 2},
+    )
 
-    def bad_kernel(src, targ):
-        return np.full((targ.r.shape[1], src.r.shape[1]), np.nan)
+    def bad_kernel(source, target):
+        return np.full((target.r.shape[1], source.r.shape[1]), np.nan)
 
     bad_kernel.opdims = (1, 1)
 
     with pytest.raises(ValueError, match=r"RCIP local matrix block .* non-finite"):
         rcip.Rcompchunk(
-            cg.echnks,
-            np.array([0, 1]),
-            bad_kernel,
-            1,
-            cg.verts[:, 1],
-            opts={"_chunkie_normalized_operator_options": True, "nsub": 1, "rcip_savedepth": 1},
+            chunker=cg.echnks,
+            edge_chunks=np.array([0, 1]),
+            kernel=bad_kernel,
+            dimension=1,
+            vertex=cg.verts[:, 1],
+            options={"_chunkie_normalized_operator_options": True, "nsub": 1, "rcip_savedepth": 1},
         )
 
 
 def test_chunkgraph_rcip_runs_selected_vertices_and_ignores_marked_vertices():
     verts = np.array([[0.0, 1.0, 1.0, 0.0], [0.0, 0.0, 1.0, 1.0]])
     edges = np.array([[0, 1, 2, 3], [1, 2, 3, 0]])
-    cg = chunkgraph(verts, edges, pref={"k": 4}, cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 2})
+    cg = ChunkGraph(
+        verts,
+        edges,
+        pref={"k": 4},
+        cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 2},
+    )
 
     result = rcip.chunkgraph_rcip(
-        cg,
-        kernel("lap", "d"),
-        1,
-        opts={"_chunkie_normalized_operator_options": True, "nsub": 1, "rcip_savedepth": 1},
+        graph=cg,
+        kernel=kernel("lap", "d"),
+        dimension=1,
+        options={"_chunkie_normalized_operator_options": True, "nsub": 1, "rcip_savedepth": 1},
         ignore_vertices=[0],
     )
 
     np.testing.assert_array_equal(result.vertices, [1, 2, 3])
     assert len(result.R) == 3
     assert len(result.saved) == 3
-    for rmat, saved, edge_indices in zip(result.R, result.saved, result.edge_indices):
+    for rmat, saved, edge_indices in zip(result.R, result.saved, result.edge_indices, strict=True):
         assert edge_indices.size == 2
         assert rmat.shape == (4 * cg.k, 4 * cg.k)
         assert saved.nedge == 2
         assert saved.nsub == 1
         assert np.isfinite(rmat).all()
-    for vertex, rmat, edge_indices in zip(result.vertices, result.R, result.edge_indices):
+    for vertex, rmat, edge_indices in zip(
+        result.vertices, result.R, result.edge_indices, strict=True
+    ):
         direct, direct_saved = rcip.Rcompchunk(
-            cg.echnks,
-            edge_indices,
-            kernel("lap", "d"),
-            1,
-            cg.verts[:, vertex],
-            opts={"_chunkie_normalized_operator_options": True, "nsub": 1, "rcip_savedepth": 1},
+            chunker=cg.echnks,
+            edge_chunks=edge_indices,
+            kernel=kernel("lap", "d"),
+            dimension=1,
+            vertex=cg.verts[:, vertex],
+            options={"_chunkie_normalized_operator_options": True, "nsub": 1, "rcip_savedepth": 1},
         )
         np.testing.assert_allclose(rmat, direct)
-        np.testing.assert_allclose(result.saved[np.where(result.vertices == vertex)[0][0]].R[-1], direct_saved.R[-1])
+        np.testing.assert_allclose(
+            result.saved[np.where(result.vertices == vertex)[0][0]].R[-1], direct_saved.R[-1]
+        )
 
 
 def test_chunkgraph_rcip_subselects_global_block_kernels():
     verts = np.array([[0.0, 1.0, 1.0, 0.0], [0.0, 0.0, 1.0, 1.0]])
     edges = np.array([[0, 1, 2, 3], [1, 2, 3, 0]])
-    cg = chunkgraph(verts, edges, pref={"k": 4}, cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 2})
+    cg = ChunkGraph(
+        verts,
+        edges,
+        pref={"k": 4},
+        cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 2},
+    )
     calls: list[tuple[int, int]] = []
 
     def zero_kernel(label):
@@ -216,7 +261,13 @@ def test_chunkgraph_rcip_subselects_global_block_kernels():
         for jedge in range(4):
             blocks[iedge, jedge] = zero_kernel((iedge, jedge))
 
-    result = rcip.chunkgraph_rcip(cg, blocks, 1, vertices=[1], opts={"_chunkie_normalized_operator_options": True, "nsub": 1, "rcip_savedepth": 1})
+    result = rcip.chunkgraph_rcip(
+        graph=cg,
+        kernel=blocks,
+        dimension=1,
+        vertices=[1],
+        options={"_chunkie_normalized_operator_options": True, "nsub": 1, "rcip_savedepth": 1},
+    )
 
     np.testing.assert_array_equal(result.vertices, [1])
     np.testing.assert_array_equal(result.edge_indices[0], [0, 1])
@@ -231,16 +282,25 @@ def test_chunkgraph_rcip_subselects_global_block_kernels():
 def test_chunkermat_defaults_to_rcip_on_nonsmooth_chunkgraph_and_evaluates_corners(monkeypatch):
     verts = np.array([[-1.0, 1.0, 1.0, -1.0], [-1.0, -1.0, 1.0, 1.0]])
     edges = np.array([[0, 1, 2, 3], [1, 2, 3, 0]])
-    cg = chunkgraph(verts, edges, pref={"k": 6}, cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 4})
+    cg = ChunkGraph(
+        verts,
+        edges,
+        pref={"k": 6},
+        cparams={"_chunkie_normalized_geometry_options": True, "nchmin": 4},
+    )
     chnkr = cg.merged()
     boundary = chnkr.r.reshape(2, chnkr.npt, order="F")
     system_kernel = -2.0 * kernel("lap", "d")
 
-    mat = chunkermat(cg, system_kernel, {"_chunkie_normalized_operator_options": True, "nsub": 4, "rcip_savedepth": 4})
+    mat = chunkermat(
+        cg,
+        system_kernel,
+        {"_chunkie_normalized_operator_options": True, "nsub": 4, "rcip_savedepth": 4},
+    )
 
     assert mat.rcip is not None
     assert len(mat.rcip.saved) == 4
-    assert getattr(cg, "_last_rcip_context") is mat.rcip
+    assert cg._last_rcip_context is mat.rcip
     sigma = np.linalg.solve(np.eye(chnkr.npt) + mat, boundary[0])
     targets = np.array([[0.0, 0.3, -0.2], [0.0, 0.2, 0.4]])
     values = chunkerkerneval(cg, system_kernel, sigma, targets).reshape(-1)
@@ -250,7 +310,10 @@ def test_chunkermat_defaults_to_rcip_on_nonsmooth_chunkgraph_and_evaluates_corne
     original_panel_matrix = pquad.panel_matrix
 
     def wrapped_panel_matrix(*args, **kwargs):
-        pquad_calls.append((args[0].nch, args[1], args[4]))
+        chunker_arg = kwargs.get("chunker", args[0] if args else None)
+        source_chunk = kwargs.get("source_chunk", args[1] if len(args) > 1 else None)
+        side = kwargs.get("side", args[4] if len(args) > 4 else None)
+        pquad_calls.append((chunker_arg.nch, source_chunk, side))
         return original_panel_matrix(*args, **kwargs)
 
     monkeypatch.setattr(pquad, "panel_matrix", wrapped_panel_matrix)
@@ -266,6 +329,8 @@ def test_chunkermat_defaults_to_rcip_on_nonsmooth_chunkgraph_and_evaluates_corne
     assert pquad_calls
     assert any(nch != chnkr.nch for nch, _, _ in pquad_calls)
 
-    direct = chunkermat(cg, system_kernel, {"_chunkie_normalized_operator_options": True, "rcip": False})
+    direct = chunkermat(
+        cg, system_kernel, {"_chunkie_normalized_operator_options": True, "rcip": False}
+    )
     assert not hasattr(direct, "rcip")
-    assert getattr(cg, "_last_rcip_context") is None
+    assert cg._last_rcip_context is None

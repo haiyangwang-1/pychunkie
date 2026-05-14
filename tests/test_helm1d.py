@@ -47,7 +47,11 @@ def test_helm1d_kernel_selectors_and_kernel_wrapper():
     expected_sp = grad[:, :, 0] * targ["n"][0, :, None] + grad[:, :, 1] * targ["n"][1, :, None]
     expected_dp = -(
         hess[:, :, 0] * src["n"][0, None, :] * targ["n"][0, :, None]
-        + hess[:, :, 1] * (src["n"][1, None, :] * targ["n"][0, :, None] + src["n"][0, None, :] * targ["n"][1, :, None])
+        + hess[:, :, 1]
+        * (
+            src["n"][1, None, :] * targ["n"][0, :, None]
+            + src["n"][0, None, :] * targ["n"][1, :, None]
+        )
         + hess[:, :, 2] * src["n"][1, None, :] * targ["n"][1, :, None]
     )
     expected_c2trans = np.zeros((4, 2), dtype=complex)
@@ -57,11 +61,11 @@ def test_helm1d_kernel_selectors_and_kernel_wrapper():
     expected_all[0::2, 0::2] = expected_d
     expected_all[1::2, 1::2] = expected_sp
 
-    np.testing.assert_allclose(helm1d.kern(zk, src, targ, "s"), val)
-    np.testing.assert_allclose(helm1d.kern(zk, src, targ, "d"), expected_d)
-    np.testing.assert_allclose(helm1d.kern(zk, src, targ, "dp"), expected_dp)
-    np.testing.assert_allclose(helm1d.kern(zk, src, targ, "c2trans"), expected_c2trans)
-    np.testing.assert_allclose(helm1d.kern(zk, src, targ, "all", np.eye(2)), expected_all)
+    np.testing.assert_allclose(helm1d.kernel(zk, src, targ, "s"), val)
+    np.testing.assert_allclose(helm1d.kernel(zk, src, targ, "d"), expected_d)
+    np.testing.assert_allclose(helm1d.kernel(zk, src, targ, "dp"), expected_dp)
+    np.testing.assert_allclose(helm1d.kernel(zk, src, targ, "c2trans"), expected_c2trans)
+    np.testing.assert_allclose(helm1d.kernel(zk, src, targ, "all", np.eye(2)), expected_all)
     assert kernel("helm1d", "s", zk).sing == "removable"
 
 

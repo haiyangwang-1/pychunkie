@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 from numpy.typing import ArrayLike
+
+from chunkie._layout import as_boundary_point_matrix
 
 from .geometry.chunkgraph import ChunkGraph
 
@@ -35,7 +38,9 @@ def checkcurveparam(fcurve: Callable[[np.ndarray], Any], ta: ArrayLike, nout: in
     return dim
 
 
-def ellipse(t: ArrayLike, a: float = 1.0, b: float = 1.0) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def ellipse(
+    t: ArrayLike, a: float = 1.0, b: float = 1.0
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Return position and derivatives for ``(a cos(t), b sin(t))``."""
 
     t_arr = np.asarray(t, dtype=float)
@@ -99,7 +104,11 @@ def nonflatinterface(
     xpp = np.zeros_like(flat)
     ys = d * expfac * np.sin(phase)
     yp = d * expfac * (b * np.cos(phase) - a * flat * np.sin(phase))
-    ypp = d * expfac * (-2.0 * a * b * flat * np.cos(phase) + (a * a * flat**2 - a - b * b) * np.sin(phase))
+    ypp = (
+        d
+        * expfac
+        * (-2.0 * a * b * flat * np.cos(phase) + (a * a * flat**2 - a - b * b) * np.sin(phase))
+    )
     r = np.vstack((xs, ys))
     dr = np.vstack((xp, yp))
     d2r = np.vstack((xpp, ypp))
@@ -148,10 +157,10 @@ class HypOctTree:
 
 
 def hypoct_uni(
-    x: ArrayLike,
-    bl: float,
-    lvlmax: int | float = np.inf,
-    ext: ArrayLike | None = None,
+    points: ArrayLike,
+    box_size: float,
+    max_level: int | float = np.inf,
+    extent: ArrayLike | None = None,
 ) -> HypOctTree:
     """Build a uniform-depth hyperoctree over points.
 
@@ -159,36 +168,38 @@ def hypoct_uni(
     Python port rather than MATLAB's one-based struct arrays.
     """
 
-    points = np.asarray(x, dtype=float)
-    if points.ndim != 2:
+    point_array = np.asarray(points, dtype=float)
+    if point_array.ndim != 2:
         raise ValueError("x must have shape (dim, n)")
-    if bl < 0:
+    if box_size < 0:
         raise ValueError("target box size must be non-negative")
-    if lvlmax < 1:
+    if max_level < 1:
         raise ValueError("maximum tree depth must be at least 1")
 
-    dim, npt = points.shape
-    if ext is None:
+    dim, npt = point_array.shape
+    if extent is None:
         if npt == 0:
-            extent = np.zeros((dim, 2), dtype=float)
+            domain_extent = np.zeros((dim, 2), dtype=float)
         else:
-            extent = np.column_stack((np.min(points, axis=1), np.max(points, axis=1)))
+            domain_extent = np.column_stack(
+                (np.min(point_array, axis=1), np.max(point_array, axis=1))
+            )
     else:
-        extent = np.asarray(ext, dtype=float)
-        if extent.shape != (dim, 2):
-            raise ValueError("ext must have shape (dim, 2)")
+        domain_extent = np.asarray(extent, dtype=float)
+        if domain_extent.shape != (dim, 2):
+            raise ValueError("extent must have shape (dim, 2)")
 
-    root_len = float(np.max(extent[:, 1] - extent[:, 0])) if dim else 0.0
-    root_ctr = 0.5 * (extent[:, 0] + extent[:, 1])
+    root_len = float(np.max(domain_extent[:, 1] - domain_extent[:, 0])) if dim else 0.0
+    root_ctr = 0.5 * (domain_extent[:, 0] + domain_extent[:, 1])
     nodes = [HypOctNode(root_ctr, np.arange(npt, dtype=int), None, [], [])]
     lvp = [0, 1]
     level = 1
     side = root_len
-    max_level = np.inf if np.isinf(lvlmax) else int(lvlmax)
+    resolved_max_level = np.inf if np.isinf(max_level) else int(max_level)
 
-    while level < max_level:
+    while level < resolved_max_level:
         next_side = 0.5 * side
-        if next_side <= bl:
+        if next_side <= box_size:
             break
         start, stop = lvp[level - 1], lvp[level]
         before = len(nodes)
@@ -196,7 +207,7 @@ def hypoct_uni(
             parent = nodes[inode]
             if parent.xi.size == 0:
                 continue
-            child_codes = _child_codes(points[:, parent.xi], parent.ctr)
+            child_codes = _child_codes(point_array[:, parent.xi], parent.ctr)
             for code in np.unique(child_codes):
                 mask = child_codes == code
                 bits = ((int(code) >> np.arange(dim)) & 1).astype(float)
@@ -216,59 +227,63 @@ def hypoct_uni(
     return tree
 
 
-def pointinregion(cgrph: ChunkGraph, rgn: list[list[int]], r0: ArrayLike) -> int:
-    """Count loops in ``rgn`` that contain point ``r0``."""
+def pointinregion(graph: ChunkGraph, region: list[list[int]], point: ArrayLike) -> int:
+    """Count loops in ``region`` that contain ``point``."""
 
-    point = np.asarray(r0, dtype=float).reshape(2)
+    target_point = np.asarray(point, dtype=float).reshape(2)
     nin = 0
-    for loop in rgn:
+    for loop in region:
         if len(loop) == 0:
             continue
-        poly = _region_loop_points(cgrph, loop)
-        if _point_in_poly(point, poly):
+        poly = _region_loop_points(graph, loop)
+        if _point_in_poly(target_point, poly):
             nin += 1
     return nin
 
 
-def regioninside(cgrph: ChunkGraph, rgn1: list[list[list[int]]], rgn2: list[list[list[int]]]) -> bool:
-    """Return whether a representative point of ``rgn2`` lies inside ``rgn1``."""
+def regioninside(
+    graph: ChunkGraph,
+    containing_region: list[list[list[int]]],
+    candidate_region: list[list[list[int]]],
+) -> bool:
+    """Return whether a representative point of ``candidate_region`` lies inside ``containing_region``."""
 
-    seed = _region_seed_point(cgrph, rgn2)
-    for region in _interior_regions(rgn1):
-        nin = pointinregion(cgrph, region, seed)
+    seed = _region_seed_point(graph, candidate_region)
+    for region in _interior_regions(containing_region):
+        nin = pointinregion(graph, region, seed)
         if nin > 0 and nin % 2 == 1:
             return True
     return False
 
 
 def mergeregions(
-    cgrph: ChunkGraph,
-    rgn1: list[list[list[int]]],
-    rgn2: list[list[list[int]]],
+    graph: ChunkGraph,
+    first_region: list[list[list[int]]],
+    second_region: list[list[list[int]]],
 ) -> list[list[list[int]]]:
     """Merge two MATLAB-style chunkgraph region lists."""
 
-    out = _copy_regions(rgn1)
-    seed2 = _region_seed_point(cgrph, rgn2)
-    for idx, region in _indexed_interior_regions(rgn1):
-        nin = pointinregion(cgrph, region, seed2)
+    out = _copy_regions(first_region)
+    seed2 = _region_seed_point(graph, second_region)
+    for idx, region in _indexed_interior_regions(first_region):
+        nin = pointinregion(graph, region, seed2)
         if nin > 0 and nin % 2 == 1:
-            out.extend(_copy_regions(rgn2[1:]))
-            out[idx] = out[idx] + _copy_regions(rgn2[:1])[0]
+            out.extend(_copy_regions(second_region[1:]))
+            out[idx] = out[idx] + _copy_regions(second_region[:1])[0]
             return out
 
-    out2 = _copy_regions(rgn2)
-    seed1 = _region_seed_point(cgrph, rgn1)
-    for idx, region in _indexed_interior_regions(rgn2):
-        nin = pointinregion(cgrph, region, seed1)
+    out2 = _copy_regions(second_region)
+    seed1 = _region_seed_point(graph, first_region)
+    for idx, region in _indexed_interior_regions(second_region):
+        nin = pointinregion(graph, region, seed1)
         if nin > 0 and nin % 2 == 1:
-            out2.extend(_copy_regions(rgn1[1:]))
-            out2[idx] = out2[idx] + _copy_regions(rgn1[:1])[0]
+            out2.extend(_copy_regions(first_region[1:]))
+            out2[idx] = out2[idx] + _copy_regions(first_region[:1])[0]
             return out2
 
-    out.extend(_copy_regions(rgn2[1:]))
-    if out and rgn2:
-        out[0] = out[0] + _copy_regions(rgn2[:1])[0]
+    out.extend(_copy_regions(second_region[1:]))
+    if out and second_region:
+        out[0] = out[0] + _copy_regions(second_region[:1])[0]
     return out
 
 
@@ -319,7 +334,9 @@ def _populate_hypoct_neighbors(tree: HypOctTree) -> None:
                         neighbors.add(j)
                 for child in other.chld:
                     other_child = tree.nodes[child]
-                    if _boxes_adjacent(node.ctr, side, other_child.ctr, side_by_level[levels[child]]):
+                    if _boxes_adjacent(
+                        node.ctr, side, other_child.ctr, side_by_level[levels[child]]
+                    ):
                         neighbors.add(child)
             node.nbor = sorted(neighbors)
 
@@ -357,7 +374,7 @@ def _region_loop_points(cgrph: ChunkGraph, loop: list[int]) -> np.ndarray:
     for item in loop:
         edge, reversed_edge = _decode_edge(item)
         chnkr = cgrph.echnks[edge].sort()[0]
-        pts = chnkr.r.reshape(2, chnkr.npt, order="F")
+        pts = as_boundary_point_matrix(chnkr.r, 2, chnkr.npt, name="positions")
         if reversed_edge:
             pts = pts[:, ::-1]
         pieces.append(pts)
@@ -376,7 +393,9 @@ def _point_in_poly(point: np.ndarray, poly: np.ndarray) -> bool:
     xp = poly[0]
     yp = poly[1]
     inside = False
-    for xa, ya, xb, yb in zip(xp, yp, np.roll(xp, -1), np.roll(yp, -1)):
-        if ((ya > y) != (yb > y)) and (x < (xb - xa) * (y - ya) / (yb - ya + np.finfo(float).eps) + xa):
+    for xa, ya, xb, yb in zip(xp, yp, np.roll(xp, -1), np.roll(yp, -1), strict=False):
+        if ((ya > y) != (yb > y)) and (
+            x < (xb - xa) * (y - ya) / (yb - ya + np.finfo(float).eps) + xa
+        ):
             inside = not inside
     return inside

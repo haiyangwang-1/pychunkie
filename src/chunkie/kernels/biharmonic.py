@@ -8,21 +8,23 @@ from numpy.typing import ArrayLike
 from chunkie.geometry import PointInfo
 
 
-def green(src: ArrayLike, targ: ArrayLike) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def green(
+    source: ArrayLike, target: ArrayLike
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Evaluate ``r^2 log(r) / (8*pi)`` and its target derivatives."""
 
-    src_arr = np.asarray(src, dtype=float).reshape(2, -1)
-    targ_arr = np.asarray(targ, dtype=float).reshape(2, -1)
-    x = targ_arr[0, :, None] - src_arr[0, None, :]
-    y = targ_arr[1, :, None] - src_arr[1, None, :]
+    source_points = np.asarray(source, dtype=float).reshape(2, -1)
+    target_points = np.asarray(target, dtype=float).reshape(2, -1)
+    x = target_points[0, :, None] - source_points[0, None, :]
+    y = target_points[1, :, None] - source_points[1, None, :]
     r2 = x**2 + y**2
     with np.errstate(divide="ignore", invalid="ignore"):
         logr2 = np.log(r2)
         val = r2 * logr2 / (16.0 * np.pi)
-        grad = np.empty((targ_arr.shape[1], src_arr.shape[1], 2))
+        grad = np.empty((target_points.shape[1], source_points.shape[1], 2))
         grad[:, :, 0] = x * (logr2 + 1.0) / (8.0 * np.pi)
         grad[:, :, 1] = y * (logr2 + 1.0) / (8.0 * np.pi)
-        hess = np.empty((targ_arr.shape[1], src_arr.shape[1], 3))
+        hess = np.empty((target_points.shape[1], source_points.shape[1], 3))
         hess[:, :, 0] = (logr2 + 1.0 + 2.0 * x**2 / r2) / (8.0 * np.pi)
         hess[:, :, 1] = x * y / (4.0 * np.pi * r2)
         hess[:, :, 2] = (logr2 + 1.0 + 2.0 * y**2 / r2) / (8.0 * np.pi)
@@ -33,32 +35,34 @@ def green(src: ArrayLike, targ: ArrayLike) -> tuple[np.ndarray, np.ndarray, np.n
     return val, grad, hess, lap
 
 
-def kern(
-    srcinfo: PointInfo | dict | ArrayLike,
-    targinfo: PointInfo | dict | ArrayLike,
+def kernel(
+    source: PointInfo | dict | ArrayLike,
+    target: PointInfo | dict | ArrayLike,
     kind: str,
 ) -> np.ndarray:
     """Evaluate biharmonic single, double, derivative, gradient, or Hessian kernels."""
 
-    src = PointInfo.from_any(srcinfo)
-    targ = PointInfo.from_any(targinfo)
+    source_info = PointInfo.from_any(source)
+    target_info = PointInfo.from_any(target)
     typ = kind.lower()
-    val, grad, hess, lap = green(src.r, targ.r)
+    val, grad, hess, lap = green(source_info.r, target_info.r)
 
     if typ in {"s", "single"}:
         return val
     if typ in {"lap", "slap", "laplacian"}:
         return lap
     if typ in {"d", "double"}:
-        _require(src.n, "source normals")
-        return -(grad[:, :, 0] * src.n[0, None, :] + grad[:, :, 1] * src.n[1, None, :])
+        _require(source_info.n, "source normals")
+        return -(
+            grad[:, :, 0] * source_info.n[0, None, :] + grad[:, :, 1] * source_info.n[1, None, :]
+        )
     if typ in {"sp", "sprime"}:
-        _require(targ.n, "target normals")
-        return grad[:, :, 0] * targ.n[0, :, None] + grad[:, :, 1] * targ.n[1, :, None]
+        _require(target_info.n, "target normals")
+        return grad[:, :, 0] * target_info.n[0, :, None] + grad[:, :, 1] * target_info.n[1, :, None]
     if typ in {"sgrad", "sg"}:
-        return grad.transpose(0, 2, 1).reshape(2 * targ.r.shape[1], src.r.shape[1])
+        return grad.transpose(0, 2, 1).reshape(2 * target_info.r.shape[1], source_info.r.shape[1])
     if typ in {"shess", "hess"}:
-        return hess.transpose(0, 2, 1).reshape(3 * targ.r.shape[1], src.r.shape[1])
+        return hess.transpose(0, 2, 1).reshape(3 * target_info.r.shape[1], source_info.r.shape[1])
     raise ValueError(f"Unknown biharmonic kernel type {kind!r}.")
 
 

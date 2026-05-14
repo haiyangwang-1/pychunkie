@@ -7,7 +7,9 @@ from numpy.typing import ArrayLike
 from scipy.special import erf
 
 
-def absconvgauss(x: ArrayLike, a: float, b: float, h: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def absconvgauss(
+    x: ArrayLike, a: float, b: float, h: float
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Smooth ``a*abs(x)+b`` by convolution with a Gaussian of width ``h``."""
 
     x_arr = np.asarray(x, dtype=float)

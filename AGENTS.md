@@ -1,5 +1,9 @@
 # Agent Instructions
 
+Read `CONTRIBUTING.md` before making code, test, fixture, or documentation
+changes. It defines the repo's Python-first design philosophy, naming standard,
+tensor notation, testing expectations, tooling, and living-doc policy.
+
 This repo uses three living status documents to keep implementation, parity, and
 test coverage understandable across agent handoffs:
 
@@ -28,6 +32,13 @@ uncommitted user changes, leave them unstaged and commit only the files that
 belong to the current change.
 
 ## Living Doc Rules
+
+All project-owned Markdown docs are living docs: keep them current when their
+subject changes, or delete them when they are obsolete. Markdown files under
+`external/` are upstream/reference material and should only change through the
+corresponding vendored checkout or submodule. The three status documents below
+have additional commit-gate rules because they summarize implementation,
+parity, and test coverage across handoffs.
 
 - Update `map.md` when public APIs, source-tree structure, implemented MATLAB
   parity, feature status, known limitations, or the verification snapshot

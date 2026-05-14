@@ -41,7 +41,10 @@ def test_biharmonic_green_coincident_limits_preserve_singular_second_derivatives
 
 def test_biharmonic_kernel_selectors_and_factory_shapes():
     src = PointInfo(r=np.array([[0.0, 1.0], [0.0, 0.0]]), n=np.array([[1.0, 0.0], [0.0, 1.0]]))
-    targ = PointInfo(r=np.array([[0.2, -0.4, 0.7], [1.0, 0.3, -0.2]]), n=np.array([[0.0, 1.0, 0.0], [1.0, 0.0, 1.0]]))
+    targ = PointInfo(
+        r=np.array([[0.2, -0.4, 0.7], [1.0, 0.3, -0.2]]),
+        n=np.array([[0.0, 1.0, 0.0], [1.0, 0.0, 1.0]]),
+    )
 
     val, grad, hess, _ = biharm2d.green(src.r, targ.r)
     expected_d = -(grad[:, :, 0] * src.n[0, None, :] + grad[:, :, 1] * src.n[1, None, :])
@@ -49,11 +52,11 @@ def test_biharmonic_kernel_selectors_and_factory_shapes():
     expected_sgrad = grad.transpose(0, 2, 1).reshape(2 * targ.r.shape[1], src.r.shape[1])
     expected_shess = hess.transpose(0, 2, 1).reshape(3 * targ.r.shape[1], src.r.shape[1])
 
-    np.testing.assert_allclose(biharm2d.kern(src, targ, "s"), val)
-    np.testing.assert_allclose(biharm2d.kern(src, targ, "d"), expected_d)
-    np.testing.assert_allclose(biharm2d.kern(src, targ, "sp"), expected_sp)
-    np.testing.assert_allclose(biharm2d.kern(src, targ, "sgrad"), expected_sgrad)
-    np.testing.assert_allclose(biharm2d.kern(src, targ, "shess"), expected_shess)
+    np.testing.assert_allclose(biharm2d.kernel(src, targ, "s"), val)
+    np.testing.assert_allclose(biharm2d.kernel(src, targ, "d"), expected_d)
+    np.testing.assert_allclose(biharm2d.kernel(src, targ, "sp"), expected_sp)
+    np.testing.assert_allclose(biharm2d.kernel(src, targ, "sgrad"), expected_sgrad)
+    np.testing.assert_allclose(biharm2d.kernel(src, targ, "shess"), expected_shess)
     assert kernel("biharm", "sgrad").opdims == (2, 1)
 
 

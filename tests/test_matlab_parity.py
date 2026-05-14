@@ -2,18 +2,23 @@ import numpy as np
 import pytest
 from scipy import sparse
 
+from _fixture_generation import (
+    assert_chunker_matches_fields,
+    chunker_from_fields,
+    load_generated_mat_fixture,
+)
 from chunkie import (
     Chunker,
     ChunkerFLAMMatrix,
     ChunkerFMMMatrix,
+    ChunkerPref,
     PointInfo,
-    chunkerinterior,
     chunkerintegral,
+    chunkerinterior,
     chunkerkerneval,
     chunkerkernevalmat,
     chunkermat,
     chunkermatapply,
-    chunkerpref,
     kernel,
     lege,
 )
@@ -23,13 +28,13 @@ from chunkie.kernels import helmholtz as helm2d
 from chunkie.kernels import helmholtz_1d as helm1d
 from chunkie.kernels import laplace as lap2d
 from chunkie.kernels import stokes as stok2d
-
-pointinfo = PointInfo.from_any
 from chunkie.quadrature import adaptive as quadadap
 from chunkie.quadrature import ggq as quadggq
 from chunkie.quadrature import native as quadnative
 from chunkie.quadrature import rcip
-from _fixture_generation import assert_chunker_matches_fields, chunker_from_fields, load_generated_mat_fixture
+
+pytestmark = [pytest.mark.slow, pytest.mark.requires_matlab]
+pointinfo = PointInfo.from_any
 
 
 def load_fixture(name: str):
@@ -57,9 +62,11 @@ def matlab_string(value) -> str:
     return str(value)
 
 
-def assert_cell_arrays_allclose(actual, expected, *, rtol: float = 1e-13, atol: float = 1e-13, label: str) -> None:
+def assert_cell_arrays_allclose(
+    actual, expected, *, rtol: float = 1e-13, atol: float = 1e-13, label: str
+) -> None:
     assert len(actual) == len(expected), f"{label}: cell count"
-    for idx, (actual_cell, expected_cell) in enumerate(zip(actual, expected)):
+    for idx, (actual_cell, expected_cell) in enumerate(zip(actual, expected, strict=True)):
         np.testing.assert_allclose(
             np.asarray(actual_cell),
             np.asarray(expected_cell),
@@ -152,19 +159,33 @@ KERNEL_OBJECT_CASES = [
     ("stok_ctrac", lambda f: kernel("stok", "ctrac", float(f["stok_mu"]), f["stok_coefs"])),
     ("stok_cgrad", lambda f: kernel("stok", "cgrad", float(f["stok_mu"]), f["stok_coefs"])),
     ("elast_s", lambda f: kernel("elast", "s", float(f["elast_lam"]), float(f["elast_mu"]))),
-    ("elast_sgrad", lambda f: kernel("elast", "sgrad", float(f["elast_lam"]), float(f["elast_mu"]))),
-    ("elast_strac", lambda f: kernel("elast", "strac", float(f["elast_lam"]), float(f["elast_mu"]))),
+    (
+        "elast_sgrad",
+        lambda f: kernel("elast", "sgrad", float(f["elast_lam"]), float(f["elast_mu"])),
+    ),
+    (
+        "elast_strac",
+        lambda f: kernel("elast", "strac", float(f["elast_lam"]), float(f["elast_mu"])),
+    ),
     ("elast_d", lambda f: kernel("elast", "d", float(f["elast_lam"]), float(f["elast_mu"]))),
     ("elast_dalt", lambda f: kernel("elast", "dalt", float(f["elast_lam"]), float(f["elast_mu"]))),
-    ("elast_dalttrac", lambda f: kernel("elast", "dalttrac", float(f["elast_lam"]), float(f["elast_mu"]))),
-    ("elast_daltgrad", lambda f: kernel("elast", "daltgrad", float(f["elast_lam"]), float(f["elast_mu"]))),
+    (
+        "elast_dalttrac",
+        lambda f: kernel("elast", "dalttrac", float(f["elast_lam"]), float(f["elast_mu"])),
+    ),
+    (
+        "elast_daltgrad",
+        lambda f: kernel("elast", "daltgrad", float(f["elast_lam"]), float(f["elast_mu"])),
+    ),
     ("zeros_2_3", lambda f: kernel("zero", 2, 3)),
     ("nans_2_3", lambda f: kernel("nan", 2, 3)),
     (
         "custom",
         lambda f: kernel(
-            lambda s, t: (1.0 + 2.0j) * np.ones((t.r.shape[1], s.r.shape[1]))
-            + 0.1 * (t.r[0, :, None] - s.r[0, None, :])
+            lambda s, t: (
+                (1.0 + 2.0j) * np.ones((t.r.shape[1], s.r.shape[1]))
+                + 0.1 * (t.r[0, :, None] - s.r[0, None, :])
+            )
         ),
     ),
 ]
@@ -196,11 +217,15 @@ def test_extended_legendre_helpers_match_matlab_fixture():
     np.testing.assert_allclose(intmat, fixture["intmat_ext"], atol=1e-13)
     np.testing.assert_allclose(lege.exev(xs, coeff), fixture["exev_ext"], atol=1e-13)
     np.testing.assert_allclose(lege.intpol(coeff, "true"), fixture["intpol_true_ext"], atol=1e-13)
-    np.testing.assert_allclose(lege.intpol(coeff, "original"), fixture["intpol_original_ext"], atol=1e-13)
+    np.testing.assert_allclose(
+        lege.intpol(coeff, "original"), fixture["intpol_original_ext"], atol=1e-13
+    )
     np.testing.assert_allclose(lege.derpol(coeff), fixture["derpol_ext"], atol=1e-13)
     np.testing.assert_allclose(lege.barywts(k, x), fixture["barywts_ext"], atol=1e-13)
     np.testing.assert_allclose(
-        lege.bernstein_ellipse(int(fixture["bernstein_ntheta_ext"]), float(fixture["bernstein_rho_ext"])),
+        lege.bernstein_ellipse(
+            int(fixture["bernstein_ntheta_ext"]), float(fixture["bernstein_rho_ext"])
+        ),
         fixture["bernstein_ellipse_ext"],
         atol=1e-14,
     )
@@ -216,8 +241,8 @@ def test_extended_legendre_helpers_match_matlab_fixture():
         fixture["tayl_der0_ext"],
         fixture["tayl_x_ext"],
         fixture["tayl_h_ext"],
-        int(fixture["tayl_n_ext"]),
-        int(fixture["tayl_k_ext"]),
+        n=int(fixture["tayl_n_ext"]),
+        taylor_order=int(fixture["tayl_k_ext"]),
     )
     np.testing.assert_allclose(tayl_pol, fixture["tayl_pol_ext"], atol=1e-13)
     np.testing.assert_allclose(tayl_der, fixture["tayl_der_ext"], atol=1e-12)
@@ -250,7 +275,7 @@ def test_chunker_geometry_and_transforms_match_matlab_fixture():
 
 def test_chunker_storage_and_data_helpers_match_matlab_fixture():
     ops = load_fixture("chunker_ops.mat")["chunker_ops"]
-    pref = chunkerpref(
+    pref = ChunkerPref.from_any(
         {
             "k": int(ops.pref.k),
             "dim": int(ops.pref.dim),
@@ -331,7 +356,7 @@ def test_laplace_point_kernels_match_matlab_fixture(kind):
     targ = pointinfo_dict(fixture["targinfo"])
     coefs = fixture["lap_coefs"] if kind in {"c", "cp", "cgrad"} else None
 
-    actual = lap2d.kern(src, targ, kind, coefs)
+    actual = lap2d.kernel(src, targ, kind, coefs)
     expected = getattr(fixture["lap"], kind)
     np.testing.assert_allclose(actual, expected, rtol=1e-12, atol=1e-13)
 
@@ -367,14 +392,27 @@ def test_helmholtz_2d_point_kernels_match_matlab_fixture(kind):
     else:
         coefs = None
 
-    actual = helm2d.kern(fixture["helm_zk"], src, targ, kind, coefs)
+    actual = helm2d.kernel(fixture["helm_zk"], src, targ, kind, coefs)
     expected = getattr(fixture["helm2d"], kind)
     np.testing.assert_allclose(actual, expected, rtol=1e-11, atol=1e-12)
 
 
 @pytest.mark.parametrize(
     "kind",
-    ["s", "d", "sp", "stau", "dp", "c", "cp", "c2trans", "all", "trans_rep", "trans_rep_prime", "trans_rep_grad"],
+    [
+        "s",
+        "d",
+        "sp",
+        "stau",
+        "dp",
+        "c",
+        "cp",
+        "c2trans",
+        "all",
+        "trans_rep",
+        "trans_rep_prime",
+        "trans_rep_grad",
+    ],
 )
 def test_helmholtz_1d_point_kernels_match_matlab_fixture(kind):
     fixture = load_fixture("kernel_pointinfo.mat")
@@ -387,7 +425,7 @@ def test_helmholtz_1d_point_kernels_match_matlab_fixture(kind):
     else:
         coefs = None
 
-    actual = helm1d.kern(fixture["helm1d_zk"], src, targ, kind, coefs)
+    actual = helm1d.kernel(fixture["helm1d_zk"], src, targ, kind, coefs)
     expected = getattr(fixture["helm1d"], kind)
     np.testing.assert_allclose(actual, expected, rtol=1e-12, atol=1e-12)
 
@@ -415,7 +453,7 @@ def test_stokes_point_kernels_match_matlab_fixture(kind):
     targ = pointinfo_dict(fixture["targinfo"])
     coefs = fixture["stok_coefs"] if kind in {"c", "cpres", "ctrac", "cgrad"} else None
 
-    actual = stok2d.kern(fixture["stok_mu"], src, targ, kind, coefs)
+    actual = stok2d.kernel(fixture["stok_mu"], src, targ, kind, coefs)
     if kind == "cgrad":
         # MATLAB's saved cgrad fixture combines sgrad twice; keep the Python
         # reference tied to MATLAB's individual dgrad/sgrad component blocks.
@@ -431,7 +469,7 @@ def test_elasticity_point_kernels_match_matlab_fixture(kind):
     src = pointinfo_dict(fixture["srcinfo"])
     targ = pointinfo_dict(fixture["targinfo"])
 
-    actual = elast2d.kern(fixture["elast_lam"], fixture["elast_mu"], src, targ, kind)
+    actual = elast2d.kernel(fixture["elast_lam"], fixture["elast_mu"], src, targ, kind)
     expected = getattr(fixture["elast2d"], kind)
     np.testing.assert_allclose(actual, expected, rtol=1e-12, atol=1e-13)
 
@@ -448,7 +486,9 @@ def test_kernel_objects_match_matlab_fixture(case_name, kernel_factory):
     targ_info = pointinfo(targ)
 
     if case_name != "elast_sgrad":
-        assert actual_kernel.opdims == tuple(np.asarray(expected_meta.opdims, dtype=int).reshape(-1))
+        assert actual_kernel.opdims == tuple(
+            np.asarray(expected_meta.opdims, dtype=int).reshape(-1)
+        )
     assert actual_kernel.sing == matlab_string(expected_meta.sing)
     assert bool(actual_kernel.iszero) == bool(np.asarray(expected_meta.iszero).item())
     assert bool(actual_kernel.isnan) == bool(np.asarray(expected_meta.isnan).item())
@@ -478,7 +518,9 @@ def test_kernel_algebra_and_interleave_match_matlab_fixture():
         "interleave": kernel([[lap_d, -lap_s], [lap_s, kernel("zero")]]),
     }
     for name, actual_kernel in cases.items():
-        np.testing.assert_allclose(actual_kernel(src, targ), getattr(expected, name), rtol=1e-11, atol=1e-12)
+        np.testing.assert_allclose(
+            actual_kernel(src, targ), getattr(expected, name), rtol=1e-11, atol=1e-12
+        )
 
     meta = expected.interleave_meta
     mixed = cases["interleave"]
@@ -508,7 +550,9 @@ def test_green_helpers_match_matlab_fixture():
     np.testing.assert_allclose(helm1d_hess, greens.helm1d.hess, rtol=1e-12, atol=1e-13)
 
     sweep = greens.helm1d_sweep
-    actual_sweep = helm1d.sweep(sweep.uin, np.asarray(sweep.inds, dtype=int) - 1, sweep.ts, sweep.wts, fixture["helm1d_zk"])
+    actual_sweep = helm1d.sweep(
+        sweep.uin, np.asarray(sweep.inds, dtype=int) - 1, sweep.ts, sweep.wts, fixture["helm1d_zk"]
+    )
     np.testing.assert_allclose(actual_sweep, sweep.out, rtol=1e-12, atol=1e-13)
 
 
@@ -533,7 +577,7 @@ def test_biharmonic_helpers_match_matlab_bhgreen_fixture():
         ("shess", "shess"),
     ]:
         np.testing.assert_allclose(
-            biharm2d.kern(src, targ, selector),
+            biharm2d.kernel(src, targ, selector),
             getattr(expected.kern, field),
             rtol=1e-12,
             atol=1e-13,
@@ -552,12 +596,21 @@ def test_dense_native_operator_paths_match_matlab_fixture():
     density_scalar = np.asarray(fixture.density_scalar).reshape(-1, order="F")
     density_stokes = np.asarray(fixture.density_stokes).reshape(-1, order="F")
     targets = np.asarray(fixture.targets)
-    lap_d = lambda s, t: lap2d.kern(s, t, "d")
-    lap_s = lambda s, t: lap2d.kern(s, t, "s")
-    stok_d = lambda s, t: stok2d.kern(fixture.stok_mu, s, t, "d")
+
+    def lap_d(source, target):
+        return lap2d.kernel(source, target, "d")
+
+    def lap_s(source, target):
+        return lap2d.kernel(source, target, "s")
+
+    def stok_d(source, target):
+        return stok2d.kernel(fixture.stok_mu, source, target, "d")
+
     smooth = kernel(
-        lambda s, t: (t.r[0, :, None] - s.r[0, None, :]) ** 2
-        + 0.5 * (t.r[1, :, None] - s.r[1, None, :]) ** 2
+        lambda s, t: (
+            (t.r[0, :, None] - s.r[0, None, :]) ** 2
+            + 0.5 * (t.r[1, :, None] - s.r[1, None, :]) ** 2
+        )
     )
 
     srcinfo = pointinfo(chnkr)
@@ -568,23 +621,33 @@ def test_dense_native_operator_paths_match_matlab_fixture():
 
     lap_d_mat = chunkermat(chnkr, lap_d)
     np.testing.assert_allclose(lap_d_mat, fixture.lap_d_mat, rtol=1e-12, atol=1e-13)
-    np.testing.assert_allclose(lap_d_mat @ density_scalar, fixture.lap_d_apply, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(
+        lap_d_mat @ density_scalar, fixture.lap_d_apply, rtol=1e-12, atol=1e-13
+    )
 
     evalmat = chunkerkernevalmat(chnkr, lap_s, targets)
     values = chunkerkerneval(chnkr, lap_s, density_scalar, targets).reshape(-1, order="F")
     np.testing.assert_allclose(evalmat, fixture.lap_s_evalmat, rtol=1e-12, atol=1e-13)
-    np.testing.assert_allclose(values, np.asarray(fixture.lap_s_eval).reshape(-1, order="F"), rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(
+        values, np.asarray(fixture.lap_s_eval).reshape(-1, order="F"), rtol=1e-12, atol=1e-13
+    )
 
     stok_d_mat = quadnative.buildmat(chnkr, stok_d, (2, 2))
     np.testing.assert_allclose(stok_d_mat, fixture.stok_d_mat, rtol=1e-12, atol=1e-13)
-    np.testing.assert_allclose(stok_d_mat @ density_stokes, fixture.stok_d_apply, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(
+        stok_d_mat @ density_stokes, fixture.stok_d_apply, rtol=1e-12, atol=1e-13
+    )
 
     smooth_mat = chunkermat(chnkr, smooth)
     np.testing.assert_allclose(smooth_mat, fixture.smooth_mat, rtol=1e-12, atol=1e-13)
-    np.testing.assert_allclose(chunkermatapply(chnkr, smooth, density_scalar), fixture.smooth_apply, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(
+        chunkermatapply(chnkr, smooth, density_scalar), fixture.smooth_apply, rtol=1e-12, atol=1e-13
+    )
     np.testing.assert_allclose(chunkermat(chnkr, kernel("zero")), fixture.zero_mat, atol=0.0)
 
-    np.testing.assert_allclose(chunkerintegral(chnkr, density_scalar), fixture.integral_values, rtol=1e-13, atol=1e-13)
+    np.testing.assert_allclose(
+        chunkerintegral(chnkr, density_scalar), fixture.integral_values, rtol=1e-13, atol=1e-13
+    )
     np.testing.assert_allclose(
         chunkerintegral(chnkr, lambda r: r[0] ** 2 + 2.0 * r[1] ** 2),
         fixture.integral_callable,
@@ -596,7 +659,9 @@ def test_dense_native_operator_paths_match_matlab_fixture():
         np.asarray(fixture.interior_point_flags, dtype=bool).reshape(-1, order="F"),
     )
     np.testing.assert_array_equal(
-        chunkerinterior(chnkr, (fixture.interior_grid_x, fixture.interior_grid_y)).reshape(-1, order="F"),
+        chunkerinterior(chnkr, (fixture.interior_grid_x, fixture.interior_grid_y)).reshape(
+            -1, order="F"
+        ),
         np.asarray(fixture.interior_grid_flags, dtype=bool).reshape(-1, order="F"),
     )
 
@@ -646,7 +711,9 @@ def test_accelerated_operator_paths_match_matlab_fixture():
     }
     flam_proxy_op = chunkermat(chnkr, lap_s, flam_proxy_opts)
     assert isinstance(flam_proxy_op, ChunkerFLAMMatrix)
-    np.testing.assert_allclose(flam_proxy_op @ rhs, fixture.lap_s_flam_proxy_apply, rtol=2e-8, atol=2e-10)
+    np.testing.assert_allclose(
+        flam_proxy_op @ rhs, fixture.lap_s_flam_proxy_apply, rtol=2e-8, atol=2e-10
+    )
     np.testing.assert_allclose(flam_proxy_op @ rhs, shifted @ rhs, rtol=2e-8, atol=2e-10)
     proxy_sol = flam_proxy_op.solve(rhs)
     np.testing.assert_allclose(proxy_sol, fixture.lap_s_flam_proxy_solve, rtol=2e-8, atol=2e-10)
@@ -656,7 +723,12 @@ def test_accelerated_operator_paths_match_matlab_fixture():
         lap_s,
         np.asarray(fixture.density_scalar).reshape(-1, order="F"),
         fixture.targets,
-        {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "rank_or_tol": 1e-10, "proxybylevel": True},
+        {
+            "_chunkie_normalized_operator_options": True,
+            "acceleration": "flam",
+            "rank_or_tol": 1e-10,
+            "proxybylevel": True,
+        },
     )
     np.testing.assert_allclose(
         np.asarray(proxy_eval).reshape(-1, order="F"),
@@ -665,13 +737,20 @@ def test_accelerated_operator_paths_match_matlab_fixture():
         atol=2e-8,
     )
 
-    block_chunkers = [chunker_from_fields(fixture.block_chunker1), chunker_from_fields(fixture.block_chunker2)]
+    block_chunkers = [
+        chunker_from_fields(fixture.block_chunker1),
+        chunker_from_fields(fixture.block_chunker2),
+    ]
     block_kernels = [
         [block_22_kernel, block_21_kernel],
         [block_12_kernel, block_scalar_kernel],
     ]
     block_rhs = np.asarray(fixture.block_rhs).reshape(-1, order="F")
-    block_dense = chunkermat(block_chunkers, block_kernels, {"_chunkie_normalized_operator_options": True, "quad": "native"})
+    block_dense = chunkermat(
+        block_chunkers,
+        block_kernels,
+        {"_chunkie_normalized_operator_options": True, "quad": "native"},
+    )
     block_shifted = block_dense + float(fixture.block_dval) * np.eye(block_dense.shape[0])
 
     np.testing.assert_allclose(block_dense, fixture.block_dense, rtol=1e-12, atol=1e-13)
@@ -689,8 +768,12 @@ def test_accelerated_operator_paths_match_matlab_fixture():
         },
     )
     assert isinstance(block_flam, ChunkerFLAMMatrix)
-    np.testing.assert_allclose(block_flam @ block_rhs, fixture.block_flam_apply, rtol=2e-8, atol=2e-10)
-    np.testing.assert_allclose(block_flam @ block_rhs, block_shifted @ block_rhs, rtol=2e-8, atol=2e-10)
+    np.testing.assert_allclose(
+        block_flam @ block_rhs, fixture.block_flam_apply, rtol=2e-8, atol=2e-10
+    )
+    np.testing.assert_allclose(
+        block_flam @ block_rhs, block_shifted @ block_rhs, rtol=2e-8, atol=2e-10
+    )
     block_sol = block_flam.solve(block_rhs)
     np.testing.assert_allclose(block_sol, fixture.block_flam_solve, rtol=2e-8, atol=2e-10)
     np.testing.assert_allclose(block_shifted @ block_sol, block_rhs, rtol=2e-8, atol=2e-10)
@@ -700,8 +783,12 @@ def test_section_iii_quadratures_match_matlab_fixture():
     fixture = load_fixture("quadggq.mat")["quadggq"]
     chnkr = chunker_from_fields(fixture.chunker)
 
-    np.testing.assert_array_equal(quadggq.logavail(), np.asarray(fixture.log_orders, dtype=int).reshape(-1))
-    np.testing.assert_array_equal(quadggq.hqsuppavail(), np.asarray(fixture.hqsupp_orders, dtype=int).reshape(-1))
+    np.testing.assert_array_equal(
+        quadggq.logavail(), np.asarray(fixture.log_orders, dtype=int).reshape(-1)
+    )
+    np.testing.assert_array_equal(
+        quadggq.hqsuppavail(), np.asarray(fixture.hqsupp_orders, dtype=int).reshape(-1)
+    )
 
     log_xs1, log_wts1, log_xs0, log_wts0 = quadggq.getlogquad(chnkr.k, 2)
     np.testing.assert_allclose(log_xs1, fixture.log_xs1, atol=0.0)
@@ -718,9 +805,15 @@ def test_section_iii_quadratures_match_matlab_fixture():
     removable_xs0, removable_wts0 = quadggq.getremovablequad(chnkr.k, 1)
     removable_aux = quadggq.setup(chnkr.k, "removable")
     assert_cell_arrays_allclose(removable_xs0, fixture.removable_xs0, label="getremovablequad xs0")
-    assert_cell_arrays_allclose(removable_wts0, fixture.removable_wts0, label="getremovablequad wts0")
-    assert_cell_arrays_allclose(removable_aux.xs0, fixture.setup_removable_xs0, label="removable setup xs0")
-    assert_cell_arrays_allclose(removable_aux.wts0, fixture.setup_removable_wts0, label="removable setup wts0")
+    assert_cell_arrays_allclose(
+        removable_wts0, fixture.removable_wts0, label="getremovablequad wts0"
+    )
+    assert_cell_arrays_allclose(
+        removable_aux.xs0, fixture.setup_removable_xs0, label="removable setup xs0"
+    )
+    assert_cell_arrays_allclose(
+        removable_aux.wts0, fixture.setup_removable_wts0, label="removable setup wts0"
+    )
 
     pv_aux = quadggq.setup(chnkr.k, "pv")
     hs_aux = quadggq.setup(chnkr.k, "hs")
@@ -739,12 +832,34 @@ def test_section_iii_quadratures_match_matlab_fixture():
     lap_d = kernel("lap", "d")
     lap_sgrad = kernel("lap", "sgrad")
     lap_dgrad = kernel("lap", "dgrad")
-    np.testing.assert_allclose(quadnative.buildmat(chnkr, lap_d, lap_d.opdims), fixture.native_lap_d_mat, rtol=1e-12, atol=1e-13)
-    np.testing.assert_allclose(quadggq.buildmat(chnkr, lap_s, lap_s.opdims, "log"), fixture.log_mat, rtol=1e-12, atol=1e-13)
-    np.testing.assert_allclose(quadggq.buildmat(chnkr, lap_sgrad, lap_sgrad.opdims, "pv"), fixture.pv_mat, rtol=1e-10, atol=1e-11)
-    np.testing.assert_allclose(quadggq.buildmat(chnkr, lap_dgrad, lap_dgrad.opdims, "hs"), fixture.hs_mat, rtol=2e-7, atol=5e-8)
+    np.testing.assert_allclose(
+        quadnative.buildmat(chnkr, lap_d, lap_d.opdims),
+        fixture.native_lap_d_mat,
+        rtol=1e-12,
+        atol=1e-13,
+    )
+    np.testing.assert_allclose(
+        quadggq.buildmat(chnkr, lap_s, lap_s.opdims, "log"), fixture.log_mat, rtol=1e-12, atol=1e-13
+    )
+    np.testing.assert_allclose(
+        quadggq.buildmat(chnkr, lap_sgrad, lap_sgrad.opdims, "pv"),
+        fixture.pv_mat,
+        rtol=1e-10,
+        atol=1e-11,
+    )
+    np.testing.assert_allclose(
+        quadggq.buildmat(chnkr, lap_dgrad, lap_dgrad.opdims, "hs"),
+        fixture.hs_mat,
+        rtol=2e-7,
+        atol=5e-8,
+    )
 
-    np.testing.assert_allclose(quadggq.buildmattd(chnkr, lap_s, lap_s.opdims, "log").toarray(), fixture.log_td_mat, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(
+        quadggq.buildmattd(chnkr, lap_s, lap_s.opdims, "log").toarray(),
+        fixture.log_td_mat,
+        rtol=1e-12,
+        atol=1e-13,
+    )
     np.testing.assert_allclose(
         quadggq.buildmattd(chnkr, lap_s, lap_s.opdims, "log", ilist=[0, 1]).toarray(),
         fixture.log_td_mat_skip,
@@ -774,13 +889,23 @@ def test_section_iii_quadratures_match_matlab_fixture():
         atol=1e-13,
     )
     np.testing.assert_allclose(
-        quadggq.nearbuildmat(chnkr, near_target_chunk, near_source_chunk, lap_s, lap_s.opdims, log_aux),
+        quadggq.nearbuildmat(
+            chnkr, near_target_chunk, near_source_chunk, lap_s, lap_s.opdims, log_aux
+        ),
         fixture.log_near_mat,
         rtol=1e-12,
         atol=1e-13,
     )
     np.testing.assert_allclose(
-        quadggq.nearbuildmat(chnkr, near_target_chunk, near_source_chunk, lap_s, lap_s.opdims, log_aux, corrections=True),
+        quadggq.nearbuildmat(
+            chnkr,
+            near_target_chunk,
+            near_source_chunk,
+            lap_s,
+            lap_s.opdims,
+            log_aux,
+            corrections=True,
+        ),
         fixture.log_near_mat_corrections,
         rtol=1e-12,
         atol=1e-13,
@@ -789,7 +914,9 @@ def test_section_iii_quadratures_match_matlab_fixture():
     skipped = quadggq.buildmat(chnkr, lap_s, lap_s.opdims, "log", ilist=[0, 1])
     np.testing.assert_array_equal(np.isinf(skipped), np.isinf(fixture.log_mat_skip))
     finite = np.isfinite(fixture.log_mat_skip)
-    np.testing.assert_allclose(skipped[finite], fixture.log_mat_skip[finite], rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(
+        skipped[finite], fixture.log_mat_skip[finite], rtol=1e-12, atol=1e-13
+    )
 
     np.testing.assert_allclose(
         quadadap.buildmat(chnkr, lap_s, lap_s.opdims, {"sing": "log"}),
@@ -825,24 +952,36 @@ def test_rcip_recursive_compression_matches_matlab_fixture():
     np.testing.assert_allclose(u, fixture.u, rtol=1e-13, atol=1e-13)
 
     rmat, saved = rcip.Rcompchunk(
-        [edge1, edge2],
-        np.asarray(fixture.iedgechunks0, dtype=int),
-        kernel("lap", "d"),
-        1,
-        fixture.vert0,
-        opts={"_chunkie_normalized_operator_options": True, "nsub": 2, "rcip_savedepth": 2},
+        chunker=[edge1, edge2],
+        edge_chunks=np.asarray(fixture.iedgechunks0, dtype=int),
+        kernel=kernel("lap", "d"),
+        dimension=1,
+        vertex=fixture.vert0,
+        options={"_chunkie_normalized_operator_options": True, "nsub": 2, "rcip_savedepth": 2},
     )
 
     np.testing.assert_allclose(rmat, fixture.R, rtol=1e-12, atol=1e-13)
     np.testing.assert_allclose(saved.R[-1], fixture.saved_R_final, rtol=1e-12, atol=1e-13)
     np.testing.assert_allclose(saved.MAT[-1], fixture.saved_MAT_last, rtol=1e-12, atol=1e-13)
-    assert_chunker_matches_fields(saved.chnkrlocals[-1], fixture.saved_local_last, "rcip saved local chunker", atol=1e-13)
+    assert_chunker_matches_fields(
+        saved.chnkrlocals[-1], fixture.saved_local_last, "rcip saved local chunker", atol=1e-13
+    )
 
-    rhohatinterp, srcinfo, wts = rcip.rhohatInterp(fixture.rhohat, saved, 2)
+    rhohat_interpolation, srcinfo, wts = rcip.rhohatInterp(fixture.rhohat, saved, 2)
     for iedge in range(saved.nedge):
-        np.testing.assert_allclose(rhohatinterp[iedge], fixture.rhohatinterp[iedge], rtol=1e-12, atol=1e-13)
-        np.testing.assert_allclose(srcinfo[iedge].r, fixture.srcinfo[iedge].r, rtol=1e-12, atol=1e-13)
-        np.testing.assert_allclose(srcinfo[iedge].d, fixture.srcinfo[iedge].d, rtol=1e-12, atol=1e-13)
-        np.testing.assert_allclose(srcinfo[iedge].d2, fixture.srcinfo[iedge].d2, rtol=1e-12, atol=1e-13)
-        np.testing.assert_allclose(srcinfo[iedge].n, fixture.srcinfo[iedge].n, rtol=1e-12, atol=1e-13)
+        np.testing.assert_allclose(
+            rhohat_interpolation[iedge], fixture.rhohatinterp[iedge], rtol=1e-12, atol=1e-13
+        )
+        np.testing.assert_allclose(
+            srcinfo[iedge].r, fixture.srcinfo[iedge].r, rtol=1e-12, atol=1e-13
+        )
+        np.testing.assert_allclose(
+            srcinfo[iedge].d, fixture.srcinfo[iedge].d, rtol=1e-12, atol=1e-13
+        )
+        np.testing.assert_allclose(
+            srcinfo[iedge].d2, fixture.srcinfo[iedge].d2, rtol=1e-12, atol=1e-13
+        )
+        np.testing.assert_allclose(
+            srcinfo[iedge].n, fixture.srcinfo[iedge].n, rtol=1e-12, atol=1e-13
+        )
         np.testing.assert_allclose(wts[iedge], fixture.wts[iedge], rtol=1e-12, atol=1e-13)

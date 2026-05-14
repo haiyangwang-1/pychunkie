@@ -18,8 +18,13 @@ def test_arcparam_evaluates_original_chunk_nodes():
     b, _ = chunkerfunc(lambda t: circle(t, 0.5, (3.0, 0.0)), min_chunks=4, order=16)
     chnkr = merge([a, b])
 
-    pdata = arcparam.init(chnkr)
-    s = np.concatenate((a.arclengthfun().reshape(-1, order="F"), b.arclengthfun().reshape(-1, order="F") + np.sum(a.wts)))
+    pdata = arcparam.init(chunker=chnkr)
+    s = np.concatenate(
+        (
+            a.arclengthfun().reshape(-1, order="F"),
+            b.arclengthfun().reshape(-1, order="F") + np.sum(a.wts),
+        )
+    )
     r, d, d2 = arcparam.eval(s, pdata)
     src_d = chnkr.d.reshape(chnkr.dim, chnkr.npt, order="F")
     src_d2 = chnkr.d2.reshape(chnkr.dim, chnkr.npt, order="F")
@@ -36,7 +41,7 @@ def test_arcparam_evaluates_original_chunk_nodes():
 
 def test_arcparam_derivatives_are_consistent_on_circle():
     chnkr, _ = chunkerfunc(lambda t: circle(t, 2.0), min_chunks=4, order=18)
-    pdata = arcparam.init(chnkr)
+    pdata = arcparam.init(chunker=chnkr)
     s = np.linspace(0.1, np.sum(chnkr.wts) - 0.1, 25)
     r, d, d2 = arcparam.eval(s, pdata)
     theta = s / 2.0

@@ -1,20 +1,19 @@
 """FMM target evaluation for a biharmonic single-layer potential."""
 
 import numpy as np
+from _accelerated_common import TARGETS, boundary_nodes, make_circle, relerr
 
-from chunkie import chunkerfunc, chunkerkerneval, ellipse, kernel
+from chunkie import chunkerkerneval, kernel
 
-
-chnkr = chunkerfunc(ellipse, {"nchmin": 6, "eps": 1e-8}, {"k": 8})[0]
-nodes = chnkr.r.reshape(2, chnkr.npt, order="F")
-targets = np.array([[0.1, 1.5, -0.7], [0.2, 0.3, 1.4]])
+boundary = make_circle()
+nodes = boundary_nodes(boundary)
 density = np.cos(nodes[0])
 biharm_s = kernel("biharm", "s")
 
-direct = chunkerkerneval(chnkr, biharm_s, density, targets).reshape(-1, order="F")
-fmm = chunkerkerneval(
-    chnkr, biharm_s, density, targets, {"acceleration": "fmm", "eps": 1e-11}
-).reshape(-1, order="F")
-error = np.linalg.norm(fmm - direct) / max(np.linalg.norm(direct), 1.0)
+direct = chunkerkerneval(boundary, biharm_s, density, TARGETS).reshape(-1)
+fmm = chunkerkerneval(boundary, biharm_s, density, TARGETS, acceleration="fmm", tol=1e-11).reshape(
+    -1
+)
+error = relerr(fmm, direct)
 
 print(f"Biharmonic single layer FMM relative error: {error:.3e}")

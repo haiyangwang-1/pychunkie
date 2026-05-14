@@ -11,44 +11,51 @@ target-evaluation path.
 from __future__ import annotations
 
 import numpy as np
+from _accelerated_common import TARGETS, boundary_nodes, component_vector, make_circle, relerr
 
 from chunkie import chunkerkerneval, kernel
 
-from _accelerated_common import TARGETS, boundary_nodes, make_circle, relerr
 
-
-def compare_scalar_kernel(chnkr, label: str, kern, density: np.ndarray) -> None:
-    direct = chunkerkerneval(chnkr, kern, density, TARGETS).reshape(-1, order="F")
+def compare_scalar_kernel(boundary, label: str, kernel_obj, density: np.ndarray) -> None:
+    direct = chunkerkerneval(boundary, kernel_obj, density, TARGETS).reshape(-1)
     fmm = chunkerkerneval(
-        chnkr,
-        kern,
+        boundary,
+        kernel_obj,
         density,
         TARGETS,
-        {"acceleration": "fmm", "eps": 1e-11},
-    ).reshape(-1, order="F")
+        acceleration="fmm",
+        tol=1e-11,
+    ).reshape(-1)
     print(f"{label} FMM relative error: {relerr(fmm, direct):.3e}")
 
 
 def main() -> None:
-    chnkr = make_circle()
-    nodes = boundary_nodes(chnkr)
+    boundary = make_circle()
+    nodes = boundary_nodes(boundary)
     scalar_density = np.cos(nodes[0])
 
-    compare_scalar_kernel(chnkr, "Laplace single layer", kernel("lap", "s"), scalar_density)
-    compare_scalar_kernel(chnkr, "Helmholtz single layer", kernel("helm", "s", 1.4 + 0.1j), scalar_density)
-    compare_scalar_kernel(chnkr, "Biharmonic single layer", kernel("biharm", "s"), scalar_density)
+    compare_scalar_kernel(boundary, "Laplace single layer", kernel("lap", "s"), scalar_density)
+    compare_scalar_kernel(
+        boundary, "Helmholtz single layer", kernel("helm", "s", 1.4 + 0.1j), scalar_density
+    )
+    compare_scalar_kernel(
+        boundary, "Biharmonic single layer", kernel("biharm", "s"), scalar_density
+    )
 
-    stokes_density = np.vstack((np.cos(nodes[0]), np.sin(nodes[1]))).reshape(-1, order="F")
+    stokes_density = component_vector(np.vstack((np.cos(nodes[0]), np.sin(nodes[1]))))
     stokes = kernel("stok", "s", 1.0)
-    stokes_direct = chunkerkerneval(chnkr, stokes, stokes_density, TARGETS).reshape(-1, order="F")
+    stokes_direct = component_vector(chunkerkerneval(boundary, stokes, stokes_density, TARGETS))
     stokes_fmm = chunkerkerneval(
-        chnkr,
+        boundary,
         stokes,
         stokes_density,
         TARGETS,
-        {"acceleration": "fmm", "eps": 1e-11},
-    ).reshape(-1, order="F")
-    print(f"Stokes velocity FMM relative error: {relerr(stokes_fmm, stokes_direct):.3e}")
+        acceleration="fmm",
+        tol=1e-11,
+    )
+    print(
+        f"Stokes velocity FMM relative error: {relerr(component_vector(stokes_fmm), stokes_direct):.3e}"
+    )
 
 
 if __name__ == "__main__":

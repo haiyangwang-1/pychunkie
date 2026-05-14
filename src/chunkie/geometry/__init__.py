@@ -8,18 +8,15 @@ from typing import Any
 from .chunker import (
     Chunker,
     ChunkerPref,
-    chunker,
     chunkerfit,
     chunkerfunc,
     chunkerfuncuni,
     chunkerpoints,
     chunkerpoly,
-    chunkerpref,
     merge,
 )
-from .chunkgraph import ChunkGraph, chunkgraph, chunkgraphinregion, find_edge_regions, tochunkgraph
+from .chunkgraph import ChunkGraph, chunkgraphinregion, find_edge_regions, tochunkgraph
 from .pointinfo import PointInfo
-
 
 _SUBMODULES = {"chunker", "chunkgraph", "curves", "pointinfo"}
 
@@ -36,13 +33,12 @@ __all__ = [
     "Chunker",
     "ChunkerPref",
     "ChunkGraph",
-    "chunker",
     "chunkerfit",
     "chunkerfunc",
     "chunkerfuncuni",
     "chunkerpoints",
     "chunkerpoly",
-    "chunkerpref",
+    "chunker",
     "chunkgraph",
     "chunkgraphinregion",
     "curves",

@@ -21,6 +21,8 @@ from typing import Any
 import numpy as np
 from numpy.typing import ArrayLike
 
+from chunkie._layout import as_boundary_field_matrix, as_boundary_point_matrix, as_boundary_vector
+
 from .. import lege
 from ..geometry.chunker import Chunker, ChunkerPref, merge
 
@@ -65,13 +67,13 @@ class RCIPChunkGraphResult:
     kernels: list[Any]
 
 
-def IPinit(T: ArrayLike, W: ArrayLike) -> tuple[np.ndarray, np.ndarray]:
+def IPinit(nodes: ArrayLike, weights: ArrayLike) -> tuple[np.ndarray, np.ndarray]:
     """Build the RCIP prolongation matrix and weighted prolongation."""
 
-    t = np.asarray(T, dtype=float).reshape(-1)
-    w = np.asarray(W, dtype=float).reshape(-1)
+    t = np.asarray(nodes, dtype=float).reshape(-1)
+    w = np.asarray(weights, dtype=float).reshape(-1)
     if t.size != w.size:
-        raise ValueError("T and W must have the same length")
+        raise ValueError("nodes and weights must have the same length")
 
     ngl = t.size
     a = np.ones((ngl, ngl), dtype=float)
@@ -86,14 +88,19 @@ def IPinit(T: ArrayLike, W: ArrayLike) -> tuple[np.ndarray, np.ndarray]:
     return ip, ipw
 
 
-def Pbcinit(IP: ArrayLike, nedge: int, ndim: int) -> np.ndarray:
+def Pbcinit(interpolation: ArrayLike, edge_count: int, dimension: int) -> np.ndarray:
     """Construct the block diagonal RCIP prolongation for all edge unknowns."""
 
-    ip = np.asarray(IP)
-    return np.kron(np.eye(int(nedge)), np.kron(ip, np.eye(int(ndim))))
+    ip = np.asarray(interpolation)
+    return np.kron(np.eye(int(edge_count)), np.kron(ip, np.eye(int(dimension))))
 
 
-def setup(ngl: int, ndim: int, nedge: int, isstart: ArrayLike) -> tuple[np.ndarray, ...]:
+def setup(
+    quadrature_order: int,
+    dimension: int,
+    edge_count: int,
+    starts_at_corner: ArrayLike,
+) -> tuple[np.ndarray, ...]:
     """Return MATLAB ``chnk.rcip.setup`` arrays using zero-based indices.
 
     The ``star`` indices are the fine nodes adjacent to the corner, while
@@ -102,19 +109,19 @@ def setup(ngl: int, ndim: int, nedge: int, isstart: ArrayLike) -> tuple[np.ndarr
     same local topology is needed without operator components.
     """
 
-    t, w, _, _ = lege.exps(int(ngl))
+    t, w, _, _ = lege.exps(int(quadrature_order))
     ip, ipw = IPinit(t, w)
-    pbc = Pbcinit(ip, nedge, ndim)
-    pwbc = Pbcinit(ipw, nedge, ndim)
+    pbc = Pbcinit(ip, edge_count, dimension)
+    pwbc = Pbcinit(ipw, edge_count, dimension)
 
-    is_start = np.asarray(isstart, dtype=bool).reshape(-1)
-    if is_start.size != int(nedge):
-        raise ValueError("isstart must have one entry per edge")
+    is_start = np.asarray(starts_at_corner, dtype=bool).reshape(-1)
+    if is_start.size != int(edge_count):
+        raise ValueError("starts_at_corner must have one entry per edge")
 
-    ngl = int(ngl)
-    ndim = int(ndim)
-    nedge = int(nedge)
-    ilist = np.zeros((2, nedge), dtype=int)
+    quadrature_order = int(quadrature_order)
+    dimension = int(dimension)
+    edge_count = int(edge_count)
+    ilist = np.zeros((2, edge_count), dtype=int)
     starL: list[int] = []
     circL: list[int] = []
     starL1: list[int] = []
@@ -122,25 +129,25 @@ def setup(ngl: int, ndim: int, nedge: int, isstart: ArrayLike) -> tuple[np.ndarr
     starS: list[int] = []
     circS: list[int] = []
 
-    indg1 = 2 * ngl * ndim + np.arange(ngl * ndim)
-    indb1 = np.arange(2 * ngl * ndim)
-    indg11 = 2 * ngl + np.arange(ngl)
-    indb11 = np.arange(2 * ngl)
-    indg0 = np.arange(ngl * ndim)
-    indb0 = ngl * ndim + np.arange(2 * ngl * ndim)
-    indg01 = np.arange(ngl)
-    indb01 = ngl + np.arange(2 * ngl)
+    indg1 = 2 * quadrature_order * dimension + np.arange(quadrature_order * dimension)
+    indb1 = np.arange(2 * quadrature_order * dimension)
+    indg11 = 2 * quadrature_order + np.arange(quadrature_order)
+    indb11 = np.arange(2 * quadrature_order)
+    indg0 = np.arange(quadrature_order * dimension)
+    indb0 = quadrature_order * dimension + np.arange(2 * quadrature_order * dimension)
+    indg01 = np.arange(quadrature_order)
+    indb01 = quadrature_order + np.arange(2 * quadrature_order)
 
-    indg1s = ngl * ndim + np.arange(ngl * ndim)
-    indb1s = np.arange(ngl * ndim)
-    indg0s = np.arange(ngl * ndim)
-    indb0s = ngl * ndim + np.arange(ngl * ndim)
+    indg1s = quadrature_order * dimension + np.arange(quadrature_order * dimension)
+    indb1s = np.arange(quadrature_order * dimension)
+    indg0s = np.arange(quadrature_order * dimension)
+    indb0s = quadrature_order * dimension + np.arange(quadrature_order * dimension)
 
-    for iedge, starts_at_corner in enumerate(is_start):
-        offL = 3 * iedge * ngl * ndim
-        offL1 = 3 * iedge * ngl
-        offS = 2 * iedge * ngl * ndim
-        if starts_at_corner:
+    for iedge, edge_starts_at_corner in enumerate(is_start):
+        offL = 3 * iedge * quadrature_order * dimension
+        offL1 = 3 * iedge * quadrature_order
+        offS = 2 * iedge * quadrature_order * dimension
+        if edge_starts_at_corner:
             starL.extend((indb1 + offL).tolist())
             circL.extend((indg1 + offL).tolist())
             starL1.extend((indb11 + offL1).tolist())
@@ -210,34 +217,40 @@ def SchurBana(
 
 
 def Rcompchunk(
-    chnkr: list[Chunker] | tuple[Chunker, ...] | Chunker,
-    iedgechunks: ArrayLike,
-    fkern: Any,
-    ndim: int,
-    vert0: ArrayLike,
+    chunker: list[Chunker] | tuple[Chunker, ...] | Chunker,
+    edge_chunks: ArrayLike,
+    kernel: Any,
+    dimension: int,
+    vertex: ArrayLike,
     Pbc: ArrayLike | None = None,
     PWbc: ArrayLike | None = None,
     starL: ArrayLike | None = None,
     circL: ArrayLike | None = None,
     starS: ArrayLike | None = None,
     circS: ArrayLike | None = None,
-    opts: dict[str, Any] | None = None,
+    options: dict[str, Any] | None = None,
 ) -> tuple[np.ndarray, RCIPSaved]:
     """Compute the RCIP compression matrix for chunks adjacent to a corner."""
 
-    options = {} if opts is None else dict(opts)
-    chunks = [chnkr] if isinstance(chnkr, Chunker) else list(chnkr)
+    options = {} if options is None else dict(options)
+    chunks = [chunker] if isinstance(chunker, Chunker) else list(chunker)
     if not chunks:
         raise ValueError("Rcompchunk requires at least one edge chunker")
     k = chunks[0].k
     dim = chunks[0].dim
-    ndim = int(ndim)
-    vert = np.asarray(vert0, dtype=float).reshape(dim)
+    ndim = int(dimension)
+    vert = np.asarray(vertex, dtype=float).reshape(dim)
     nsub = int(options.get("nsub", options.get("rcip_nsub", 0)))
     if nsub <= 0:
-        edge_chunks = np.asarray(iedgechunks, dtype=int)
-        nedge0 = int(edge_chunks.size if edge_chunks.ndim == 1 else edge_chunks.shape[-1])
-        pbc, pwbc, sl, cl, ss, cs, ilist, sl1, cl1 = setup(k, ndim, nedge0, np.ones(nedge0, dtype=bool))
+        edge_chunk_indices = np.asarray(edge_chunks, dtype=int)
+        nedge0 = int(
+            edge_chunk_indices.size
+            if edge_chunk_indices.ndim == 1
+            else edge_chunk_indices.shape[-1]
+        )
+        pbc, pwbc, sl, cl, ss, cs, ilist, sl1, cl1 = setup(
+            k, ndim, nedge0, np.ones(nedge0, dtype=bool)
+        )
         size = 2 * nedge0 * k * ndim
         rmat = np.eye(size)
         saved = RCIPSaved(
@@ -263,11 +276,18 @@ def Rcompchunk(
         return rmat, saved
 
     sbclmat, sbcrmat, lvmat, rvmat, u = shiftedlegbasismats(k)
-    records = _rcip_edge_records(chunks, iedgechunks, vert, sbclmat, sbcrmat, lvmat, rvmat, u)
+    records = _rcip_edge_records(chunks, edge_chunks, vert, sbclmat, sbcrmat, lvmat, rvmat, u)
     nedge = len(records)
     isstart = np.array([rec["ileftright"] == 1 for rec in records], dtype=bool)
 
-    if Pbc is None or PWbc is None or starL is None or circL is None or starS is None or circS is None:
+    if (
+        Pbc is None
+        or PWbc is None
+        or starL is None
+        or circL is None
+        or starS is None
+        or circS is None
+    ):
         pbc, pwbc, sl, cl, ss, cs, ilist, sl1, cl1 = setup(k, ndim, nedge, isstart)
     else:
         pbc = np.asarray(Pbc)
@@ -295,12 +315,28 @@ def Rcompchunk(
         locals_: list[Chunker] = []
         for iedge, rec in enumerate(records):
             if rec["ileftright"] == -1:
-                ts = np.array([0.0, 0.5, 1.0]) * h[iedge] if level == nsub else np.array([0.0, 0.5, 1.0, 2.0]) * h[iedge]
+                ts = (
+                    np.array([0.0, 0.5, 1.0]) * h[iedge]
+                    if level == nsub
+                    else np.array([0.0, 0.5, 1.0, 2.0]) * h[iedge]
+                )
             else:
-                ts = -np.array([1.0, 0.5, 0.0]) * h[iedge] if level == nsub else -np.array([2.0, 1.0, 0.5, 0.0]) * h[iedge]
+                ts = (
+                    -np.array([1.0, 0.5, 0.0]) * h[iedge]
+                    if level == nsub
+                    else -np.array([2.0, 1.0, 0.5, 0.0]) * h[iedge]
+                )
             locals_.append(
                 chunkerfunclocal(
-                    lambda t, rec=rec: _shiftedcurve(t, rec["rcs"], rec["dcs"], rec["dscal"], rec["d2cs"], rec["d2scal"], rec["ileftright"]),
+                    lambda t, rec=rec: _shiftedcurve(
+                        t,
+                        rec["rcs"],
+                        rec["dcs"],
+                        rec["dscal"],
+                        rec["d2cs"],
+                        rec["d2scal"],
+                        rec["ileftright"],
+                    ),
                     ts,
                     pref,
                     chunks[0].tstor,
@@ -315,7 +351,9 @@ def Rcompchunk(
                 source_chunker = chunks[rec["chunker"]]
                 old_nch = local.nch
                 local.addchunk(1)
-                local.rstor[:, :, old_nch] = source_chunker.r[:, :, next_chunk] - rec["ctr"][:, None]
+                local.rstor[:, :, old_nch] = (
+                    source_chunker.r[:, :, next_chunk] - rec["ctr"][:, None]
+                )
                 local.dstor[:, :, old_nch] = source_chunker.d[:, :, next_chunk]
                 local.d2stor[:, :, old_nch] = source_chunker.d2[:, :, next_chunk]
                 if rec["ileftright"] == -1:
@@ -331,7 +369,7 @@ def Rcompchunk(
                 locals_[iedge] = local
 
         ilistl = None if level == 1 else ilist
-        mat = np.eye(nsys) + _local_chunkermat(locals_, fkern, ndim, ilistl)
+        mat = np.eye(nsys) + _local_chunkermat(locals_, kernel, ndim, ilistl)
         if level == 1:
             rmat = np.linalg.inv(mat[np.ix_(sl, sl)])
             if level >= nsub - savedepth + 1:
@@ -377,20 +415,27 @@ def Rcompchunk(
     return rmat, saved
 
 
-def shiftedlegbasismats(k: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    t0, _, u, v = lege.exps(int(k))
+def shiftedlegbasismats(
+    quadrature_order: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    quadrature_order = int(quadrature_order)
+    t0, _, u, v = lege.exps(quadrature_order)
     t = (t0 + 1.0) / 2.0
     basis = t[:, None] * v[:, :-1]
     uu, ss, vv_t = np.linalg.svd(basis, full_matrices=False)
-    sbclmat = vv_t[: k - 1, :].T @ (np.diag(1.0 / ss[: k - 1]) @ uu[:, : k - 1].T)
+    sbclmat = vv_t[: quadrature_order - 1, :].T @ (
+        np.diag(1.0 / ss[: quadrature_order - 1]) @ uu[:, : quadrature_order - 1].T
+    )
 
     t = (t0 - 1.0) / 2.0
     basis = t[:, None] * v[:, :-1]
     uu, ss, vv_t = np.linalg.svd(basis, full_matrices=False)
-    sbcrmat = vv_t[: k - 1, :].T @ (np.diag(1.0 / ss[: k - 1]) @ uu[:, : k - 1].T)
+    sbcrmat = vv_t[: quadrature_order - 1, :].T @ (
+        np.diag(1.0 / ss[: quadrature_order - 1]) @ uu[:, : quadrature_order - 1].T
+    )
 
-    pm1 = lege.pols(np.array([-1.0]), k - 1)[0].reshape(-1)
-    p1 = lege.pols(np.array([1.0]), k - 1)[0].reshape(-1)
+    pm1 = lege.pols(np.array([-1.0]), quadrature_order - 1)[0].reshape(-1)
+    p1 = lege.pols(np.array([1.0]), quadrature_order - 1)[0].reshape(-1)
     leftvalmat = pm1 @ u
     rightvalmat = p1 @ u
     return sbclmat, sbcrmat, leftvalmat, rightvalmat, u
@@ -411,7 +456,16 @@ def chunkerfunclocal(
     wnodes = lege.exps(p.k)[1] if ws is None else np.asarray(ws, dtype=float).reshape(-1)
     r0, _, _ = fcurve(np.array([tbreaks[0]]))
     dim = np.asarray(r0).reshape(-1, 1).shape[0]
-    out = Chunker(ChunkerPref(nchmax=max(p.nchmax, tbreaks.size - 1), k=p.k, dim=dim, nchstor=max(p.nchstor, tbreaks.size - 1)), xnodes, wnodes)
+    out = Chunker(
+        ChunkerPref(
+            nchmax=max(p.nchmax, tbreaks.size - 1),
+            k=p.k,
+            dim=dim,
+            nchstor=max(p.nchstor, tbreaks.size - 1),
+        ),
+        xnodes,
+        wnodes,
+    )
     out.addchunk(tbreaks.size - 1)
     out.adj = np.vstack((np.arange(0, out.nch), np.arange(2, out.nch + 2)))
     out.adj[0, 0] = -1
@@ -432,7 +486,7 @@ def chunkerfunclocal(
 def rhohatInterp(rhohat: ArrayLike, rcipsav: RCIPSaved | dict[str, Any], ndepth: int | None = None):
     """Interpolate a compressed RCIP density back through saved levels."""
 
-    rho = np.asarray(rhohat).reshape(-1, order="F")
+    rho = as_boundary_vector(rhohat, name="rhohat")
     if isinstance(rcipsav, dict):
         nsub = int(rcipsav.get("nsub", 0))
         savedepth = int(rcipsav.get("savedepth", nsub))
@@ -473,7 +527,7 @@ def rhohatInterp(rhohat: ArrayLike, rcipsav: RCIPSaved | dict[str, Any], ndepth:
     if rho.size % nrho != 0:
         raise ValueError("rhohat has incompatible size for RCIP saved data")
     ndens = rho.size // nrho
-    rhohat0 = rho.reshape(nrho, ndens, order="F")
+    rhohat0 = as_boundary_field_matrix(rho, nrho, ndens, name="rhohat")
 
     circ_s_edges = _split_edge_indices(circ_s, nedge)
     star_s_edges = _split_edge_indices(star_s, nedge)
@@ -481,8 +535,8 @@ def rhohatInterp(rhohat: ArrayLike, rcipsav: RCIPSaved | dict[str, Any], ndepth:
     star_l1_edges = _split_edge_indices(star_l1, nedge)
 
     cl = locals_[-1]
-    wt = cl.wts.reshape(-1, order="F")
-    rhohatinterp = [rhohat0[idx, :].copy() for idx in circ_s_edges]
+    wt = as_boundary_vector(cl.wts, name="weights")
+    rhohat_interpolation = [rhohat0[idx, :].copy() for idx in circ_s_edges]
     srcinfo = [_pointinfo_subset(cl, idx) for idx in circ_l1_edges]
     wts = [wt[idx].copy() for idx in circ_l1_edges]
 
@@ -499,24 +553,34 @@ def rhohatInterp(rhohat: ArrayLike, rcipsav: RCIPSaved | dict[str, Any], ndepth:
                     if int(ileftright[iedge]) == 1
                     else np.concatenate((star_s_edges[iedge], circ_s_edges[iedge]))
                 )
-                rhohatinterp[iedge] = np.vstack((rhohatinterp[iedge], rhohat0[order, :]))
-                srcinfo[iedge] = _pointinfo_append(srcinfo[iedge], _pointinfo_subset(cl, star_l1_edges[iedge]))
+                rhohat_interpolation[iedge] = np.vstack(
+                    (rhohat_interpolation[iedge], rhohat0[order, :])
+                )
+                srcinfo[iedge] = _pointinfo_append(
+                    srcinfo[iedge], _pointinfo_subset(cl, star_l1_edges[iedge])
+                )
                 wts[iedge] = np.concatenate((wts[iedge], wt[star_l1_edges[iedge]]))
         else:
             cl = locals_[-idepth - 1]
-            wt = cl.wts.reshape(-1, order="F")
+            wt = as_boundary_vector(cl.wts, name="weights")
             for iedge in range(nedge):
-                rhohatinterp[iedge] = np.vstack((rhohatinterp[iedge], rhohat0[circ_s_edges[iedge], :]))
-                srcinfo[iedge] = _pointinfo_append(srcinfo[iedge], _pointinfo_subset(cl, circ_l1_edges[iedge]))
+                rhohat_interpolation[iedge] = np.vstack(
+                    (rhohat_interpolation[iedge], rhohat0[circ_s_edges[iedge], :])
+                )
+                srcinfo[iedge] = _pointinfo_append(
+                    srcinfo[iedge], _pointinfo_subset(cl, circ_l1_edges[iedge])
+                )
                 wts[iedge] = np.concatenate((wts[iedge], wt[circ_l1_edges[iedge]]))
         r0 = r1
 
     if ndens == 1:
-        rhohatinterp = [vals[:, 0] for vals in rhohatinterp]
-    return rhohatinterp, srcinfo, wts
+        rhohat_interpolation = [vals[:, 0] for vals in rhohat_interpolation]
+    return rhohat_interpolation, srcinfo, wts
 
 
-def corner_refine(cg: Any, vertices: ArrayLike | None = None, depth: int = 1, stype: str = "a") -> Any:
+def corner_refine(
+    cg: Any, vertices: ArrayLike | None = None, depth: int = 1, stype: str = "a"
+) -> Any:
     """Dyadically refine chunks adjacent to selected chunkgraph vertices."""
 
     out = cg.copy()
@@ -527,33 +591,35 @@ def corner_refine(cg: Any, vertices: ArrayLike | None = None, depth: int = 1, st
     for _ in range(int(depth)):
         for ivert in vinds:
             edges, signs = out.vstruc[int(ivert)]
-            for edge, sign in zip(edges, signs):
+            for edge, sign in zip(edges, signs, strict=True):
                 ch = out.echnks[int(edge)]
                 ch.split(0 if sign < 0 else ch.nch - 1, stype=stype)
     return out
 
 
 def chunkgraph_rcip(
-    cg: Any,
-    fkern: Any,
-    ndim: int,
+    graph: Any,
+    kernel: Any,
+    dimension: int,
     vertices: ArrayLike | None = None,
-    opts: dict[str, Any] | None = None,
+    options: dict[str, Any] | None = None,
     ignore_vertices: ArrayLike | None = None,
 ) -> RCIPChunkGraphResult:
     """Run RCIP compression at selected chunkgraph vertices.
 
-    ``fkern`` may be a scalar kernel/callable used at every local corner or a
+    ``kernel`` may be a scalar kernel/callable used at every local corner or a
     global edge-by-edge block matrix. Global block matrices are restricted to
     the incident edges of each vertex before calling ``Rcompchunk``.
     """
 
-    if not hasattr(cg, "echnks") or not hasattr(cg, "vstruc") or not hasattr(cg, "verts"):
+    if not hasattr(graph, "echnks") or not hasattr(graph, "vstruc") or not hasattr(graph, "verts"):
         raise TypeError("chunkgraph_rcip expects a chunkgraph-like object")
-    nvert = int(cg.verts.shape[1])
+    nvert = int(graph.verts.shape[1])
     vinds = _normalize_vertex_list(np.arange(nvert) if vertices is None else vertices, nvert)
-    ignored = set(_normalize_vertex_list([] if ignore_vertices is None else ignore_vertices, nvert).tolist())
-    options = {} if opts is None else dict(opts)
+    ignored = set(
+        _normalize_vertex_list([] if ignore_vertices is None else ignore_vertices, nvert).tolist()
+    )
+    options = {} if options is None else dict(options)
 
     used_vertices: list[int] = []
     edge_indices: list[np.ndarray] = []
@@ -565,12 +631,19 @@ def chunkgraph_rcip(
         iv = int(ivert)
         if iv in ignored:
             continue
-        edges, _ = cg.vstruc[iv]
+        edges, _ = graph.vstruc[iv]
         edges = np.asarray(edges, dtype=int).reshape(-1)
         if edges.size < 2:
             continue
-        local_kernel = _select_vertex_kernel(fkern, edges)
-        rmat, saved = Rcompchunk(cg.echnks, edges, local_kernel, ndim, cg.verts[:, iv], opts=options)
+        local_kernel = _select_vertex_kernel(kernel, edges)
+        rmat, saved = Rcompchunk(
+            graph.echnks,
+            edges,
+            local_kernel,
+            dimension,
+            graph.verts[:, iv],
+            options=options,
+        )
         used_vertices.append(iv)
         edge_indices.append(edges.copy())
         rmats.append(rmat)
@@ -588,15 +661,15 @@ def chunkgraph_rcip(
 
 def _rcip_edge_records(
     chunks: list[Chunker],
-    iedgechunks: ArrayLike,
-    vert: np.ndarray,
+    edge_chunks: ArrayLike,
+    vertex: np.ndarray,
     sbclmat: np.ndarray,
     sbcrmat: np.ndarray,
     lvmat: np.ndarray,
     rvmat: np.ndarray,
     u: np.ndarray,
 ) -> list[dict[str, Any]]:
-    pairs = _normalize_edge_chunk_pairs(chunks, iedgechunks, vert)
+    pairs = _normalize_edge_chunk_pairs(chunks, edge_chunks, vertex)
     out: list[dict[str, Any]] = []
     for chunker_idx, chunk_idx in pairs:
         ch = chunks[int(chunker_idx)]
@@ -635,16 +708,18 @@ def _rcip_edge_records(
     return out
 
 
-def _normalize_edge_chunk_pairs(chunks: list[Chunker], iedgechunks: ArrayLike, vert: np.ndarray) -> list[tuple[int, int]]:
-    arr = np.asarray(iedgechunks, dtype=int)
+def _normalize_edge_chunk_pairs(
+    chunks: list[Chunker], edge_chunks: ArrayLike, vertex: np.ndarray
+) -> list[tuple[int, int]]:
+    arr = np.asarray(edge_chunks, dtype=int)
     if arr.ndim == 1:
         pairs = []
         for chunker_idx in arr.reshape(-1):
             ch = chunks[int(chunker_idx)]
-            pairs.append((int(chunker_idx), _chunk_adjacent_to_vertex(ch, vert)))
+            pairs.append((int(chunker_idx), _chunk_adjacent_to_vertex(ch, vertex)))
         return pairs
     if arr.shape[0] != 2:
-        raise ValueError("iedgechunks must be a 1D chunker list or a 2 x nedge array")
+        raise ValueError("edge_chunks must be a 1D chunker list or a 2 x nedge array")
     pairs = []
     for col in range(arr.shape[1]):
         chunker_idx = int(arr[0, col])
@@ -657,14 +732,14 @@ def _normalize_edge_chunk_pairs(chunks: list[Chunker], iedgechunks: ArrayLike, v
     return pairs
 
 
-def _chunk_adjacent_to_vertex(chnkr: Chunker, vert: np.ndarray) -> int:
-    rend, _ = chnkr.chunkends()
+def _chunk_adjacent_to_vertex(chunker: Chunker, vertex: np.ndarray) -> int:
+    rend, _ = chunker.chunkends()
     candidates: list[tuple[float, int]] = []
-    for ich in range(chnkr.nch):
-        if chnkr.adj[0, ich] < 0:
-            candidates.append((float(np.linalg.norm(rend[:, 0, ich] - vert)), ich))
-        if chnkr.adj[1, ich] < 0:
-            candidates.append((float(np.linalg.norm(rend[:, 1, ich] - vert)), ich))
+    for ich in range(chunker.nch):
+        if chunker.adj[0, ich] < 0:
+            candidates.append((float(np.linalg.norm(rend[:, 0, ich] - vertex)), ich))
+        if chunker.adj[1, ich] < 0:
+            candidates.append((float(np.linalg.norm(rend[:, 1, ich] - vertex)), ich))
     if not candidates:
         raise ValueError("could not identify a vertex-adjacent chunk")
     return min(candidates, key=lambda item: item[0])[1]
@@ -690,35 +765,41 @@ def _shiftedcurve(
 
 def _local_chunkermat(
     chunks: list[Chunker],
-    fkern: Any,
-    ndim: int,
+    kernel: Any,
+    dimension: int,
     ilist: np.ndarray | None = None,
 ) -> np.ndarray:
     from ..operators import chunkerkernevalmat, chunkermat
     from . import ggq as quadggq
     from . import native as quadnative
 
-    starts = np.cumsum([0] + [ch.npt * int(ndim) for ch in chunks])
+    starts = np.cumsum([0] + [ch.npt * int(dimension) for ch in chunks])
     out = np.zeros((starts[-1], starts[-1]))
-    for itarg, targ in enumerate(chunks):
+    for itarg, target in enumerate(chunks):
         rows = slice(starts[itarg], starts[itarg + 1])
-        for isrc, src in enumerate(chunks):
+        for isrc, source in enumerate(chunks):
             cols = slice(starts[isrc], starts[isrc + 1])
-            kern = _select_local_kernel(fkern, itarg, isrc)
-            opdims = _kernel_opdims(kern, ndim)
+            block_kernel = _select_local_kernel(kernel, itarg, isrc)
+            opdims = _kernel_opdims(block_kernel, dimension)
             if itarg == isrc:
-                if ilist is not None and getattr(kern, "sing", "") in {"log", "pv", "hs"}:
-                    block = quadggq.buildmat(src, kern, opdims, getattr(kern, "sing", "log"), ilist=ilist[:, isrc])
-                elif getattr(kern, "sing", "") in {"log", "pv", "hs"}:
-                    block = chunkermat(src, kern)
+                if ilist is not None and getattr(block_kernel, "sing", "") in {"log", "pv", "hs"}:
+                    block = quadggq.buildmat(
+                        source,
+                        block_kernel,
+                        opdims,
+                        getattr(block_kernel, "sing", "log"),
+                        ilist=ilist[:, isrc],
+                    )
+                elif getattr(block_kernel, "sing", "") in {"log", "pv", "hs"}:
+                    block = chunkermat(source, block_kernel)
                 else:
-                    block = quadnative.buildmat(src, kern, opdims)
+                    block = quadnative.buildmat(source, block_kernel, opdims)
             else:
-                block = chunkerkernevalmat(src, kern, targ, quadrature="smooth")
+                block = chunkerkernevalmat(source, block_kernel, target, quadrature="smooth")
             block_arr = _zero_coincident_nonfinite_block(
                 block,
-                src,
-                targ,
+                source,
+                target,
                 opdims,
                 f"RCIP local matrix block ({itarg}, {isrc})",
             )
@@ -728,8 +809,8 @@ def _local_chunkermat(
 
 def _zero_coincident_nonfinite_block(
     values: np.ndarray,
-    src: Chunker,
-    targ: Chunker,
+    source: Chunker,
+    target: Chunker,
     opdims: tuple[int, int],
     context: str,
 ) -> np.ndarray:
@@ -738,48 +819,58 @@ def _zero_coincident_nonfinite_block(
     if not np.any(nonfinite):
         return arr
 
-    expected = _coincident_chunker_mask(src, targ, opdims, arr.shape)
+    expected = _coincident_chunker_mask(source, target, opdims, arr.shape)
     unexpected = nonfinite & ~expected
     if np.any(unexpected):
-        raise ValueError(f"{context} contains non-finite values away from coincident source/target points")
+        raise ValueError(
+            f"{context} contains non-finite values away from coincident source/target points"
+        )
     arr[nonfinite] = 0.0
     return arr
 
 
 def _coincident_chunker_mask(
-    src: Chunker,
-    targ: Chunker,
+    source: Chunker,
+    target: Chunker,
     opdims: tuple[int, int],
     shape: tuple[int, ...],
 ) -> np.ndarray:
     op0 = int(opdims[0])
     op1 = int(opdims[1])
-    src_pts = src.r.reshape(src.dim, src.npt, order="F")
-    targ_pts = targ.r.reshape(targ.dim, targ.npt, order="F")
-    expected_shape = (op0 * targ.npt, op1 * src.npt)
+    src_pts = as_boundary_point_matrix(source.r, source.dim, source.npt, name="source positions")
+    targ_pts = as_boundary_point_matrix(target.r, target.dim, target.npt, name="target positions")
+    expected_shape = (op0 * target.npt, op1 * source.npt)
     if tuple(shape) != expected_shape:
         return np.zeros(shape, dtype=bool)
-    tol = 16.0 * np.finfo(float).eps * max(
-        1.0,
-        float(np.max(np.abs(src_pts))) if src_pts.size else 0.0,
-        float(np.max(np.abs(targ_pts))) if targ_pts.size else 0.0,
+    tol = (
+        16.0
+        * np.finfo(float).eps
+        * max(
+            1.0,
+            float(np.max(np.abs(src_pts))) if src_pts.size else 0.0,
+            float(np.max(np.abs(targ_pts))) if targ_pts.size else 0.0,
+        )
     )
     dist2 = np.sum((targ_pts[:, :, None] - src_pts[:, None, :]) ** 2, axis=0)
     coincident = dist2 <= tol**2
     return np.repeat(np.repeat(coincident, op0, axis=0), op1, axis=1)
 
 
-def _select_local_kernel(fkern: Any, itarg: int, isrc: int) -> Any:
-    arr = np.asarray(fkern, dtype=object) if isinstance(fkern, (list, tuple, np.ndarray)) else None
+def _select_local_kernel(kernel: Any, target_index: int, source_index: int) -> Any:
+    arr = (
+        np.asarray(kernel, dtype=object) if isinstance(kernel, (list, tuple, np.ndarray)) else None
+    )
     if arr is not None and arr.ndim == 2:
-        return arr[itarg, isrc]
-    return fkern
+        return arr[target_index, source_index]
+    return kernel
 
 
-def _select_vertex_kernel(fkern: Any, edges: np.ndarray) -> Any:
-    arr = np.asarray(fkern, dtype=object) if isinstance(fkern, (list, tuple, np.ndarray)) else None
+def _select_vertex_kernel(kernel: Any, edges: np.ndarray) -> Any:
+    arr = (
+        np.asarray(kernel, dtype=object) if isinstance(kernel, (list, tuple, np.ndarray)) else None
+    )
     if arr is None or arr.ndim != 2:
-        return fkern
+        return kernel
     if arr.shape == (edges.size, edges.size):
         return arr
     if edges.size and (np.max(edges) >= arr.shape[0] or np.max(edges) >= arr.shape[1]):
@@ -799,10 +890,10 @@ def _normalize_vertex_list(vertices: ArrayLike, nvert: int) -> np.ndarray:
     return arr
 
 
-def _kernel_opdims(kern: Any, ndim: int) -> tuple[int, int]:
-    opdims = getattr(kern, "opdims", None)
+def _kernel_opdims(kernel: Any, dimension: int) -> tuple[int, int]:
+    opdims = getattr(kernel, "opdims", None)
     if opdims is None or opdims == (0, 0):
-        return (int(ndim), int(ndim))
+        return (int(dimension), int(dimension))
     return tuple(int(x) for x in opdims)
 
 
@@ -813,14 +904,20 @@ def _split_edge_indices(indices: np.ndarray, nedge: int) -> list[np.ndarray]:
     return [indices[i * per_edge : (i + 1) * per_edge] for i in range(int(nedge))]
 
 
-def _pointinfo_subset(chnkr: Chunker, inds: np.ndarray) -> Any:
+def _pointinfo_subset(chunker: Chunker, indices: np.ndarray) -> Any:
     from ..operators import PointInfo
 
     return PointInfo(
-        r=chnkr.r.reshape(chnkr.dim, chnkr.npt, order="F")[:, inds],
-        d=chnkr.d.reshape(chnkr.dim, chnkr.npt, order="F")[:, inds],
-        d2=chnkr.d2.reshape(chnkr.dim, chnkr.npt, order="F")[:, inds],
-        n=chnkr.n.reshape(chnkr.dim, chnkr.npt, order="F")[:, inds],
+        r=as_boundary_point_matrix(chunker.r, chunker.dim, chunker.npt, name="positions")[
+            :, indices
+        ],
+        d=as_boundary_point_matrix(chunker.d, chunker.dim, chunker.npt, name="derivatives")[
+            :, indices
+        ],
+        d2=as_boundary_point_matrix(
+            chunker.d2, chunker.dim, chunker.npt, name="second derivatives"
+        )[:, indices],
+        n=as_boundary_point_matrix(chunker.n, chunker.dim, chunker.npt, name="normals")[:, indices],
     )
 
 
@@ -833,14 +930,3 @@ def _pointinfo_append(left: Any, right: Any) -> Any:
         d2=np.column_stack((left.d2, right.d2)),
         n=np.column_stack((left.n, right.n)),
     )
-
-
-ipinit = IPinit
-pbcinit = Pbcinit
-schurbana = SchurBana
-rcompchunk = Rcompchunk
-rhohatinterp = rhohatInterp
-chunkgraphrcip = chunkgraph_rcip
-rcipchunkgraph = chunkgraph_rcip
-shiftedlegbasismats = shiftedlegbasismats
-chunkerfunclocal = chunkerfunclocal

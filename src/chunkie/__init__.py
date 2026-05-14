@@ -1,7 +1,6 @@
-"""Python port of the MATLAB ``chunkIE`` boundary-integral toolkit.
+"""Python-first boundary-integral toolkit inspired by MATLAB ``chunkIE``.
 
-The public facade is intentionally small and mirrors the MATLAB package names
-where practical:
+The public facade is intentionally small:
 
 ``Chunker`` and the ``chunker*`` constructors build Legendre-panel boundary
 discretizations for smooth curves, fitted point clouds, true polygons, and
@@ -15,27 +14,14 @@ interleaved block systems. ``chunkermat``, ``chunkermatapply``,
 ``chunkerkerneval``, and ``chunkerkernevalmat`` provide dense, FMM-backed, and
 FLAM-backed operator assembly/application paths.
 
-Most low-level arrays follow MATLAB's ``dim x k x nch`` geometry layout and
-Fortran-order flattening of panel nodes. Boundary-integral jump terms such as
-``+/- 1/2 I`` are not hidden in kernel objects; callers add them explicitly
-when forming a particular interior or exterior BVP equation.
+Geometry storage uses chunk tensors such as ``positions[R, s, S]``. Flat
+vectors and interleaved matrices are adapter formats for solvers, sparse/FMM
+backends, FLAM callbacks, and fixture comparisons. Boundary-integral jump terms
+such as ``+/- 1/2 I`` are not hidden in kernel objects; callers add them
+explicitly when forming a particular interior or exterior BVP equation.
 """
 
 from . import lege
-from .geometry.chunker import (
-    Chunker,
-    ChunkerPref,
-    chunker,
-    chunkerfit,
-    chunkerfunc,
-    chunkerfuncuni,
-    chunkerpoints,
-    chunkerpoly,
-    chunkerpref,
-    merge,
-)
-from .geometry.chunkgraph import ChunkGraph, chunkgraph, chunkgraphinregion, find_edge_regions, tochunkgraph
-from .geometry import PointInfo
 from .domain import (
     HypOctNode,
     HypOctTree,
@@ -49,15 +35,27 @@ from .domain import (
     regioninside,
     starfish,
 )
+from .geometry import PointInfo
+from .geometry.chunker import (
+    Chunker,
+    ChunkerPref,
+    chunkerfit,
+    chunkerfunc,
+    chunkerfuncuni,
+    chunkerpoints,
+    chunkerpoly,
+    merge,
+)
+from .geometry.chunkgraph import ChunkGraph, chunkgraphinregion, find_edge_regions, tochunkgraph
 from .kernels import Kernel, kernel
 from .operators import (
     ChunkerFLAMMatrix,
     ChunkerFMMMatrix,
     ChunkerRCIPMatrix,
     RCIPContext,
-    chunkerinterior,
-    chunkerintegral,
     chunkerflam,
+    chunkerintegral,
+    chunkerinterior,
     chunkerkerneval,
     chunkerkernevalmat,
     chunkermat,
@@ -77,14 +75,12 @@ __all__ = [
     "HypOctNode",
     "HypOctTree",
     "checkcurveparam",
-    "chunker",
     "chunkerfit",
     "chunkerflam",
     "chunkerfunc",
     "chunkerfuncuni",
     "chunkerpoints",
     "chunkerpoly",
-    "chunkgraph",
     "chunkgraphinregion",
     "find_edge_regions",
     "chunkerinterior",
@@ -93,7 +89,6 @@ __all__ = [
     "chunkerkernevalmat",
     "chunkermat",
     "chunkermatapply",
-    "chunkerpref",
     "ellipse",
     "hypoct_uni",
     "kernel",

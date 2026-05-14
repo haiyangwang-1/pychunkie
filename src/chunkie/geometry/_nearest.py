@@ -11,15 +11,15 @@ from .. import lege
 def chunk_nearparam(
     rval: ArrayLike,
     pts: ArrayLike,
-    opts: dict | None = None,
+    options: dict | None = None,
     t: ArrayLike | None = None,
     u: ArrayLike | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Find nearest curve parameters on a single chunk."""
 
-    options = {} if opts is None else dict(opts)
-    maxnewt = int(options.get("nitermax", 15))
-    thresh0 = float(options.get("thresh", 1.0e-14))
+    option_values = {} if options is None else dict(options)
+    maxnewt = int(option_values.get("nitermax", 15))
+    thresh0 = float(option_values.get("thresh", 1.0e-14))
 
     r_arr = np.asarray(rval)
     if r_arr.ndim != 2:

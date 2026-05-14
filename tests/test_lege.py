@@ -4,7 +4,7 @@ from chunkie import lege
 
 
 def test_exps_round_trips_values_and_coefficients():
-    x, w, u, v = lege.exps(12)
+    x, w, u, v = lege.exps(quadrature_order=12)
     coeffs = np.arange(1, 13, dtype=float)
     vals = v @ coeffs
 
@@ -38,7 +38,7 @@ def test_pols_matches_known_low_order_polynomials():
 
 def test_dermat_differentiates_node_values():
     x, _, _, v = lege.exps(10)
-    dmat = lege.dermat(10)
+    dmat = lege.dermat(quadrature_order=10)
     coeffs = np.zeros(10)
     coeffs[4] = 1.0
 
@@ -85,7 +85,7 @@ def test_intpol_and_intmat_integrate_constants_from_left_endpoint():
 
 def test_barywts_reproduce_lagrange_basis_sign_pattern():
     x, *_ = lege.exps(7)
-    w = lege.barywts(7, x)
+    w = lege.barywts(quadrature_order=7, x=x)
     direct = np.ones_like(w)
     for i, xi in enumerate(x):
         direct[i] = 1.0 / np.prod(xi - np.delete(x, i))
@@ -127,12 +127,12 @@ def test_tayl_matches_direct_legendre_step():
     x = np.array([-0.4, 0.15, 0.55])
     h = np.array([0.02, -0.03, 0.015])
     pol0, der0 = lege.pol(x, 6)
-    pol1, der1 = lege.tayl(pol0, der0, x, h, 6, 8)
+    pol1, der1 = lege.tayl(pol0, der0, x, h, n=6, taylor_order=8)
     expected_pol, expected_der = lege.pol(x + h, 6)
 
     np.testing.assert_allclose(pol1, expected_pol, atol=1e-13)
     np.testing.assert_allclose(der1, expected_der, atol=1e-12)
-    zpol, zder = lege.tayl(pol0, der0, x, np.zeros_like(h), 6, 8)
+    zpol, zder = lege.tayl(pol0, der0, x, np.zeros_like(h), n=6, taylor_order=8)
     np.testing.assert_allclose(zpol, pol0)
     np.testing.assert_allclose(zder, der0)
 

@@ -2,8 +2,7 @@
 
 import numpy as np
 
-from chunkie import chunkgraph, chunkgraphinregion, find_edge_regions
-
+from chunkie import ChunkGraph, chunkgraphinregion, find_edge_regions
 
 verts = np.array(
     [
@@ -24,7 +23,7 @@ targets = np.array(
     ]
 )
 
-cg = chunkgraph(verts, edges, pref={"k": 12, "nchmax": 2000}, cparams={"nchmin": 8})
+cg = ChunkGraph(verts, edges, pref={"k": 12, "nchmax": 2000}, cparams={"nchmin": 8})
 region_ids = chunkgraphinregion(cg, targets)
 edge_regions = find_edge_regions(cg)
 

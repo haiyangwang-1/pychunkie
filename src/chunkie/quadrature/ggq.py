@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from functools import lru_cache
+from functools import cache
 from importlib import resources
 from typing import Any
 
@@ -24,10 +24,10 @@ from numpy.typing import ArrayLike
 from scipy import sparse
 
 from chunkie import lege
-from chunkie.geometry.chunker import Chunker
 from chunkie.geometry import PointInfo
-from . import native as quadnative
+from chunkie.geometry.chunker import Chunker
 
+from . import native as quadnative
 
 _QUADGGQ_DATA_PATH = ("data", "quadggq")
 _KERNEL_PROBE_EXCEPTIONS = (
@@ -51,45 +51,54 @@ class AuxQuad:
     type: str = "log"
 
 
-def setup(k: int, type: str = "log", nfac_self: int | None = None, nfac_near: int | None = None) -> AuxQuad:
+def setup(
+    quadrature_order: int,
+    singularity: str = "log",
+    nfac_self: int | None = None,
+    nfac_near: int | None = None,
+) -> AuxQuad:
     """Generate auxiliary quadrature rules for self and neighbor panels."""
 
-    qtype = type.lower()
+    order = int(quadrature_order)
+    qtype = singularity.lower()
     if qtype not in {"log", "removable", "pv", "hs"}:
-        raise ValueError("quadggq type must be one of log, removable, pv, or hs")
+        raise ValueError("quadggq singularity must be one of log, removable, pv, or hs")
 
     use_matlab_log = nfac_self is None and nfac_near is None
     if use_matlab_log:
-        xs1, wts1, xs0, wts0 = getlogquad(k, 2)
+        xs1, wts1, xs0, wts0 = getlogquad(order, 2)
     else:
         if nfac_self is None:
-            nfac_self = max(4, int(np.ceil(48 / max(k, 1))))
+            nfac_self = max(4, int(np.ceil(48 / max(order, 1))))
         if nfac_near is None:
-            nfac_near = max(4, int(np.ceil(48 / max(k, 1))))
-        xs1, wts1 = lege.exps(int(nfac_near * k))[:2]
-        xs0, wts0 = getremovablequad(k, nfac_self)
+            nfac_near = max(4, int(np.ceil(48 / max(order, 1))))
+        xs1, wts1 = lege.exps(int(nfac_near * order))[:2]
+        xs0, wts0 = getremovablequad(order, nfac_self)
 
     if qtype == "pv":
-        xs0, wts0 = gethqsuppquad(k, 1)
+        xs0, wts0 = gethqsuppquad(order, 1)
     elif qtype == "hs":
-        xs0, wts0 = gethqsuppquad(k, 2)
+        xs0, wts0 = gethqsuppquad(order, 2)
     elif qtype == "removable":
-        xs0, wts0 = getremovablequad(k, 1 if use_matlab_log else int(nfac_self))
+        xs0, wts0 = getremovablequad(order, 1 if use_matlab_log else int(nfac_self))
     return AuxQuad(
         xs1=xs1,
         wts1=wts1,
         xs0=xs0,
         wts0=wts0,
-        ainterp1=lege.matrin(k, xs1)[0],
-        ainterps0=[lege.matrin(k, xs)[0] for xs in xs0],
+        ainterp1=lege.matrin(order, xs1)[0],
+        ainterps0=[lege.matrin(order, xs)[0] for xs in xs0],
         type=qtype,
     )
 
 
-def getlogquad(k: int, npolyfac: int = 2) -> tuple[np.ndarray, np.ndarray, list[np.ndarray], list[np.ndarray]]:
+def getlogquad(
+    quadrature_order: int,
+    npolyfac: int = 2,
+) -> tuple[np.ndarray, np.ndarray, list[np.ndarray], list[np.ndarray]]:
     """Return MATLAB GGQ neighbor and self rules for logarithmic kernels."""
 
-    order = int(k)
+    order = int(quadrature_order)
     nfac = int(npolyfac)
     near_order = _log_near_order(order)
     near = _load_near_table(f"ggqnear{near_order}") if near_order is not None else None
@@ -113,30 +122,37 @@ def hqsuppavail() -> np.ndarray:
     return np.array([1, 2, 3, 4, 5, 6, 8, 10, 12, 16, 20], dtype=int)
 
 
-def gethqsuppquad(k: int, itype: int = 2) -> tuple[list[np.ndarray], list[np.ndarray]]:
+def gethqsuppquad(
+    quadrature_order: int,
+    singularity_code: int = 2,
+) -> tuple[list[np.ndarray], list[np.ndarray]]:
     """Return MATLAB GGQ support tables for PV or HS self interactions.
 
-    ``itype=1`` corresponds to principal-value support and ``itype=2`` to
-    hypersingular support. When a table is not vendored for the requested
-    order, a generated removable split rule is returned as a conservative
-    fallback.
+    ``singularity_code=1`` corresponds to principal-value support and
+    ``singularity_code=2`` to hypersingular support. When a table is not
+    vendored for the requested order, a generated removable split rule is
+    returned as a conservative fallback.
     """
 
-    order = int(k)
+    order = int(quadrature_order)
     if order not in set(hqsuppavail().tolist()):
         return getremovablequad(order, 2)
-    prefix = "hsupp" if int(itype) == 1 else "hqsupp"
+    prefix = "hsupp" if int(singularity_code) == 1 else "hqsupp"
     table = _load_cell_table(f"{prefix}_nnode{order:03d}_npoly{2 * order:03d}")
     if table is None:
         return getremovablequad(order, 2)
     return table
 
 
-def getremovablequad(k: int, nfac: int = 1) -> tuple[list[np.ndarray], list[np.ndarray]]:
+def getremovablequad(
+    quadrature_order: int,
+    nfac: int = 1,
+) -> tuple[list[np.ndarray], list[np.ndarray]]:
     """Return split Gauss rules on each side of every Legendre node."""
 
-    xleg, _ = lege.exps(k)[:2]
-    xover, wover = lege.exps(max(int(np.ceil(k * nfac)), k))[:2]
+    order = int(quadrature_order)
+    xleg, _ = lege.exps(order)[:2]
+    xover, wover = lege.exps(max(int(np.ceil(order * nfac)), order))[:2]
     x01 = (xover + 1.0) / 2.0
     w01 = wover / 2.0
     xs0: list[np.ndarray] = []
@@ -151,25 +167,28 @@ def getremovablequad(k: int, nfac: int = 1) -> tuple[list[np.ndarray], list[np.n
     return xs0, wts0
 
 
-def _generated_logquad(k: int, npolyfac: int = 2) -> tuple[np.ndarray, np.ndarray, list[np.ndarray], list[np.ndarray]]:
-    xs1, wts1 = lege.exps(max(int(npolyfac * k), k))[:2]
-    xs0, wts0 = getremovablequad(k, npolyfac)
+def _generated_logquad(
+    quadrature_order: int,
+    npolyfac: int = 2,
+) -> tuple[np.ndarray, np.ndarray, list[np.ndarray], list[np.ndarray]]:
+    xs1, wts1 = lege.exps(max(int(npolyfac * quadrature_order), quadrature_order))[:2]
+    xs0, wts0 = getremovablequad(quadrature_order, npolyfac)
     return xs1, wts1, xs0, wts0
 
 
-def getpvquad(k: int) -> tuple[list[np.ndarray], list[np.ndarray]]:
-    return gethqsuppquad(k, 1)
+def getpvquad(quadrature_order: int) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    return gethqsuppquad(quadrature_order, 1)
 
 
-def gethsquad(k: int) -> tuple[list[np.ndarray], list[np.ndarray]]:
-    return gethqsuppquad(k, 2)
+def gethsquad(quadrature_order: int) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    return gethqsuppquad(quadrature_order, 2)
 
 
 def buildmat(
-    chnkr: Chunker,
-    kern: Callable[[Any, Any], np.ndarray],
+    chunker: Chunker,
+    kernel: Callable[[Any, Any], np.ndarray],
     opdims: tuple[int, int] | None = None,
-    type: str = "log",
+    singularity: str = "log",
     auxquads: AuxQuad | None = None,
     ilist: ArrayLike | None = None,
     *,
@@ -184,30 +203,34 @@ def buildmat(
     need GGQ tables on a chunker boundary.
     """
 
+    chunker = chunker
+    kernel = kernel
     if opdims is None:
-        opdims = getattr(kern, "opdims", None)
+        opdims = getattr(kernel, "opdims", None)
     if opdims is None or opdims == (0, 0):
         raise ValueError("opdims must be provided for special quadrature assembly")
 
-    aux = setup(chnkr.k, type) if auxquads is None else auxquads
-    ignored = set() if ilist is None else {int(idx) for idx in np.asarray(ilist, dtype=int).reshape(-1)}
-    mat = quadnative.buildmat(chnkr, kern, opdims)
+    aux = setup(chunker.k, singularity) if auxquads is None else auxquads
+    ignored = (
+        set() if ilist is None else {int(idx) for idx in np.asarray(ilist, dtype=int).reshape(-1)}
+    )
+    mat = quadnative.buildmat(chunker, kernel, opdims)
 
-    for src_chunk in range(chnkr.nch):
-        src_cols = _block_slice(src_chunk, chnkr.k, int(opdims[1]))
-        left, right = chnkr.adj[:, src_chunk]
+    for src_chunk in range(chunker.nch):
+        src_cols = _block_slice(src_chunk, chunker.k, int(opdims[1]))
+        left, right = chunker.adj[:, src_chunk]
 
         for targ_chunk in (int(left) - 1, int(right) - 1):
-            if targ_chunk < 0 or targ_chunk >= chnkr.nch:
+            if targ_chunk < 0 or targ_chunk >= chunker.nch:
                 continue
             if src_chunk in ignored and targ_chunk in ignored:
                 continue
-            rows = _block_slice(targ_chunk, chnkr.k, int(opdims[0]))
+            rows = _block_slice(targ_chunk, chunker.k, int(opdims[0]))
             mat[rows, src_cols] = nearbuildmat(
-                chnkr,
+                chunker,
                 targ_chunk,
                 src_chunk,
-                kern,
+                kernel,
                 opdims,
                 aux,
                 pquad_side=pquad_side,
@@ -216,17 +239,17 @@ def buildmat(
 
         if src_chunk in ignored:
             continue
-        rows = _block_slice(src_chunk, chnkr.k, int(opdims[0]))
-        mat[rows, src_cols] = diagbuildmat(chnkr, src_chunk, kern, opdims, aux)
+        rows = _block_slice(src_chunk, chunker.k, int(opdims[0]))
+        mat[rows, src_cols] = diagbuildmat(chunker, src_chunk, kernel, opdims, aux)
 
     return mat
 
 
 def buildmattd(
-    chnkr: Chunker,
-    kern: Callable[[Any, Any], np.ndarray],
+    chunker: Chunker,
+    kernel: Callable[[Any, Any], np.ndarray],
     opdims: tuple[int, int] | None = None,
-    type: str = "log",
+    singularity: str = "log",
     auxquads: AuxQuad | None = None,
     ilist: ArrayLike | None = None,
     corrections: bool = False,
@@ -241,31 +264,35 @@ def buildmattd(
     while all far interactions still come from direct evaluation or FMM.
     """
 
+    chunker = chunker
+    kernel = kernel
     if opdims is None:
-        opdims = getattr(kern, "opdims", None)
+        opdims = getattr(kernel, "opdims", None)
     if opdims is None or opdims == (0, 0):
         raise ValueError("opdims must be provided for special quadrature assembly")
 
-    aux = setup(chnkr.k, type) if auxquads is None else auxquads
-    ignored = set() if ilist is None else {int(idx) for idx in np.asarray(ilist, dtype=int).reshape(-1)}
+    aux = setup(chunker.k, singularity) if auxquads is None else auxquads
+    ignored = (
+        set() if ilist is None else {int(idx) for idx in np.asarray(ilist, dtype=int).reshape(-1)}
+    )
     op0 = int(opdims[0])
     op1 = int(opdims[1])
     rows: list[np.ndarray] = []
     cols: list[np.ndarray] = []
     vals: list[np.ndarray] = []
 
-    def append_block(targ_chunk: int, src_chunk: int, block: np.ndarray) -> None:
-        row0 = targ_chunk * chnkr.k * op0
-        col0 = src_chunk * chnkr.k * op1
+    def append_block(target_chunk: int, source_chunk: int, block: np.ndarray) -> None:
+        row0 = target_chunk * chunker.k * op0
+        col0 = source_chunk * chunker.k * op1
         rr, cc = np.indices(block.shape)
         rows.append((row0 + rr).reshape(-1))
         cols.append((col0 + cc).reshape(-1))
         vals.append(block.reshape(-1))
 
-    for src_chunk in range(chnkr.nch):
-        left, right = chnkr.adj[:, src_chunk]
+    for src_chunk in range(chunker.nch):
+        left, right = chunker.adj[:, src_chunk]
         for targ_chunk in (int(left) - 1, int(right) - 1):
-            if targ_chunk < 0 or targ_chunk >= chnkr.nch:
+            if targ_chunk < 0 or targ_chunk >= chunker.nch:
                 continue
             if src_chunk in ignored and targ_chunk in ignored:
                 continue
@@ -273,10 +300,10 @@ def buildmattd(
                 targ_chunk,
                 src_chunk,
                 nearbuildmat(
-                    chnkr,
+                    chunker,
                     targ_chunk,
                     src_chunk,
-                    kern,
+                    kernel,
                     (op0, op1),
                     aux,
                     corrections=corrections,
@@ -290,21 +317,23 @@ def buildmattd(
         append_block(
             src_chunk,
             src_chunk,
-            diagbuildmat(chnkr, src_chunk, kern, (op0, op1), aux, corrections=corrections),
+            diagbuildmat(chunker, src_chunk, kernel, (op0, op1), aux, corrections=corrections),
         )
 
-    shape = (chnkr.npt * op0, chnkr.npt * op1)
+    shape = (chunker.npt * op0, chunker.npt * op1)
     if not vals:
         return sparse.csr_matrix(shape, dtype=float)
     data = np.concatenate(vals)
-    dtype = np.result_type(data, _kernel_dtype(chnkr, kern))
-    return sparse.coo_matrix((data.astype(dtype, copy=False), (np.concatenate(rows), np.concatenate(cols))), shape=shape).tocsr()
+    dtype = np.result_type(data, _kernel_dtype(chunker, kernel))
+    return sparse.coo_matrix(
+        (data.astype(dtype, copy=False), (np.concatenate(rows), np.concatenate(cols))), shape=shape
+    ).tocsr()
 
 
 def diagbuildmat(
-    chnkr: Chunker,
+    chunker: Chunker,
     i: int,
-    kern: Callable[[Any, Any], np.ndarray],
+    kernel: Callable[[Any, Any], np.ndarray],
     opdims: tuple[int, int],
     aux: AuxQuad | None = None,
     corrections: bool = False,
@@ -312,27 +341,29 @@ def diagbuildmat(
 ) -> np.ndarray:
     """Build a special self-interaction block for chunk ``i``."""
 
-    aux = setup(chnkr.k, "log") if aux is None else aux
-    k = chnkr.k
-    out = np.zeros((int(opdims[0]) * k, int(opdims[1]) * k), dtype=_kernel_dtype(chnkr, kern))
-    rs = chnkr.r[:, :, i]
-    ds = chnkr.d[:, :, i]
-    d2s = chnkr.d2[:, :, i]
-    ns = chnkr.n[:, :, i]
-    dd = chnkr.data[:, :, i] if chnkr.datadim else None
+    aux = setup(chunker.k, "log") if aux is None else aux
+    k = chunker.k
+    out = np.zeros((int(opdims[0]) * k, int(opdims[1]) * k), dtype=_kernel_dtype(chunker, kernel))
+    rs = chunker.r[:, :, i]
+    ds = chunker.d[:, :, i]
+    d2s = chunker.d2[:, :, i]
+    ns = chunker.n[:, :, i]
+    dd = chunker.data[:, :, i] if chunker.datadim else None
 
     for inode in range(k):
         interp = aux.ainterps0[inode]
-        src = _interpolated_pointinfo(rs, ds, d2s, ns, dd, interp)
-        targ = PointInfo(
+        source = _interpolated_pointinfo(rs, ds, d2s, ns, dd, interp)
+        target = PointInfo(
             r=rs[:, inode : inode + 1],
             d=ds[:, inode : inode + 1],
             d2=d2s[:, inode : inode + 1],
             n=ns[:, inode : inode + 1],
             data=dd[:, inode : inode + 1] if dd is not None else None,
         )
-        weights = np.sqrt(np.sum(np.abs(src.d) ** 2, axis=0)) * aux.wts0[inode]
-        kvals = _zero_coincident_nonfinite(_eval_kernel(kern, src, targ), src, targ, opdims, "GGQ self block")
+        weights = np.sqrt(np.sum(np.abs(source.d) ** 2, axis=0)) * aux.wts0[inode]
+        kvals = _zero_coincident_nonfinite(
+            _eval_kernel(kernel, source, target), source, target, opdims, "GGQ self block"
+        )
         block = kvals * np.repeat(weights, int(opdims[1]))[None, :]
         rows = slice(int(opdims[0]) * inode, int(opdims[0]) * (inode + 1))
         out[rows, :] = block @ np.kron(interp, np.eye(int(opdims[1])))
@@ -340,13 +371,15 @@ def diagbuildmat(
         src0 = PointInfo(r=rs, d=ds, d2=d2s, n=ns, data=dd)
         op0 = int(opdims[0])
         op1 = int(opdims[1])
-        smooth = _zero_coincident_nonfinite(_eval_kernel(kern, src0, src0), src0, src0, opdims, "GGQ correction block")
+        smooth = _zero_coincident_nonfinite(
+            _eval_kernel(kernel, src0, src0), src0, src0, opdims, "GGQ correction block"
+        )
         for inode in range(k):
             row = slice(op0 * inode, op0 * (inode + 1))
             col = slice(op1 * inode, op1 * (inode + 1))
             smooth[row, col] = 0.0
         if wtss is None:
-            wtsi = chnkr.wts[:, i]
+            wtsi = chunker.wts[:, i]
         else:
             wtsi = np.asarray(wtss)[:, i]
         out = out - smooth * np.repeat(wtsi, op1)[None, :]
@@ -354,10 +387,10 @@ def diagbuildmat(
 
 
 def nearbuildmat(
-    chnkr: Chunker,
+    chunker: Chunker,
     i: int,
     j: int,
-    kern: Callable[[Any, Any], np.ndarray],
+    kernel: Callable[[Any, Any], np.ndarray],
     opdims: tuple[int, int],
     aux: AuxQuad | None = None,
     corrections: bool = False,
@@ -368,87 +401,95 @@ def nearbuildmat(
 ) -> np.ndarray:
     """Build an oversampled near-neighbor block from source chunk ``j`` to target chunk ``i``."""
 
-    aux = setup(chnkr.k, "log") if aux is None else aux
-    targ = PointInfo(
-        r=chnkr.r[:, :, i],
-        d=chnkr.d[:, :, i],
-        d2=chnkr.d2[:, :, i],
-        n=chnkr.n[:, :, i],
-        data=chnkr.data[:, :, i] if chnkr.datadim else None,
+    aux = setup(chunker.k, "log") if aux is None else aux
+    target = PointInfo(
+        r=chunker.r[:, :, i],
+        d=chunker.d[:, :, i],
+        d2=chunker.d2[:, :, i],
+        n=chunker.n[:, :, i],
+        data=chunker.data[:, :, i] if chunker.datadim else None,
     )
     if usepquad:
-        pquad_block, handled = _pquad_near_block(chnkr, j, kern, opdims, targ, pquad_side)
+        pquad_block, handled = _pquad_near_block(chunker, j, kernel, opdims, target, pquad_side)
         if pquad_block is not None and np.all(handled):
             if corrections:
-                pquad_block = pquad_block - _native_panel_block(chnkr, i, j, kern, opdims, wtss)
+                pquad_block = pquad_block - _native_panel_block(chunker, i, j, kernel, opdims, wtss)
             return np.real_if_close(pquad_block)
 
     interp = aux.ainterp1
-    src = _interpolated_pointinfo(
-        chnkr.r[:, :, j],
-        chnkr.d[:, :, j],
-        chnkr.d2[:, :, j],
-        chnkr.n[:, :, j],
-        chnkr.data[:, :, j] if chnkr.datadim else None,
+    source = _interpolated_pointinfo(
+        chunker.r[:, :, j],
+        chunker.d[:, :, j],
+        chunker.d2[:, :, j],
+        chunker.n[:, :, j],
+        chunker.data[:, :, j] if chunker.datadim else None,
         interp,
     )
-    weights = np.sqrt(np.sum(np.abs(src.d) ** 2, axis=0)) * aux.wts1
-    kvals = _zero_coincident_nonfinite(_eval_kernel(kern, src, targ), src, targ, opdims, "GGQ near block")
+    weights = np.sqrt(np.sum(np.abs(source.d) ** 2, axis=0)) * aux.wts1
+    kvals = _zero_coincident_nonfinite(
+        _eval_kernel(kernel, source, target), source, target, opdims, "GGQ near block"
+    )
     mat = kvals * np.repeat(weights, int(opdims[1]))[None, :]
     out = mat @ np.kron(interp, np.eye(int(opdims[1])))
     if corrections:
-        out = out - _native_panel_block(chnkr, i, j, kern, opdims, wtss)
+        out = out - _native_panel_block(chunker, i, j, kernel, opdims, wtss)
     return out
 
 
 def _pquad_near_block(
-    chnkr: Chunker,
+    chunker: Chunker,
     src_chunk: int,
-    kern: Callable[[Any, Any], np.ndarray],
+    kernel: Callable[[Any, Any], np.ndarray],
     opdims: tuple[int, int],
-    targ: PointInfo,
+    target: PointInfo,
     side: str | None,
 ) -> tuple[np.ndarray | None, np.ndarray]:
     from . import panel as pquad
 
-    splitinfo = pquad.splitinfo_for_kernel(kern)
-    if splitinfo is None or tuple(splitinfo.opdims) != (int(opdims[0]), int(opdims[1])):
-        return None, np.zeros(targ.r.shape[1], dtype=bool)
-    block, handled = pquad.panel_matrix_auto_side(chnkr, src_chunk, targ, splitinfo, side=side)
+    split_info = pquad.splitinfo_for_kernel(kernel=kernel)
+    if split_info is None or tuple(split_info.opdims) != (int(opdims[0]), int(opdims[1])):
+        return None, np.zeros(target.r.shape[1], dtype=bool)
+    block, handled = pquad.panel_matrix_auto_side(
+        chunker=chunker,
+        source_chunk=src_chunk,
+        target=target,
+        split_info=split_info,
+        side=side,
+    )
     return block, handled
 
 
 def _native_panel_block(
-    chnkr: Chunker,
+    chunker: Chunker,
     targ_chunk: int,
     src_chunk: int,
-    kern: Callable[[Any, Any], np.ndarray],
+    kernel: Callable[[Any, Any], np.ndarray],
     opdims: tuple[int, int],
     wtss: ArrayLike | None = None,
 ) -> np.ndarray:
-    wtss_arr = chnkr.wts if wtss is None else np.asarray(wtss)
-    src = PointInfo(
-        r=chnkr.r[:, :, src_chunk],
-        d=chnkr.d[:, :, src_chunk],
-        d2=chnkr.d2[:, :, src_chunk],
-        n=chnkr.n[:, :, src_chunk],
-        data=chnkr.data[:, :, src_chunk] if chnkr.datadim else None,
+    wtss_arr = chunker.wts if wtss is None else np.asarray(wtss)
+    source = PointInfo(
+        r=chunker.r[:, :, src_chunk],
+        d=chunker.d[:, :, src_chunk],
+        d2=chunker.d2[:, :, src_chunk],
+        n=chunker.n[:, :, src_chunk],
+        data=chunker.data[:, :, src_chunk] if chunker.datadim else None,
     )
-    targ = PointInfo(
-        r=chnkr.r[:, :, targ_chunk],
-        d=chnkr.d[:, :, targ_chunk],
-        d2=chnkr.d2[:, :, targ_chunk],
-        n=chnkr.n[:, :, targ_chunk],
-        data=chnkr.data[:, :, targ_chunk] if chnkr.datadim else None,
+    target = PointInfo(
+        r=chunker.r[:, :, targ_chunk],
+        d=chunker.d[:, :, targ_chunk],
+        d2=chunker.d2[:, :, targ_chunk],
+        n=chunker.n[:, :, targ_chunk],
+        data=chunker.data[:, :, targ_chunk] if chunker.datadim else None,
     )
-    smooth = _eval_kernel(kern, src, targ)
+    smooth = _eval_kernel(kernel, source, target)
     return smooth * np.repeat(wtss_arr[:, src_chunk], int(opdims[1]))[None, :]
 
 
 def _zero_coincident_nonfinite(
     values: np.ndarray,
-    src: PointInfo,
-    targ: PointInfo,
+    source: PointInfo,
+    target: PointInfo,
     opdims: tuple[int, int],
     context: str,
 ) -> np.ndarray:
@@ -457,33 +498,39 @@ def _zero_coincident_nonfinite(
     if not np.any(nonfinite):
         return arr
 
-    expected = _coincident_kernel_mask(src, targ, opdims, arr.shape)
+    expected = _coincident_kernel_mask(source, target, opdims, arr.shape)
     unexpected = nonfinite & ~expected
     if np.any(unexpected):
-        raise ValueError(f"{context} kernel evaluation returned non-finite values away from coincident source/target points")
+        raise ValueError(
+            f"{context} kernel evaluation returned non-finite values away from coincident source/target points"
+        )
     arr[nonfinite] = 0.0
     return arr
 
 
 def _coincident_kernel_mask(
-    src: PointInfo,
-    targ: PointInfo,
+    source: PointInfo,
+    target: PointInfo,
     opdims: tuple[int, int],
     shape: tuple[int, ...],
 ) -> np.ndarray:
     op0 = int(opdims[0])
     op1 = int(opdims[1])
-    nt = targ.r.shape[1]
-    ns = src.r.shape[1]
+    nt = target.r.shape[1]
+    ns = source.r.shape[1]
     expected_shape = (op0 * nt, op1 * ns)
     if tuple(shape) != expected_shape:
         return np.zeros(shape, dtype=bool)
-    tol = 16.0 * np.finfo(float).eps * max(
-        1.0,
-        float(np.max(np.abs(src.r))) if src.r.size else 0.0,
-        float(np.max(np.abs(targ.r))) if targ.r.size else 0.0,
+    tol = (
+        16.0
+        * np.finfo(float).eps
+        * max(
+            1.0,
+            float(np.max(np.abs(source.r))) if source.r.size else 0.0,
+            float(np.max(np.abs(target.r))) if target.r.size else 0.0,
+        )
     )
-    dist2 = np.sum((targ.r[:, :, None] - src.r[:, None, :]) ** 2, axis=0)
+    dist2 = np.sum((target.r[:, :, None] - source.r[:, None, :]) ** 2, axis=0)
     coincident = dist2 <= tol**2
     return np.repeat(np.repeat(coincident, op0, axis=0), op1, axis=1)
 
@@ -510,21 +557,28 @@ def _interpolated_pointinfo(
     )
 
 
-def _eval_kernel(kern: Callable[[Any, Any], np.ndarray], src: PointInfo, targ: PointInfo) -> np.ndarray:
-    if hasattr(kern, "eval") and getattr(kern, "eval") is not None:
-        return kern.eval(src, targ)
-    return kern(src, targ)
+def _eval_kernel(
+    kernel: Callable[[Any, Any], np.ndarray], source: PointInfo, target: PointInfo
+) -> np.ndarray:
+    if hasattr(kernel, "eval") and kernel.eval is not None:
+        return kernel.eval(source, target)
+    return kernel(source, target)
 
 
-def _block_slice(chunk: int, k: int, opdim: int) -> slice:
-    start = chunk * k * opdim
-    return slice(start, start + k * opdim)
+def _block_slice(chunk: int, quadrature_order: int, opdim: int) -> slice:
+    start = chunk * quadrature_order * opdim
+    return slice(start, start + quadrature_order * opdim)
 
 
-def _kernel_dtype(chnkr: Chunker, kern: Callable[[Any, Any], np.ndarray]) -> np.dtype:
+def _kernel_dtype(chunker: Chunker, kernel: Callable[[Any, Any], np.ndarray]) -> np.dtype:
     try:
-        src = PointInfo(r=chnkr.r[:, :1, 0], d=chnkr.d[:, :1, 0], d2=chnkr.d2[:, :1, 0], n=chnkr.n[:, :1, 0])
-        return np.asarray(_eval_kernel(kern, src, src)).dtype
+        source = PointInfo(
+            r=chunker.r[:, :1, 0],
+            d=chunker.d[:, :1, 0],
+            d2=chunker.d2[:, :1, 0],
+            n=chunker.n[:, :1, 0],
+        )
+        return np.asarray(_eval_kernel(kernel, source, source)).dtype
     except _KERNEL_PROBE_EXCEPTIONS:
         return np.dtype(float)
 
@@ -546,7 +600,7 @@ def _load_cell_table(stem: str) -> tuple[list[np.ndarray], list[np.ndarray]] | N
     return xs, ws
 
 
-@lru_cache(maxsize=None)
+@cache
 def _load_npz_table(stem: str) -> dict[str, np.ndarray] | None:
     resource = resources.files("chunkie").joinpath(*_QUADGGQ_DATA_PATH, f"{stem}.npz")
     try:
@@ -557,17 +611,17 @@ def _load_npz_table(stem: str) -> dict[str, np.ndarray] | None:
         return None
 
 
-def _log_near_order(k: int) -> int | None:
-    if k <= 16:
+def _log_near_order(quadrature_order: int) -> int | None:
+    if quadrature_order <= 16:
         return 16
-    if k <= 20:
+    if quadrature_order <= 20:
         return 20
-    if k <= 24:
+    if quadrature_order <= 24:
         return 24
-    if k <= 30:
+    if quadrature_order <= 30:
         return 30
-    if k <= 40:
+    if quadrature_order <= 40:
         return 40
-    if k <= 60:
+    if quadrature_order <= 60:
         return 60
     return None

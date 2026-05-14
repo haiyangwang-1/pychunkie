@@ -14,56 +14,75 @@ from typing import Any
 import numpy as np
 from numpy.typing import ArrayLike
 
-from chunkie.geometry.chunker import Chunker
+from chunkie._layout import as_boundary_point_matrix, as_boundary_vector, boundary_component_weights
 from chunkie.geometry import PointInfo
+from chunkie.geometry.chunker import Chunker
 
 
 def buildmat(
-    chnkr: Chunker,
-    kern: Callable[[Any, Any], np.ndarray],
+    chunker: Chunker,
+    kernel: Callable[[Any, Any], np.ndarray],
     opdims: tuple[int, int] | None = None,
-    i: ArrayLike | None = None,
-    j: ArrayLike | None = None,
-    wts: ArrayLike | None = None,
+    target_chunks: ArrayLike | None = None,
+    source_chunks: ArrayLike | None = None,
+    weights: ArrayLike | None = None,
 ) -> np.ndarray:
-    """Build a smooth quadrature submatrix for target chunks ``i`` and source chunks ``j``.
+    """Build a smooth quadrature submatrix for selected source and target chunks.
 
     No singular or near-singular correction is applied here. Callers that need
     boundary self-interaction, neighboring panels, or close off-surface targets
     start with this matrix and replace only the affected blocks.
     """
 
-    ich = np.arange(chnkr.nch) if i is None else np.asarray(i, dtype=int).reshape(-1)
-    jch = np.arange(chnkr.nch) if j is None else np.asarray(j, dtype=int).reshape(-1)
-    if np.any(ich < 0) or np.any(ich >= chnkr.nch) or np.any(jch < 0) or np.any(jch >= chnkr.nch):
+    target_ids = (
+        np.arange(chunker.nch)
+        if target_chunks is None
+        else np.asarray(target_chunks, dtype=int).reshape(-1)
+    )
+    source_ids = (
+        np.arange(chunker.nch)
+        if source_chunks is None
+        else np.asarray(source_chunks, dtype=int).reshape(-1)
+    )
+    if (
+        np.any(target_ids < 0)
+        or np.any(target_ids >= chunker.nch)
+        or np.any(source_ids < 0)
+        or np.any(source_ids >= chunker.nch)
+    ):
         raise IndexError("chunk index out of range")
 
-    srcinfo = _pointinfo_for_chunks(chnkr, jch)
-    targinfo = _pointinfo_for_chunks(chnkr, ich)
-    if hasattr(kern, "eval") and getattr(kern, "eval") is not None:
-        mat = kern.eval(srcinfo, targinfo)
-        if opdims is None and hasattr(kern, "opdims"):
-            opdims = kern.opdims
+    srcinfo = _pointinfo_for_chunks(chunker, source_ids)
+    targinfo = _pointinfo_for_chunks(chunker, target_ids)
+    if hasattr(kernel, "eval") and kernel.eval is not None:
+        mat = kernel.eval(srcinfo, targinfo)
+        if opdims is None and hasattr(kernel, "opdims"):
+            opdims = kernel.opdims
     else:
-        mat = kern(srcinfo, targinfo)
+        mat = kernel(srcinfo, targinfo)
 
     if opdims is None:
-        nsrc = chnkr.k * jch.size
-        opdims = (mat.shape[0] // (chnkr.k * ich.size), mat.shape[1] // nsrc)
+        source_count = chunker.k * source_ids.size
+        opdims = (mat.shape[0] // (chunker.k * target_ids.size), mat.shape[1] // source_count)
 
-    base_w = chnkr.wstor if wts is None else np.asarray(wts, dtype=float).reshape(chnkr.k)
-    speed = np.sqrt(np.sum(np.abs(chnkr.d[:, :, jch]) ** 2, axis=0))
-    smooth_wts = (speed * base_w[:, None]).reshape(-1, order="F")
-    return mat * np.repeat(smooth_wts, int(opdims[1]))[None, :]
+    base_weights = (
+        chunker.wstor if weights is None else np.asarray(weights, dtype=float).reshape(chunker.k)
+    )
+    speed = np.sqrt(np.sum(np.abs(chunker.d[:, :, source_ids]) ** 2, axis=0))
+    smooth_wts = as_boundary_vector(speed * base_weights[:, None], name="smooth weights")
+    return mat * boundary_component_weights(smooth_wts, int(opdims[1]))[None, :]
 
 
-def _pointinfo_for_chunks(chnkr: Chunker, chunks: np.ndarray) -> PointInfo:
+def _pointinfo_for_chunks(chunker: Chunker, chunks: np.ndarray) -> PointInfo:
+    point_count = chunker.k * chunks.size
     return PointInfo(
-        r=chnkr.r[:, :, chunks].reshape(chnkr.dim, chnkr.k * chunks.size, order="F"),
-        d=chnkr.d[:, :, chunks].reshape(chnkr.dim, chnkr.k * chunks.size, order="F"),
-        d2=chnkr.d2[:, :, chunks].reshape(chnkr.dim, chnkr.k * chunks.size, order="F"),
-        n=chnkr.n[:, :, chunks].reshape(chnkr.dim, chnkr.k * chunks.size, order="F"),
-        data=chnkr.data[:, :, chunks].reshape(chnkr.datadim, chnkr.k * chunks.size, order="F")
-        if chnkr.datadim
+        r=as_boundary_point_matrix(chunker.r[:, :, chunks], chunker.dim, point_count, name="r"),
+        d=as_boundary_point_matrix(chunker.d[:, :, chunks], chunker.dim, point_count, name="d"),
+        d2=as_boundary_point_matrix(chunker.d2[:, :, chunks], chunker.dim, point_count, name="d2"),
+        n=as_boundary_point_matrix(chunker.n[:, :, chunks], chunker.dim, point_count, name="n"),
+        data=as_boundary_point_matrix(
+            chunker.data[:, :, chunks], chunker.datadim, point_count, name="data"
+        )
+        if chunker.datadim
         else None,
     )

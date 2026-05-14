@@ -1,9 +1,11 @@
 import numpy as np
 import pytest
 
-from chunkie import chunkgraph, kernel
-from chunkie.quadrature import rcip
 from _fixture_generation import chunker_from_fields, load_generated_mat_fixture
+from chunkie import ChunkGraph, kernel
+from chunkie.quadrature import rcip
+
+pytestmark = [pytest.mark.slow, pytest.mark.requires_matlab]
 
 
 def load_fixture(name: str):
@@ -26,33 +28,36 @@ def test_rcip_setup_helpers_match_matlab_fixture():
     fixture = load_fixture("rcip.mat")["rcip_fixture"]
 
     ip_case = fixture.IPinit
-    ip, ipw = rcip.IPinit(ip_case.T, ip_case.W)
-    ip_alias, ipw_alias = rcip.ipinit(ip_case.T, ip_case.W)
+    ip, ipw = rcip.IPinit(nodes=ip_case.T, weights=ip_case.W)
     np.testing.assert_allclose(ip, ip_case.IP, rtol=1e-13, atol=1e-14)
     np.testing.assert_allclose(ipw, ip_case.IPW, rtol=1e-13, atol=1e-14)
-    np.testing.assert_allclose(ip_alias, ip_case.IP, rtol=1e-13, atol=1e-14)
-    np.testing.assert_allclose(ipw_alias, ip_case.IPW, rtol=1e-13, atol=1e-14)
 
     pbc_case = fixture.Pbcinit
-    pbc = rcip.Pbcinit(pbc_case.IP, scalar_int(pbc_case.nedge), scalar_int(pbc_case.ndim))
-    pbc_alias = rcip.pbcinit(pbc_case.IP, scalar_int(pbc_case.nedge), scalar_int(pbc_case.ndim))
+    pbc = rcip.Pbcinit(
+        interpolation=pbc_case.IP,
+        edge_count=scalar_int(pbc_case.nedge),
+        dimension=scalar_int(pbc_case.ndim),
+    )
     np.testing.assert_allclose(pbc, pbc_case.Pbc, rtol=1e-13, atol=1e-14)
-    np.testing.assert_allclose(pbc_alias, pbc_case.Pbc, rtol=1e-13, atol=1e-14)
 
     setup_case = fixture.setup
     actual = rcip.setup(
-        scalar_int(setup_case.ngl),
-        scalar_int(setup_case.ndim),
-        scalar_int(setup_case.nedge),
-        as_1d(setup_case.isstart, bool),
+        quadrature_order=scalar_int(setup_case.ngl),
+        dimension=scalar_int(setup_case.ndim),
+        edge_count=scalar_int(setup_case.nedge),
+        starts_at_corner=as_1d(setup_case.isstart, bool),
     )
     names = ("Pbc", "PWbc", "starL", "circL", "starS", "circS", "ilist", "starL1", "circL1")
-    actual_by_name = dict(zip(names, actual))
+    actual_by_name = dict(zip(names, actual, strict=True))
     np.testing.assert_allclose(actual_by_name["Pbc"], setup_case.Pbc, rtol=1e-13, atol=1e-14)
     np.testing.assert_allclose(actual_by_name["PWbc"], setup_case.PWbc, rtol=1e-13, atol=1e-14)
     for name in ("starL", "circL", "starS", "circS", "starL1", "circL1"):
-        np.testing.assert_array_equal(actual_by_name[name], matlab_indices0(getattr(setup_case, name)))
-    np.testing.assert_array_equal(actual_by_name["ilist"], np.asarray(setup_case.ilist, dtype=int) - 1)
+        np.testing.assert_array_equal(
+            actual_by_name[name], matlab_indices0(getattr(setup_case, name))
+        )
+    np.testing.assert_array_equal(
+        actual_by_name["ilist"], np.asarray(setup_case.ilist, dtype=int) - 1
+    )
 
 
 def test_rcip_schurbana_matches_matlab_fixture():
@@ -70,17 +75,15 @@ def test_rcip_schurbana_matches_matlab_fixture():
         matlab_indices0(case.circS),
     )
     actual = rcip.SchurBana(*args)
-    alias_actual = rcip.schurbana(*args)
 
     np.testing.assert_allclose(actual, case.A_output, rtol=1e-12, atol=1e-13)
-    np.testing.assert_allclose(alias_actual, case.A_output, rtol=1e-12, atol=1e-13)
 
 
 def test_corner_refine_matches_matlab_corner_topology_fixture():
     fixture = load_fixture("rcip.mat")["rcip_fixture"]
     case = fixture.corner_refine
 
-    cg = chunkgraph(
+    cg = ChunkGraph(
         np.asarray(case.verts, dtype=float),
         np.asarray(case.edgesendverts0, dtype=int),
         pref={"k": scalar_int(case.k)},
@@ -95,27 +98,32 @@ def test_corner_refine_matches_matlab_corner_topology_fixture():
     np.testing.assert_array_equal(signs, as_1d(case.vstruc_signs, int))
 
     refined = rcip.corner_refine(cg, vertices=[vertex], depth=depth)
-    np.testing.assert_array_equal([edge.nch for edge in refined.echnks], as_1d(case.expected_nch, int))
+    np.testing.assert_array_equal(
+        [edge.nch for edge in refined.echnks], as_1d(case.expected_nch, int)
+    )
 
 
-@pytest.mark.parametrize("driver", [rcip.chunkgraph_rcip, rcip.chunkgraphrcip, rcip.rcipchunkgraph])
-def test_chunkgraph_rcip_driver_matches_matlab_fixture(driver):
+def test_chunkgraph_rcip_driver_matches_matlab_fixture():
     fixture = load_fixture("rcip.mat")["rcip_fixture"]
     case = fixture.chunkgraph_rcip
     edge1 = chunker_from_fields(fixture.edge1)
     edge2 = chunker_from_fields(fixture.edge2)
-    cg = chunkgraph(
+    cg = ChunkGraph(
         np.asarray(case.verts, dtype=float),
         np.asarray(case.edgesendverts0, dtype=int),
         [edge1, edge2],
     )
 
-    result = driver(
-        cg,
-        kernel("lap", "d"),
-        scalar_int(case.ndim),
+    result = rcip.chunkgraph_rcip(
+        graph=cg,
+        kernel=kernel("lap", "d"),
+        dimension=scalar_int(case.ndim),
         vertices=as_1d(case.vertices0, int),
-        opts={"_chunkie_normalized_operator_options": True, "nsub": scalar_int(case.nsub), "rcip_savedepth": scalar_int(case.rcip_savedepth)},
+        options={
+            "_chunkie_normalized_operator_options": True,
+            "nsub": scalar_int(case.nsub),
+            "rcip_savedepth": scalar_int(case.rcip_savedepth),
+        },
     )
 
     assert isinstance(result, rcip.RCIPChunkGraphResult)

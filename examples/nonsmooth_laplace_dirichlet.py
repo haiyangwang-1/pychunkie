@@ -18,21 +18,21 @@ import argparse
 from pathlib import Path
 
 import numpy as np
-
-from chunkie import chunkermat, kernel
-
 from _nonsmooth_laplace_common import (
     DEFAULT_DEPTH,
     DEFAULT_GRID_SIZE,
     EXTERIOR_TARGETS,
     INTERIOR_TARGETS,
     boundary_nodes,
+    boundary_weights,
     exterior_solution,
     interior_solution,
     make_square,
     target_error,
     write_solution_plots,
 )
+
+from chunkie import chunkermat, kernel
 
 
 def solve_dirichlet(s_mat: np.ndarray, weights: np.ndarray, boundary_values: np.ndarray):
@@ -52,7 +52,7 @@ def run_case(
     *,
     side: str,
     title: str,
-    chnkr,
+    boundary,
     s_mat: np.ndarray,
     weights: np.ndarray,
     truth_fn,
@@ -60,18 +60,18 @@ def run_case(
     output_dir: Path,
     grid_size: int,
 ) -> None:
-    boundary_values = truth_fn(boundary_nodes(chnkr))
+    boundary_values = truth_fn(boundary_nodes(boundary))
     sigma, const = solve_dirichlet(s_mat, weights, boundary_values)
 
     boundary_residual = np.max(np.abs(s_mat @ sigma + const - boundary_values))
-    check_error = target_error(chnkr, sigma, const, check_targets, truth_fn)
+    check_error = target_error(boundary, sigma, const, check_targets, truth_fn)
 
-    # The plotting helper evaluates close grid targets with opts["cormat"].
+    # The plotting helper evaluates close grid targets with an explicit correction matrix.
     pngs = write_solution_plots(
         output_dir,
         f"{side}_dirichlet",
         title,
-        chnkr,
+        boundary,
         sigma,
         const,
         side,
@@ -86,18 +86,18 @@ def run_case(
 
 
 def run_demo(output_dir: Path, depth: int, grid_size: int) -> None:
-    chnkr = make_square(depth)
-    weights = chnkr.wts.reshape(-1, order="F")
+    boundary = make_square(depth)
+    weights = boundary_weights(boundary)
 
     # Both interior and exterior Dirichlet cases use the same single-layer
     # matrix; only the boundary data changes.
-    s_mat = chunkermat(chnkr, kernel("lap", "s"))
+    s_mat = chunkermat(boundary, kernel("lap", "s"))
 
-    print(f"dyadic square: depth {depth}, {chnkr.nch} chunks, {chnkr.npt} nodes")
+    print(f"dyadic square: depth {depth}, {boundary.nch} chunks, {boundary.npt} nodes")
     run_case(
         side="interior",
         title="Interior Dirichlet",
-        chnkr=chnkr,
+        boundary=boundary,
         s_mat=s_mat,
         weights=weights,
         truth_fn=interior_solution,
@@ -108,7 +108,7 @@ def run_demo(output_dir: Path, depth: int, grid_size: int) -> None:
     run_case(
         side="exterior",
         title="Exterior Dirichlet",
-        chnkr=chnkr,
+        boundary=boundary,
         s_mat=s_mat,
         weights=weights,
         truth_fn=exterior_solution,

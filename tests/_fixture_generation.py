@@ -7,12 +7,10 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-import numpy as np
 from scipy.io import loadmat
 
 from chunkie import Chunker
 from chunkie.geometry import PointInfo
-
 
 ROOT = Path(__file__).resolve().parents[1]
 GOLDEN = Path(__file__).resolve().parent / "golden"
@@ -141,9 +139,13 @@ def assert_chunker_matches_fields(
     np.testing.assert_allclose(chnkr.d2, fields.d2, rtol=rtol, atol=atol, err_msg=f"{prefix}d2")
     np.testing.assert_allclose(chnkr.n, fields.n, rtol=rtol, atol=atol, err_msg=f"{prefix}n")
     np.testing.assert_allclose(chnkr.wts, fields.wts, rtol=rtol, atol=atol, err_msg=f"{prefix}wts")
-    np.testing.assert_array_equal(chnkr.adj, np.asarray(fields.adj, dtype=int), err_msg=f"{prefix}adj")
+    np.testing.assert_array_equal(
+        chnkr.adj, np.asarray(fields.adj, dtype=int), err_msg=f"{prefix}adj"
+    )
     if check_area:
-        np.testing.assert_allclose(chnkr.area(), fields.area, rtol=rtol, atol=atol, err_msg=f"{prefix}area")
+        np.testing.assert_allclose(
+            chnkr.area(), fields.area, rtol=rtol, atol=atol, err_msg=f"{prefix}area"
+        )
     if check_chunklen:
         np.testing.assert_allclose(
             chnkr.chunklen(),

@@ -1,7 +1,10 @@
 import numpy as np
+import pytest
 
-from chunkie import chunkerfunc, lege
 from _fixture_generation import load_generated_mat_fixture
+from chunkie import chunkerfunc, lege
+
+pytestmark = [pytest.mark.slow, pytest.mark.requires_matlab]
 
 
 def circle(t, radius):
@@ -27,7 +30,9 @@ def test_legendre_basic_fixture_matches_matlab():
 
 
 def test_circle_chunker_fixture_matches_matlab():
-    fixture = load_generated_mat_fixture("chunker_circle.mat", squeeze_me=True, struct_as_record=False)
+    fixture = load_generated_mat_fixture(
+        "chunker_circle.mat", squeeze_me=True, struct_as_record=False
+    )
     radius = float(fixture["radius"])
     chnkr, ab = chunkerfunc(lambda t: circle(t, radius), min_chunks=4, order=16)
     fields = fixture["chunker_fields"]

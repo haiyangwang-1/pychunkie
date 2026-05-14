@@ -4,16 +4,19 @@ import numpy as np
 
 from chunkie import chunkerfunc, chunkermat, ellipse, kernel
 
-
-chnkr = chunkerfunc(ellipse, {"nchmin": 6, "eps": 1e-8}, {"k": 8})[0]
+boundary = chunkerfunc(ellipse, min_chunks=6, tol=1e-8, order=8)[0]
 lap_s = kernel("lap", "s")
-rhs = np.cos(np.arange(chnkr.npt))
+rhs = np.cos(np.arange(boundary.npt))
 
-dense_shifted = chunkermat(chnkr, lap_s) + np.eye(chnkr.npt)
+dense_shifted = chunkermat(boundary, lap_s) + np.eye(boundary.npt)
 flam = chunkermat(
-    chnkr,
+    boundary,
     lap_s,
-    {"acceleration": "flam", "dval": 1.0, "occ": 8, "rank_or_tol": 1e-9, "useproxy": False},
+    acceleration="flam",
+    dval=1.0,
+    flam_occupancy=8,
+    rank_or_tol=1e-9,
+    proxy=False,
 )
 
 applied = flam @ rhs

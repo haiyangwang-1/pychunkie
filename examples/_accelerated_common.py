@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from chunkie import chunkerfunc
-
+from chunkie import PointInfo, chunkerfunc
 
 TARGETS = np.array([[0.1, 1.5, -0.7], [0.2, 0.3, 1.4]])
 
@@ -20,11 +19,15 @@ def circle(t: np.ndarray):
 
 
 def make_circle():
-    return chunkerfunc(circle, {"nchmin": 6, "eps": 1e-8}, {"k": 8})[0]
+    return chunkerfunc(circle, min_chunks=6, tol=1e-8, order=8)[0]
 
 
-def boundary_nodes(chnkr) -> np.ndarray:
-    return chnkr.r.reshape(2, chnkr.npt, order="F")
+def boundary_nodes(boundary) -> np.ndarray:
+    return PointInfo.from_any(boundary).r
+
+
+def component_vector(values: np.ndarray) -> np.ndarray:
+    return np.asarray(values).T.reshape(-1)
 
 
 def relerr(actual, expected) -> float:

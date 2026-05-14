@@ -14,18 +14,18 @@ which fixes the 2D Laplace single-layer compatibility constraint.
 from __future__ import annotations
 
 import numpy as np
-
-from chunkie import chunkermat, kernel
-
 from _smooth_laplace_common import (
     EXTERIOR_TARGETS,
     INTERIOR_TARGETS,
     boundary_nodes,
+    boundary_weights,
     exterior_solution,
     interior_solution,
     make_circle,
     single_layer_values,
 )
+
+from chunkie import chunkermat, kernel
 
 
 def solve_dirichlet(s_mat: np.ndarray, weights: np.ndarray, boundary_values: np.ndarray):
@@ -36,21 +36,23 @@ def solve_dirichlet(s_mat: np.ndarray, weights: np.ndarray, boundary_values: np.
     return sol[:-1], float(sol[-1])
 
 
-def run_case(title: str, chnkr, s_mat: np.ndarray, weights: np.ndarray, targets: np.ndarray, truth_fn) -> None:
-    sigma, const = solve_dirichlet(s_mat, weights, truth_fn(boundary_nodes(chnkr)))
-    vals = single_layer_values(chnkr, sigma, const, targets)
+def run_case(
+    title: str, boundary, s_mat: np.ndarray, weights: np.ndarray, targets: np.ndarray, truth_fn
+) -> None:
+    sigma, const = solve_dirichlet(s_mat, weights, truth_fn(boundary_nodes(boundary)))
+    vals = single_layer_values(boundary, sigma, const, targets)
     error = np.max(np.abs(vals - truth_fn(targets)))
     print(f"{title} max error: {error:.3e}")
 
 
 def main() -> None:
-    chnkr = make_circle()
-    weights = chnkr.wts.reshape(-1, order="F")
-    s_mat = chunkermat(chnkr, kernel("lap", "s"))
+    boundary = make_circle()
+    weights = boundary_weights(boundary)
+    s_mat = chunkermat(boundary, kernel("lap", "s"))
 
-    print(f"unit circle: {chnkr.nch} chunks, {chnkr.npt} nodes")
-    run_case("interior Dirichlet", chnkr, s_mat, weights, INTERIOR_TARGETS, interior_solution)
-    run_case("exterior Dirichlet", chnkr, s_mat, weights, EXTERIOR_TARGETS, exterior_solution)
+    print(f"unit circle: {boundary.nch} chunks, {boundary.npt} nodes")
+    run_case("interior Dirichlet", boundary, s_mat, weights, INTERIOR_TARGETS, interior_solution)
+    run_case("exterior Dirichlet", boundary, s_mat, weights, EXTERIOR_TARGETS, exterior_solution)
 
 
 if __name__ == "__main__":

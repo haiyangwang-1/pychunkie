@@ -1,7 +1,9 @@
 # Special Quadrature Status
 
 The Python port now includes `chunkie.quadrature.ggq`, matching the MATLAB
-special-quadrature entry points:
+special-quadrature entry points. Public signatures use Python-first names such
+as `quadrature_order`, `chunker`, `kernel`, `singularity`, `source_chunk`,
+`target`, and `options`:
 
 - `setup`
 - `getlogquad`

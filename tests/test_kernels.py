@@ -1,8 +1,12 @@
 import numpy as np
 
 from chunkie import PointInfo, chunkerfunc, chunkerkerneval, chunkermat, kernel
+from chunkie.kernels import biharmonic as biharm2d
+from chunkie.kernels import elasticity as elast2d
 from chunkie.kernels import helmholtz as helm2d
+from chunkie.kernels import helmholtz_1d as helm1d
 from chunkie.kernels import laplace as lap2d
+from chunkie.kernels import stokes as stok2d
 
 pointinfo = PointInfo.from_any
 
@@ -40,13 +44,67 @@ def test_laplace_green_matches_direct_formula():
     np.testing.assert_allclose(hess, expected_hess)
 
 
+def test_point_kernel_public_keywords_use_source_and_target():
+    source = PointInfo(r=np.array([[0.0], [0.0]]), n=np.array([[1.0], [0.0]]))
+    target = PointInfo(r=np.array([[1.1], [0.7]]), n=np.array([[0.0], [1.0]]))
+
+    np.testing.assert_allclose(
+        lap2d.green(source=source.r, target=target.r)[0],
+        lap2d.green(source.r, target.r)[0],
+    )
+    np.testing.assert_allclose(
+        helm2d.green(zk=1.2 + 0.3j, source=source.r, target=target.r)[0],
+        helm2d.green(1.2 + 0.3j, source.r, target.r)[0],
+    )
+    np.testing.assert_allclose(
+        helm2d.helmdiffgreen(zk=1.2 + 0.3j, source=source.r, target=target.r)[0],
+        helm2d.helmdiffgreen(1.2 + 0.3j, source.r, target.r)[0],
+    )
+    np.testing.assert_allclose(
+        helm1d.green(zk=1.2, source=source.r, target=target.r)[0],
+        helm1d.green(1.2, source.r, target.r)[0],
+    )
+    np.testing.assert_allclose(
+        biharm2d.green(source=source.r, target=target.r)[0],
+        biharm2d.green(source.r, target.r)[0],
+    )
+
+    np.testing.assert_allclose(
+        lap2d.kernel(source=source, target=target, kind="s"), lap2d.kernel(source, target, "s")
+    )
+    np.testing.assert_allclose(
+        helm2d.kernel(zk=1.2 + 0.3j, source=source, target=target, kind="s"),
+        helm2d.kernel(1.2 + 0.3j, source, target, "s"),
+    )
+    np.testing.assert_allclose(
+        helm1d.kernel(zk=1.2, source=source, target=target, kind="s"),
+        helm1d.kernel(1.2, source, target, "s"),
+    )
+    np.testing.assert_allclose(
+        biharm2d.kernel(source=source, target=target, kind="s"),
+        biharm2d.kernel(source, target, "s"),
+    )
+    np.testing.assert_allclose(
+        stok2d.kernel(mu=1.1, source=source, target=target, kind="s"),
+        stok2d.kernel(1.1, source, target, "s"),
+    )
+    np.testing.assert_allclose(
+        elast2d.kernel(lam=1.5, mu=2.1, source=source, target=target, kind="s"),
+        elast2d.kernel(1.5, 2.1, source, target, "s"),
+    )
+
+
 def test_laplace_direct_layer_evaluation_on_circle():
     radius = 2.0
     chnkr, _ = chunkerfunc(lambda t: circle(t, radius), min_chunks=8, order=16)
     target = np.array([[0.0], [0.0]])
 
-    single = chunkerkerneval(chnkr, lambda s, t: lap2d.kern(s, t, "s"), np.ones(chnkr.npt), target)
-    double = chunkerkerneval(chnkr, lambda s, t: lap2d.kern(s, t, "d"), np.ones(chnkr.npt), target)
+    single = chunkerkerneval(
+        chnkr, lambda s, t: lap2d.kernel(s, t, "s"), np.ones(chnkr.npt), target
+    )
+    double = chunkerkerneval(
+        chnkr, lambda s, t: lap2d.kernel(s, t, "d"), np.ones(chnkr.npt), target
+    )
 
     np.testing.assert_allclose(single.ravel(), [-radius * np.log(radius)], atol=1e-12)
     np.testing.assert_allclose(double.ravel(), [-1.0], atol=1e-12)
@@ -63,16 +121,17 @@ def test_laplace_kernel_selectors_have_expected_shapes():
     expected_sp = grad[:, :, 0] * targ.n[0, :, None] + grad[:, :, 1] * targ.n[1, :, None]
     expected_dp = -(
         hess[:, :, 0] * info.n[0, None, :] * targ.n[0, :, None]
-        + hess[:, :, 1] * (info.n[1, None, :] * targ.n[0, :, None] + info.n[0, None, :] * targ.n[1, :, None])
+        + hess[:, :, 1]
+        * (info.n[1, None, :] * targ.n[0, :, None] + info.n[0, None, :] * targ.n[1, :, None])
         + hess[:, :, 2] * info.n[1, None, :] * targ.n[1, :, None]
     )
     expected_sgrad = grad.transpose(0, 2, 1).reshape(2 * targ.r.shape[1], info.r.shape[1])
 
-    np.testing.assert_allclose(lap2d.kern(info, target, "s"), val)
-    np.testing.assert_allclose(lap2d.kern(info, target, "d"), expected_d)
-    np.testing.assert_allclose(lap2d.kern(info, target, "c"), expected_d + val)
-    np.testing.assert_allclose(lap2d.kern(info, target, "cp"), expected_dp + expected_sp)
-    np.testing.assert_allclose(lap2d.kern(info, target, "sgrad"), expected_sgrad)
+    np.testing.assert_allclose(lap2d.kernel(info, target, "s"), val)
+    np.testing.assert_allclose(lap2d.kernel(info, target, "d"), expected_d)
+    np.testing.assert_allclose(lap2d.kernel(info, target, "c"), expected_d + val)
+    np.testing.assert_allclose(lap2d.kernel(info, target, "cp"), expected_dp + expected_sp)
+    np.testing.assert_allclose(lap2d.kernel(info, target, "sgrad"), expected_sgrad)
 
 
 def test_helmholtz_green_gradient_matches_finite_difference():
@@ -139,11 +198,12 @@ def test_helmholtz_kernel_selectors_have_expected_shapes():
     expected_d = -(grad[:, :, 0] * info.n[0, None, :] + grad[:, :, 1] * info.n[1, None, :])
     expected_dp = -(
         hess[:, :, 0] * info.n[0, None, :] * targ.n[0, :, None]
-        + hess[:, :, 1] * (info.n[1, None, :] * targ.n[0, :, None] + info.n[0, None, :] * targ.n[1, :, None])
+        + hess[:, :, 1]
+        * (info.n[1, None, :] * targ.n[0, :, None] + info.n[0, None, :] * targ.n[1, :, None])
         + hess[:, :, 2] * info.n[1, None, :] * targ.n[1, :, None]
     )
 
-    np.testing.assert_allclose(helm2d.kern(1.3, info, target, "s"), val)
-    np.testing.assert_allclose(helm2d.kern(1.3, info, target, "d"), expected_d)
-    np.testing.assert_allclose(helm2d.kern(1.3, info, target, "dp"), expected_dp)
-    np.testing.assert_allclose(helm2d.kern(1.3, info, target, "c"), expected_d + 1.0j * val)
+    np.testing.assert_allclose(helm2d.kernel(1.3, info, target, "s"), val)
+    np.testing.assert_allclose(helm2d.kernel(1.3, info, target, "d"), expected_d)
+    np.testing.assert_allclose(helm2d.kernel(1.3, info, target, "dp"), expected_dp)
+    np.testing.assert_allclose(helm2d.kernel(1.3, info, target, "c"), expected_d + 1.0j * val)

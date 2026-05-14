@@ -22,9 +22,8 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from chunkie import lege
-from chunkie.geometry.chunker import Chunker
 from chunkie.geometry import PointInfo
-
+from chunkie.geometry.chunker import Chunker
 
 SplitType = tuple[int, int, int, int]
 
@@ -51,64 +50,70 @@ class SplitInfo:
 
 
 def pquadwts(
-    chnkr: Chunker,
-    src_chunk: int,
-    targobj: PointInfo | dict[str, Any] | ArrayLike,
+    chunker: Chunker,
+    source_chunk: int,
+    target: PointInfo | dict[str, Any] | ArrayLike,
     types: Sequence[ArrayLike | SplitType],
     side: str,
     *,
     nodes: ArrayLike | None = None,
     weights: ArrayLike | None = None,
-    intp_ab: ArrayLike | None = None,
-    intp: ArrayLike | None = None,
-    ifup: bool = True,
+    endpoint_interpolator: ArrayLike | None = None,
+    interpolator: ArrayLike | None = None,
+    upsample: bool = True,
 ) -> list[np.ndarray]:
     """Return product-quadrature weights for one source panel.
 
     ``side`` is ``"i"`` or ``"e"`` for the interior or exterior branch cut.
-    With ``ifup=True`` the returned matrices act on values on the supplied
-    product-rule nodes.  With ``ifup=False`` they are composed with ``intp`` and
-    act on the original chunk nodes.
+    With ``upsample=True`` the returned matrices act on values on the supplied
+    product-rule nodes. With ``upsample=False`` they are composed with
+    ``interpolator`` and act on the original chunk nodes.
     """
 
-    if src_chunk < 0 or src_chunk >= chnkr.nch:
+    if source_chunk < 0 or source_chunk >= chunker.nch:
         raise IndexError("source chunk index out of range")
-    if chnkr.dim != 2:
+    if chunker.dim != 2:
         raise ValueError("product quadrature is implemented for 2D chunkers")
 
-    k = chnkr.k
+    quadrature_order = chunker.k
     if nodes is None or weights is None:
-        t, w = lege.exps(2 * k)[:2]
+        t, w = lege.exps(2 * quadrature_order)[:2]
     else:
         t = np.asarray(nodes, dtype=float).reshape(-1)
         w = np.asarray(weights, dtype=float).reshape(-1)
     if t.shape != w.shape:
         raise ValueError("nodes and weights must have the same shape")
-    interp = lege.matrin(k, t)[0] if intp is None else np.asarray(intp)
-    interp_ab = lege.matrin(k, np.array([-1.0, 1.0]))[0] if intp_ab is None else np.asarray(intp_ab)
-    targ = PointInfo.from_any(targobj)
+    interp = (
+        lege.matrin(quadrature_order, t)[0] if interpolator is None else np.asarray(interpolator)
+    )
+    interp_ab = (
+        lege.matrin(quadrature_order, np.array([-1.0, 1.0]))[0]
+        if endpoint_interpolator is None
+        else np.asarray(endpoint_interpolator)
+    )
+    target_info = PointInfo.from_any(target)
     return panel_pquadwts(
-        chnkr.r,
-        chnkr.d,
-        chnkr.d2,
-        chnkr.wts,
-        src_chunk,
-        targ.r,
+        chunker.r,
+        chunker.d,
+        chunker.d2,
+        chunker.wts,
+        source_chunk,
+        target_info.r,
         t,
         w,
         side,
         interp_ab,
         interp,
         types,
-        ifup=ifup,
+        upsample=upsample,
     )
 
 
 def panel_matrix(
-    chnkr: Chunker,
-    src_chunk: int,
-    targobj: PointInfo | dict[str, Any] | ArrayLike,
-    splitinfo: SplitInfo,
+    chunker: Chunker,
+    source_chunk: int,
+    target: PointInfo | dict[str, Any] | ArrayLike,
+    split_info: SplitInfo,
     side: str,
     *,
     nodes: ArrayLike | None = None,
@@ -116,40 +121,43 @@ def panel_matrix(
 ) -> np.ndarray:
     """Assemble one source-panel product-quadrature matrix.
 
-    The output maps densities on the original ``chnkr.k`` source nodes to
+    The output maps densities on the original ``chunker.k`` source nodes to
     target values.  This mirrors the MATLAB ``chunkerkerneval_pquad`` block
     assembly, but stays local to one source panel.
     """
 
-    k = chnkr.k
+    quadrature_order = chunker.k
     if nodes is None or weights is None:
-        t, w = lege.exps(2 * k)[:2]
+        t, w = lege.exps(2 * quadrature_order)[:2]
     else:
         t = np.asarray(nodes, dtype=float).reshape(-1)
         w = np.asarray(weights, dtype=float).reshape(-1)
-    interp = lege.matrin(k, t)[0]
-    interp_ab = lege.matrin(k, np.array([-1.0, 1.0]))[0]
-    targ = PointInfo.from_any(targobj)
+    interp = lege.matrin(quadrature_order, t)[0]
+    interp_ab = lege.matrin(quadrature_order, np.array([-1.0, 1.0]))[0]
+    target_info = PointInfo.from_any(target)
     weights_by_type = pquadwts(
-        chnkr,
-        src_chunk,
-        targ,
-        splitinfo.types,
+        chunker,
+        source_chunk,
+        target_info,
+        split_info.types,
         side,
         nodes=t,
         weights=w,
-        intp_ab=interp_ab,
-        intp=interp,
-        ifup=True,
+        endpoint_interpolator=interp_ab,
+        interpolator=interp,
+        upsample=True,
     )
-    src = upsampled_sourceinfo(chnkr, src_chunk, interp)
-    split_values = splitinfo.functions(src, targ)
+    source_info = upsampled_sourceinfo(chunker, source_chunk, interp)
+    split_values = split_info.functions(source_info, target_info)
     if len(split_values) != len(weights_by_type):
         raise ValueError("split function count does not match split types")
 
-    op0, op1 = splitinfo.opdims
-    out_up = np.zeros((op0 * targ.r.shape[1], op1 * t.size), dtype=_split_dtype(weights_by_type, split_values))
-    for mat0, action, values in zip(weights_by_type, splitinfo.actions, split_values, strict=True):
+    op0, op1 = split_info.opdims
+    out_up = np.zeros(
+        (op0 * target_info.r.shape[1], op1 * t.size),
+        dtype=_split_dtype(weights_by_type, split_values),
+    )
+    for mat0, action, values in zip(weights_by_type, split_info.actions, split_values, strict=True):
         weighted = _apply_action(mat0, action)
         mat0opdim = np.kron(weighted, np.ones((op0, op1)))
         values_arr = np.asarray(values)
@@ -160,10 +168,10 @@ def panel_matrix(
 
 
 def panel_matrix_auto_side(
-    chnkr: Chunker,
-    src_chunk: int,
-    targobj: PointInfo | dict[str, Any] | ArrayLike,
-    splitinfo: SplitInfo,
+    chunker: Chunker,
+    source_chunk: int,
+    target: PointInfo | dict[str, Any] | ArrayLike,
+    split_info: SplitInfo,
     *,
     side: str | None = None,
     nodes: ArrayLike | None = None,
@@ -173,25 +181,33 @@ def panel_matrix_auto_side(
     """Assemble pquad blocks for targets whose interior/exterior side is known.
 
     If ``side`` is supplied, every target is evaluated on that side. Otherwise
-    the side is inferred from the nearest source node normal on ``src_chunk``.
+    the side is inferred from the nearest source node normal on ``source_chunk``.
     Targets too close to the source panel to classify robustly are left
     unhandled so callers can use their Gauss fallback.
     """
 
-    targ = PointInfo.from_any(targobj)
-    op0, op1 = splitinfo.opdims
-    ntarg = int(targ.r.shape[1])
-    shape = (op0 * ntarg, op1 * chnkr.k)
-    if ntarg == 0:
+    target_info = PointInfo.from_any(target)
+    op0, op1 = split_info.opdims
+    ntarget = int(target_info.r.shape[1])
+    shape = (op0 * ntarget, op1 * chunker.k)
+    if ntarget == 0:
         return np.zeros(shape), np.zeros(0, dtype=bool)
 
-    groups = _side_groups(chnkr, src_chunk, targ, side=side, side_tol=side_tol)
-    handled = np.zeros(ntarg, dtype=bool)
+    groups = _side_groups(chunker, source_chunk, target_info, side=side, side_tol=side_tol)
+    handled = np.zeros(ntarget, dtype=bool)
     out: np.ndarray | None = None
     for side0, target_ids in groups:
         if target_ids.size == 0:
             continue
-        block = panel_matrix(chnkr, src_chunk, _take_pointinfo(targ, target_ids), splitinfo, side0, nodes=nodes, weights=weights)
+        block = panel_matrix(
+            chunker=chunker,
+            source_chunk=source_chunk,
+            target=_take_pointinfo(target_info, target_ids),
+            split_info=split_info,
+            side=side0,
+            nodes=nodes,
+            weights=weights,
+        )
         if out is None:
             out = np.zeros(shape, dtype=block.dtype)
         elif np.result_type(out.dtype, block.dtype) != out.dtype:
@@ -205,20 +221,20 @@ def panel_matrix_auto_side(
 
 
 def panel_pquadwts(
-    r: np.ndarray,
-    d: np.ndarray,
-    d2: np.ndarray,
-    wts: np.ndarray,
-    src_chunk: int,
-    rt: ArrayLike,
-    t: ArrayLike,
-    w: ArrayLike,
+    positions: np.ndarray,
+    derivatives: np.ndarray,
+    second_derivatives: np.ndarray,
+    source_weights: np.ndarray,
+    source_chunk: int,
+    target_positions: ArrayLike,
+    nodes: ArrayLike,
+    weights: ArrayLike,
     side: str,
-    intp_ab: ArrayLike,
-    intp: ArrayLike,
+    endpoint_interpolator: ArrayLike,
+    interpolator: ArrayLike,
     types: Sequence[ArrayLike | SplitType],
     *,
-    ifup: bool = True,
+    upsample: bool = True,
 ) -> list[np.ndarray]:
     """Low-level product-quadrature weights for one panel."""
 
@@ -226,21 +242,22 @@ def panel_pquadwts(
     if side0 not in {"i", "e"}:
         raise ValueError("side must be 'i' or 'e'")
 
-    r_arr = np.asarray(r)
-    d_arr = np.asarray(d)
-    d2_arr = np.asarray(d2)
-    wts_arr = np.asarray(wts)
-    t_arr = np.asarray(t, dtype=float).reshape(-1)
-    w_arr = np.asarray(w, dtype=float).reshape(-1)
-    interp = np.asarray(intp)
-    interp_ab = np.asarray(intp_ab)
-    target = np.asarray(rt, dtype=float).reshape(2, -1)
+    positions_arr = np.asarray(positions)
+    derivatives_arr = np.asarray(derivatives)
+    second_derivatives_arr = np.asarray(second_derivatives)
+    weights_arr = np.asarray(source_weights)
+    quadrature_weights = np.asarray(weights, dtype=float).reshape(-1)
+    interp = np.asarray(interpolator)
+    interp_ab = np.asarray(endpoint_interpolator)
+    target = np.asarray(target_positions, dtype=float).reshape(2, -1)
     split_types = tuple(_split_type(type0) for type0 in types)
     nout = _required_special_count(split_types)
 
-    z_nodes = r_arr[0, :, src_chunk] + 1j * r_arr[1, :, src_chunk]
-    dz_nodes = d_arr[0, :, src_chunk] + 1j * d_arr[1, :, src_chunk]
-    d2z_nodes = d2_arr[0, :, src_chunk] + 1j * d2_arr[1, :, src_chunk]
+    z_nodes = positions_arr[0, :, source_chunk] + 1j * positions_arr[1, :, source_chunk]
+    dz_nodes = derivatives_arr[0, :, source_chunk] + 1j * derivatives_arr[1, :, source_chunk]
+    d2z_nodes = (
+        second_derivatives_arr[0, :, source_chunk] + 1j * second_derivatives_arr[1, :, source_chunk]
+    )
 
     xlohi = interp_ab @ z_nodes
     z_up = interp @ z_nodes
@@ -249,7 +266,7 @@ def panel_pquadwts(
     speed = np.abs(dz_up)
     tangent = dz_up / speed
     normal = -1j * tangent
-    wxp = w_arr * dz_up
+    wxp = quadrature_weights * dz_up
 
     special: tuple[np.ndarray, ...] = ()
     if nout:
@@ -263,14 +280,17 @@ def panel_pquadwts(
             side0,
             nout=nout,
         )
-        if not ifup:
+        if not upsample:
             special = tuple(mat @ interp for mat in special)
 
-    smooth_wts = w_arr * speed if ifup else wts_arr[:, src_chunk]
+    smooth_wts = quadrature_weights * speed if upsample else weights_arr[:, source_chunk]
     out: list[np.ndarray] = []
     for type0 in split_types:
         if type0 == SMOOTH:
-            out.append(np.ones((target.shape[1], smooth_wts.size), dtype=smooth_wts.dtype) * smooth_wts[None, :])
+            out.append(
+                np.ones((target.shape[1], smooth_wts.size), dtype=smooth_wts.dtype)
+                * smooth_wts[None, :]
+            )
         elif type0 == LOG:
             out.append(special[0])
         elif type0 == CAUCHY:
@@ -377,31 +397,33 @@ def sd_special_quad(
     return tuple(out)
 
 
-def upsampled_sourceinfo(chnkr: Chunker, src_chunk: int, intp: ArrayLike) -> PointInfo:
+def upsampled_sourceinfo(chunker: Chunker, source_chunk: int, interpolator: ArrayLike) -> PointInfo:
     """Return source point info interpolated to product-rule nodes."""
 
-    interp = np.asarray(intp)
-    r_up = (interp @ chnkr.r[:, :, src_chunk].T).T
-    d_up = (interp @ chnkr.d[:, :, src_chunk].T).T
-    d2_up = (interp @ chnkr.d2[:, :, src_chunk].T).T
+    interp = np.asarray(interpolator)
+    r_up = (interp @ chunker.r[:, :, source_chunk].T).T
+    d_up = (interp @ chunker.d[:, :, source_chunk].T).T
+    d2_up = (interp @ chunker.d2[:, :, source_chunk].T).T
     speed = np.sqrt(np.sum(np.abs(d_up) ** 2, axis=0))
     normal = np.vstack((d_up[1], -d_up[0])) / speed[None, :]
-    data = (interp @ chnkr.data[:, :, src_chunk].T).T if chnkr.datadim else None
+    data = (interp @ chunker.data[:, :, source_chunk].T).T if chunker.datadim else None
     return PointInfo(r=r_up, d=d_up, d2=d2_up, n=normal, data=data)
 
 
-def splitinfo_for_kernel(kern: Any) -> SplitInfo | None:
+def splitinfo_for_kernel(kernel: Any) -> SplitInfo | None:
     """Return split metadata for built-in scalar kernels when available."""
 
-    name = str(getattr(kern, "name", "")).lower()
-    kind = str(getattr(kern, "type", "")).lower()
-    params = getattr(kern, "params", {}) or {}
-    opdims = tuple(getattr(kern, "opdims", (1, 1)))
+    name = str(getattr(kernel, "name", "")).lower()
+    kind = str(getattr(kernel, "type", "")).lower()
+    params = getattr(kernel, "params", {}) or {}
+    opdims = tuple(getattr(kernel, "opdims", (1, 1)))
     scale = params.get("_scale", 1.0)
     if name == "laplace":
         return _laplace_splitinfo(kind, params.get("coefs", None), scale)
     if name == "helmholtz":
-        return _helmholtz_splitinfo(kind, params.get("zk", None), params.get("coefs", None), opdims, scale)
+        return _helmholtz_splitinfo(
+            kind, params.get("zk", None), params.get("coefs", None), opdims, scale
+        )
     return None
 
 
@@ -411,7 +433,7 @@ def _laplace_splitinfo(kind: str, coefs: Any, scale: Any = 1.0) -> SplitInfo | N
     if kind in {"d", "double"}:
         return SplitInfo((CAUCHY,), ("r",), lambda s, t: (scale * _ones(t, s),), (1, 1))
     if kind in {"c", "combined"}:
-        c = np.ones(2) if coefs is None else np.asarray(coefs).reshape(-1, order="F")
+        c = np.ones(2) if coefs is None else np.asarray(coefs).reshape(-1)
 
         def functions(s: PointInfo, t: PointInfo) -> tuple[np.ndarray, np.ndarray]:
             ones = _ones(t, s)
@@ -421,47 +443,67 @@ def _laplace_splitinfo(kind: str, coefs: Any, scale: Any = 1.0) -> SplitInfo | N
     return None
 
 
-def _helmholtz_splitinfo(kind: str, zk: Any, coefs: Any, opdims: tuple[int, int], scale: Any = 1.0) -> SplitInfo | None:
+def _helmholtz_splitinfo(
+    kind: str, zk: Any, coefs: Any, opdims: tuple[int, int], scale: Any = 1.0
+) -> SplitInfo | None:
     if zk is None or opdims != (1, 1):
         return None
     from chunkie.kernels import helmholtz as helm2d
 
     if kind in {"s", "single"}:
-        return SplitInfo((SMOOTH, LOG), ("r", "r"), lambda s, t: _scale_split(scale, _helmholtz_s_split(helm2d, zk, s, t)), (1, 1))
+        return SplitInfo(
+            (SMOOTH, LOG),
+            ("r", "r"),
+            lambda source, target: _scale_split(
+                scale, _helmholtz_s_split(helm2d, zk, source, target)
+            ),
+            (1, 1),
+        )
     if kind in {"d", "double"}:
         return SplitInfo(
             (SMOOTH, LOG, CAUCHY),
             ("r", "r", "r"),
-            lambda s, t: _scale_split(scale, _helmholtz_d_split(helm2d, zk, s, t)),
+            lambda source, target: _scale_split(
+                scale, _helmholtz_d_split(helm2d, zk, source, target)
+            ),
             (1, 1),
         )
     if kind in {"c", "combined"}:
-        c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs).reshape(-1, order="F")
+        c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs).reshape(-1)
         return SplitInfo(
             (SMOOTH, LOG, CAUCHY),
             ("r", "r", "r"),
-            lambda s, t: _scale_split(scale, _helmholtz_c_split(helm2d, zk, c, s, t)),
+            lambda source, target: _scale_split(
+                scale, _helmholtz_c_split(helm2d, zk, c, source, target)
+            ),
             (1, 1),
         )
     return None
 
 
-def _helmholtz_s_split(helm2d: Any, zk: complex, src: PointInfo, targ: PointInfo) -> tuple[np.ndarray, np.ndarray]:
-    seval = helm2d.kern(zk, src, targ, "s")
-    dist = _complex_points(src)[None, :] - _complex_points(targ)[:, None]
+def _helmholtz_s_split(
+    helm2d: Any, zk: complex, source: PointInfo, target: PointInfo
+) -> tuple[np.ndarray, np.ndarray]:
+    seval = helm2d.kernel(zk, source, target, "s")
+    dist = _complex_points(source)[None, :] - _complex_points(target)[:, None]
     logeval = np.log(np.abs(dist))
     return seval + (2.0 / np.pi) * logeval * np.imag(seval), 4.0 * np.imag(seval)
 
 
-def _helmholtz_d_split(helm2d: Any, zk: complex, src: PointInfo, targ: PointInfo) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    deval = helm2d.kern(zk, src, targ, "d")
-    dist = _complex_points(src)[None, :] - _complex_points(targ)[:, None]
+def _helmholtz_d_split(
+    helm2d: Any,
+    zk: complex,
+    source: PointInfo,
+    target: PointInfo,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    deval = helm2d.kernel(zk, source, target, "d")
+    dist = _complex_points(source)[None, :] - _complex_points(target)[:, None]
     logeval = np.log(np.abs(dist))
-    cauchy = _complex_normals(src)[None, :] / dist
+    cauchy = _complex_normals(source)[None, :] / dist
     return (
         deval + (2.0 / np.pi) * logeval * np.imag(deval) + np.real(cauchy) / (2.0 * np.pi),
         4.0 * np.imag(deval),
-        _ones(targ, src),
+        _ones(target, source),
     )
 
 
@@ -469,11 +511,11 @@ def _helmholtz_c_split(
     helm2d: Any,
     zk: complex,
     coefs: np.ndarray,
-    src: PointInfo,
-    targ: PointInfo,
+    source: PointInfo,
+    target: PointInfo,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    s0, s1 = _helmholtz_s_split(helm2d, zk, src, targ)
-    d0, d1, d2 = _helmholtz_d_split(helm2d, zk, src, targ)
+    s0, s1 = _helmholtz_s_split(helm2d, zk, source, target)
+    d0, d1, d2 = _helmholtz_d_split(helm2d, zk, source, target)
     return coefs[0] * d0 + coefs[1] * s0, coefs[0] * d1 + coefs[1] * s1, coefs[0] * d2
 
 
@@ -531,8 +573,8 @@ def _complex_normals(info: PointInfo) -> np.ndarray:
     return np.asarray(info.n[0]) + 1j * np.asarray(info.n[1])
 
 
-def _ones(targ: PointInfo, src: PointInfo) -> np.ndarray:
-    return np.ones((targ.r.shape[1], src.r.shape[1]))
+def _ones(target: PointInfo, source: PointInfo) -> np.ndarray:
+    return np.ones((target.r.shape[1], source.r.shape[1]))
 
 
 def _scale_split(scale: Any, values: tuple[np.ndarray, ...]) -> tuple[np.ndarray, ...]:
@@ -540,27 +582,27 @@ def _scale_split(scale: Any, values: tuple[np.ndarray, ...]) -> tuple[np.ndarray
 
 
 def _side_groups(
-    chnkr: Chunker,
-    src_chunk: int,
-    targ: PointInfo,
+    chunker: Chunker,
+    source_chunk: int,
+    target: PointInfo,
     *,
     side: str | None,
     side_tol: float | None,
 ) -> list[tuple[str, np.ndarray]]:
     explicit = _normalize_side(side)
-    ntarg = int(targ.r.shape[1])
+    ntarget = int(target.r.shape[1])
     if explicit is not None:
-        return [(explicit, np.arange(ntarg, dtype=int))]
+        return [(explicit, np.arange(ntarget, dtype=int))]
 
-    if chnkr.dim != 2:
+    if chunker.dim != 2:
         return []
-    tol = _default_side_tol(chnkr, src_chunk) if side_tol is None else float(side_tol)
-    diff = targ.r[:, :, None] - chnkr.r[:, None, :, src_chunk]
+    tol = _default_side_tol(chunker, source_chunk) if side_tol is None else float(side_tol)
+    diff = target.r[:, :, None] - chunker.r[:, None, :, source_chunk]
     dist2 = np.sum(diff * diff, axis=0)
     nearest = np.argmin(dist2, axis=1)
-    target_ids = np.arange(ntarg)
-    offsets = targ.r[:, target_ids] - chnkr.r[:, nearest, src_chunk]
-    normals = chnkr.n[:, nearest, src_chunk]
+    target_ids = np.arange(ntarget)
+    offsets = target.r[:, target_ids] - chunker.r[:, nearest, source_chunk]
+    normals = chunker.n[:, nearest, source_chunk]
     signed = np.sum(offsets * normals, axis=0)
     inside = np.flatnonzero(signed < -tol)
     outside = np.flatnonzero(signed > tol)
@@ -581,9 +623,9 @@ def _normalize_side(side: str | None) -> str | None:
     return side0
 
 
-def _default_side_tol(chnkr: Chunker, src_chunk: int) -> float:
+def _default_side_tol(chunker: Chunker, source_chunk: int) -> float:
     try:
-        scale = float(chnkr.chunklen()[src_chunk])
+        scale = float(chunker.chunklen()[source_chunk])
     except (AttributeError, IndexError, TypeError, ValueError, FloatingPointError):
         scale = 1.0
     return 1.0e-13 * max(1.0, scale)

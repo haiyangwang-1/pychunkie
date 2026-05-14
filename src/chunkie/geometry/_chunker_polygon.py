@@ -14,9 +14,9 @@ if TYPE_CHECKING:
 def _dyadic_chunkerpoly(
     vertices: np.ndarray,
     cparams: dict[str, Any],
-    pref: "ChunkerPref",
+    pref: ChunkerPref,
     edgevals: ArrayLike | None,
-) -> "Chunker":
+) -> Chunker:
     from .chunker import Chunker, ChunkerPref
 
     ifclosed = bool(cparams.get("ifclosed", True))
@@ -83,14 +83,21 @@ def _dyadic_chunkerpoly(
         corner = end
         width = w1
 
-        for hi, lo in zip(reversed(breaks[1:]), reversed(breaks[:-1])):
-            _fill_line_chunk(chnkr, ich, corner - tangent * (hi * width), corner - tangent * (lo * width))
+        for hi, lo in zip(reversed(breaks[1:]), reversed(breaks[:-1]), strict=True):
+            _fill_line_chunk(
+                chnkr, ich, corner - tangent * (hi * width), corner - tangent * (lo * width)
+            )
             if edge_data is not None:
                 chnkr.datastor[:, :, ich] = edge_data[:, iedge][:, None]
             ich += 1
 
-        for lo, hi in zip(breaks[:-1], breaks[1:]):
-            _fill_line_chunk(chnkr, ich, corner + next_tangent * (lo * width), corner + next_tangent * (hi * width))
+        for lo, hi in zip(breaks[:-1], breaks[1:], strict=True):
+            _fill_line_chunk(
+                chnkr,
+                ich,
+                corner + next_tangent * (lo * width),
+                corner + next_tangent * (hi * width),
+            )
             if edge_data is not None:
                 chnkr.datastor[:, :, ich] = edge_data[:, next_edge][:, None]
             ich += 1
@@ -115,9 +122,9 @@ def _dyadic_chunkerpoly(
 def _rounded_chunkerpoly(
     vertices: np.ndarray,
     cparams: dict[str, Any],
-    pref: "ChunkerPref",
+    pref: ChunkerPref,
     edgevals: ArrayLike | None,
-) -> "Chunker":
+) -> Chunker:
     from .chunker import Chunker, ChunkerPref
 
     if vertices.shape[0] != 2:
@@ -126,10 +133,7 @@ def _rounded_chunkerpoly(
     ifclosed = bool(cparams.get("ifclosed", True))
     nv = vertices.shape[1]
     nedge = nv if ifclosed else nv - 1
-    edges = [
-        (vertices[:, i], vertices[:, (i + 1) % nv])
-        for i in range(nedge)
-    ]
+    edges = [(vertices[:, i], vertices[:, (i + 1) % nv]) for i in range(nedge)]
     lengths = np.array([np.linalg.norm(end - start) for start, end in edges])
     if np.any(lengths <= 0.0):
         raise ValueError("polygon edges must have positive length")
@@ -185,7 +189,9 @@ def _rounded_chunkerpoly(
             if edge_data is not None:
                 val0 = edge_data[:, iedge]
                 val1 = edge_data[:, next_edge]
-                chnkr.datastor[:, :, ich] = val0[:, None] * (1.0 - u)[None, :] + val1[:, None] * u[None, :]
+                chnkr.datastor[:, :, ich] = (
+                    val0[:, None] * (1.0 - u)[None, :] + val1[:, None] * u[None, :]
+                )
             ich += 1
 
     if ich != nch:
@@ -204,7 +210,9 @@ def _rounded_chunkerpoly(
     return chnkr
 
 
-def _polygon_widths(vertices: np.ndarray, lengths: np.ndarray, cparams: dict[str, Any], ifclosed: bool) -> np.ndarray:
+def _polygon_widths(
+    vertices: np.ndarray, lengths: np.ndarray, cparams: dict[str, Any], ifclosed: bool
+) -> np.ndarray:
     nv = vertices.shape[1]
     if "widths" in cparams:
         widths = np.asarray(cparams["widths"], dtype=float).reshape(-1)
@@ -229,22 +237,35 @@ def _polygon_widths(vertices: np.ndarray, lengths: np.ndarray, cparams: dict[str
     return widths
 
 
-def _fill_line_chunk(chnkr: "Chunker", ich: int, start: np.ndarray, end: np.ndarray) -> None:
+def _fill_line_chunk(
+    chunker: Chunker, chunk_index: int, start: np.ndarray, end: np.ndarray
+) -> None:
     delta = end - start
     length = float(np.linalg.norm(delta))
     if length <= 0.0:
         raise ValueError("rounded polygon produced a zero-length straight panel")
-    u = (chnkr.tstor + 1.0) / 2.0
+    u = (chunker.tstor + 1.0) / 2.0
     tangent = delta / length
     h = length / 2.0
-    chnkr.rstor[:, :, ich] = start[:, None] + delta[:, None] * u[None, :]
-    chnkr.dstor[:, :, ich] = tangent[:, None] * h
-    chnkr.d2stor[:, :, ich] = 0.0
+    chunker.rstor[:, :, chunk_index] = start[:, None] + delta[:, None] * u[None, :]
+    chunker.dstor[:, :, chunk_index] = tangent[:, None] * h
+    chunker.d2stor[:, :, chunk_index] = 0.0
 
 
-def _fill_quadratic_chunk(chnkr: "Chunker", ich: int, p0: np.ndarray, p1: np.ndarray, p2: np.ndarray, u: np.ndarray) -> None:
+def _fill_quadratic_chunk(
+    chunker: Chunker,
+    chunk_index: int,
+    p0: np.ndarray,
+    p1: np.ndarray,
+    p2: np.ndarray,
+    u: np.ndarray,
+) -> None:
     omt = 1.0 - u
-    chnkr.rstor[:, :, ich] = omt[None, :] ** 2 * p0[:, None] + 2.0 * omt[None, :] * u[None, :] * p1[:, None] + u[None, :] ** 2 * p2[:, None]
+    chunker.rstor[:, :, chunk_index] = (
+        omt[None, :] ** 2 * p0[:, None]
+        + 2.0 * omt[None, :] * u[None, :] * p1[:, None]
+        + u[None, :] ** 2 * p2[:, None]
+    )
     drdu = 2.0 * omt[None, :] * (p1 - p0)[:, None] + 2.0 * u[None, :] * (p2 - p1)[:, None]
-    chnkr.dstor[:, :, ich] = drdu / 2.0
-    chnkr.d2stor[:, :, ich] = (p2 - 2.0 * p1 + p0)[:, None] / 2.0
+    chunker.dstor[:, :, chunk_index] = drdu / 2.0
+    chunker.d2stor[:, :, chunk_index] = (p2 - 2.0 * p1 + p0)[:, None] / 2.0

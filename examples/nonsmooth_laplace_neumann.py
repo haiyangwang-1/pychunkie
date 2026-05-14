@@ -20,9 +20,6 @@ import argparse
 from pathlib import Path
 
 import numpy as np
-
-from chunkie import chunkermat, kernel
-
 from _nonsmooth_laplace_common import (
     DEFAULT_DEPTH,
     DEFAULT_GRID_SIZE,
@@ -30,6 +27,7 @@ from _nonsmooth_laplace_common import (
     INTERIOR_TARGETS,
     boundary_nodes,
     boundary_normals,
+    boundary_weights,
     constant_fit,
     exterior_gradient,
     exterior_solution,
@@ -40,19 +38,21 @@ from _nonsmooth_laplace_common import (
     write_solution_plots,
 )
 
+from chunkie import chunkermat, kernel
 
-def single_layer_neumann_matrix(chnkr, kprime: np.ndarray, side: str) -> np.ndarray:
+
+def single_layer_neumann_matrix(boundary, kprime: np.ndarray, side: str) -> np.ndarray:
     """Build jump * I + S' + onesmat for a polygonal Neumann solve."""
 
     jump = 0.5 if side == "interior" else -0.5
-    return jump * np.eye(chnkr.npt) + kprime + chnkr.onesmat()
+    return jump * np.eye(boundary.npt) + kprime + boundary.onesmat()
 
 
 def run_case(
     *,
     side: str,
     title: str,
-    chnkr,
+    boundary,
     system: np.ndarray,
     solution_fn,
     gradient_fn,
@@ -60,25 +60,25 @@ def run_case(
     output_dir: Path,
     grid_size: int,
 ) -> None:
-    boundary = boundary_nodes(chnkr)
-    normal_data = np.sum(gradient_fn(boundary) * boundary_normals(chnkr), axis=0)
+    boundary = boundary_nodes(boundary)
+    normal_data = np.sum(gradient_fn(boundary) * boundary_normals(boundary), axis=0)
     sigma = np.linalg.solve(system, normal_data)
 
     if side == "interior":
-        const = constant_fit(chnkr, sigma, check_targets, solution_fn(check_targets))
+        const = constant_fit(boundary, sigma, check_targets, solution_fn(check_targets))
     else:
         const = 0.0
 
     boundary_residual = np.max(np.abs(system @ sigma - normal_data))
-    check_error = target_error(chnkr, sigma, const, check_targets, solution_fn)
-    net_charge = float(np.dot(chnkr.wts.reshape(-1, order="F"), sigma))
+    check_error = target_error(boundary, sigma, const, check_targets, solution_fn)
+    net_charge = float(np.dot(boundary_weights(boundary), sigma))
 
-    # The plotting helper evaluates close grid targets with opts["cormat"].
+    # The plotting helper evaluates close grid targets with an explicit correction matrix.
     pngs = write_solution_plots(
         output_dir,
         f"{side}_neumann",
         title,
-        chnkr,
+        boundary,
         sigma,
         const,
         side,
@@ -94,16 +94,16 @@ def run_case(
 
 
 def run_demo(output_dir: Path, depth: int, grid_size: int) -> None:
-    chnkr = make_square(depth)
-    kprime = chunkermat(chnkr, kernel("lap", "sp"))
+    boundary = make_square(depth)
+    kprime = chunkermat(boundary, kernel("lap", "sp"))
     kprime[np.diag_indices_from(kprime)] = 0.0
-    print(f"dyadic square: depth {depth}, {chnkr.nch} chunks, {chnkr.npt} nodes")
+    print(f"dyadic square: depth {depth}, {boundary.nch} chunks, {boundary.npt} nodes")
 
     run_case(
         side="interior",
         title="Interior Neumann",
-        chnkr=chnkr,
-        system=single_layer_neumann_matrix(chnkr, kprime, "interior"),
+        boundary=boundary,
+        system=single_layer_neumann_matrix(boundary, kprime, "interior"),
         solution_fn=interior_solution,
         gradient_fn=interior_gradient,
         check_targets=INTERIOR_TARGETS,
@@ -113,8 +113,8 @@ def run_demo(output_dir: Path, depth: int, grid_size: int) -> None:
     run_case(
         side="exterior",
         title="Exterior Neumann",
-        chnkr=chnkr,
-        system=single_layer_neumann_matrix(chnkr, kprime, "exterior"),
+        boundary=boundary,
+        system=single_layer_neumann_matrix(boundary, kprime, "exterior"),
         solution_fn=exterior_solution,
         gradient_fn=exterior_gradient,
         check_targets=EXTERIOR_TARGETS,

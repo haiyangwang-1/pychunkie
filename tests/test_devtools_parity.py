@@ -5,8 +5,16 @@ import pytest
 from scipy import sparse
 from scipy.special import hankel1
 
+from _fixture_generation import (
+    chunker_from_fields,
+    load_generated_mat_fixture,
+    point_array,
+    pointinfo_from_mat,
+)
+from _numerical import assert_abs_or_rel_close
 from chunkie import (
     Chunker,
+    ChunkGraph,
     Kernel,
     chunkerfit,
     chunkerfunc,
@@ -18,7 +26,6 @@ from chunkie import (
     chunkermat,
     chunkermatapply,
     chunkerpoly,
-    chunkgraph,
     chunkgraphinregion,
     find_edge_regions,
     kernel,
@@ -26,21 +33,28 @@ from chunkie import (
     tochunkgraph,
 )
 from chunkie.acceleration import flam
+from chunkie.geometry import PointInfo, curves
 from chunkie.kernels import elasticity as elast2d
 from chunkie.kernels import helmholtz as helm2d
 from chunkie.kernels import helmholtz_1d as helm1d
 from chunkie.kernels import laplace as lap2d
-from chunkie.geometry import PointInfo, curves
 from chunkie.misc import absconvgauss, arcparam, smoother
 from chunkie.quadrature import adaptive as quadadap
 from chunkie.quadrature import panel as pquad
-from _fixture_generation import chunker_from_fields, load_generated_mat_fixture, point_array, pointinfo_from_mat
 
 pointinfo = PointInfo.from_any
+pytestmark = [pytest.mark.slow, pytest.mark.requires_matlab]
+
+
+def matlab_grid_flags(flags, x, y) -> np.ndarray:
+    flat = np.asarray(flags, dtype=bool)
+    return flat.reshape(np.asarray(y).size, np.asarray(x).size, flat.shape[1], order="F")
 
 
 def load_devtools_easy():
-    return load_generated_mat_fixture("devtools_easy.mat", squeeze_me=True, struct_as_record=False)["devtools_easy"]
+    return load_generated_mat_fixture("devtools_easy.mat", squeeze_me=True, struct_as_record=False)[
+        "devtools_easy"
+    ]
 
 
 def _assert_kernder_algebra(case, coefs: np.ndarray, coefa: np.ndarray) -> None:
@@ -66,16 +80,24 @@ def _assert_kernder_algebra(case, coefs: np.ndarray, coefa: np.ndarray) -> None:
     all_assembled[1::2, 1::2] = coefa[1, 1] * sp
     np.testing.assert_allclose(all_assembled, all_mat, rtol=1e-12, atol=1e-13)
 
-    np.testing.assert_allclose(np.hstack((coefs[0] * d, coefs[1] * s)), case.trans_rep, rtol=1e-12, atol=1e-13)
-    np.testing.assert_allclose(np.hstack((coefs[0] * dp, coefs[1] * sp)), case.trans_rep_prime, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(
+        np.hstack((coefs[0] * d, coefs[1] * s)), case.trans_rep, rtol=1e-12, atol=1e-13
+    )
+    np.testing.assert_allclose(
+        np.hstack((coefs[0] * dp, coefs[1] * sp)), case.trans_rep_prime, rtol=1e-12, atol=1e-13
+    )
     np.testing.assert_allclose(coefs[0] * dgrad + coefs[1] * sgrad, cgrad, rtol=1e-12, atol=1e-13)
-    np.testing.assert_allclose(np.hstack((coefs[0] * dgrad, coefs[1] * sgrad)), case.trans_rep_grad, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(
+        np.hstack((coefs[0] * dgrad, coefs[1] * sgrad)), case.trans_rep_grad, rtol=1e-12, atol=1e-13
+    )
 
     c2_assembled = np.zeros_like(c2trans)
     c2_assembled[0::2] = coefs[0] * d + coefs[1] * s
     c2_assembled[1::2] = coefs[0] * dp + coefs[1] * sp
     np.testing.assert_allclose(c2_assembled, c2trans, rtol=1e-12, atol=1e-13)
-    np.testing.assert_allclose(dp.reshape(-1, order="F"), np.asarray(case.dp_grad_dot).reshape(-1), rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(
+        dp.reshape(-1, order="F"), np.asarray(case.dp_grad_dot).reshape(-1), rtol=1e-12, atol=1e-13
+    )
 
 
 def _kernder_array(value) -> np.ndarray:
@@ -156,8 +178,12 @@ def transmission_point_source_boundary_data(chnkr: Chunker, fixture) -> np.ndarr
     val2, grad2, _ = helm2d.green(ks[d2], sources[:, d2 : d2 + 1], targ.r)
     u1 = val1 @ charges[d1 : d1 + 1]
     u2 = val2 @ charges[d2 : d2 + 1]
-    dudn1 = (grad1[:, :, 0] @ charges[d1 : d1 + 1]) * targ.n[0] + (grad1[:, :, 1] @ charges[d1 : d1 + 1]) * targ.n[1]
-    dudn2 = (grad2[:, :, 0] @ charges[d2 : d2 + 1]) * targ.n[0] + (grad2[:, :, 1] @ charges[d2 : d2 + 1]) * targ.n[1]
+    dudn1 = (grad1[:, :, 0] @ charges[d1 : d1 + 1]) * targ.n[0] + (
+        grad1[:, :, 1] @ charges[d1 : d1 + 1]
+    ) * targ.n[1]
+    dudn2 = (grad2[:, :, 0] @ charges[d2 : d2 + 1]) * targ.n[0] + (
+        grad2[:, :, 1] @ charges[d2 : d2 + 1]
+    ) * targ.n[1]
 
     out = np.zeros(2 * chnkr.npt, dtype=complex)
     out[0::2] = alpha1 * (u1 - u2)
@@ -208,10 +234,15 @@ def sinearc(t, amp: float, frq: float):
 def chunkermatapply_graph_from_fixture(fixture):
     edges = np.asarray(fixture.edgesendverts, dtype=int) - 1
     if hasattr(fixture, "echnks"):
-        edge_chunks = [chunker_from_fields(edge) for edge in np.asarray(fixture.echnks).reshape(-1, order="F")]
-        return chunkgraph(fixture.verts, edges, edge_chunks)
-    edge_specs = [lambda t, amp=float(fixture.amp), frq=float(fixture.frq): sinearc(t, amp, frq) for _ in range(edges.shape[1])]
-    return chunkgraph(
+        edge_chunks = [
+            chunker_from_fields(edge) for edge in np.asarray(fixture.echnks).reshape(-1, order="F")
+        ]
+        return ChunkGraph(fixture.verts, edges, edge_chunks)
+    edge_specs = [
+        lambda t, amp=float(fixture.amp), frq=float(fixture.frq): sinearc(t, amp, frq)
+        for _ in range(edges.shape[1])
+    ]
+    return ChunkGraph(
         fixture.verts,
         edges,
         edge_specs,
@@ -244,35 +275,41 @@ def chunkgraph_lastlength_graph(fixture):
     edge_specs = []
     for _ in range(ncircedge // 2):
         edge_specs.append(None)
-        edge_specs.append(lambda t, amp=float(fixture.amp), frq=float(fixture.frq): sinearc(t, amp, frq))
+        edge_specs.append(
+            lambda t, amp=float(fixture.amp), frq=float(fixture.frq): sinearc(t, amp, frq)
+        )
+    closed_center = np.asarray(fixture.closed_ctr, dtype=float).reshape(2)
+    closed_narm = int(fixture.closed_narm)
+    closed_amp = float(fixture.closed_amp)
+    closed_scale = float(fixture.closed_scale)
     edge_specs.append(None)
     edge_specs.append(
-        lambda t,
-        narm=int(fixture.closed_narm),
-        amp=float(fixture.closed_amp),
-        ctr=np.asarray(fixture.closed_ctr, dtype=float).reshape(2),
-        scale=float(fixture.closed_scale): curves.starfish(t, narm, amp, ctr, 0.0, scale)
+        lambda t, narm=closed_narm, amp=closed_amp, ctr=closed_center, scale=closed_scale: (
+            curves.starfish(t, narm, amp, ctr, 0.0, scale)
+        )
     )
     cparams = [{"_chunkie_normalized_geometry_options": True, "eps": 1e-8} for _ in edge_specs]
     cparams[-1].update({"ta": 0.0, "tb": 2 * np.pi})
-    return chunkgraph(fixture.verts, np.asarray(fixture.edge2verts_with_closed, dtype=float), edge_specs, cparams)
+    return ChunkGraph(
+        fixture.verts, np.asarray(fixture.edge2verts_with_closed, dtype=float), edge_specs, cparams
+    )
 
 
 def chunkgraph_region_graph(fixture):
     edge_specs = [None] * int(np.asarray(fixture.edgesendverts).shape[1])
-    edge_specs[-1] = (
-        lambda t,
-        narm=int(fixture.narms),
-        amp=float(fixture.amp),
-        ctr=np.asarray(fixture.center, dtype=float).reshape(2),
-        scale=float(fixture.scale): curves.starfish(t, narm, amp, ctr, 0.0, scale)
+    center = np.asarray(fixture.center, dtype=float).reshape(2)
+    narm = int(fixture.narms)
+    amp = float(fixture.amp)
+    scale = float(fixture.scale)
+    edge_specs[-1] = lambda t, narm=narm, amp=amp, ctr=center, scale=scale: curves.starfish(
+        t, narm, amp, ctr, 0.0, scale
     )
     cparams = [{"_chunkie_normalized_geometry_options": True} for _ in edge_specs]
     cparams[-1].update({"ta": float(fixture.closed_ta), "tb": float(fixture.closed_tb)})
     edges = np.asarray(fixture.edgesendverts, dtype=float).copy()
     finite = np.isfinite(edges)
     edges[finite] -= 1
-    return chunkgraph(fixture.verts, edges, edge_specs, cparams)
+    return ChunkGraph(fixture.verts, edges, edge_specs, cparams)
 
 
 def packed_matlab_regions_to_python(fixture) -> list[list[list[int]]]:
@@ -291,7 +328,7 @@ def packed_matlab_regions_to_python(fixture) -> list[list[list[int]]]:
 
 
 def chunkgraph_opdim_graph(fixture):
-    return chunkgraph(
+    return ChunkGraph(
         fixture.verts,
         dense_int_array(fixture.edge2verts),
         None,
@@ -306,16 +343,16 @@ def chunkgraph_opdim_kernels(fixture):
     cc = np.asarray(fixture.cc)
 
     def fkern11(src, targ):
-        return helm2d.kern(zk0, src, targ, "all", cc) - helm2d.kern(zk1, src, targ, "all", cc)
+        return helm2d.kernel(zk0, src, targ, "all", cc) - helm2d.kernel(zk1, src, targ, "all", cc)
 
     def fkern12(src, targ):
-        return helm2d.kern(zk0, src, targ, "c2trans", coef)
+        return helm2d.kernel(zk0, src, targ, "c2trans", coef)
 
     def fkern21(src, targ):
-        return helm2d.kern(zk0, src, targ, "trans_rep", [1, 1])
+        return helm2d.kernel(zk0, src, targ, "trans_rep", [1, 1])
 
     def fkern22(src, targ):
-        return helm2d.kern(zk0, src, targ, "c", [1, 1j])
+        return helm2d.kernel(zk0, src, targ, "c", [1, 1j])
 
     flags = np.asarray(fixture.trans_flag, dtype=int).reshape(-1)
     kernels = []
@@ -323,7 +360,15 @@ def chunkgraph_opdim_kernels(fixture):
         row = []
         for isrc in range(flags.size):
             kind = (int(flags[itarg]), int(flags[isrc]))
-            row.append(fkern11 if kind == (1, 1) else fkern12 if kind == (1, 0) else fkern21 if kind == (0, 1) else fkern22)
+            row.append(
+                fkern11
+                if kind == (1, 1)
+                else fkern12
+                if kind == (1, 0)
+                else fkern21
+                if kind == (0, 1)
+                else fkern22
+            )
         kernels.append(row)
     return kernels
 
@@ -334,7 +379,7 @@ def graph_vertex_endpoint_arcs(cg, nverts: int, width: int) -> tuple[np.ndarray,
     for ivert in range(nverts):
         edges, signs = cg.vstruc[ivert]
         degrees[ivert] = edges.size
-        for idx, (edge, sign) in enumerate(zip(edges, signs)):
+        for idx, (edge, sign) in enumerate(zip(edges, signs, strict=True)):
             ichunk = 0 if sign < 0 else cg.echnks[int(edge)].nch - 1
             arcs[ivert, idx] = float(cg.echnks[int(edge)].chunklen([ichunk])[0])
     return arcs, degrees
@@ -376,29 +421,45 @@ def assert_chunker_geometry_multiset_match(chnkr: Chunker, fields, atol: float =
         r_actual = chnkr.r[:, :, iactual]
         r_expected = expected_r[:, :, iexpected]
         if np.max(np.abs(r_actual - r_expected)) <= atol:
-            np.testing.assert_allclose(chnkr.d[:, :, iactual], expected_d[:, :, iexpected], atol=atol)
-            np.testing.assert_allclose(chnkr.d2[:, :, iactual], expected_d2[:, :, iexpected], atol=atol)
-            np.testing.assert_allclose(chnkr.n[:, :, iactual], expected_n[:, :, iexpected], atol=atol)
+            np.testing.assert_allclose(
+                chnkr.d[:, :, iactual], expected_d[:, :, iexpected], atol=atol
+            )
+            np.testing.assert_allclose(
+                chnkr.d2[:, :, iactual], expected_d2[:, :, iexpected], atol=atol
+            )
+            np.testing.assert_allclose(
+                chnkr.n[:, :, iactual], expected_n[:, :, iexpected], atol=atol
+            )
             np.testing.assert_allclose(chnkr.wts[:, iactual], expected_wts[:, iexpected], atol=atol)
         else:
             np.testing.assert_allclose(r_actual[:, ::-1], r_expected, atol=atol)
-            np.testing.assert_allclose(-chnkr.d[:, ::-1, iactual], expected_d[:, :, iexpected], atol=atol)
-            np.testing.assert_allclose(chnkr.d2[:, ::-1, iactual], expected_d2[:, :, iexpected], atol=atol)
-            np.testing.assert_allclose(-chnkr.n[:, ::-1, iactual], expected_n[:, :, iexpected], atol=atol)
-            np.testing.assert_allclose(chnkr.wts[::-1, iactual], expected_wts[:, iexpected], atol=atol)
-    np.testing.assert_allclose(np.sort(chnkr.chunklen()), np.sort(np.asarray(fields.chunklen).reshape(-1)), atol=atol)
+            np.testing.assert_allclose(
+                -chnkr.d[:, ::-1, iactual], expected_d[:, :, iexpected], atol=atol
+            )
+            np.testing.assert_allclose(
+                chnkr.d2[:, ::-1, iactual], expected_d2[:, :, iexpected], atol=atol
+            )
+            np.testing.assert_allclose(
+                -chnkr.n[:, ::-1, iactual], expected_n[:, :, iexpected], atol=atol
+            )
+            np.testing.assert_allclose(
+                chnkr.wts[::-1, iactual], expected_wts[:, iexpected], atol=atol
+            )
+    np.testing.assert_allclose(
+        np.sort(chnkr.chunklen()), np.sort(np.asarray(fields.chunklen).reshape(-1)), atol=atol
+    )
     np.testing.assert_allclose(chnkr.area(), fields.area, atol=atol)
 
 
 def _elasticlet(lam: float, mu: float, src: PointInfo, targ: PointInfo, f: np.ndarray):
     return (
-        elast2d.kern(lam, mu, src, targ, "s") @ f,
-        elast2d.kern(lam, mu, src, targ, "strac") @ f,
-        elast2d.kern(lam, mu, src, targ, "d") @ f,
-        elast2d.kern(lam, mu, src, targ, "dalt") @ f,
-        elast2d.kern(lam, mu, src, targ, "daltgrad") @ f,
-        elast2d.kern(lam, mu, src, targ, "dalttrac") @ f,
-        elast2d.kern(lam, mu, src, targ, "sgrad") @ f,
+        elast2d.kernel(lam, mu, src, targ, "s") @ f,
+        elast2d.kernel(lam, mu, src, targ, "strac") @ f,
+        elast2d.kernel(lam, mu, src, targ, "d") @ f,
+        elast2d.kernel(lam, mu, src, targ, "dalt") @ f,
+        elast2d.kernel(lam, mu, src, targ, "daltgrad") @ f,
+        elast2d.kernel(lam, mu, src, targ, "dalttrac") @ f,
+        elast2d.kernel(lam, mu, src, targ, "sgrad") @ f,
     )
 
 
@@ -411,7 +472,9 @@ def _shift_pointinfo(info: PointInfo, dx: float, dy: float) -> PointInfo:
     )
 
 
-def _elastic_finite_difference_errors(lam: float, mu: float, src: PointInfo, targ: PointInfo, f: np.ndarray, niter: int):
+def _elastic_finite_difference_errors(
+    lam: float, mu: float, src: PointInfo, targ: PointInfo, f: np.ndarray, niter: int
+):
     u00, trac00, _, dalt00, dalt00grad, _, _ = _elasticlet(lam, mu, src, targ, f)
     pde_errs = np.zeros(niter)
     pdedalt_errs = np.zeros(niter)
@@ -421,13 +484,23 @@ def _elastic_finite_difference_errors(lam: float, mu: float, src: PointInfo, tar
 
     for idx in range(niter):
         hh = 0.1 ** (idx + 1)
-        u01, trac01, _, dalt01, _, _, _ = _elasticlet(lam, mu, src, _shift_pointinfo(targ, 0.0, hh), f)
-        u10, trac10, _, dalt10, _, _, _ = _elasticlet(lam, mu, src, _shift_pointinfo(targ, hh, 0.0), f)
-        u0m1, trac0m1, _, dalt0m1, _, _, _ = _elasticlet(lam, mu, src, _shift_pointinfo(targ, 0.0, -hh), f)
-        um10, tracm10, _, daltm10, _, _, _ = _elasticlet(lam, mu, src, _shift_pointinfo(targ, -hh, 0.0), f)
+        u01, trac01, _, dalt01, _, _, _ = _elasticlet(
+            lam, mu, src, _shift_pointinfo(targ, 0.0, hh), f
+        )
+        u10, trac10, _, dalt10, _, _, _ = _elasticlet(
+            lam, mu, src, _shift_pointinfo(targ, hh, 0.0), f
+        )
+        u0m1, trac0m1, _, dalt0m1, _, _, _ = _elasticlet(
+            lam, mu, src, _shift_pointinfo(targ, 0.0, -hh), f
+        )
+        um10, tracm10, _, daltm10, _, _, _ = _elasticlet(
+            lam, mu, src, _shift_pointinfo(targ, -hh, 0.0), f
+        )
         u11, _, _, dalt11, _, _, _ = _elasticlet(lam, mu, src, _shift_pointinfo(targ, hh, hh), f)
         u1m1, _, _, dalt1m1, _, _, _ = _elasticlet(lam, mu, src, _shift_pointinfo(targ, hh, -hh), f)
-        um1m1, _, _, daltm1m1, _, _, _ = _elasticlet(lam, mu, src, _shift_pointinfo(targ, -hh, -hh), f)
+        um1m1, _, _, daltm1m1, _, _, _ = _elasticlet(
+            lam, mu, src, _shift_pointinfo(targ, -hh, -hh), f
+        )
         um11, _, _, daltm11, _, _, _ = _elasticlet(lam, mu, src, _shift_pointinfo(targ, -hh, hh), f)
 
         lapu = (u01 + u10 + u0m1 + um10 - 4.0 * u00) / hh**2
@@ -445,27 +518,32 @@ def _elastic_finite_difference_errors(lam: float, mu: float, src: PointInfo, tar
         daltxy = (dalt11 - daltm11 - dalt1m1 + daltm1m1) / (4.0 * hh**2)
 
         pdeuh = mu * lapu + (lam + mu) * np.array([uxx[0] + uxy[1], uxy[0] + uyy[1]])
-        pdedalth = mu * lapdalt + (lam + mu) * np.array([daltxx[0] + daltxy[1], daltxy[0] + daltyy[1]])
+        pdedalth = mu * lapdalt + (lam + mu) * np.array(
+            [daltxx[0] + daltxy[1], daltxy[0] + daltyy[1]]
+        )
         pde_errs[idx] = np.linalg.norm(pdeuh) / np.linalg.norm(u00)
         pdedalt_errs[idx] = np.linalg.norm(pdedalth) / np.linalg.norm(u00)
-        div_errs[idx] = abs((trac10[0] - tracm10[0]) / (2.0 * hh) + (trac01[1] - trac0m1[1]) / (2.0 * hh)) / np.linalg.norm(trac00)
+        div_errs[idx] = abs(
+            (trac10[0] - tracm10[0]) / (2.0 * hh) + (trac01[1] - trac0m1[1]) / (2.0 * hh)
+        ) / np.linalg.norm(trac00)
 
         jact = np.column_stack((ux, uy))
         epsmat = 0.5 * (jact + jact.T)
         normal = targ.n.reshape(2, 1)
         tracuh = (lam * (ux[0] + uy[1]) * np.eye(2) + 2.0 * mu * epsmat) @ normal
         trac_errs[idx] = np.linalg.norm(tracuh.reshape(-1) - trac00) / np.linalg.norm(trac00)
-        daltgrad_errs[idx] = (
-            np.linalg.norm(dalt00grad[0::2] - daltx) / np.linalg.norm(dalt00grad[0::2])
-            + np.linalg.norm(dalt00grad[1::2] - dalty) / np.linalg.norm(dalt00grad[1::2])
-        )
+        daltgrad_errs[idx] = np.linalg.norm(dalt00grad[0::2] - daltx) / np.linalg.norm(
+            dalt00grad[0::2]
+        ) + np.linalg.norm(dalt00grad[1::2] - dalty) / np.linalg.norm(dalt00grad[1::2])
     return pde_errs, pdedalt_errs, div_errs, trac_errs, daltgrad_errs
 
 
 def test_absconvgauss_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().absconvgauss
 
-    val, der, der2 = absconvgauss.absconvgauss(fixture.x, float(fixture.m), float(fixture.offset), float(fixture.h))
+    val, der, der2 = absconvgauss.absconvgauss(
+        fixture.x, float(fixture.m), float(fixture.offset), float(fixture.h)
+    )
 
     np.testing.assert_allclose(val, fixture.val, atol=1e-15)
     np.testing.assert_allclose(der, fixture.der, atol=1e-15)
@@ -490,8 +568,12 @@ def test_legeexpsunit_devtools_outputs_match_matlab():
     np.testing.assert_allclose(dmat @ np.sin(x), fixture.dpv, atol=1e-12)
     np.testing.assert_allclose(imat @ np.sin(x), fixture.ipv, atol=1e-13)
     np.testing.assert_allclose(lege.intpol(fixture.cfs), fixture.cfsint, atol=1e-13)
-    np.testing.assert_allclose(lege.intpol(fixture.cfs, "original"), fixture.cfsint_original, atol=1e-13)
-    np.testing.assert_allclose(lege.exev(x, lege.intpol(fixture.cfs)), fixture.integral_vals, atol=5e-14)
+    np.testing.assert_allclose(
+        lege.intpol(fixture.cfs, "original"), fixture.cfsint_original, atol=1e-13
+    )
+    np.testing.assert_allclose(
+        lege.exev(x, lege.intpol(fixture.cfs)), fixture.integral_vals, atol=5e-14
+    )
 
 
 def test_arclengthfun_single_component_devtools_output_matches_matlab():
@@ -515,7 +597,9 @@ def test_chunkerarcparam_devtools_outputs_match_matlab():
     chnkr = chunker_from_fields(fixture.chunker)
     pdata = arcparam.init(chnkr)
 
-    r_nodes, d_nodes, d2_nodes = arcparam.eval(np.asarray(fixture.s_nodes).reshape(-1, order="F"), pdata)
+    r_nodes, d_nodes, d2_nodes = arcparam.eval(
+        np.asarray(fixture.s_nodes).reshape(-1, order="F"), pdata
+    )
     np.testing.assert_allclose(r_nodes, fixture.r_nodes, rtol=1e-10, atol=1e-11)
     np.testing.assert_allclose(d_nodes, fixture.d_nodes, rtol=1e-10, atol=1e-11)
     np.testing.assert_allclose(d2_nodes, fixture.d2_nodes, rtol=1e-8, atol=1e-9)
@@ -576,7 +660,9 @@ def test_chunker_diffintmat_devtools_outputs_match_matlab():
 
     circle = chunker_from_fields(fixture.circle)
     circle_dmat = circle.diffmat()
-    circle_test_quant = circle_dmat @ circle.r[0].reshape(-1, order="F") + circle.r[1].reshape(-1, order="F")
+    circle_test_quant = circle_dmat @ circle.r[0].reshape(-1, order="F") + circle.r[1].reshape(
+        -1, order="F"
+    )
     np.testing.assert_allclose(circle_dmat, fixture.circle_D, atol=1e-13)
     np.testing.assert_allclose(circle_test_quant, fixture.circle_test_quant, atol=1e-12)
     assert np.linalg.norm(circle_test_quant) < 1e-10
@@ -653,12 +739,13 @@ def test_chunkerfuncuni_devtools_outputs_match_matlab():
     assert_chunker_fields_match(starfish, fixture.starfish, atol=1e-12)
     assert_chunker_fields_match(bymode_reversed, fixture.bymode_reversed, atol=1e-12)
     assert_chunker_fields_match(circle_chunker, fixture.circle, atol=1e-12)
-    np.testing.assert_allclose(circle_chunker.area(), np.pi * float(fixture.circle_radius) ** 2, atol=1e-12)
+    np.testing.assert_allclose(
+        circle_chunker.area(), np.pi * float(fixture.circle_radius) ** 2, atol=1e-12
+    )
 
 
 def test_chunkerfunc_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().chunkerfunc
-    cparams = {"eps": 1.0e-4}
     pref = {"k": 16}
 
     starfish, _ = chunkerfunc(
@@ -694,16 +781,24 @@ def test_chunkerfunc_devtools_outputs_match_matlab():
     assert bool(fixture.near_closed_warning_seen)
     assert not bool(fixture.open_warning_seen)
     with pytest.warns(UserWarning, match="unit tangent vectors"):
-        chunkerfunc(lambda t: np.vstack((np.cos(np.asarray(t).reshape(-1)), np.sin(np.asarray(t).reshape(-1) / 2))))
+        chunkerfunc(
+            lambda t: np.vstack(
+                (np.cos(np.asarray(t).reshape(-1)), np.sin(np.asarray(t).reshape(-1) / 2))
+            )
+        )
     with pytest.warns(UserWarning, match="start and end points"):
         chunkerfunc(
-            lambda t: np.vstack((np.cos(np.asarray(t).reshape(-1)), np.sin(np.asarray(t).reshape(-1)))),
+            lambda t: np.vstack(
+                (np.cos(np.asarray(t).reshape(-1)), np.sin(np.asarray(t).reshape(-1)))
+            ),
             interval=(0.0, 2 * np.pi - 1.0e-3),
         )
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         chunkerfunc(
-            lambda t: np.vstack((np.cos(np.asarray(t).reshape(-1)), np.sin(np.asarray(t).reshape(-1)))),
+            lambda t: np.vstack(
+                (np.cos(np.asarray(t).reshape(-1)), np.sin(np.asarray(t).reshape(-1)))
+            ),
             interval=(0.0, 2 * np.pi - 1.0e-3),
             closed=False,
         )
@@ -716,8 +811,12 @@ def test_chunkerfunc_devtools_outputs_match_matlab():
     assert_chunker_fields_match(circle_refined, fixture.circle_refined, atol=1e-12)
     assert float(fixture.circle_area_error) < 1e-12
     assert float(fixture.circle_refined_area_error) < 1e-12
-    np.testing.assert_allclose(circle_chunker.area(), np.pi * float(fixture.circle_radius) ** 2, atol=1e-12)
-    np.testing.assert_allclose(circle_refined.area(), np.pi * float(fixture.circle_radius) ** 2, atol=1e-12)
+    np.testing.assert_allclose(
+        circle_chunker.area(), np.pi * float(fixture.circle_radius) ** 2, atol=1e-12
+    )
+    np.testing.assert_allclose(
+        circle_refined.area(), np.pi * float(fixture.circle_radius) ** 2, atol=1e-12
+    )
 
 
 def test_chunkerclassunit_devtools_outputs_match_matlab():
@@ -801,13 +900,17 @@ def test_tochunkgraph_devtools_outputs_match_matlab():
     assert graph.npt == int(fixture.graph_npt)
     assert graph.npt == total.npt
     np.testing.assert_allclose(graph.verts, fixture.graph_verts, atol=1e-12)
-    np.testing.assert_array_equal(graph.edgesendverts, np.asarray(fixture.graph_edgesendverts, dtype=int) - 1)
+    np.testing.assert_array_equal(
+        graph.edgesendverts, np.asarray(fixture.graph_edgesendverts, dtype=int) - 1
+    )
     assert_chunker_fields_match(graph.echnks[0], fixture.graph_first_edge, atol=1e-12)
     np.testing.assert_allclose(graph.echnks[0].r, arc.r, atol=1e-14)
 
-    manual = chunkgraph(fixture.manual_verts, fixture.manual_edge2verts, [arc, circle])
+    manual = ChunkGraph(fixture.manual_verts, fixture.manual_edge2verts, [arc, circle])
     np.testing.assert_allclose(manual.verts, fixture.manual_graph_verts, atol=1e-14)
-    np.testing.assert_array_equal(manual.edgesendverts, np.asarray(fixture.manual_graph_edgesendverts, dtype=int) - 1)
+    np.testing.assert_array_equal(
+        manual.edgesendverts, np.asarray(fixture.manual_graph_edgesendverts, dtype=int) - 1
+    )
     np.testing.assert_allclose(manual.echnks[0].r[:, 0, 0], fixture.manual_verts[:, 0], atol=1e-2)
     np.testing.assert_allclose(manual.echnks[0].r[:, -1, -1], fixture.manual_verts[:, 1], atol=1e-2)
     np.testing.assert_allclose(manual.echnks[0].r[:, 0, 0], fixture.manual_first_start, atol=1e-12)
@@ -816,18 +919,25 @@ def test_tochunkgraph_devtools_outputs_match_matlab():
 
 def test_chunkgrphconstruct_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().chunkgrphconstruct
-    edge_specs = [lambda t, amp=float(fixture.amp), frq=float(fixture.frq): sinearc(t, amp, frq) for _ in range(5)]
+    edge_specs = [
+        lambda t, amp=float(fixture.amp), frq=float(fixture.frq): sinearc(t, amp, frq)
+        for _ in range(5)
+    ]
 
-    legacy = chunkgraph(fixture.verts, dense_int_array(fixture.edge2verts), edge_specs)
-    modern = chunkgraph(fixture.verts, dense_int_array(fixture.edgesendverts), edge_specs)
+    legacy = ChunkGraph(fixture.verts, dense_int_array(fixture.edge2verts), edge_specs)
+    modern = ChunkGraph(fixture.verts, dense_int_array(fixture.edgesendverts), edge_specs)
 
     np.testing.assert_allclose(legacy.verts, fixture.legacy_verts, atol=1e-14)
     np.testing.assert_allclose(modern.verts, fixture.new_verts, atol=1e-14)
     np.testing.assert_array_equal(legacy.v2emat, dense_int_array(fixture.legacy_v2emat))
     np.testing.assert_array_equal(modern.v2emat, dense_int_array(fixture.new_v2emat))
     np.testing.assert_array_equal(legacy.v2emat, modern.v2emat)
-    np.testing.assert_array_equal(legacy.edgesendverts, dense_int_array(fixture.legacy_edgesendverts) - 1)
-    np.testing.assert_array_equal(modern.edgesendverts, dense_int_array(fixture.new_edgesendverts) - 1)
+    np.testing.assert_array_equal(
+        legacy.edgesendverts, dense_int_array(fixture.legacy_edgesendverts) - 1
+    )
+    np.testing.assert_array_equal(
+        modern.edgesendverts, dense_int_array(fixture.new_edgesendverts) - 1
+    )
     assert_chunker_fields_match(legacy.echnks[0], fixture.legacy_first_edge, atol=1e-10)
     assert_chunker_fields_match(modern.echnks[0], fixture.new_first_edge, atol=1e-10)
     np.testing.assert_allclose(legacy.echnks[0].r, modern.echnks[0].r, atol=1e-13)
@@ -836,34 +946,51 @@ def test_chunkgrphconstruct_devtools_outputs_match_matlab():
 def test_chunkgraph_basic_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().chunkgraph_basic
     edge_specs = [lambda t: sinearc(t, 0.5, 6.0) for _ in range(5)]
-    legacy = chunkgraph(fixture.pentagon_verts, dense_int_array(fixture.pentagon_edge2verts), edge_specs)
-    modern = chunkgraph(fixture.pentagon_verts, dense_int_array(fixture.pentagon_endverts), edge_specs)
+    legacy = ChunkGraph(
+        fixture.pentagon_verts, dense_int_array(fixture.pentagon_edge2verts), edge_specs
+    )
+    modern = ChunkGraph(
+        fixture.pentagon_verts, dense_int_array(fixture.pentagon_endverts), edge_specs
+    )
     np.testing.assert_array_equal(legacy.v2emat, dense_int_array(fixture.pentagon_legacy_v2emat))
     np.testing.assert_array_equal(modern.v2emat, dense_int_array(fixture.pentagon_new_v2emat))
     np.testing.assert_array_equal(legacy.v2emat, modern.v2emat)
 
-    twoedge_legacy = chunkgraph(fixture.twoedge_verts, dense_int_array(fixture.twoedge_edge2verts))
-    twoedge_modern = chunkgraph(fixture.twoedge_verts, dense_int_array(fixture.twoedge_endverts))
-    np.testing.assert_array_equal(twoedge_legacy.v2emat, dense_int_array(fixture.twoedge_legacy_v2emat))
-    np.testing.assert_array_equal(twoedge_modern.v2emat, dense_int_array(fixture.twoedge_new_v2emat))
+    twoedge_legacy = ChunkGraph(fixture.twoedge_verts, dense_int_array(fixture.twoedge_edge2verts))
+    twoedge_modern = ChunkGraph(fixture.twoedge_verts, dense_int_array(fixture.twoedge_endverts))
+    np.testing.assert_array_equal(
+        twoedge_legacy.v2emat, dense_int_array(fixture.twoedge_legacy_v2emat)
+    )
+    np.testing.assert_array_equal(
+        twoedge_modern.v2emat, dense_int_array(fixture.twoedge_new_v2emat)
+    )
     np.testing.assert_array_equal(twoedge_legacy.v2emat, twoedge_modern.v2emat)
 
-    multi = chunkgraph(np.array([[1, 0, -1, 2, 0, -2], [0, 1, 0, -0.5, 2, -0.5]], dtype=float), np.array([[1, 2, 3, 4, 5, 6], [2, 3, 1, 5, 6, 4]]))
-    bridge = chunkgraph(np.array([[1, 0, -1, 4, 3, 2], [0, 1, 0, 0, 1, 0]], dtype=float), np.array([[1, 2, 3, 4, 5, 6, 1], [3, 1, 2, 6, 4, 5, 6]]))
-    loop = chunkgraph(
+    multi = ChunkGraph(
+        np.array([[1, 0, -1, 2, 0, -2], [0, 1, 0, -0.5, 2, -0.5]], dtype=float),
+        np.array([[1, 2, 3, 4, 5, 6], [2, 3, 1, 5, 6, 4]]),
+    )
+    bridge = ChunkGraph(
+        np.array([[1, 0, -1, 4, 3, 2], [0, 1, 0, 0, 1, 0]], dtype=float),
+        np.array([[1, 2, 3, 4, 5, 6, 1], [3, 1, 2, 6, 4, 5, 6]]),
+    )
+    loop = ChunkGraph(
         np.array([[2.0], [1.0]]),
         np.array([[1], [1]]),
         [loop_curve],
         {"_chunkie_normalized_geometry_options": True, "ta": 0.0, "tb": 2 * np.pi},
         {"k": 12},
     )
-    nested = chunkgraph(np.array([[1, 0, -1, 2, 0, -2], [0, 1, 0, -1, 2, -1]], dtype=float), np.array([[1, 2, 3, 4, 5, 6], [2, 3, 1, 5, 6, 4]]))
+    nested = ChunkGraph(
+        np.array([[1, 0, -1, 2, 0, -2], [0, 1, 0, -1, 2, -1]], dtype=float),
+        np.array([[1, 2, 3, 4, 5, 6], [2, 3, 1, 5, 6, 4]]),
+    )
     assert len(multi.regions) == int(fixture.multiconnected_region_count)
     assert len(bridge.regions) == int(fixture.bridge_region_count)
     assert len(loop.regions) == int(fixture.loop_region_count)
     assert len(nested.regions) == int(fixture.nested_region_count)
 
-    adj = chunkgraph(fixture.adjtri_verts, dense_int_array(fixture.adjtri_edges))
+    adj = ChunkGraph(fixture.adjtri_verts, dense_int_array(fixture.adjtri_edges))
     targets = np.asarray(fixture.adjtri_targets)
     ids = chunkgraphinregion(adj, targets)
     np.testing.assert_array_equal(ids, np.asarray(fixture.adjtri_ids, dtype=int).reshape(-1))
@@ -877,29 +1004,52 @@ def test_chunkgraph_basic_devtools_outputs_match_matlab():
     v = np.array([[-1.0], [2.0]])
     affine_targets = A @ targets + v
     affine = A @ adj + v.reshape(2)
-    np.testing.assert_array_equal(chunkgraphinregion(affine, affine_targets), np.asarray(fixture.adjtri_affine_ids, dtype=int).reshape(-1))
+    np.testing.assert_array_equal(
+        chunkgraphinregion(affine, affine_targets),
+        np.asarray(fixture.adjtri_affine_ids, dtype=int).reshape(-1),
+    )
     scaled_targets = 2 * affine_targets
     scaled = affine * 2
-    np.testing.assert_array_equal(chunkgraphinregion(scaled, scaled_targets), np.asarray(fixture.adjtri_scaled_ids, dtype=int).reshape(-1))
+    np.testing.assert_array_equal(
+        chunkgraphinregion(scaled, scaled_targets),
+        np.asarray(fixture.adjtri_scaled_ids, dtype=int).reshape(-1),
+    )
     theta = np.pi / 4
     rot = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
     rotated_targets = rot @ scaled_targets
     rotated = scaled.rotate(theta)
-    np.testing.assert_array_equal(chunkgraphinregion(rotated, rotated_targets), np.asarray(fixture.adjtri_rotated_ids, dtype=int).reshape(-1))
+    np.testing.assert_array_equal(
+        chunkgraphinregion(rotated, rotated_targets),
+        np.asarray(fixture.adjtri_rotated_ids, dtype=int).reshape(-1),
+    )
     reflected_targets = rotated_targets.copy()
     reflected_targets[0] *= -1
     reflected = rotated.reflect(np.pi / 2)
-    np.testing.assert_array_equal(chunkgraphinregion(reflected, reflected_targets), np.asarray(fixture.adjtri_reflected_ids, dtype=int).reshape(-1))
+    np.testing.assert_array_equal(
+        chunkgraphinregion(reflected, reflected_targets),
+        np.asarray(fixture.adjtri_reflected_ids, dtype=int).reshape(-1),
+    )
 
-    nested = chunkgraph(fixture.nested_verts, dense_int_array(fixture.nested_edges))
+    nested = ChunkGraph(fixture.nested_verts, dense_int_array(fixture.nested_edges))
     nested_ids = chunkgraphinregion(nested, targets)
     np.testing.assert_array_equal(nested_ids, np.asarray(fixture.nested_ids, dtype=int).reshape(-1))
-    np.testing.assert_array_equal(nested_ids, np.asarray(fixture.nested_idstrue, dtype=int).reshape(-1))
+    np.testing.assert_array_equal(
+        nested_ids, np.asarray(fixture.nested_idstrue, dtype=int).reshape(-1)
+    )
 
     refined = adj.refine(oversample=1)
-    np.testing.assert_array_equal([edge.nch for edge in adj.echnks], np.asarray(fixture.refine_nchs_before, dtype=int).reshape(-1))
-    np.testing.assert_array_equal([edge.nch for edge in refined.echnks], np.asarray(fixture.refine_nchs_after, dtype=int).reshape(-1))
-    np.testing.assert_array_equal(np.asarray(fixture.refine_nchs_after, dtype=int).reshape(-1), 2 * np.asarray(fixture.refine_nchs_before, dtype=int).reshape(-1))
+    np.testing.assert_array_equal(
+        [edge.nch for edge in adj.echnks],
+        np.asarray(fixture.refine_nchs_before, dtype=int).reshape(-1),
+    )
+    np.testing.assert_array_equal(
+        [edge.nch for edge in refined.echnks],
+        np.asarray(fixture.refine_nchs_after, dtype=int).reshape(-1),
+    )
+    np.testing.assert_array_equal(
+        np.asarray(fixture.refine_nchs_after, dtype=int).reshape(-1),
+        2 * np.asarray(fixture.refine_nchs_before, dtype=int).reshape(-1),
+    )
 
 
 def test_chunkgrphregion_devtools_outputs_match_matlab():
@@ -909,7 +1059,9 @@ def test_chunkgrphregion_devtools_outputs_match_matlab():
 
     assert len(graph.regions) == int(fixture.region_count)
     assert graph.regions == expected_regions
-    np.testing.assert_array_equal(find_edge_regions(graph), np.asarray(fixture.edge_regions, dtype=int))
+    np.testing.assert_array_equal(
+        find_edge_regions(graph), np.asarray(fixture.edge_regions, dtype=int)
+    )
     assert int(np.min(fixture.edge_regions)) == 1
     assert int(np.max(fixture.edge_regions)) == len(expected_regions)
 
@@ -918,10 +1070,18 @@ def test_chunkrgrph_opdim_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().chunkrgrph_opdim
     graph = chunkgraph_opdim_graph(fixture)
     kernels = chunkgraph_opdim_kernels(fixture)
-    mat = chunkermat(graph, kernels, {"_chunkie_normalized_operator_options": True, "nonsmoothonly": False, "rcip": True})
+    mat = chunkermat(
+        graph,
+        kernels,
+        {"_chunkie_normalized_operator_options": True, "nonsmoothonly": False, "rcip": True},
+    )
 
-    np.testing.assert_array_equal([edge.npt for edge in graph.echnks], np.asarray(fixture.edge_npts, dtype=int).reshape(-1))
-    np.testing.assert_array_equal(mat.shape, np.asarray(fixture.sysmat_shape, dtype=int).reshape(-1))
+    np.testing.assert_array_equal(
+        [edge.npt for edge in graph.echnks], np.asarray(fixture.edge_npts, dtype=int).reshape(-1)
+    )
+    np.testing.assert_array_equal(
+        mat.shape, np.asarray(fixture.sysmat_shape, dtype=int).reshape(-1)
+    )
     row_starts = np.asarray(fixture.row_starts, dtype=int).reshape(-1) - 1
     col_starts = np.asarray(fixture.col_starts, dtype=int).reshape(-1) - 1
     np.testing.assert_allclose(
@@ -941,17 +1101,25 @@ def test_chunkrgrph_opdim_devtools_outputs_match_matlab():
 def test_chunkgraph_lastlength_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().chunkgraph_lastlength
     graph = chunkgraph_lastlength_graph(fixture)
-    np.testing.assert_array_equal([edge.nch for edge in graph.echnks], np.asarray(fixture.initial_nchs, dtype=int).reshape(-1))
+    np.testing.assert_array_equal(
+        [edge.nch for edge in graph.echnks], np.asarray(fixture.initial_nchs, dtype=int).reshape(-1)
+    )
     assert np.isnan(np.asarray(fixture.edge2verts_with_closed, dtype=float)[:, -1]).all()
     assert graph.edgesendverts[0, -1] == graph.edgesendverts[1, -1]
 
     dlist_refined = graph.refine(oversample=1, refine_edges=[1])
-    np.testing.assert_array_equal([edge.nch for edge in dlist_refined.echnks], np.asarray(fixture.dlist_nchs, dtype=int).reshape(-1))
+    np.testing.assert_array_equal(
+        [edge.nch for edge in dlist_refined.echnks],
+        np.asarray(fixture.dlist_nchs, dtype=int).reshape(-1),
+    )
 
     splitchunks = [[] for _ in graph.echnks]
     splitchunks[2] = [2]
     split_refined = graph.refine(split_chunks=splitchunks)
-    np.testing.assert_array_equal([edge.nch for edge in split_refined.echnks], np.asarray(fixture.splitchunks_nchs, dtype=int).reshape(-1))
+    np.testing.assert_array_equal(
+        [edge.nch for edge in split_refined.echnks],
+        np.asarray(fixture.splitchunks_nchs, dtype=int).reshape(-1),
+    )
 
     last_len = float(fixture.last_len)
     last_refined = graph.refine(last_length=last_len)
@@ -960,9 +1128,11 @@ def test_chunkgraph_lastlength_devtools_outputs_match_matlab():
         int(fixture.ncircedge),
         np.asarray(fixture.last_len_arcs).shape[1],
     )
-    np.testing.assert_array_equal(degrees, np.asarray(fixture.last_len_degrees, dtype=int).reshape(-1))
+    np.testing.assert_array_equal(
+        degrees, np.asarray(fixture.last_len_degrees, dtype=int).reshape(-1)
+    )
     np.testing.assert_allclose(arcs, np.asarray(fixture.last_len_arcs, dtype=float), atol=5e-11)
-    for row, degree in zip(arcs, degrees):
+    for row, degree in zip(arcs, degrees, strict=True):
         active = row[:degree]
         np.testing.assert_allclose(active, active[0], atol=5e-11)
         level = np.log2(active[0] / last_len)
@@ -972,7 +1142,7 @@ def test_chunkgraph_lastlength_devtools_outputs_match_matlab():
 
 def test_slicegraph_devtools_outputs_match_matlab():
     fixture = load_devtools_easy().slicegraph
-    graph = chunkgraph(fixture.verts, np.asarray(fixture.edge_2_verts, dtype=int) - 1)
+    graph = ChunkGraph(fixture.verts, np.asarray(fixture.edge_2_verts, dtype=int) - 1)
     mixed_edges = np.asarray(fixture.ichs_mixed, dtype=int).reshape(-1) - 1
     inner_edges = np.asarray(fixture.ichs_inner, dtype=int).reshape(-1) - 1
 
@@ -987,12 +1157,19 @@ def test_slicegraph_devtools_outputs_match_matlab():
     assert len(graph.echnks) == int(fixture.nedges)
     np.testing.assert_allclose(mixed.r, fixture.mixed_r, atol=1e-13)
     np.testing.assert_allclose(mixed.r, fixture.mixed_merge_r, atol=1e-13)
-    np.testing.assert_allclose(fixture.inner_sysmat, fixture.inner_sysmat_from_full, rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(
+        fixture.inner_sysmat, fixture.inner_sysmat_from_full, rtol=1e-12, atol=1e-13
+    )
     assert np.isfinite(full).all()
     assert np.isfinite(inner_mat).all()
     np.testing.assert_allclose(full[np.ix_(idslce, idslce)], inner_mat, rtol=1e-12, atol=1e-13)
-    np.testing.assert_array_equal(graph.edgeids([2, 3, 1, 0]), np.asarray(fixture.edgeids_outer_permuted, dtype=int).reshape(-1) - 1)
-    np.testing.assert_array_equal(graph.edgeids(inner_edges), np.asarray(fixture.edgeids_inner, dtype=int).reshape(-1) - 1)
+    np.testing.assert_array_equal(
+        graph.edgeids([2, 3, 1, 0]),
+        np.asarray(fixture.edgeids_outer_permuted, dtype=int).reshape(-1) - 1,
+    )
+    np.testing.assert_array_equal(
+        graph.edgeids(inner_edges), np.asarray(fixture.edgeids_inner, dtype=int).reshape(-1) - 1
+    )
 
 
 def test_chunkerinterior_devtools_outputs_match_matlab():
@@ -1003,7 +1180,9 @@ def test_chunkerinterior_devtools_outputs_match_matlab():
     direct = chunkerinterior(chnkr, fixture.targs, acceleration="dense")
     fmm = chunkerinterior(chnkr, fixture.targs, acceleration="fmm")
 
-    np.testing.assert_array_equal(np.asarray(getattr(fixture, "in"), dtype=bool).reshape(-1), expected)
+    np.testing.assert_array_equal(
+        np.asarray(getattr(fixture, "in"), dtype=bool).reshape(-1), expected
+    )
     np.testing.assert_array_equal(np.asarray(fixture.in_flam, dtype=bool).reshape(-1), expected)
     np.testing.assert_array_equal(np.asarray(fixture.in_fmm, dtype=bool).reshape(-1), expected)
     np.testing.assert_array_equal(direct, expected)
@@ -1011,7 +1190,12 @@ def test_chunkerinterior_devtools_outputs_match_matlab():
     flam = chunkerinterior(
         chnkr,
         fixture.targs,
-        {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "rank_or_tol": 1.0e-8, "useproxy": False},
+        {
+            "_chunkie_normalized_operator_options": True,
+            "acceleration": "flam",
+            "rank_or_tol": 1.0e-8,
+            "useproxy": False,
+        },
     )
     np.testing.assert_array_equal(flam, expected)
 
@@ -1023,13 +1207,18 @@ def test_chunkerinterior_devtools_outputs_match_matlab():
     axis = chunker_from_fields(fixture.axis_chunker)
     axis_expected = np.asarray(fixture.axis_expected, dtype=bool).reshape(-1)
     axis_actual = chunkerinterior(axis, fixture.axis_targs, axis_symmetric=True)
-    np.testing.assert_array_equal(np.asarray(fixture.axis_in, dtype=bool).reshape(-1), axis_expected)
+    np.testing.assert_array_equal(
+        np.asarray(fixture.axis_in, dtype=bool).reshape(-1), axis_expected
+    )
     np.testing.assert_array_equal(axis_actual, axis_expected)
 
     stress = chunker_from_fields(fixture.stress_chunker)
     stress_actual = chunkerinterior(stress, [fixture.stress_x, fixture.stress_x])
     stress_expected = np.asarray(fixture.stress_expected, dtype=bool)
-    np.testing.assert_array_equal(np.asarray(fixture.stress_in, dtype=bool).reshape(-1), stress_expected.reshape(-1, order="F"))
+    np.testing.assert_array_equal(
+        np.asarray(fixture.stress_in, dtype=bool).reshape(-1),
+        stress_expected.reshape(-1, order="F"),
+    )
     np.testing.assert_array_equal(stress_actual, stress_expected)
 
 
@@ -1066,7 +1255,9 @@ def test_chunkerpoly_devtools_outputs_match_matlab():
     assert float(fixture.truepoly_area_err) < 1e-12
     assert float(fixture.truepoly_length_err) < 1e-12
     np.testing.assert_allclose(truepoly.area(), float(fixture.barb_area), rtol=1e-12, atol=1e-12)
-    np.testing.assert_allclose(np.sum(truepoly.wts), float(fixture.barb_length), rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(
+        np.sum(truepoly.wts), float(fixture.barb_length), rtol=1e-12, atol=1e-12
+    )
     assert_chunker_geometry_multiset_match(truepoly, fixture.truepoly, atol=1e-11)
     assert truepoly.datadim == np.asarray(fixture.edgevals).shape[0]
     assert rounded.datadim == np.asarray(fixture.edgevals).shape[0]
@@ -1085,9 +1276,15 @@ def test_smoother_devtools_output_matches_matlab_thresholds():
         {"lam": float(fixture.opts.lam), "return_error": True},
     )
 
-    np.testing.assert_allclose(fixture.verts, np.asarray([[-0.5, -0.5, 1.0], [np.sqrt(3) / 2, -np.sqrt(3) / 2, 0.0]]), atol=1e-15)
+    np.testing.assert_allclose(
+        fixture.verts,
+        np.asarray([[-0.5, -0.5, 1.0], [np.sqrt(3) / 2, -np.sqrt(3) / 2, 0.0]]),
+        atol=1e-15,
+    )
     assert int(fixture.nv) == 3
-    fixture_npt = int(getattr(fixture.chunker, "npt", int(fixture.chunker.k) * int(fixture.chunker.nch)))
+    fixture_npt = int(
+        getattr(fixture.chunker, "npt", int(fixture.chunker.k) * int(fixture.chunker.nch))
+    )
     assert fixture_npt == int(fixture.chunker.k) * int(fixture.chunker.nch)
     assert float(fixture.err) < 1e-6
     assert float(err) < 1e-6
@@ -1120,10 +1317,10 @@ def test_flagrect_devtools_output_matches_matlab():
     direct = chnkr.flagnear_rectangle(fixture.targets)
     grid = chnkr.flagnear_rectangle_grid(fixture.x, fixture.y)
     expected = np.asarray(fixture.flag, dtype=bool)
-    expected_grid = np.asarray(fixture.flag_grid, dtype=bool)
+    expected_grid = matlab_grid_flags(fixture.flag_grid, fixture.x, fixture.y)
 
     assert int(fixture.mismatch_count) == 0
-    np.testing.assert_array_equal(expected, expected_grid)
+    np.testing.assert_array_equal(expected.reshape(expected_grid.shape, order="F"), expected_grid)
     np.testing.assert_array_equal(direct, expected)
     np.testing.assert_array_equal(grid, expected_grid)
 
@@ -1152,8 +1349,12 @@ def test_helm1d_green_devtools_direct_outputs_match_matlab():
     uu = -2.0 * float(fixture.m) * u_test[int(fixture.istart) - 1 : int(fixture.iend)]
 
     np.testing.assert_allclose(chnkr.r, fixture.chunker.r, atol=1e-13)
-    np.testing.assert_allclose(u_test, np.asarray(fixture.u_test).reshape(-1, order="F"), rtol=1e-12, atol=1e-12)
-    np.testing.assert_allclose(uu, np.asarray(fixture.uu).reshape(-1, order="F"), rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(
+        u_test, np.asarray(fixture.u_test).reshape(-1, order="F"), rtol=1e-12, atol=1e-12
+    )
+    np.testing.assert_allclose(
+        uu, np.asarray(fixture.uu).reshape(-1, order="F"), rtol=1e-12, atol=1e-12
+    )
     assert int(fixture.nchpad) > 0
     assert int(fixture.istart) < int(fixture.iend)
 
@@ -1163,12 +1364,30 @@ def test_helm1d_green_devtools_direct_outputs_match_matlab():
     np.testing.assert_allclose(val, fixture.green_val, rtol=1e-13, atol=1e-13)
     np.testing.assert_allclose(grad, fixture.green_grad, rtol=1e-13, atol=1e-13)
     np.testing.assert_allclose(hess, fixture.green_hess, rtol=1e-13, atol=1e-13)
-    np.testing.assert_allclose(helm1d.kern(float(fixture.E), src, targ, "s"), fixture.kern_s, rtol=1e-13, atol=1e-13)
-    np.testing.assert_allclose(helm1d.kern(float(fixture.E), src, targ, "d"), fixture.kern_d, rtol=1e-13, atol=1e-13)
-    np.testing.assert_allclose(helm1d.kern(float(fixture.E), src, targ, "sp"), fixture.kern_sp, rtol=1e-13, atol=1e-13)
-    np.testing.assert_allclose(helm1d.kern(float(fixture.E), src, targ, "dp"), fixture.kern_dp, rtol=1e-13, atol=1e-13)
-    np.testing.assert_allclose(helm1d.kern(float(fixture.E), src, targ, "c2trans"), fixture.kern_c2trans, rtol=1e-13, atol=1e-13)
-    np.testing.assert_allclose(helm1d.kern(float(fixture.E), src, targ, "all", np.eye(2)), fixture.kern_all, rtol=1e-13, atol=1e-13)
+    np.testing.assert_allclose(
+        helm1d.kernel(float(fixture.E), src, targ, "s"), fixture.kern_s, rtol=1e-13, atol=1e-13
+    )
+    np.testing.assert_allclose(
+        helm1d.kernel(float(fixture.E), src, targ, "d"), fixture.kern_d, rtol=1e-13, atol=1e-13
+    )
+    np.testing.assert_allclose(
+        helm1d.kernel(float(fixture.E), src, targ, "sp"), fixture.kern_sp, rtol=1e-13, atol=1e-13
+    )
+    np.testing.assert_allclose(
+        helm1d.kernel(float(fixture.E), src, targ, "dp"), fixture.kern_dp, rtol=1e-13, atol=1e-13
+    )
+    np.testing.assert_allclose(
+        helm1d.kernel(float(fixture.E), src, targ, "c2trans"),
+        fixture.kern_c2trans,
+        rtol=1e-13,
+        atol=1e-13,
+    )
+    np.testing.assert_allclose(
+        helm1d.kernel(float(fixture.E), src, targ, "all", np.eye(2)),
+        fixture.kern_all,
+        rtol=1e-13,
+        atol=1e-13,
+    )
 
     sweep = helm1d.sweep(
         np.asarray(fixture.uu).reshape(-1, order="F"),
@@ -1177,7 +1396,9 @@ def test_helm1d_green_devtools_direct_outputs_match_matlab():
         np.asarray(fixture.wts).reshape(-1, order="F"),
         float(fixture.E),
     )
-    np.testing.assert_allclose(sweep, np.asarray(fixture.sweep_uu).reshape(-1, order="F"), rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(
+        sweep, np.asarray(fixture.sweep_uu).reshape(-1, order="F"), rtol=1e-12, atol=1e-12
+    )
 
 
 def test_kernelop_devtools_outputs_match_matlab():
@@ -1225,10 +1446,10 @@ def test_kernderinterleave_devtools_outputs_match_matlab():
         "trans_rep": kernel("helm", "trans_rep", zk, coefs)(src, targ),
         "trans_rep_prime": kernel("helm", "trans_rep_prime", zk, coefs)(src, targ),
         "c2trans": kernel("helm", "c2trans", zk, coefs)(src, targ),
-        "sgrad": helm2d.kern(zk, src, targ, "sgrad"),
-        "dgrad": helm2d.kern(zk, src, targ, "dgrad"),
-        "cgrad": helm2d.kern(zk, src, targ, "cgrad", coefs),
-        "trans_rep_grad": helm2d.kern(zk, src, targ, "trans_rep_grad", coefs),
+        "sgrad": helm2d.kernel(zk, src, targ, "sgrad"),
+        "dgrad": helm2d.kernel(zk, src, targ, "dgrad"),
+        "cgrad": helm2d.kernel(zk, src, targ, "cgrad", coefs),
+        "trans_rep_grad": helm2d.kernel(zk, src, targ, "trans_rep_grad", coefs),
     }
     for name, actual in helm_checks.items():
         _assert_kernder_field(actual, getattr(helm, name), f"helm {name}")
@@ -1241,6 +1462,8 @@ def test_kernderinterleave_devtools_outputs_match_matlab():
     coefs_diff = np.asarray(hdiff.coefs_diff)
     coefa_diff = np.asarray(hdiff.coefa_diff)
     coefb_diff = np.asarray(hdiff.coefb_diff)
+    coefs_diff_vector = coefs_diff[:, 0]
+    coefb_diff_vector = coefb_diff[:, 0, :]
     hdiff_checks = {
         "s": kernel("helmdiff", "s", zks)(hsrc, htarg),
         "d": kernel("helmdiff", "d", zks)(hsrc, htarg),
@@ -1251,16 +1474,21 @@ def test_kernderinterleave_devtools_outputs_match_matlab():
         "all": kernel("helmdiff", "all", zks, coefa_diff)(hsrc, htarg),
         "trans_rep": kernel("helmdiff", "trans_rep", zks, coefs_diff)(hsrc, htarg),
         "trans_rep_prime": kernel("helmdiff", "trans_rep_prime", zks, coefs_diff)(hsrc, htarg),
-        "c2trans": kernel("helmdiff", "c2trans", zks, coefb_diff)(hsrc, htarg),
-        "sgrad": helm2d.kern(zks[0], hsrc, htarg, "sgrad_diff") - helm2d.kern(zks[1], hsrc, htarg, "sgrad_diff"),
-        "dgrad": helm2d.kern(zks[0], hsrc, htarg, "dgrad_diff") - helm2d.kern(zks[1], hsrc, htarg, "dgrad_diff"),
-        "cgrad": helm2d.kern(zks[0], hsrc, htarg, "cgrad_diff", coefs_diff) - helm2d.kern(zks[1], hsrc, htarg, "cgrad_diff", coefs_diff),
-        "trans_rep_grad": helm2d.kern(zks[0], hsrc, htarg, "trans_rep_grad_diff", coefb_diff[:, :, 0])
-        - helm2d.kern(zks[1], hsrc, htarg, "trans_rep_grad_diff", coefb_diff[:, :, 1]),
+        "c2trans": kernel("helmdiff", "c2trans", zks, coefb_diff_vector)(hsrc, htarg),
+        "sgrad": helm2d.kernel(zks[0], hsrc, htarg, "sgrad_diff")
+        - helm2d.kernel(zks[1], hsrc, htarg, "sgrad_diff"),
+        "dgrad": helm2d.kernel(zks[0], hsrc, htarg, "dgrad_diff")
+        - helm2d.kernel(zks[1], hsrc, htarg, "dgrad_diff"),
+        "cgrad": helm2d.kernel(zks[0], hsrc, htarg, "cgrad_diff", coefs_diff[:, 0])
+        - helm2d.kernel(zks[1], hsrc, htarg, "cgrad_diff", coefs_diff[:, 1]),
+        "trans_rep_grad": helm2d.kernel(
+            zks[0], hsrc, htarg, "trans_rep_grad_diff", coefb_diff_vector[:, 0]
+        )
+        - helm2d.kernel(zks[1], hsrc, htarg, "trans_rep_grad_diff", coefb_diff_vector[:, 1]),
     }
     for name, actual in hdiff_checks.items():
         _assert_kernder_field(actual, getattr(hdiff, name), f"helmdiff {name}")
-    _assert_kernder_algebra(hdiff, coefs, coefa)
+    _assert_kernder_algebra(hdiff, coefs_diff_vector, coefa_diff[:, :, 0])
 
     lap = fixture.lap
     lsrc = pointinfo_from_mat(lap.src)
@@ -1273,9 +1501,9 @@ def test_kernderinterleave_devtools_outputs_match_matlab():
         "sp": kernel("lap", "sp")(lsrc, ltarg),
         "dp": kernel("lap", "dp")(lsrc, ltarg),
         "cp": kernel("lap", "cp", lap_coefs)(lsrc, ltarg),
-        "sgrad": lap2d.kern(lsrc, ltarg, "sgrad"),
-        "dgrad": lap2d.kern(lsrc, ltarg, "dgrad"),
-        "cgrad": lap2d.kern(lsrc, ltarg, "cgrad", lap_coefs),
+        "sgrad": lap2d.kernel(lsrc, ltarg, "sgrad"),
+        "dgrad": lap2d.kernel(lsrc, ltarg, "dgrad"),
+        "cgrad": lap2d.kernel(lsrc, ltarg, "cgrad", lap_coefs),
     }
     for name, actual in lap_checks.items():
         _assert_kernder_field(actual, getattr(lap, name), f"lap {name}")
@@ -1288,10 +1516,21 @@ def test_kernderinterleave_devtools_outputs_match_matlab():
     lap_sgrad = _kernder_array(lap.sgrad)
     lap_dgrad = _kernder_array(lap.dgrad)
     lap_cgrad = _kernder_array(lap.cgrad)
-    np.testing.assert_allclose(lap_coefs[0] * lap_d + lap_coefs[1] * lap_s, lap_c, rtol=1e-12, atol=1e-13)
-    np.testing.assert_allclose(lap_coefs[0] * lap_dp + lap_coefs[1] * lap_sp, lap_cp, rtol=1e-12, atol=1e-13)
-    np.testing.assert_allclose(lap_coefs[0] * lap_dgrad + lap_coefs[1] * lap_sgrad, lap_cgrad, rtol=1e-12, atol=1e-13)
-    np.testing.assert_allclose(lap_dp.reshape(-1, order="F"), np.asarray(lap.dp_grad_dot).reshape(-1), rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(
+        lap_coefs[0] * lap_d + lap_coefs[1] * lap_s, lap_c, rtol=1e-12, atol=1e-13
+    )
+    np.testing.assert_allclose(
+        lap_coefs[0] * lap_dp + lap_coefs[1] * lap_sp, lap_cp, rtol=1e-12, atol=1e-13
+    )
+    np.testing.assert_allclose(
+        lap_coefs[0] * lap_dgrad + lap_coefs[1] * lap_sgrad, lap_cgrad, rtol=1e-12, atol=1e-13
+    )
+    np.testing.assert_allclose(
+        lap_dp.reshape(-1, order="F"),
+        np.asarray(lap.dp_grad_dot).reshape(-1),
+        rtol=1e-12,
+        atol=1e-13,
+    )
 
 
 def test_kernel_interleave_devtools_dense_solve_matches_matlab():
@@ -1302,7 +1541,9 @@ def test_kernel_interleave_devtools_dense_solve_matches_matlab():
 
     chnkr = chunker_from_fields(fixture.chunker)
     system, eval_kernel, skp, sk = kernel_interleave_helmholtz_kernels(fixture)
-    np.testing.assert_array_equal(np.asarray(fixture.K_opdims, dtype=int).reshape(-1, order="F"), np.asarray(system.opdims))
+    np.testing.assert_array_equal(
+        np.asarray(fixture.K_opdims, dtype=int).reshape(-1, order="F"), np.asarray(system.opdims)
+    )
 
     src = PointInfo(r=point_array(fixture.sources))
     targets = point_array(fixture.targets)
@@ -1319,22 +1560,43 @@ def test_kernel_interleave_devtools_dense_solve_matches_matlab():
     sol_scaled = np.linalg.solve(sys, rhs)
     sol = sol_scaled / np.repeat(sqrt_weights, rowdim)
     utarg = sk(src, PointInfo(r=targets)) @ strengths
-    dsol = chunkerkerneval(chnkr, eval_kernel, sol, targets, force_adaptive=True, use_panel_quadrature=False).reshape(-1, order="F")
+    dsol = chunkerkerneval(
+        chnkr, eval_kernel, sol, targets, force_adaptive=True, use_panel_quadrature=False
+    ).reshape(-1, order="F")
     relerr = np.linalg.norm(utarg - dsol) / (np.sqrt(chnkr.nch) * np.linalg.norm(utarg))
-    relerr2 = np.linalg.norm(utarg - dsol, ord=np.inf) / np.dot(np.abs(sol), np.repeat(weights, rowdim))
+    relerr2 = np.linalg.norm(utarg - dsol, ord=np.inf) / np.dot(
+        np.abs(sol), np.repeat(weights, rowdim)
+    )
 
     rows = np.asarray(fixture.entry_rows, dtype=int).reshape(-1, order="F") - 1
     cols = np.asarray(fixture.entry_cols, dtype=int).reshape(-1, order="F") - 1
     probe = np.asarray(fixture.probe)
 
-    np.testing.assert_allclose(ubdry, np.asarray(fixture.ubdry).reshape(-1, order="F"), rtol=1e-10, atol=1e-11)
-    np.testing.assert_allclose(rhs, np.asarray(fixture.rhs).reshape(-1, order="F"), rtol=1e-10, atol=1e-11)
-    np.testing.assert_allclose(sys[np.ix_(rows, cols)], np.asarray(fixture.sys_entries), rtol=5e-8, atol=5e-8)
+    np.testing.assert_allclose(
+        ubdry, np.asarray(fixture.ubdry).reshape(-1, order="F"), rtol=1e-10, atol=1e-11
+    )
+    np.testing.assert_allclose(
+        rhs, np.asarray(fixture.rhs).reshape(-1, order="F"), rtol=1e-10, atol=1e-11
+    )
+    np.testing.assert_allclose(
+        sys[np.ix_(rows, cols)], np.asarray(fixture.sys_entries), rtol=5e-8, atol=5e-8
+    )
     np.testing.assert_allclose(sys @ probe, np.asarray(fixture.sys_probe), rtol=5e-8, atol=1e-7)
-    np.testing.assert_allclose(sol_scaled, np.asarray(fixture.sol_backslash_scaled).reshape(-1, order="F"), rtol=2e-7, atol=2e-8)
-    np.testing.assert_allclose(sol, np.asarray(fixture.sol).reshape(-1, order="F"), rtol=2e-7, atol=2e-8)
-    np.testing.assert_allclose(utarg, np.asarray(fixture.utarg).reshape(-1, order="F"), rtol=1e-10, atol=1e-11)
-    np.testing.assert_allclose(dsol, np.asarray(fixture.Dsol).reshape(-1, order="F"), rtol=2e-7, atol=5e-8)
+    np.testing.assert_allclose(
+        sol_scaled,
+        np.asarray(fixture.sol_backslash_scaled).reshape(-1, order="F"),
+        rtol=2e-7,
+        atol=2e-8,
+    )
+    np.testing.assert_allclose(
+        sol, np.asarray(fixture.sol).reshape(-1, order="F"), rtol=2e-7, atol=2e-8
+    )
+    np.testing.assert_allclose(
+        utarg, np.asarray(fixture.utarg).reshape(-1, order="F"), rtol=1e-10, atol=1e-11
+    )
+    np.testing.assert_allclose(
+        dsol, np.asarray(fixture.Dsol).reshape(-1, order="F"), rtol=2e-7, atol=5e-8
+    )
     np.testing.assert_allclose(relerr, float(fixture.relerr), rtol=2e-7, atol=1e-12)
     np.testing.assert_allclose(relerr2, float(fixture.relerr2), rtol=2e-7, atol=1e-12)
     assert max(relerr, float(fixture.relerr)) < 1e-4
@@ -1386,23 +1648,35 @@ def test_chunkermat_stok2d_devtools_solve_matches_matlab():
     sys = -0.5 * np.eye(D.shape[0]) + D + chnkr.normonesmat() / np.sum(chnkr.wts)
     rhs = ubdry.reshape(-1, order="F")
     sol = np.linalg.solve(sys, rhs)
-    Dsol = chunkerkerneval(chnkr, cvel, matlab_sol, targets, acceleration="fmm", tol=1e-11).reshape(-1, order="F")
+    Dsol = chunkerkerneval(chnkr, cvel, matlab_sol, targets, acceleration="fmm", tol=1e-11).reshape(
+        -1, order="F"
+    )
 
-    np.testing.assert_allclose(ubdry, np.asarray(fixture.ubdry).reshape(-1, order="F"), rtol=1e-11, atol=1e-11)
-    np.testing.assert_allclose(utarg, np.asarray(fixture.utarg).reshape(-1, order="F"), rtol=1e-11, atol=1e-11)
+    np.testing.assert_allclose(
+        ubdry, np.asarray(fixture.ubdry).reshape(-1, order="F"), rtol=1e-11, atol=1e-11
+    )
+    np.testing.assert_allclose(
+        utarg, np.asarray(fixture.utarg).reshape(-1, order="F"), rtol=1e-11, atol=1e-11
+    )
     np.testing.assert_allclose(D, np.asarray(fixture.D), rtol=5e-8, atol=5e-9)
     np.testing.assert_allclose(sys, np.asarray(fixture.sys), rtol=5e-8, atol=5e-9)
     np.testing.assert_allclose(sol, matlab_sol, rtol=2e-7, atol=1e-8)
-    np.testing.assert_allclose(Dsol, np.asarray(fixture.Dsol).reshape(-1, order="F"), rtol=5e-10, atol=5e-11)
+    np.testing.assert_allclose(
+        Dsol, np.asarray(fixture.Dsol).reshape(-1, order="F"), rtol=5e-10, atol=5e-11
+    )
     assert np.linalg.norm(sys @ sol - rhs) / np.linalg.norm(rhs) < 5e-13
     assert np.linalg.norm(sys @ matlab_sol - rhs) / np.linalg.norm(rhs) < 5e-9
     assert np.linalg.norm(utarg - Dsol) / (np.sqrt(chnkr.nch) * np.linalg.norm(utarg)) < 2e-10
 
     svel = kernel("stok", "svel", mu)
-    Ssol = chunkerkerneval(chnkr, svel, matlab_sol, targets, acceleration="fmm", tol=1e-11).reshape(-1, order="F")
+    Ssol = chunkerkerneval(chnkr, svel, matlab_sol, targets, acceleration="fmm", tol=1e-11).reshape(
+        -1, order="F"
+    )
     Ssys = chunkerkernevalmat(chnkr, svel, targets)
     np.testing.assert_allclose(Ssys, np.asarray(fixture.Ssys), rtol=1e-11, atol=1e-12)
-    np.testing.assert_allclose(Ssol, np.asarray(fixture.Ssol).reshape(-1, order="F"), rtol=5e-10, atol=5e-11)
+    np.testing.assert_allclose(
+        Ssol, np.asarray(fixture.Ssol).reshape(-1, order="F"), rtol=5e-10, atol=5e-11
+    )
     assert np.linalg.norm(Ssol - Ssys @ matlab_sol) < 2e-10
 
     for selector, field, rtol, atol in [
@@ -1412,16 +1686,46 @@ def test_chunkermat_stok2d_devtools_solve_matches_matlab():
         ("spres", "Spres", 5e-10, 5e-11),
         ("dpres", "Dpres", 5e-8, 2e-8),
     ]:
-        vals = chunkerkerneval(chnkr, kernel("stok", selector, mu), matlab_sol, targets, acceleration="fmm", tol=1e-11).reshape(-1, order="F")
-        np.testing.assert_allclose(vals, np.asarray(getattr(fixture, field)).reshape(-1, order="F"), rtol=rtol, atol=atol)
+        vals = chunkerkerneval(
+            chnkr, kernel("stok", selector, mu), matlab_sol, targets, acceleration="fmm", tol=1e-11
+        ).reshape(-1, order="F")
+        np.testing.assert_allclose(
+            vals, np.asarray(getattr(fixture, field)).reshape(-1, order="F"), rtol=rtol, atol=atol
+        )
 
-    pressure = chunkerkerneval(chnkr, kernel("stok", "cpres", mu, coefs), matlab_sol, targets, acceleration="fmm", tol=1e-11).reshape(-1, order="F")
+    pressure = chunkerkerneval(
+        chnkr,
+        kernel("stok", "cpres", mu, coefs),
+        matlab_sol,
+        targets,
+        acceleration="fmm",
+        tol=1e-11,
+    ).reshape(-1, order="F")
     pressure = pressure - pressure[0]
-    grad = chunkerkerneval(chnkr, kernel("stok", "cgrad", mu, coefs), matlab_sol, targets, acceleration="fmm", tol=1e-11).reshape(-1, order="F")
-    np.testing.assert_allclose(pressure, np.asarray(fixture.pressure_direct).reshape(-1, order="F"), rtol=5e-10, atol=5e-11)
-    np.testing.assert_allclose(grad, np.asarray(fixture.grad_direct).reshape(-1, order="F"), rtol=5e-9, atol=5e-10)
-    assert np.linalg.norm(pressure - np.asarray(fixture.pressure_exact).reshape(-1, order="F")) / np.linalg.norm(fixture.pressure_exact) < 2e-10
-    assert np.linalg.norm(grad - np.asarray(fixture.grad_exact).reshape(-1, order="F")) / np.linalg.norm(fixture.grad_exact) < 2e-10
+    grad = chunkerkerneval(
+        chnkr,
+        kernel("stok", "cgrad", mu, coefs),
+        matlab_sol,
+        targets,
+        acceleration="fmm",
+        tol=1e-11,
+    ).reshape(-1, order="F")
+    np.testing.assert_allclose(
+        pressure, np.asarray(fixture.pressure_direct).reshape(-1, order="F"), rtol=5e-10, atol=5e-11
+    )
+    np.testing.assert_allclose(
+        grad, np.asarray(fixture.grad_direct).reshape(-1, order="F"), rtol=5e-9, atol=5e-10
+    )
+    assert (
+        np.linalg.norm(pressure - np.asarray(fixture.pressure_exact).reshape(-1, order="F"))
+        / np.linalg.norm(fixture.pressure_exact)
+        < 2e-10
+    )
+    assert (
+        np.linalg.norm(grad - np.asarray(fixture.grad_exact).reshape(-1, order="F"))
+        / np.linalg.norm(fixture.grad_exact)
+        < 2e-10
+    )
 
 
 def test_chunkermat_stok_traction_devtools_solve_matches_matlab():
@@ -1445,7 +1749,9 @@ def test_chunkermat_stok_traction_devtools_solve_matches_matlab():
     sys = 0.5 * np.eye(D.shape[0]) + D
     rhs = ubdry.reshape(-1, order="F")
     sol = np.linalg.solve(sys, rhs)
-    Dsol = chunkerkerneval(chnkr, svel, matlab_sol, targets, acceleration="fmm", tol=1e-11).reshape(-1, order="F")
+    Dsol = chunkerkerneval(chnkr, svel, matlab_sol, targets, acceleration="fmm", tol=1e-11).reshape(
+        -1, order="F"
+    )
 
     tperp = np.vstack((targets[1], -targets[0])).reshape(-1, order="F")
     nt = targets.shape[1]
@@ -1454,14 +1760,24 @@ def test_chunkermat_stok_traction_devtools_solve_matches_matlab():
     Dsol_corrected = Dsol.reshape(2, nt, order="F").copy()
     Dsol_corrected[0] += rbd[0] + rbd[2] * targets[1]
     Dsol_corrected[1] += rbd[1] - rbd[2] * targets[0]
-    relerr = np.linalg.norm(utarg - Dsol_corrected.reshape(-1, order="F")) / (np.sqrt(chnkr.nch) * np.linalg.norm(utarg))
+    relerr = np.linalg.norm(utarg - Dsol_corrected.reshape(-1, order="F")) / (
+        np.sqrt(chnkr.nch) * np.linalg.norm(utarg)
+    )
 
-    np.testing.assert_allclose(ubdry, np.asarray(fixture.ubdry).reshape(-1, order="F"), rtol=2e-9, atol=2e-8)
-    np.testing.assert_allclose(utarg, np.asarray(fixture.utarg).reshape(-1, order="F"), rtol=1e-11, atol=1e-11)
+    np.testing.assert_allclose(
+        ubdry, np.asarray(fixture.ubdry).reshape(-1, order="F"), rtol=2e-9, atol=2e-8
+    )
+    np.testing.assert_allclose(
+        utarg, np.asarray(fixture.utarg).reshape(-1, order="F"), rtol=1e-11, atol=1e-11
+    )
     np.testing.assert_allclose(D, np.asarray(fixture.D), rtol=2e-9, atol=2e-10)
     np.testing.assert_allclose(sys, np.asarray(fixture.sys), rtol=2e-9, atol=2e-10)
-    np.testing.assert_allclose(Dsol, np.asarray(fixture.Dsol).reshape(-1, order="F"), rtol=5e-10, atol=5e-11)
-    np.testing.assert_allclose(rbd, np.asarray(fixture.rbd).reshape(-1, order="F"), rtol=5e-9, atol=5e-10)
+    np.testing.assert_allclose(
+        Dsol, np.asarray(fixture.Dsol).reshape(-1, order="F"), rtol=5e-10, atol=5e-11
+    )
+    np.testing.assert_allclose(
+        rbd, np.asarray(fixture.rbd).reshape(-1, order="F"), rtol=5e-9, atol=5e-10
+    )
     np.testing.assert_allclose(
         Dsol_corrected,
         np.asarray(fixture.Dsol_corrected).reshape(2, -1, order="F"),
@@ -1474,7 +1790,7 @@ def test_chunkermat_stok_traction_devtools_solve_matches_matlab():
     assert float(fixture.relerr) < 2e-10
 
 
-def test_elastickernels_devtools_direct_diagnostics_match_matlab():
+def test_elastickernels_devtools_direct_diagnostics_match_matlab(test_metrics):
     fixture = load_devtools_easy().elastickernels
     chnkr = chunker_from_fields(fixture.chunker)
     lam = float(fixture.lam)
@@ -1488,15 +1804,25 @@ def test_elastickernels_devtools_direct_diagnostics_match_matlab():
     u, trac, *_ = _elasticlet(lam, mu, src, boundary, strengths)
     utarg, tractarg, *_ = _elasticlet(lam, mu, src, targ, strengths)
     wts2 = np.repeat(chnkr.wts.reshape(-1, order="F"), 2)
-    uint = elast2d.kern(lam, mu, boundary, targ, "s") @ (wts2 * trac)
-    uint -= elast2d.kern(lam, mu, boundary, targ, "d") @ (wts2 * u)
+    uint = elast2d.kernel(lam, mu, boundary, targ, "s") @ (wts2 * trac)
+    uint -= elast2d.kernel(lam, mu, boundary, targ, "d") @ (wts2 * u)
     gid_err = np.linalg.norm(-np.ones_like(utarg) - uint / utarg)
 
-    np.testing.assert_allclose(u, np.asarray(diag.boundary_u).reshape(-1, order="F"), rtol=1e-12, atol=1e-12)
-    np.testing.assert_allclose(trac, np.asarray(diag.boundary_trac).reshape(-1, order="F"), rtol=1e-12, atol=1e-12)
-    np.testing.assert_allclose(utarg, np.asarray(diag.target_u).reshape(-1, order="F"), rtol=1e-12, atol=1e-12)
-    np.testing.assert_allclose(tractarg, np.asarray(diag.target_trac).reshape(-1, order="F"), rtol=1e-12, atol=1e-12)
-    np.testing.assert_allclose(uint, np.asarray(diag.green_uint).reshape(-1, order="F"), rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(
+        u, np.asarray(diag.boundary_u).reshape(-1, order="F"), rtol=1e-12, atol=1e-12
+    )
+    np.testing.assert_allclose(
+        trac, np.asarray(diag.boundary_trac).reshape(-1, order="F"), rtol=1e-12, atol=1e-12
+    )
+    np.testing.assert_allclose(
+        utarg, np.asarray(diag.target_u).reshape(-1, order="F"), rtol=1e-12, atol=1e-12
+    )
+    np.testing.assert_allclose(
+        tractarg, np.asarray(diag.target_trac).reshape(-1, order="F"), rtol=1e-12, atol=1e-12
+    )
+    np.testing.assert_allclose(
+        uint, np.asarray(diag.green_uint).reshape(-1, order="F"), rtol=1e-12, atol=1e-12
+    )
     np.testing.assert_allclose(gid_err, float(fixture.gid_err), rtol=1e-12, atol=1e-13)
     assert gid_err < 1e-14
 
@@ -1518,17 +1844,37 @@ def test_elastickernels_devtools_direct_diagnostics_match_matlab():
             diag.sample_dalttrac,
             diag.sample_sgrad,
         ),
+        strict=True,
     ):
-        np.testing.assert_allclose(actual, np.asarray(expected).reshape(-1, order="F"), rtol=1e-12, atol=1e-12)
+        np.testing.assert_allclose(
+            actual, np.asarray(expected).reshape(-1, order="F"), rtol=1e-12, atol=1e-12
+        )
 
-    errors = _elastic_finite_difference_errors(lam, mu, sample_src, sample_targ, strengths, int(fixture.niter))
-    for actual, expected, rtol, atol in zip(
+    errors = _elastic_finite_difference_errors(
+        lam, mu, sample_src, sample_targ, strengths, int(fixture.niter)
+    )
+    for label, actual, expected, rel_tol, abs_tol in zip(
+        ("pde", "pdedalt", "div", "trac", "daltgrad"),
         errors,
-        (fixture.pde_errs, fixture.pdedalt_errs, fixture.div_errs, fixture.trac_errs, fixture.daltgrad_errs),
+        (
+            fixture.pde_errs,
+            fixture.pdedalt_errs,
+            fixture.div_errs,
+            fixture.trac_errs,
+            fixture.daltgrad_errs,
+        ),
         (6e-2, 2e-2, 1e-4, 3e-2, 1e-2),
-        (1e-10, 1e-8, 1e-12, 1e-12, 1e-12),
+        (2e-7, 2e-7, 1e-12, 1e-12, 1e-12),
+        strict=True,
     ):
-        np.testing.assert_allclose(actual[:-1], np.asarray(expected).reshape(-1, order="F")[:-1], rtol=rtol, atol=atol)
+        assert_abs_or_rel_close(
+            actual[:-1],
+            np.asarray(expected).reshape(-1, order="F")[:-1],
+            abs_tol=abs_tol,
+            rel_tol=rel_tol,
+            label=f"elastic_{label}_finite_difference_errors",
+            test_metrics=test_metrics,
+        )
     assert np.min(errors[0]) < 1e-5
     assert np.min(errors[1]) < 1e-5
     assert np.min(errors[2]) < 1e-7
@@ -1544,9 +1890,17 @@ def test_kernelclass_devtools_green_identity_matches_matlab():
     Du = chunkerkerneval(chnkr, lap_d, densu, fixture.targets, opts).reshape(-1, order="F")
     Sun = chunkerkerneval(chnkr, lap_s, densun, fixture.targets, opts).reshape(-1, order="F")
     identity = Sun - Du
-    fmm_opts = {"_chunkie_normalized_operator_options": True, "acceleration": "fmm", "forceadap": True, "eps": 1.0e-12, "usepquad": False}
+    fmm_opts = {
+        "_chunkie_normalized_operator_options": True,
+        "acceleration": "fmm",
+        "forceadap": True,
+        "eps": 1.0e-12,
+        "usepquad": False,
+    }
     Du_fmm = chunkerkerneval(chnkr, lap_d, densu, fixture.targets, fmm_opts).reshape(-1, order="F")
-    Sun_fmm = chunkerkerneval(chnkr, lap_s, densun, fixture.targets, fmm_opts).reshape(-1, order="F")
+    Sun_fmm = chunkerkerneval(chnkr, lap_s, densun, fixture.targets, fmm_opts).reshape(
+        -1, order="F"
+    )
     identity_fmm = Sun_fmm - Du_fmm
 
     np.testing.assert_allclose(densu, fixture.ubdry, rtol=1e-12, atol=1e-13)
@@ -1560,7 +1914,9 @@ def test_kernelclass_devtools_green_identity_matches_matlab():
     np.testing.assert_allclose(identity_fmm, fixture.utarg_identity, rtol=1e-10, atol=1e-12)
     np.testing.assert_allclose(fixture.Du_fmm, fixture.Du, rtol=1e-10, atol=1e-12)
     np.testing.assert_allclose(fixture.Sun_fmm, fixture.Sun, rtol=1e-10, atol=1e-12)
-    np.testing.assert_allclose(fixture.utarg_identity_fmm, fixture.utarg_identity, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(
+        fixture.utarg_identity_fmm, fixture.utarg_identity, rtol=1e-10, atol=1e-12
+    )
     assert np.linalg.norm(utarg - identity) / np.linalg.norm(utarg) < 1e-11
     assert np.linalg.norm(utarg - identity_fmm) / np.linalg.norm(utarg) < 1e-11
     assert float(fixture.relerr) < 1e-11
@@ -1582,9 +1938,17 @@ def test_chunkerkerneval_greenlap_devtools_outputs_match_matlab():
     Du_direct = chunkerkerneval(chnkr, lap_d, densu, fixture.targets, opts).reshape(-1, order="F")
     Sun_direct = chunkerkerneval(chnkr, lap_s, densun, fixture.targets, opts).reshape(-1, order="F")
     identity_direct = Sun_direct - Du_direct
-    fmm_opts = {"_chunkie_normalized_operator_options": True, "acceleration": "fmm", "forceadap": True, "eps": 1.0e-12, "usepquad": False}
+    fmm_opts = {
+        "_chunkie_normalized_operator_options": True,
+        "acceleration": "fmm",
+        "forceadap": True,
+        "eps": 1.0e-12,
+        "usepquad": False,
+    }
     Du_fmm = chunkerkerneval(chnkr, lap_d, densu, fixture.targets, fmm_opts).reshape(-1, order="F")
-    Sun_fmm = chunkerkerneval(chnkr, lap_s, densun, fixture.targets, fmm_opts).reshape(-1, order="F")
+    Sun_fmm = chunkerkerneval(chnkr, lap_s, densun, fixture.targets, fmm_opts).reshape(
+        -1, order="F"
+    )
     identity_fmm = Sun_fmm - Du_fmm
     flam_opts = {
         "_chunkie_normalized_operator_options": True,
@@ -1595,8 +1959,12 @@ def test_chunkerkerneval_greenlap_devtools_outputs_match_matlab():
         "useproxy": False,
         "usepquad": False,
     }
-    Du_flam = chunkerkerneval(chnkr, lap_d, densu, fixture.targets, flam_opts).reshape(-1, order="F")
-    Sun_flam = chunkerkerneval(chnkr, lap_s, densun, fixture.targets, flam_opts).reshape(-1, order="F")
+    Du_flam = chunkerkerneval(chnkr, lap_d, densu, fixture.targets, flam_opts).reshape(
+        -1, order="F"
+    )
+    Sun_flam = chunkerkerneval(chnkr, lap_s, densun, fixture.targets, flam_opts).reshape(
+        -1, order="F"
+    )
     identity_flam = Sun_flam - Du_flam
 
     np.testing.assert_allclose(densu, fixture.densu, rtol=1e-12, atol=1e-13)
@@ -1604,16 +1972,22 @@ def test_chunkerkerneval_greenlap_devtools_outputs_match_matlab():
     np.testing.assert_allclose(utarg, fixture.utarg, rtol=1e-12, atol=1e-13)
     np.testing.assert_allclose(Du_direct, fixture.Du_direct, rtol=1e-10, atol=1e-12)
     np.testing.assert_allclose(Sun_direct, fixture.Sun_direct, rtol=1e-10, atol=1e-12)
-    np.testing.assert_allclose(identity_direct, fixture.utarg_identity_direct, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(
+        identity_direct, fixture.utarg_identity_direct, rtol=1e-10, atol=1e-12
+    )
     np.testing.assert_allclose(Du_fmm, fixture.Du_fmm, rtol=1e-10, atol=1e-12)
     np.testing.assert_allclose(Sun_fmm, fixture.Sun_fmm, rtol=1e-10, atol=1e-12)
     np.testing.assert_allclose(identity_fmm, fixture.utarg_identity_fmm, rtol=1e-10, atol=1e-12)
     np.testing.assert_allclose(fixture.Du_fmm, fixture.Du_direct, rtol=1e-10, atol=1e-12)
     np.testing.assert_allclose(fixture.Sun_fmm, fixture.Sun_direct, rtol=1e-10, atol=1e-12)
-    np.testing.assert_allclose(fixture.utarg_identity_fmm, fixture.utarg_identity_direct, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(
+        fixture.utarg_identity_fmm, fixture.utarg_identity_direct, rtol=1e-10, atol=1e-12
+    )
     np.testing.assert_allclose(fixture.Du_flam, fixture.Du_direct, rtol=1e-10, atol=1e-12)
     np.testing.assert_allclose(fixture.Sun_flam, fixture.Sun_direct, rtol=1e-10, atol=1e-12)
-    np.testing.assert_allclose(fixture.utarg_identity_flam, fixture.utarg_identity_direct, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(
+        fixture.utarg_identity_flam, fixture.utarg_identity_direct, rtol=1e-10, atol=1e-12
+    )
     np.testing.assert_allclose(Du_flam, fixture.Du_direct, rtol=1e-8, atol=5e-9)
     np.testing.assert_allclose(Sun_flam, fixture.Sun_direct, rtol=1e-8, atol=5e-9)
     np.testing.assert_allclose(identity_flam, fixture.utarg_identity_direct, rtol=1e-8, atol=5e-9)
@@ -1685,20 +2059,42 @@ def test_chunkerkerneval_corrections_devtools_outputs_match_matlab():
     sys = -0.5 * np.eye(chnkr.npt) + chunkermat(chnkr, helm_d)
     sol = np.linalg.solve(sys, rhs)
     utrue = helm_s(srcinfo, PointInfo(r=targets)) @ strengths
-    cormat = chunkerkernevalmat(chnkr, helm_d, targets, corrections=True, use_panel_quadrature=False)
+    cormat = chunkerkernevalmat(
+        chnkr, helm_d, targets, corrections=True, use_panel_quadrature=False
+    )
     assert sparse.issparse(cormat)
-    u_eval_cor = chunkerkerneval(chnkr, helm_d, sol, targets, {"_chunkie_normalized_operator_options": True, "forcesmooth": True, "cormat": cormat}).reshape(-1, order="F")
-    u_eval = chunkerkerneval(chnkr, helm_d, sol, targets, quadrature="smooth").reshape(-1, order="F")
+    u_eval_cor = chunkerkerneval(
+        chnkr,
+        helm_d,
+        sol,
+        targets,
+        {"_chunkie_normalized_operator_options": True, "forcesmooth": True, "cormat": cormat},
+    ).reshape(-1, order="F")
+    u_eval = chunkerkerneval(chnkr, helm_d, sol, targets, quadrature="smooth").reshape(
+        -1, order="F"
+    )
 
-    np.testing.assert_allclose(rhs, np.asarray(fixture.rhs).reshape(-1, order="F"), rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(
+        rhs, np.asarray(fixture.rhs).reshape(-1, order="F"), rtol=1e-12, atol=1e-13
+    )
     np.testing.assert_allclose(sys, np.asarray(fixture.sys), rtol=1e-8, atol=5e-9)
-    np.testing.assert_allclose(sol, np.asarray(fixture.sol).reshape(-1, order="F"), rtol=1e-8, atol=2e-9)
-    np.testing.assert_allclose(utrue, np.asarray(fixture.utrue).reshape(-1, order="F"), rtol=1e-12, atol=1e-13)
-    fixture_cormat = fixture.cormat.toarray() if sparse.issparse(fixture.cormat) else np.asarray(fixture.cormat)
+    np.testing.assert_allclose(
+        sol, np.asarray(fixture.sol).reshape(-1, order="F"), rtol=1e-8, atol=2e-9
+    )
+    np.testing.assert_allclose(
+        utrue, np.asarray(fixture.utrue).reshape(-1, order="F"), rtol=1e-12, atol=1e-13
+    )
+    fixture_cormat = (
+        fixture.cormat.toarray() if sparse.issparse(fixture.cormat) else np.asarray(fixture.cormat)
+    )
     cormat_dense = cormat.toarray() if sparse.issparse(cormat) else np.asarray(cormat)
     np.testing.assert_allclose(cormat_dense, fixture_cormat, rtol=1e-9, atol=1e-11)
-    np.testing.assert_allclose(u_eval_cor, np.asarray(fixture.u_eval_cor).reshape(-1, order="F"), rtol=1e-9, atol=1e-11)
-    np.testing.assert_allclose(u_eval, np.asarray(fixture.u_eval).reshape(-1, order="F"), rtol=1e-9, atol=1e-11)
+    np.testing.assert_allclose(
+        u_eval_cor, np.asarray(fixture.u_eval_cor).reshape(-1, order="F"), rtol=1e-9, atol=1e-11
+    )
+    np.testing.assert_allclose(
+        u_eval, np.asarray(fixture.u_eval).reshape(-1, order="F"), rtol=1e-9, atol=1e-11
+    )
     assert np.linalg.norm(utrue - u_eval_cor, ord=np.inf) < 1e-11
     assert np.linalg.norm(utrue - u_eval, ord=np.inf) > 1e-10
     assert float(fixture.err_cor) < 1e-11
@@ -1717,7 +2113,12 @@ def test_chunkerkerneval_gaussid_devtools_outputs_match_matlab():
         lap_d,
         dens,
         targets,
-        {"_chunkie_normalized_operator_options": True, "forceadap": True, "fac": 1.0, "usepquad": False},
+        {
+            "_chunkie_normalized_operator_options": True,
+            "forceadap": True,
+            "fac": 1.0,
+            "usepquad": False,
+        },
     ).reshape(-1, order="F")
     expected = np.asarray(fixture.values).reshape(-1, order="F")
     identity_err = np.minimum(np.abs(values), np.abs(values + 1.0))
@@ -1725,7 +2126,9 @@ def test_chunkerkerneval_gaussid_devtools_outputs_match_matlab():
     interior = chunkerinterior(chnkr, targets, acceleration="dense")
 
     np.testing.assert_allclose(values, expected, rtol=1e-8, atol=5e-8)
-    np.testing.assert_allclose(identity_err, np.asarray(fixture.identity_err).reshape(-1, order="F"), rtol=1e-7, atol=5e-8)
+    np.testing.assert_allclose(
+        identity_err, np.asarray(fixture.identity_err).reshape(-1, order="F"), rtol=1e-7, atol=5e-8
+    )
     np.testing.assert_array_equal(values < -0.5, expected_inside)
     np.testing.assert_array_equal(interior, expected_inside)
     assert identity_err.max() < 1e-6
@@ -1795,56 +2198,66 @@ def test_pquad_devtools_low_level_weights_match_matlab():
     weights = np.asarray(fixture.weights, dtype=float).reshape(-1, order="F")
     interp = np.asarray(fixture.interp)
     interp_ab = np.asarray(fixture.interp_ab)
-    target_ext = PointInfo(r=np.asarray(fixture.target_exterior, dtype=float).reshape(2, 1, order="F"))
-    target_int = PointInfo(r=np.asarray(fixture.target_interior, dtype=float).reshape(2, 1, order="F"))
+    target_ext = PointInfo(
+        r=np.asarray(fixture.target_exterior, dtype=float).reshape(2, 1, order="F")
+    )
+    target_int = PointInfo(
+        r=np.asarray(fixture.target_interior, dtype=float).reshape(2, 1, order="F")
+    )
 
     def assert_pquad_matrix(actual, expected):
         expected_arr = np.asarray(expected).reshape(actual.shape, order="F")
         np.testing.assert_allclose(actual, expected_arr, rtol=1e-10, atol=5e-12)
 
     ext_up = pquad.pquadwts(
-        chnkr,
-        src_chunk,
-        target_ext,
-        (pquad.LOG, pquad.CAUCHY, pquad.HYPERSINGULAR, pquad.SUPERSINGULAR),
-        "e",
+        chunker=chnkr,
+        source_chunk=src_chunk,
+        target=target_ext,
+        types=(pquad.LOG, pquad.CAUCHY, pquad.HYPERSINGULAR, pquad.SUPERSINGULAR),
+        side="e",
         nodes=nodes,
         weights=weights,
-        intp_ab=interp_ab,
-        intp=interp,
-        ifup=True,
+        endpoint_interpolator=interp_ab,
+        interpolator=interp,
+        upsample=True,
     )
-    for actual, expected in zip(ext_up, (fixture.ext_log_up, fixture.ext_cauchy_up, fixture.ext_hyp_up, fixture.ext_super_up), strict=True):
+    for actual, expected in zip(
+        ext_up,
+        (fixture.ext_log_up, fixture.ext_cauchy_up, fixture.ext_hyp_up, fixture.ext_super_up),
+        strict=True,
+    ):
         assert_pquad_matrix(actual, expected)
 
     ext_orig = pquad.pquadwts(
-        chnkr,
-        src_chunk,
-        target_ext,
-        (pquad.LOG, pquad.CAUCHY),
-        "e",
+        chunker=chnkr,
+        source_chunk=src_chunk,
+        target=target_ext,
+        types=(pquad.LOG, pquad.CAUCHY),
+        side="e",
         nodes=nodes,
         weights=weights,
-        intp_ab=interp_ab,
-        intp=interp,
-        ifup=False,
+        endpoint_interpolator=interp_ab,
+        interpolator=interp,
+        upsample=False,
     )
-    for actual, expected in zip(ext_orig, (fixture.ext_log_orig, fixture.ext_cauchy_orig), strict=True):
+    for actual, expected in zip(
+        ext_orig, (fixture.ext_log_orig, fixture.ext_cauchy_orig), strict=True
+    ):
         assert_pquad_matrix(actual, expected)
     np.testing.assert_allclose(ext_up[0] @ interp, ext_orig[0], rtol=1e-13, atol=1e-13)
     np.testing.assert_allclose(ext_up[1] @ interp, ext_orig[1], rtol=1e-13, atol=1e-13)
 
     int_up = pquad.pquadwts(
-        chnkr,
-        src_chunk,
-        target_int,
-        (pquad.LOG, pquad.CAUCHY),
-        "i",
+        chunker=chnkr,
+        source_chunk=src_chunk,
+        target=target_int,
+        types=(pquad.LOG, pquad.CAUCHY),
+        side="i",
         nodes=nodes,
         weights=weights,
-        intp_ab=interp_ab,
-        intp=interp,
-        ifup=True,
+        endpoint_interpolator=interp_ab,
+        interpolator=interp,
+        upsample=True,
     )
     for actual, expected in zip(int_up, (fixture.int_log_up, fixture.int_cauchy_up), strict=True):
         assert_pquad_matrix(actual, expected)
@@ -1861,7 +2274,11 @@ def test_chunkermat_quadadap_closetotouching_devtools_solve_matches_matlab():
 
     ubdry = lap_s(src, pointinfo(chnkr)) @ strengths
     utarg = lap_s(src, PointInfo(r=targets)) @ strengths
-    mat_adap = chunkermat(chnkr, combined, {"_chunkie_normalized_operator_options": True, "adaptive_correction": True, "robust": True})
+    mat_adap = chunkermat(
+        chnkr,
+        combined,
+        {"_chunkie_normalized_operator_options": True, "adaptive_correction": True, "robust": True},
+    )
     mat_original = chunkermat(chnkr, combined)
     probe = np.asarray(fixture.sysa_probe_rhs)
     rhs = np.asarray(fixture.rhs).reshape(-1, order="F")
@@ -1869,25 +2286,55 @@ def test_chunkermat_quadadap_closetotouching_devtools_solve_matches_matlab():
     sys_original = 0.5 * np.eye(chnkr.npt) + mat_original
     sol_adap = np.linalg.solve(sys_adap, rhs)
     sol_original = np.linalg.solve(sys_original, rhs)
-    layer_adap = chunkerkerneval(chnkr, combined, sol_adap, targets, force_adaptive=True, use_panel_quadrature=False).reshape(-1, order="F")
-    layer_original = chunkerkerneval(chnkr, combined, sol_original, targets, force_adaptive=True, use_panel_quadrature=False).reshape(-1, order="F")
+    layer_adap = chunkerkerneval(
+        chnkr, combined, sol_adap, targets, force_adaptive=True, use_panel_quadrature=False
+    ).reshape(-1, order="F")
+    layer_original = chunkerkerneval(
+        chnkr, combined, sol_original, targets, force_adaptive=True, use_panel_quadrature=False
+    ).reshape(-1, order="F")
     relerr_adap = np.linalg.norm(utarg - layer_adap) / (np.sqrt(chnkr.nch) * np.linalg.norm(utarg))
-    relerr_original = np.linalg.norm(utarg - layer_original) / (np.sqrt(chnkr.nch) * np.linalg.norm(utarg))
-    relerr2_adap = np.linalg.norm(utarg - layer_adap, ord=np.inf) / np.dot(np.abs(sol_adap), chnkr.wts.reshape(-1, order="F"))
-    relerr2_original = np.linalg.norm(utarg - layer_original, ord=np.inf) / np.dot(np.abs(sol_original), chnkr.wts.reshape(-1, order="F"))
+    relerr_original = np.linalg.norm(utarg - layer_original) / (
+        np.sqrt(chnkr.nch) * np.linalg.norm(utarg)
+    )
+    relerr2_adap = np.linalg.norm(utarg - layer_adap, ord=np.inf) / np.dot(
+        np.abs(sol_adap), chnkr.wts.reshape(-1, order="F")
+    )
+    relerr2_original = np.linalg.norm(utarg - layer_original, ord=np.inf) / np.dot(
+        np.abs(sol_original), chnkr.wts.reshape(-1, order="F")
+    )
 
-    np.testing.assert_allclose(ubdry, np.asarray(fixture.ubdry).reshape(-1, order="F"), rtol=1e-12, atol=1e-13)
-    np.testing.assert_allclose(utarg, np.asarray(fixture.utarg).reshape(-1, order="F"), rtol=1e-12, atol=1e-13)
-    np.testing.assert_allclose(mat_adap @ probe, np.asarray(fixture.mata_probe), rtol=3e-8, atol=1e-8)
-    np.testing.assert_allclose(mat_original @ probe, np.asarray(fixture.mato_probe), rtol=3e-8, atol=1e-8)
-    np.testing.assert_allclose(sol_adap, np.asarray(fixture.sola).reshape(-1, order="F"), rtol=5e-8, atol=5e-10)
-    np.testing.assert_allclose(sol_original, np.asarray(fixture.solo).reshape(-1, order="F"), rtol=5e-8, atol=5e-10)
-    np.testing.assert_allclose(layer_adap, np.asarray(fixture.layersola).reshape(-1, order="F"), rtol=5e-8, atol=5e-10)
-    np.testing.assert_allclose(layer_original, np.asarray(fixture.layersolo).reshape(-1, order="F"), rtol=5e-8, atol=5e-10)
+    np.testing.assert_allclose(
+        ubdry, np.asarray(fixture.ubdry).reshape(-1, order="F"), rtol=1e-12, atol=1e-13
+    )
+    np.testing.assert_allclose(
+        utarg, np.asarray(fixture.utarg).reshape(-1, order="F"), rtol=1e-12, atol=1e-13
+    )
+    np.testing.assert_allclose(
+        mat_adap @ probe, np.asarray(fixture.mata_probe), rtol=3e-8, atol=1e-8
+    )
+    np.testing.assert_allclose(
+        mat_original @ probe, np.asarray(fixture.mato_probe), rtol=3e-8, atol=1e-8
+    )
+    np.testing.assert_allclose(
+        sol_adap, np.asarray(fixture.sola).reshape(-1, order="F"), rtol=5e-8, atol=5e-10
+    )
+    np.testing.assert_allclose(
+        sol_original, np.asarray(fixture.solo).reshape(-1, order="F"), rtol=5e-8, atol=5e-10
+    )
+    np.testing.assert_allclose(
+        layer_adap, np.asarray(fixture.layersola).reshape(-1, order="F"), rtol=5e-8, atol=5e-10
+    )
+    np.testing.assert_allclose(
+        layer_original, np.asarray(fixture.layersolo).reshape(-1, order="F"), rtol=5e-8, atol=5e-10
+    )
     assert max(relerr_adap, float(fixture.relerr_adap)) < 1e-10
     assert max(relerr2_adap, float(fixture.relerr2_adap)) < 1e-10
-    np.testing.assert_allclose(relerr_original, float(fixture.relerr_original), rtol=5e-8, atol=5e-10)
-    np.testing.assert_allclose(relerr2_original, float(fixture.relerr2_original), rtol=5e-8, atol=5e-10)
+    np.testing.assert_allclose(
+        relerr_original, float(fixture.relerr_original), rtol=5e-8, atol=5e-10
+    )
+    np.testing.assert_allclose(
+        relerr2_original, float(fixture.relerr2_original), rtol=5e-8, atol=5e-10
+    )
 
 
 def test_chunkermatapply_scalar_devtools_outputs_match_matlab():
@@ -1907,12 +2354,24 @@ def test_chunkermatapply_scalar_devtools_outputs_match_matlab():
     sol_dense = np.linalg.solve(sys, dens)
     apply_relerr = np.linalg.norm(udense - u_apply) / np.linalg.norm(udense)
 
-    np.testing.assert_allclose(dens, np.asarray(fixture.dens).reshape(-1, order="F"), rtol=1e-12, atol=1e-13)
-    np.testing.assert_allclose(udense, np.asarray(fixture.udense).reshape(-1, order="F"), rtol=5e-5, atol=5e-6)
-    np.testing.assert_allclose(u_apply, np.asarray(fixture.u_apply).reshape(-1, order="F"), rtol=5e-5, atol=5e-6)
-    np.testing.assert_allclose(sys11, np.asarray(fixture.sys11).reshape(-1, order="F"), rtol=1e-7, atol=1e-10)
-    np.testing.assert_allclose(sol_dense, np.asarray(fixture.sol_dense).reshape(-1, order="F"), rtol=5e-5, atol=2e-5)
-    np.testing.assert_allclose(sol_dense, np.asarray(fixture.sol_gmres).reshape(-1, order="F"), rtol=5e-5, atol=2e-5)
+    np.testing.assert_allclose(
+        dens, np.asarray(fixture.dens).reshape(-1, order="F"), rtol=1e-12, atol=1e-13
+    )
+    np.testing.assert_allclose(
+        udense, np.asarray(fixture.udense).reshape(-1, order="F"), rtol=5e-5, atol=5e-6
+    )
+    np.testing.assert_allclose(
+        u_apply, np.asarray(fixture.u_apply).reshape(-1, order="F"), rtol=5e-5, atol=5e-6
+    )
+    np.testing.assert_allclose(
+        sys11, np.asarray(fixture.sys11).reshape(-1, order="F"), rtol=1e-7, atol=1e-10
+    )
+    np.testing.assert_allclose(
+        sol_dense, np.asarray(fixture.sol_dense).reshape(-1, order="F"), rtol=5e-5, atol=2e-5
+    )
+    np.testing.assert_allclose(
+        sol_dense, np.asarray(fixture.sol_gmres).reshape(-1, order="F"), rtol=5e-5, atol=2e-5
+    )
     assert max(apply_relerr, float(fixture.apply_relerr)) < 1e-13
     assert float(fixture.solve_relerr) < 1e-13
 
@@ -1933,7 +2392,9 @@ def test_chunkermatapply_vector_devtools_outputs_match_matlab():
     matlab_u_apply = np.asarray(fixture.u_apply).reshape(-1, order="F")
     matlab_sys_probe = np.asarray(fixture.sys_probe)
 
-    np.testing.assert_allclose(bdry_data, np.asarray(fixture.bdry_data).reshape(-1, order="F"), rtol=1e-12, atol=1e-11)
+    np.testing.assert_allclose(
+        bdry_data, np.asarray(fixture.bdry_data).reshape(-1, order="F"), rtol=1e-12, atol=1e-11
+    )
     assert np.linalg.norm(udense - matlab_udense) / np.linalg.norm(matlab_udense) < 1e-5
     assert np.max(np.abs(udense - matlab_udense)) < 2e-3
     assert np.linalg.norm(u_apply - matlab_u_apply) / np.linalg.norm(matlab_u_apply) < 1e-5
@@ -1961,7 +2422,9 @@ def test_chunkermatapply_graph_scalar_devtools_outputs_match_matlab():
     matlab_u_apply = np.asarray(fixture.u_apply).reshape(-1, order="F")
     matlab_sys_probe = np.asarray(fixture.sys_probe)
 
-    np.testing.assert_allclose(dens, np.asarray(fixture.dens).reshape(-1, order="F"), rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(
+        dens, np.asarray(fixture.dens).reshape(-1, order="F"), rtol=1e-12, atol=1e-13
+    )
     np.testing.assert_allclose(u_apply, udense, rtol=1e-12, atol=1e-13)
     np.testing.assert_allclose(matlab_u_apply, matlab_udense, rtol=1e-12, atol=1e-13)
     assert np.linalg.norm(udense - matlab_udense) / np.linalg.norm(matlab_udense) < 3.5e-2
@@ -1985,7 +2448,9 @@ def test_chunkermatapply_graph_vector_devtools_outputs_match_matlab():
     matlab_u_apply = np.asarray(fixture.u_apply).reshape(-1, order="F")
     matlab_sys_probe = np.asarray(fixture.sys_probe)
 
-    np.testing.assert_allclose(bdry_data, np.asarray(fixture.bdry_data).reshape(-1, order="F"), rtol=1e-12, atol=1e-11)
+    np.testing.assert_allclose(
+        bdry_data, np.asarray(fixture.bdry_data).reshape(-1, order="F"), rtol=1e-12, atol=1e-11
+    )
     np.testing.assert_allclose(u_apply, udense, rtol=1e-12, atol=1e-12)
     np.testing.assert_allclose(matlab_u_apply, matlab_udense, rtol=1e-12, atol=1e-12)
     assert np.linalg.norm(udense - matlab_udense) / np.linalg.norm(matlab_udense) < 1e-3
@@ -2008,18 +2473,34 @@ def test_chunkermat_laplace_solve_devtools_outputs_match_matlab():
     sys = -0.5 * np.eye(chnkr.npt) + dmat
     rhs = ubdry.reshape(-1, order="F")
     sol = np.linalg.solve(sys, rhs)
-    dsol = chunkerkerneval(chnkr, lap_d, sol, targets, force_adaptive=True, use_panel_quadrature=False).reshape(-1, order="F")
+    dsol = chunkerkerneval(
+        chnkr, lap_d, sol, targets, force_adaptive=True, use_panel_quadrature=False
+    ).reshape(-1, order="F")
     relerr = np.linalg.norm(utarg - dsol) / (np.sqrt(chnkr.nch) * np.linalg.norm(utarg))
-    relerr2 = np.linalg.norm(utarg - dsol, ord=np.inf) / np.dot(np.abs(sol), chnkr.wts.reshape(-1, order="F"))
+    relerr2 = np.linalg.norm(utarg - dsol, ord=np.inf) / np.dot(
+        np.abs(sol), chnkr.wts.reshape(-1, order="F")
+    )
 
-    np.testing.assert_allclose(ubdry, np.asarray(fixture.ubdry).reshape(-1, order="F"), rtol=1e-12, atol=1e-13)
-    np.testing.assert_allclose(utarg, np.asarray(fixture.utarg).reshape(-1, order="F"), rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(
+        ubdry, np.asarray(fixture.ubdry).reshape(-1, order="F"), rtol=1e-12, atol=1e-13
+    )
+    np.testing.assert_allclose(
+        utarg, np.asarray(fixture.utarg).reshape(-1, order="F"), rtol=1e-12, atol=1e-13
+    )
     np.testing.assert_allclose(dmat, np.asarray(fixture.D), rtol=1e-8, atol=3e-9)
     np.testing.assert_allclose(sys, np.asarray(fixture.sys), rtol=1e-8, atol=3e-9)
-    np.testing.assert_allclose(rhs, np.asarray(fixture.rhs).reshape(-1, order="F"), rtol=1e-12, atol=1e-13)
-    np.testing.assert_allclose(sol, np.asarray(fixture.sol_backslash).reshape(-1, order="F"), rtol=5e-9, atol=3e-9)
-    np.testing.assert_allclose(sol, np.asarray(fixture.sol_gmres).reshape(-1, order="F"), rtol=5e-9, atol=3e-9)
-    np.testing.assert_allclose(dsol, np.asarray(fixture.Dsol).reshape(-1, order="F"), rtol=1e-9, atol=1e-11)
+    np.testing.assert_allclose(
+        rhs, np.asarray(fixture.rhs).reshape(-1, order="F"), rtol=1e-12, atol=1e-13
+    )
+    np.testing.assert_allclose(
+        sol, np.asarray(fixture.sol_backslash).reshape(-1, order="F"), rtol=5e-9, atol=3e-9
+    )
+    np.testing.assert_allclose(
+        sol, np.asarray(fixture.sol_gmres).reshape(-1, order="F"), rtol=5e-9, atol=3e-9
+    )
+    np.testing.assert_allclose(
+        dsol, np.asarray(fixture.Dsol).reshape(-1, order="F"), rtol=1e-9, atol=1e-11
+    )
     assert max(relerr, float(fixture.relerr)) < 1e-10
     assert max(relerr2, float(fixture.relerr2)) < 1e-10
     assert float(fixture.solve_relerr) < 1e-12
@@ -2041,18 +2522,34 @@ def test_chunkermat_helm2d_solve_devtools_outputs_match_matlab():
     sys = -0.5 * np.eye(chnkr.npt) + dmat
     rhs = ubdry.reshape(-1, order="F")
     sol = np.linalg.solve(sys, rhs)
-    dsol = chunkerkerneval(chnkr, helm_d, sol, targets, force_adaptive=True, use_panel_quadrature=False).reshape(-1, order="F")
+    dsol = chunkerkerneval(
+        chnkr, helm_d, sol, targets, force_adaptive=True, use_panel_quadrature=False
+    ).reshape(-1, order="F")
     relerr = np.linalg.norm(utarg - dsol) / (np.sqrt(chnkr.nch) * np.linalg.norm(utarg))
-    relerr2 = np.linalg.norm(utarg - dsol, ord=np.inf) / np.dot(np.abs(sol), chnkr.wts.reshape(-1, order="F"))
+    relerr2 = np.linalg.norm(utarg - dsol, ord=np.inf) / np.dot(
+        np.abs(sol), chnkr.wts.reshape(-1, order="F")
+    )
 
-    np.testing.assert_allclose(ubdry, np.asarray(fixture.ubdry).reshape(-1, order="F"), rtol=1e-12, atol=1e-13)
-    np.testing.assert_allclose(utarg, np.asarray(fixture.utarg).reshape(-1, order="F"), rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(
+        ubdry, np.asarray(fixture.ubdry).reshape(-1, order="F"), rtol=1e-12, atol=1e-13
+    )
+    np.testing.assert_allclose(
+        utarg, np.asarray(fixture.utarg).reshape(-1, order="F"), rtol=1e-12, atol=1e-13
+    )
     np.testing.assert_allclose(dmat, np.asarray(fixture.D), rtol=1e-8, atol=5e-9)
     np.testing.assert_allclose(sys, np.asarray(fixture.sys), rtol=1e-8, atol=5e-9)
-    np.testing.assert_allclose(rhs, np.asarray(fixture.rhs).reshape(-1, order="F"), rtol=1e-12, atol=1e-13)
-    np.testing.assert_allclose(sol, np.asarray(fixture.sol_backslash).reshape(-1, order="F"), rtol=5e-9, atol=3e-9)
-    np.testing.assert_allclose(sol, np.asarray(fixture.sol_gmres).reshape(-1, order="F"), rtol=5e-9, atol=3e-9)
-    np.testing.assert_allclose(dsol, np.asarray(fixture.Dsol).reshape(-1, order="F"), rtol=1e-9, atol=1e-11)
+    np.testing.assert_allclose(
+        rhs, np.asarray(fixture.rhs).reshape(-1, order="F"), rtol=1e-12, atol=1e-13
+    )
+    np.testing.assert_allclose(
+        sol, np.asarray(fixture.sol_backslash).reshape(-1, order="F"), rtol=5e-9, atol=3e-9
+    )
+    np.testing.assert_allclose(
+        sol, np.asarray(fixture.sol_gmres).reshape(-1, order="F"), rtol=5e-9, atol=3e-9
+    )
+    np.testing.assert_allclose(
+        dsol, np.asarray(fixture.Dsol).reshape(-1, order="F"), rtol=1e-9, atol=1e-11
+    )
     assert max(relerr, float(fixture.relerr)) < 1e-10
     assert max(relerr2, float(fixture.relerr2)) < 1e-10
     assert float(fixture.solve_relerr) < 1e-12
@@ -2066,17 +2563,22 @@ def test_chunkermat_l2scale_devtools_outputs_match_matlab():
     chnkr = chunkerfuncuni(
         lambda t: curves.bymode(t, modes, [0.0, 0.0], [1.2, 1.0]),
         int(fixture.nch),
-        {"_chunkie_normalized_geometry_options": True, "nover": 0, "ifclosed": True, "eps": 1.0e-10},
+        {
+            "_chunkie_normalized_geometry_options": True,
+            "nover": 0,
+            "ifclosed": True,
+            "eps": 1.0e-10,
+        },
     ).sort()[0]
     assert chnkr.npt == int(fixture.npt)
 
     srcinfo0 = {"r": np.array([[0.0], [0.0]])}
     srcinfo1 = {"r": np.array([[-10.0], [5.0]])}
     tinfo = pointinfo(chnkr)
-    u0bdr = helm2d.kern(zk0, srcinfo0, tinfo, "s").reshape(-1)
-    u0nbdr = helm2d.kern(zk0, srcinfo0, tinfo, "sprime").reshape(-1)
-    u1bdr = helm2d.kern(zk1, srcinfo1, tinfo, "s").reshape(-1)
-    u1nbdr = helm2d.kern(zk1, srcinfo1, tinfo, "sprime").reshape(-1)
+    u0bdr = helm2d.kernel(zk0, srcinfo0, tinfo, "s").reshape(-1)
+    u0nbdr = helm2d.kernel(zk0, srcinfo0, tinfo, "sprime").reshape(-1)
+    u1bdr = helm2d.kernel(zk1, srcinfo1, tinfo, "s").reshape(-1)
+    u1nbdr = helm2d.kernel(zk1, srcinfo1, tinfo, "sprime").reshape(-1)
     weights = chnkr.wts.reshape(-1, order="F")
     sqrt_weights = np.sqrt(weights)
     npt = chnkr.npt
@@ -2096,7 +2598,9 @@ def test_chunkermat_l2scale_devtools_outputs_match_matlab():
     manual[0::2, 0::2] = dd @ (chunkermat(chnkr, kd) + np.eye(npt)) @ ddinv
     manual[0::2, 1::2] = dd @ chunkermat(chnkr, ks) @ ddinv
     manual[1::2, 0::2] = dd @ (chunkermat(chnkr, kdp) / (1j * zk0 + 1j * zk1) * 2) @ ddinv
-    manual[1::2, 1::2] = dd @ (chunkermat(chnkr, ksp) / (1j * zk0 + 1j * zk1) * 2 + np.eye(npt)) @ ddinv
+    manual[1::2, 1::2] = (
+        dd @ (chunkermat(chnkr, ksp) / (1j * zk0 + 1j * zk1) * 2 + np.eye(npt)) @ ddinv
+    )
 
     opts = {"_chunkie_normalized_operator_options": True, "l2scale": "true"}
     scaled = np.zeros_like(manual)
@@ -2139,7 +2643,11 @@ def test_singularkernel_devtools_pv_hs_outputs_match_matlab():
     dmat = chunkermat(chnkr, lap_d)
     dprime = chunkermat(chnkr, lap_dp)
     probe = np.asarray(fixture.probe)
-    sys_pv = 0.5 * np.eye(chnkr.npt) + sprime + np.ones((chnkr.npt, 1)) @ chnkr.wts.reshape(1, -1, order="F")
+    sys_pv = (
+        0.5 * np.eye(chnkr.npt)
+        + sprime
+        + np.ones((chnkr.npt, 1)) @ chnkr.wts.reshape(1, -1, order="F")
+    )
     mu_pv = np.linalg.solve(sys_pv, unbdry)
     utau = stau @ mu_pv
     sys_hs = -0.5 * np.eye(chnkr.npt) + dmat
@@ -2151,17 +2659,35 @@ def test_singularkernel_devtools_pv_hs_outputs_match_matlab():
     assert np.isfinite(sprime).all()
     assert np.isfinite(stau).all()
     assert np.isfinite(dprime).all()
-    np.testing.assert_allclose(ubdry, np.asarray(fixture.ubdry).reshape(-1, order="F"), rtol=1e-12, atol=1e-13)
-    np.testing.assert_allclose(unbdry, np.asarray(fixture.unbdry).reshape(-1, order="F"), rtol=1e-11, atol=1e-12)
-    np.testing.assert_allclose(utbdry, np.asarray(fixture.utbdry).reshape(-1, order="F"), rtol=1e-11, atol=1e-12)
-    np.testing.assert_allclose(sprime @ probe, np.asarray(fixture.sprime_probe), rtol=5e-9, atol=1e-9)
+    np.testing.assert_allclose(
+        ubdry, np.asarray(fixture.ubdry).reshape(-1, order="F"), rtol=1e-12, atol=1e-13
+    )
+    np.testing.assert_allclose(
+        unbdry, np.asarray(fixture.unbdry).reshape(-1, order="F"), rtol=1e-11, atol=1e-12
+    )
+    np.testing.assert_allclose(
+        utbdry, np.asarray(fixture.utbdry).reshape(-1, order="F"), rtol=1e-11, atol=1e-12
+    )
+    np.testing.assert_allclose(
+        sprime @ probe, np.asarray(fixture.sprime_probe), rtol=5e-9, atol=1e-9
+    )
     np.testing.assert_allclose(stau @ probe, np.asarray(fixture.stau_probe), rtol=1e-9, atol=1e-9)
     np.testing.assert_allclose(dmat @ probe, np.asarray(fixture.d_probe), rtol=3e-7, atol=3e-8)
-    np.testing.assert_allclose(dprime @ probe, np.asarray(fixture.dprime_probe), rtol=5e-7, atol=5e-4)
-    np.testing.assert_allclose(mu_pv, np.asarray(fixture.mu_pv).reshape(-1, order="F"), rtol=2e-9, atol=1e-10)
-    np.testing.assert_allclose(utau, np.asarray(fixture.utau).reshape(-1, order="F"), rtol=2e-9, atol=1e-10)
-    np.testing.assert_allclose(mu_hs, np.asarray(fixture.mu_hs).reshape(-1, order="F"), rtol=5e-8, atol=5e-9)
-    np.testing.assert_allclose(un, np.asarray(fixture.un).reshape(-1, order="F"), rtol=2e-3, atol=3e-4)
+    np.testing.assert_allclose(
+        dprime @ probe, np.asarray(fixture.dprime_probe), rtol=5e-7, atol=5e-4
+    )
+    np.testing.assert_allclose(
+        mu_pv, np.asarray(fixture.mu_pv).reshape(-1, order="F"), rtol=2e-9, atol=1e-10
+    )
+    np.testing.assert_allclose(
+        utau, np.asarray(fixture.utau).reshape(-1, order="F"), rtol=2e-9, atol=1e-10
+    )
+    np.testing.assert_allclose(
+        mu_hs, np.asarray(fixture.mu_hs).reshape(-1, order="F"), rtol=5e-8, atol=5e-9
+    )
+    np.testing.assert_allclose(
+        un, np.asarray(fixture.un).reshape(-1, order="F"), rtol=2e-3, atol=3e-4
+    )
     assert max(relerr_pv, float(fixture.relerr_pv)) < 1e-9
     assert relerr_hs < 2e-4
     assert float(fixture.relerr_hs) < 2e-4
@@ -2192,18 +2718,42 @@ def test_datafield_devtools_target_data_flam_matches_matlab():
 
     unbdry = spkern(srcinfo, pointinfo(chnkr)).reshape(-1, order="F")
     mu = np.asarray(fixture.mu).reshape(-1, order="F")
-    deru = chunkerkerneval(chnkr, directional_derivative_kernel, mu, targinfo).reshape(-1, order="F")
-    deru_adap = chunkerkerneval(chnkr, directional_derivative_kernel, mu, targinfo, force_adaptive=True, use_panel_quadrature=False).reshape(-1, order="F")
-    flam_opts = {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "occ": 32, "rank_or_tol": 1.0e-10}
-    deru_flam = chunkerkerneval(chnkr, directional_derivative_kernel, mu, targinfo, flam_opts).reshape(-1, order="F")
+    deru = chunkerkerneval(chnkr, directional_derivative_kernel, mu, targinfo).reshape(
+        -1, order="F"
+    )
+    deru_adap = chunkerkerneval(
+        chnkr,
+        directional_derivative_kernel,
+        mu,
+        targinfo,
+        force_adaptive=True,
+        use_panel_quadrature=False,
+    ).reshape(-1, order="F")
+    flam_opts = {
+        "_chunkie_normalized_operator_options": True,
+        "acceleration": "flam",
+        "occ": 32,
+        "rank_or_tol": 1.0e-10,
+    }
+    deru_flam = chunkerkerneval(
+        chnkr, directional_derivative_kernel, mu, targinfo, flam_opts
+    ).reshape(-1, order="F")
     gradutrue = kernel("lap", "sg")(srcinfo, targinfo).reshape(2, -1, order="F")
     derutrue = np.sum(gradutrue * v[:, None], axis=0)
 
     np.testing.assert_allclose(unbdry, fixture.unbdry, rtol=1e-12, atol=1e-13)
-    np.testing.assert_allclose(deru, np.asarray(fixture.deru).reshape(-1, order="F"), rtol=1e-10, atol=1e-12)
-    np.testing.assert_allclose(deru_adap, np.asarray(fixture.deru_adap).reshape(-1, order="F"), rtol=1e-10, atol=1e-12)
-    np.testing.assert_allclose(deru_flam, np.asarray(fixture.deru_flam).reshape(-1, order="F"), rtol=1e-8, atol=2e-9)
-    np.testing.assert_allclose(derutrue, np.asarray(fixture.derutrue).reshape(-1, order="F"), rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(
+        deru, np.asarray(fixture.deru).reshape(-1, order="F"), rtol=1e-10, atol=1e-12
+    )
+    np.testing.assert_allclose(
+        deru_adap, np.asarray(fixture.deru_adap).reshape(-1, order="F"), rtol=1e-10, atol=1e-12
+    )
+    np.testing.assert_allclose(
+        deru_flam, np.asarray(fixture.deru_flam).reshape(-1, order="F"), rtol=1e-8, atol=2e-9
+    )
+    np.testing.assert_allclose(
+        derutrue, np.asarray(fixture.derutrue).reshape(-1, order="F"), rtol=1e-10, atol=1e-12
+    )
     assert np.linalg.norm(deru - derutrue) / np.linalg.norm(derutrue) < 1e-10
     assert np.linalg.norm(deru_adap - deru) / np.linalg.norm(deru) < 1e-10
     assert np.linalg.norm(deru_flam - deru) / np.linalg.norm(deru) < 1e-8
@@ -2235,14 +2785,28 @@ def test_datafield_devtools_hilbert_data_flam_matches_matlab():
 
     f1 = np.asarray(fixture.f1).reshape(-1, order="F")
     f2 = (chunkermat(chnkr, hkern) / length) @ f1
-    f2_flam = chunkermat(
-        chnkr,
-        hkern,
-        {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "occ": 64, "rank_or_tol": 1.0e-10, "useproxy": False},
-    ) @ f1 / length
+    f2_flam = (
+        chunkermat(
+            chnkr,
+            hkern,
+            {
+                "_chunkie_normalized_operator_options": True,
+                "acceleration": "flam",
+                "occ": 64,
+                "rank_or_tol": 1.0e-10,
+                "useproxy": False,
+            },
+        )
+        @ f1
+        / length
+    )
 
-    np.testing.assert_allclose(f2, np.asarray(fixture.f2).reshape(-1, order="F"), rtol=2e-6, atol=1e-8)
-    np.testing.assert_allclose(f2_flam, np.asarray(fixture.f2_flam).reshape(-1, order="F") / length, rtol=2e-6, atol=1e-8)
+    np.testing.assert_allclose(
+        f2, np.asarray(fixture.f2).reshape(-1, order="F"), rtol=2e-6, atol=1e-8
+    )
+    np.testing.assert_allclose(
+        f2_flam, np.asarray(fixture.f2_flam).reshape(-1, order="F") / length, rtol=2e-6, atol=1e-8
+    )
     assert np.linalg.norm(f1**2 + f2**2 - 1.0) / np.linalg.norm(f1**2) < 1e-8
     assert np.linalg.norm(f2 - f2_flam) / np.linalg.norm(f2) < 1e-8
     assert float(fixture.err_circle) < 1e-8
@@ -2257,14 +2821,18 @@ def test_flam_proxy_geometry_helpers_match_matlab_fixture():
 
     np.testing.assert_allclose(pr, fixture.square64_pr, rtol=1e-14, atol=1e-14)
     np.testing.assert_allclose(ptau, fixture.square64_ptau, rtol=1e-14, atol=1e-14)
-    np.testing.assert_allclose(pw, np.asarray(fixture.square64_pw).reshape(-1), rtol=1e-14, atol=1e-14)
+    np.testing.assert_allclose(
+        pw, np.asarray(fixture.square64_pw).reshape(-1), rtol=1e-14, atol=1e-14
+    )
     np.testing.assert_array_equal(
         pin(np.array([[0.0, 2.0, -1.49, 1.51], [0.0, 0.0, 1.49, 0.0]])),
         np.asarray(fixture.square64_inside, dtype=bool).reshape(-1),
     )
     np.testing.assert_allclose(proxy, fixture.circle16_proxy, rtol=1e-14, atol=1e-14)
     np.testing.assert_allclose(pnorm, fixture.circle16_pnorm, rtol=1e-14, atol=1e-14)
-    np.testing.assert_allclose(cpw, np.asarray(fixture.circle16_pw).reshape(-1), rtol=1e-14, atol=1e-14)
+    np.testing.assert_allclose(
+        cpw, np.asarray(fixture.circle16_pw).reshape(-1), rtol=1e-14, atol=1e-14
+    )
 
     rpr, rptau, rpw, _ = flam.proxy_rect_pts([2.0, 3.0], [4, 6])
     np.testing.assert_allclose(rpr, fixture.rect_pr, rtol=1e-14, atol=1e-14)
@@ -2286,7 +2854,9 @@ def test_flam_proxy_geometry_helpers_match_matlab_fixture():
         rtol=1e-13,
         atol=1e-13,
     )
-    overwrite = sparse.csr_matrix((np.array([9.0, -4.0]), (np.array([2, 7]), np.array([4, 8]))), shape=(chnkr.npt, chnkr.npt))
+    overwrite = sparse.csr_matrix(
+        (np.array([9.0, -4.0]), (np.array([2, 7]), np.array([4, 8]))), shape=(chnkr.npt, chnkr.npt)
+    )
     np.testing.assert_allclose(
         flam.kernbyindex(rows, cols, chnkr, lap_s, (1, 1), overwrite),
         fixture.kbi_overwrite,
@@ -2303,7 +2873,10 @@ def test_flam_proxy_geometry_helpers_match_matlab_fixture():
         rtol=1e-13,
         atol=1e-13,
     )
-    roverwrite = sparse.csr_matrix((np.array([7.0, -3.0]), (np.array([1, 2]), np.array([2, 5]))), shape=(targets.shape[1], chnkr.npt))
+    roverwrite = sparse.csr_matrix(
+        (np.array([7.0, -3.0]), (np.array([1, 2]), np.array([2, 5]))),
+        shape=(targets.shape[1], chnkr.npt),
+    )
     np.testing.assert_allclose(
         flam.kernbyindexr(rrows, rcols, targets, chnkr, lap_s, (1, 1), roverwrite),
         fixture.kbir_overwrite,
@@ -2327,11 +2900,47 @@ def test_flam_proxy_geometry_helpers_match_matlab_fixture():
         pin,
     )
     np.testing.assert_allclose(pK, fixture.proxyfun_K, rtol=1e-13, atol=1e-13)
-    np.testing.assert_array_equal(pnbr_out + 1, np.asarray(fixture.proxyfun_nbr_out, dtype=int).reshape(-1))
+    np.testing.assert_array_equal(
+        pnbr_out + 1, np.asarray(fixture.proxyfun_nbr_out, dtype=int).reshape(-1)
+    )
 
-    pKc, pnbr_c = flam.proxyfunr("c", targets, chnkr.r.reshape(2, -1, order="F"), rcols, rrows, [1.0, 1.0], [0.0, 0.0], chnkr, lap_s, (1, 1), pr, ptau, pw, pin)
-    pKr, pnbr_r = flam.proxyfunr("r", targets, chnkr.r.reshape(2, -1, order="F"), rrows, rcols, [1.0, 1.0], [0.0, 0.0], chnkr, lap_s, (1, 1), pr, ptau, pw, pin)
+    pKc, pnbr_c = flam.proxyfunr(
+        "c",
+        targets,
+        chnkr.r.reshape(2, -1, order="F"),
+        rcols,
+        rrows,
+        [1.0, 1.0],
+        [0.0, 0.0],
+        chnkr,
+        lap_s,
+        (1, 1),
+        pr,
+        ptau,
+        pw,
+        pin,
+    )
+    pKr, pnbr_r = flam.proxyfunr(
+        "r",
+        targets,
+        chnkr.r.reshape(2, -1, order="F"),
+        rrows,
+        rcols,
+        [1.0, 1.0],
+        [0.0, 0.0],
+        chnkr,
+        lap_s,
+        (1, 1),
+        pr,
+        ptau,
+        pw,
+        pin,
+    )
     np.testing.assert_allclose(pKc, fixture.proxyfunr_c_K, rtol=1e-13, atol=1e-13)
     np.testing.assert_allclose(pKr, fixture.proxyfunr_r_K, rtol=1e-13, atol=1e-13)
-    np.testing.assert_array_equal(pnbr_c + 1, np.asarray(fixture.proxyfunr_c_nbr, dtype=int).reshape(-1))
-    np.testing.assert_array_equal(pnbr_r + 1, np.asarray(fixture.proxyfunr_r_nbr, dtype=int).reshape(-1))
+    np.testing.assert_array_equal(
+        pnbr_c + 1, np.asarray(fixture.proxyfunr_c_nbr, dtype=int).reshape(-1)
+    )
+    np.testing.assert_array_equal(
+        pnbr_r + 1, np.asarray(fixture.proxyfunr_r_nbr, dtype=int).reshape(-1)
+    )

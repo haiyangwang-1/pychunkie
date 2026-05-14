@@ -4,7 +4,7 @@ import inspect
 import json
 import math
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -43,7 +43,7 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 @pytest.fixture
-def test_metrics(request: pytest.FixtureRequest) -> "TestMetrics":
+def test_metrics(request: pytest.FixtureRequest) -> TestMetrics:
     return TestMetrics(request.node)
 
 
@@ -133,7 +133,7 @@ def _metrics_for(item: pytest.Item) -> dict[str, Any]:
     metrics = getattr(item, "_pychunkie_test_metrics", None)
     if metrics is None:
         metrics = {}
-        setattr(item, "_pychunkie_test_metrics", metrics)
+        item._pychunkie_test_metrics = metrics
     return metrics
 
 
@@ -145,8 +145,12 @@ def _record_allclose_metrics(item: pytest.Item, actual: Any, expected: Any) -> N
     max_abs_error, max_rel_error = errors
     metrics = _metrics_for(item)
     metrics["allclose_checks"] = int(metrics.get("allclose_checks", 0)) + 1
-    metrics["allclose_max_abs_error"] = max(float(metrics.get("allclose_max_abs_error", 0.0)), max_abs_error)
-    metrics["allclose_max_rel_error"] = max(float(metrics.get("allclose_max_rel_error", 0.0)), max_rel_error)
+    metrics["allclose_max_abs_error"] = max(
+        float(metrics.get("allclose_max_abs_error", 0.0)), max_abs_error
+    )
+    metrics["allclose_max_rel_error"] = max(
+        float(metrics.get("allclose_max_rel_error", 0.0)), max_rel_error
+    )
 
 
 def _error_metrics(actual: Any, expected: Any) -> tuple[float, float] | None:
@@ -200,7 +204,7 @@ def _resolve_log_path(root: Path, option_value: str | None) -> Path | None:
 
 
 def _format_markdown_log(reports: list[dict[str, Any]], exitstatus: int) -> str:
-    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    generated_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     counts = Counter(report["outcome"] for report in reports)
     total_duration = sum(float(report["duration_s"]) for report in reports)
 
@@ -293,7 +297,9 @@ def _format_int(value: Any) -> str:
 def _format_other_metrics(metrics: dict[str, Any]) -> str:
     if not metrics:
         return ""
-    return ", ".join(f"{key}={_format_metric_value(value)}" for key, value in sorted(metrics.items()))
+    return ", ".join(
+        f"{key}={_format_metric_value(value)}" for key, value in sorted(metrics.items())
+    )
 
 
 def _format_metric_value(value: Any) -> str:

@@ -6,7 +6,7 @@ from chunkie.misc import smoother
 
 def test_smoother_uniform_mesh_matches_polygon_edges():
     verts = np.array([[0.0, 1.0, 1.0, 0.0], [0.0, 0.0, 1.0, 1.0]])
-    umesh = smoother.get_umesh(verts)
+    umesh = smoother.get_umesh(vertices=verts)
 
     np.testing.assert_allclose(umesh.lengths, 1.0)
     np.testing.assert_allclose(umesh.centroids[:, 0], [0.5, 0.0])
@@ -16,8 +16,8 @@ def test_smoother_uniform_mesh_matches_polygon_edges():
 
 def test_smoother_get_mesh_expands_legendre_panels():
     verts = np.array([[0.0, 1.0, 1.0], [0.0, 0.0, 1.0]])
-    umesh = smoother.get_umesh(verts)
-    mesh = smoother.get_mesh(umesh, 2, 5)
+    umesh = smoother.get_umesh(vertices=verts)
+    mesh = smoother.get_mesh(umesh, chunk_counts=2, quadrature_order=5)
     x, w, _, _ = lege.exps(5)
     first_panel_u = (x + 1.0) / 4.0
 
@@ -25,7 +25,9 @@ def test_smoother_get_mesh_expands_legendre_panels():
     assert mesh.n.shape == mesh.r.shape
     assert mesh.pseudo_normals.shape == mesh.r.shape
     assert mesh.wts.shape == (3 * 2 * 5,)
-    np.testing.assert_allclose(mesh.r[:, :5], np.vstack((first_panel_u, np.zeros_like(first_panel_u))))
+    np.testing.assert_allclose(
+        mesh.r[:, :5], np.vstack((first_panel_u, np.zeros_like(first_panel_u)))
+    )
     np.testing.assert_allclose(mesh.n[:, :10], np.repeat([[0.0], [-1.0]], 10, axis=1))
     np.testing.assert_allclose(mesh.wts[:5], w / 4.0)
     np.testing.assert_allclose(np.sum(mesh.wts), np.sum(umesh.lengths))
@@ -33,7 +35,10 @@ def test_smoother_get_mesh_expands_legendre_panels():
 
 def test_smoother_smooth_returns_rounded_chunker_and_error_outputs():
     verts = np.array([[0.0, 1.0, 1.0, 0.0], [0.0, 0.0, 1.0, 1.0]])
-    chnkr, err, err_by_pt = smoother.smooth(verts, {"k": 8, "widths": 0.1, "return_error": True})
+    chnkr, err, err_by_pt = smoother.smooth(
+        vertices=verts,
+        options={"k": 8, "widths": 0.1, "return_error": True},
+    )
     u = (chnkr.tstor + 1.0) / 2.0
 
     assert chnkr.nch == 8

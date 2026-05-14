@@ -8,6 +8,8 @@ from typing import Any
 import numpy as np
 from numpy.typing import ArrayLike
 
+from chunkie._layout import as_boundary_point_matrix
+
 
 @dataclass
 class PointInfo:
@@ -33,30 +35,32 @@ class PointInfo:
         self.data = _optional_point_matrix("data", self.data, self.r.shape[1], None)
 
     @classmethod
-    def from_chunker(cls, chnkr: Any) -> "PointInfo":
+    def from_chunker(cls, chunker: Any) -> PointInfo:
         """Build point data from a chunker or chunkgraph-like object."""
 
-        merged = getattr(chnkr, "merged", None)
+        merged = getattr(chunker, "merged", None)
         if callable(merged):
-            chnkr = merged()
+            chunker = merged()
         return cls(
-            r=np.asarray(chnkr.r).reshape(int(chnkr.dim), int(chnkr.npt), order="F"),
-            d=np.asarray(chnkr.d).reshape(int(chnkr.dim), int(chnkr.npt), order="F"),
-            d2=np.asarray(chnkr.d2).reshape(int(chnkr.dim), int(chnkr.npt), order="F"),
-            n=np.asarray(chnkr.n).reshape(int(chnkr.dim), int(chnkr.npt), order="F"),
-            data=np.asarray(chnkr.data).reshape(int(chnkr.datadim), int(chnkr.npt), order="F")
-            if int(getattr(chnkr, "datadim", 0))
+            r=as_boundary_point_matrix(chunker.r, int(chunker.dim), int(chunker.npt), name="r"),
+            d=as_boundary_point_matrix(chunker.d, int(chunker.dim), int(chunker.npt), name="d"),
+            d2=as_boundary_point_matrix(chunker.d2, int(chunker.dim), int(chunker.npt), name="d2"),
+            n=as_boundary_point_matrix(chunker.n, int(chunker.dim), int(chunker.npt), name="n"),
+            data=as_boundary_point_matrix(
+                chunker.data, int(chunker.datadim), int(chunker.npt), name="data"
+            )
+            if int(getattr(chunker, "datadim", 0))
             else None,
         )
 
     @classmethod
-    def from_points(cls, points: ArrayLike) -> "PointInfo":
+    def from_points(cls, points: ArrayLike) -> PointInfo:
         """Build target point data from an explicit ``(dim, npt)`` array."""
 
         return cls(r=_as_point_matrix("points", points))
 
     @classmethod
-    def from_mapping(cls, mapping: dict[str, Any]) -> "PointInfo":
+    def from_mapping(cls, mapping: dict[str, Any]) -> PointInfo:
         """Build point data from a MATLAB-style mapping with an ``r`` field."""
 
         if "r" not in mapping:
@@ -70,7 +74,7 @@ class PointInfo:
         )
 
     @classmethod
-    def from_any(cls, obj: Any) -> "PointInfo":
+    def from_any(cls, obj: Any) -> PointInfo:
         """Normalize legacy internal inputs to ``PointInfo``.
 
         Public code should prefer the explicit constructors above. This method
@@ -86,7 +90,7 @@ class PointInfo:
             return cls.from_chunker(obj)
         return cls.from_points(obj)
 
-    def take(self, indices: ArrayLike) -> "PointInfo":
+    def take(self, indices: ArrayLike) -> PointInfo:
         """Return a point-info subset."""
 
         idx = np.asarray(indices, dtype=np.int64).reshape(-1)

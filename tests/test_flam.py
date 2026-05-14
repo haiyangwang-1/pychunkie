@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 from scipy import sparse
 
+from _performance import record_backend_metrics, timed_call
 from chunkie import (
     ChunkerFLAMMatrix,
     PointInfo,
@@ -95,12 +96,25 @@ def test_acceleration_option_uses_single_key_without_boolean_aliases():
     chnkr, _ = chunkerfunc(circle, min_chunks=3, order=6)
     dense = chunkermat(chnkr, smooth_kernel)
 
-    flam_alias = chunkermat(chnkr, smooth_kernel, {"_chunkie_normalized_operator_options": True, "flam": True, "dval": 4.0})
-    fmm_alias = chunkermat(chnkr, smooth_kernel, {"_chunkie_normalized_operator_options": True, "fmm": True})
+    flam_alias = chunkermat(
+        chnkr,
+        smooth_kernel,
+        {"_chunkie_normalized_operator_options": True, "flam": True, "dval": 4.0},
+    )
+    fmm_alias = chunkermat(
+        chnkr, smooth_kernel, {"_chunkie_normalized_operator_options": True, "fmm": True}
+    )
     flam_accelerated = chunkermat(
         chnkr,
         smooth_kernel,
-        {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "dval": 0.25, "occ": 8, "rank_or_tol": 1.0e-10, "useproxy": False},
+        {
+            "_chunkie_normalized_operator_options": True,
+            "acceleration": "flam",
+            "dval": 0.25,
+            "occ": 8,
+            "rank_or_tol": 1.0e-10,
+            "useproxy": False,
+        },
     )
 
     assert isinstance(flam_alias, np.ndarray)
@@ -109,7 +123,11 @@ def test_acceleration_option_uses_single_key_without_boolean_aliases():
     np.testing.assert_allclose(flam_alias, dense, atol=1e-14)
     np.testing.assert_allclose(fmm_alias, dense, atol=1e-14)
     with pytest.raises(ValueError, match="acceleration must be one of"):
-        chunkermat(chnkr, smooth_kernel, {"_chunkie_normalized_operator_options": True, "acceleration": "fast"})
+        chunkermat(
+            chnkr,
+            smooth_kernel,
+            {"_chunkie_normalized_operator_options": True, "acceleration": "fast"},
+        )
 
 
 def test_flam_kernbyindex_matches_dense_and_sparse_overwrites():
@@ -121,7 +139,9 @@ def test_flam_kernbyindex_matches_dense_and_sparse_overwrites():
     actual = flam.kernbyindex(rows, cols, chnkr, smooth_kernel, (1, 1))
     np.testing.assert_allclose(actual, dense[np.ix_(rows, cols)], atol=1e-14)
 
-    overwrite = sparse.csr_matrix((np.array([9.0, -4.0]), (np.array([3, 7]), np.array([2, 7]))), shape=dense.shape)
+    overwrite = sparse.csr_matrix(
+        (np.array([9.0, -4.0]), (np.array([3, 7]), np.array([2, 7]))), shape=dense.shape
+    )
     overwritten = flam.kernbyindex(rows, cols, chnkr, smooth_kernel, (1, 1), overwrite)
     assert overwritten[1, 1] == 9.0
     assert overwritten[2, 2] == -4.0
@@ -134,7 +154,14 @@ def test_flam_accepts_explicit_chunker_sequences():
     merged = merge(chunkers)
     dense = chunkermat(merged, smooth_kernel) + 0.25 * np.eye(merged.npt)
     rhs = np.cos(merged.r[0].reshape(-1, order="F"))
-    opts = {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "dval": 0.25, "occ": 8, "rank_or_tol": 1e-10, "useproxy": False}
+    opts = {
+        "_chunkie_normalized_operator_options": True,
+        "acceleration": "flam",
+        "dval": 0.25,
+        "occ": 8,
+        "rank_or_tol": 1e-10,
+        "useproxy": False,
+    }
     rows = np.array([0, first.npt - 1, first.npt, merged.npt - 1], dtype=np.int64)
     cols = np.array([1, first.npt, merged.npt - 2], dtype=np.int64)
 
@@ -142,7 +169,9 @@ def test_flam_accepts_explicit_chunker_sequences():
     flam_mat = chunkermat(chunkers, smooth_kernel, opts)
     applied = chunkermatapply(chunkers, smooth_kernel, rhs, opts)
 
-    np.testing.assert_allclose(entries, chunkermat(merged, smooth_kernel)[np.ix_(rows, cols)], atol=1e-14)
+    np.testing.assert_allclose(
+        entries, chunkermat(merged, smooth_kernel)[np.ix_(rows, cols)], atol=1e-14
+    )
     np.testing.assert_allclose(flam_mat @ rhs, dense @ rhs, rtol=1e-10, atol=1e-11)
     np.testing.assert_allclose(applied, dense @ rhs, rtol=1e-10, atol=1e-11)
 
@@ -155,7 +184,14 @@ def test_flam_accepts_vector_opdim_chunker_sequences():
     pts = merged.r.reshape(2, merged.npt, order="F")
     rhs = np.vstack((np.cos(pts[0]), np.sin(pts[1]))).reshape(-1, order="F")
     dense = chunkermat(merged, vector_smooth_kernel) + 0.2 * np.eye(2 * merged.npt)
-    opts = {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "dval": 0.2, "occ": 8, "rank_or_tol": 1e-10, "useproxy": False}
+    opts = {
+        "_chunkie_normalized_operator_options": True,
+        "acceleration": "flam",
+        "dval": 0.2,
+        "occ": 8,
+        "rank_or_tol": 1e-10,
+        "useproxy": False,
+    }
 
     flam_mat = chunkermat(chunkers, vector_smooth_kernel, opts)
     applied = chunkermatapply(chunkers, vector_smooth_kernel, rhs, opts)
@@ -201,7 +237,14 @@ def test_chunkermat_flam_multi_chunker_block_kernel_matches_dense_apply_and_solv
     shifted = dense + 1.25 * np.eye(dense.shape[0])
     rhs = np.sin(0.17 * np.arange(dense.shape[1])) + 0.3 * np.cos(0.11 * np.arange(dense.shape[1]))
     rhs2 = np.column_stack((rhs, np.cos(0.07 * np.arange(dense.shape[1]))))
-    opts = {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "dval": 1.25, "occ": 8, "rank_or_tol": 1e-10, "useproxy": False}
+    opts = {
+        "_chunkie_normalized_operator_options": True,
+        "acceleration": "flam",
+        "dval": 1.25,
+        "occ": 8,
+        "rank_or_tol": 1e-10,
+        "useproxy": False,
+    }
 
     flam_mat = chunkermat(chunkers, blocks, opts)
     applied = chunkermatapply(chunkers, blocks, rhs2, opts)
@@ -224,7 +267,9 @@ def test_flam_kernbyindexr_matches_dense_and_sparse_overwrites():
     actual = flam.kernbyindexr(rows, cols, targets, chnkr, smooth_kernel, (1, 1))
     np.testing.assert_allclose(actual, dense[np.ix_(rows, cols)], atol=1e-14)
 
-    overwrite = sparse.csr_matrix((np.array([7.0, -3.0]), (np.array([1, 2]), np.array([3, 5]))), shape=dense.shape)
+    overwrite = sparse.csr_matrix(
+        (np.array([7.0, -3.0]), (np.array([1, 2]), np.array([3, 5]))), shape=dense.shape
+    )
     overwritten = flam.kernbyindexr(rows, cols, targets, chnkr, smooth_kernel, (1, 1), overwrite)
     assert overwritten[1, 1] == 7.0
     assert overwritten[2, 2] == -3.0
@@ -241,12 +286,16 @@ def test_flam_proxy_square_geometry_and_proxyfun_shapes():
 
     slf = np.arange(5, dtype=np.int64)
     nbr = np.arange(chnkr.npt, dtype=np.int64)
-    Kpxy, nbr_out = flam.proxyfun(slf, nbr, np.array([1.0, 1.0]), np.zeros(2), chnkr, smooth_kernel, (1, 1), pr, ptau, pw, pin)
+    Kpxy, nbr_out = flam.proxyfun(
+        slf, nbr, np.array([1.0, 1.0]), np.zeros(2), chnkr, smooth_kernel, (1, 1), pr, ptau, pw, pin
+    )
     srcinfo = PointInfo(r=chnkr.r.reshape(2, chnkr.npt, order="F"))
     proxyinfo = PointInfo(r=pr)
     weights = chnkr.wts.reshape(-1, order="F")
     expected_top = smooth_kernel(srcinfo, proxyinfo)[:, slf] * weights[slf][None, :]
-    expected_bottom = (smooth_kernel(proxyinfo, PointInfo(r=srcinfo.r[:, slf])) * pw.reshape(1, -1)).T
+    expected_bottom = (
+        smooth_kernel(proxyinfo, PointInfo(r=srcinfo.r[:, slf])) * pw.reshape(1, -1)
+    ).T
 
     np.testing.assert_allclose(Kpxy, np.vstack((expected_top, expected_bottom)))
     np.testing.assert_array_equal(nbr_out, nbr)
@@ -261,8 +310,40 @@ def test_flam_proxyfunr_column_and_row_shapes():
     cx = chnkr.r.reshape(2, -1, order="F")
     targinfo = PointInfo(r=targets)
 
-    Kc, nbr_c = flam.proxyfunr("c", targets, cx, cols, rows, np.array([1.0, 1.0]), np.zeros(2), chnkr, smooth_kernel, (1, 1), pr, ptau, pw, pin, targobj=targinfo)
-    Kr, nbr_r = flam.proxyfunr("r", targets, cx, rows, cols, np.array([1.0, 1.0]), np.zeros(2), chnkr, smooth_kernel, (1, 1), pr, ptau, pw, pin, targobj=targinfo)
+    Kc, nbr_c = flam.proxyfunr(
+        "c",
+        targets,
+        cx,
+        cols,
+        rows,
+        np.array([1.0, 1.0]),
+        np.zeros(2),
+        chnkr,
+        smooth_kernel,
+        (1, 1),
+        pr,
+        ptau,
+        pw,
+        pin,
+        target=targinfo,
+    )
+    Kr, nbr_r = flam.proxyfunr(
+        "r",
+        targets,
+        cx,
+        rows,
+        cols,
+        np.array([1.0, 1.0]),
+        np.zeros(2),
+        chnkr,
+        smooth_kernel,
+        (1, 1),
+        pr,
+        ptau,
+        pw,
+        pin,
+        target=targinfo,
+    )
     srcinfo = PointInfo(r=chnkr.r.reshape(2, chnkr.npt, order="F"))
     proxyinfo = PointInfo(r=pr)
     weights = chnkr.wts.reshape(-1, order="F")
@@ -275,21 +356,47 @@ def test_flam_proxyfunr_column_and_row_shapes():
     np.testing.assert_array_equal(nbr_r, cols)
 
 
-def test_chunkermat_flam_applies_solves_and_logdet_against_dense():
+def test_chunkermat_flam_applies_solves_and_logdet_against_dense(test_metrics):
     chnkr, _ = chunkerfunc(circle, min_chunks=4, order=6)
     lap_s = kernel("lap", "s")
-    dense = chunkermat(chnkr, lap_s) + np.eye(chnkr.npt)
     rhs = np.sin(np.arange(chnkr.npt))
-    opts = {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "dval": 1.0, "occ": 8, "rank_or_tol": 1e-10, "useproxy": False}
+    opts = {
+        "_chunkie_normalized_operator_options": True,
+        "acceleration": "flam",
+        "dval": 1.0,
+        "occ": 8,
+        "rank_or_tol": 1e-10,
+        "useproxy": False,
+    }
 
-    flam_mat = chunkermat(chnkr, lap_s, opts)
+    dense, dense_elapsed = timed_call(lambda: chunkermat(chnkr, lap_s) + np.eye(chnkr.npt))
+    flam_mat, flam_setup_elapsed = timed_call(lambda: chunkermat(chnkr, lap_s, opts))
+    flam_applied, flam_apply_elapsed = timed_call(lambda: flam_mat @ rhs)
+    dense_applied, dense_apply_elapsed = timed_call(lambda: dense @ rhs)
 
     assert isinstance(flam_mat, ChunkerFLAMMatrix)
-    np.testing.assert_allclose(flam_mat @ rhs, dense @ rhs, rtol=1e-10, atol=1e-11)
-    sol = flam_mat.solve(rhs)
+    np.testing.assert_allclose(flam_applied, dense_applied, rtol=1e-10, atol=1e-11)
+    sol, solve_elapsed = timed_call(lambda: flam_mat.solve(rhs))
     np.testing.assert_allclose(dense @ sol, rhs, rtol=1e-10, atol=1e-11)
     sign, logabs = np.linalg.slogdet(dense)
-    np.testing.assert_allclose(flam_mat.logdet(), np.log(np.asarray(sign, dtype=complex)) + logabs, rtol=1e-10, atol=1e-10)
+    np.testing.assert_allclose(
+        flam_mat.logdet(), np.log(np.asarray(sign, dtype=complex)) + logabs, rtol=1e-10, atol=1e-10
+    )
+    test_metrics.record("chunkermat_flam_setup_elapsed_s", flam_setup_elapsed)
+    test_metrics.record("chunkermat_flam_dense_build_elapsed_s", dense_elapsed)
+    test_metrics.record("chunkermat_flam_solve_elapsed_s", solve_elapsed)
+    record_backend_metrics(
+        test_metrics,
+        "chunkermat_flam_apply",
+        backend="flam",
+        problem_size={"source_nodes": chnkr.npt, "target_nodes": chnkr.npt, "rhs_columns": 1},
+        elapsed_s=flam_apply_elapsed,
+        reference_elapsed_s=dense_apply_elapsed,
+        actual=flam_applied,
+        expected=dense_applied,
+        abs_tol=1e-11,
+        rel_tol=1e-10,
+    )
 
 
 def test_chunkermat_flam_proxy_paths_match_dense_application():
@@ -297,7 +404,13 @@ def test_chunkermat_flam_proxy_paths_match_dense_application():
     lap_s = kernel("lap", "s")
     dense = chunkermat(chnkr, lap_s) + np.eye(chnkr.npt)
     rhs = np.sin(np.arange(chnkr.npt))
-    opts = {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "dval": 1.0, "occ": 8, "rank_or_tol": 1e-8}
+    opts = {
+        "_chunkie_normalized_operator_options": True,
+        "acceleration": "flam",
+        "dval": 1.0,
+        "occ": 8,
+        "rank_or_tol": 1e-8,
+    }
 
     default_proxy = chunkermat(chnkr, lap_s, opts)
     proxy_by_level = chunkermat(chnkr, lap_s, {**opts, "proxybylevel": True})
@@ -322,7 +435,14 @@ def test_chunkermat_flam_proxy_by_level_larger_stress_matches_dense():
             [0.0, -0.3, 0.75, 1.25, -1.1, 0.2],
         ]
     )
-    opts = {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "dval": 0.75, "occ": 16, "rank_or_tol": 1e-8, "proxybylevel": True}
+    opts = {
+        "_chunkie_normalized_operator_options": True,
+        "acceleration": "flam",
+        "dval": 0.75,
+        "occ": 16,
+        "rank_or_tol": 1e-8,
+        "proxybylevel": True,
+    }
 
     proxy_by_level = chunkermat(chnkr, lap_s, opts)
     dense_eval = chunkerkernevalmat(chnkr, lap_s, targets)
@@ -338,13 +458,22 @@ def test_chunkermat_flam_adjoint_products_match_dense():
     dense = chunkermat(chnkr, smooth_kernel) + (0.5 + 0.2j) * np.eye(chnkr.npt)
     rhs = np.exp(0.1j * np.arange(chnkr.npt))
     rhs_mat = np.column_stack((rhs, np.conj(rhs)))
-    opts = {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "dval": 0.5 + 0.2j, "occ": 16, "rank_or_tol": 1e-10, "useproxy": False}
+    opts = {
+        "_chunkie_normalized_operator_options": True,
+        "acceleration": "flam",
+        "dval": 0.5 + 0.2j,
+        "occ": 16,
+        "rank_or_tol": 1e-10,
+        "useproxy": False,
+    }
 
     rskelf_mat = chunkermat(chnkr, smooth_kernel, opts)
     rskel_mat = chunkermat(chnkr, smooth_kernel, {**opts, "flamtype": "rskel"})
 
     np.testing.assert_allclose(rskelf_mat.H @ rhs, dense.conj().T @ rhs, rtol=1e-10, atol=1e-11)
-    np.testing.assert_allclose(rskelf_mat.H @ rhs_mat, dense.conj().T @ rhs_mat, rtol=1e-10, atol=1e-11)
+    np.testing.assert_allclose(
+        rskelf_mat.H @ rhs_mat, dense.conj().T @ rhs_mat, rtol=1e-10, atol=1e-11
+    )
     np.testing.assert_allclose(rskel_mat.H @ rhs, dense.conj().T @ rhs, rtol=1e-10, atol=1e-11)
 
 
@@ -356,7 +485,14 @@ def test_chunkermat_flam_adjoint_solve_matches_dense():
     flam_mat = chunkermat(
         chnkr,
         smooth_kernel,
-        {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "dval": 0.5 + 0.2j, "occ": 16, "rank_or_tol": 1e-10, "useproxy": False},
+        {
+            "_chunkie_normalized_operator_options": True,
+            "acceleration": "flam",
+            "dval": 0.5 + 0.2j,
+            "occ": 16,
+            "rank_or_tol": 1e-10,
+            "useproxy": False,
+        },
     )
 
     sol = flam_mat.solve(rhs, trans="c")
@@ -370,19 +506,31 @@ def test_chunkermat_flam_adds_dval_without_replacing_smooth_diagonal():
     chnkr, _ = chunkerfunc(circle, min_chunks=4, order=6)
     dense_scalar = chunkermat(chnkr, smooth_kernel) + 0.5 * np.eye(chnkr.npt)
     rhs_scalar = np.cos(np.arange(chnkr.npt))
-    flam_scalar = chunkermat(chnkr, smooth_kernel, acceleration="flam", dval=0.5, rank_or_tol=1e-10, proxy=False)
+    flam_scalar = chunkermat(
+        chnkr, smooth_kernel, acceleration="flam", dval=0.5, rank_or_tol=1e-10, proxy=False
+    )
 
-    np.testing.assert_allclose(flam_scalar @ rhs_scalar, dense_scalar @ rhs_scalar, rtol=1e-10, atol=1e-11)
+    np.testing.assert_allclose(
+        flam_scalar @ rhs_scalar, dense_scalar @ rhs_scalar, rtol=1e-10, atol=1e-11
+    )
 
     dense_complex = chunkermat(chnkr, smooth_kernel) + (0.5 + 0.2j) * np.eye(chnkr.npt)
-    flam_complex = chunkermat(chnkr, smooth_kernel, acceleration="flam", dval=0.5 + 0.2j, rank_or_tol=1e-10, proxy=False)
-    np.testing.assert_allclose(flam_complex @ rhs_scalar, dense_complex @ rhs_scalar, rtol=1e-10, atol=1e-11)
+    flam_complex = chunkermat(
+        chnkr, smooth_kernel, acceleration="flam", dval=0.5 + 0.2j, rank_or_tol=1e-10, proxy=False
+    )
+    np.testing.assert_allclose(
+        flam_complex @ rhs_scalar, dense_complex @ rhs_scalar, rtol=1e-10, atol=1e-11
+    )
 
     dense_vector = chunkermat(chnkr, vector_smooth_kernel) + 0.25 * np.eye(2 * chnkr.npt)
     rhs_vector = np.sin(np.arange(2 * chnkr.npt))
-    flam_vector = chunkermat(chnkr, vector_smooth_kernel, acceleration="flam", dval=0.25, rank_or_tol=1e-10, proxy=False)
+    flam_vector = chunkermat(
+        chnkr, vector_smooth_kernel, acceleration="flam", dval=0.25, rank_or_tol=1e-10, proxy=False
+    )
 
-    np.testing.assert_allclose(flam_vector @ rhs_vector, dense_vector @ rhs_vector, rtol=1e-10, atol=1e-11)
+    np.testing.assert_allclose(
+        flam_vector @ rhs_vector, dense_vector @ rhs_vector, rtol=1e-10, atol=1e-11
+    )
 
 
 def test_chunkermat_flam_interleaved_block_kernel_matches_dense():
@@ -396,7 +544,14 @@ def test_chunkermat_flam_interleaved_block_kernel_matches_dense():
     flam_mat = chunkermat(
         chnkr,
         mixed,
-        {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "dval": 0.25, "occ": 8, "rank_or_tol": 1e-10, "useproxy": False},
+        {
+            "_chunkie_normalized_operator_options": True,
+            "acceleration": "flam",
+            "dval": 0.25,
+            "occ": 8,
+            "rank_or_tol": 1e-10,
+            "useproxy": False,
+        },
     )
 
     np.testing.assert_allclose(flam_mat @ rhs, dense @ rhs, rtol=1e-10, atol=1e-11)
@@ -406,16 +561,30 @@ def test_chunkermat_flam_l2scale_matches_scaled_dense_matrix():
     chnkr, _ = chunkerfunc(circle, min_chunks=4, order=6)
     weighted_dense = chunkermat(chnkr, smooth_kernel)
     weights = chnkr.wts.reshape(-1, order="F")
-    scaled_dense = np.sqrt(weights)[:, None] * weighted_dense * (1.0 / np.sqrt(weights))[None, :] + 0.75 * np.eye(chnkr.npt)
+    scaled_dense = np.sqrt(weights)[:, None] * weighted_dense * (1.0 / np.sqrt(weights))[
+        None, :
+    ] + 0.75 * np.eye(chnkr.npt)
     rhs = np.sin(np.arange(chnkr.npt))
-    flam_mat = chunkermat(chnkr, smooth_kernel, acceleration="flam", dval=0.75, l2scale=True, rank_or_tol=1e-10, proxy=False)
+    flam_mat = chunkermat(
+        chnkr,
+        smooth_kernel,
+        acceleration="flam",
+        dval=0.75,
+        l2scale=True,
+        rank_or_tol=1e-10,
+        proxy=False,
+    )
 
     np.testing.assert_allclose(flam_mat @ rhs, scaled_dense @ rhs, rtol=1e-10, atol=1e-11)
 
     lap_s = kernel("lap", "s")
     special_dense = chunkermat(chnkr, lap_s)
-    scaled_special = np.sqrt(weights)[:, None] * special_dense * (1.0 / np.sqrt(weights))[None, :] + np.eye(chnkr.npt)
-    flam_special = chunkermat(chnkr, lap_s, acceleration="flam", dval=1.0, l2scale=True, rank_or_tol=1e-10, proxy=False)
+    scaled_special = np.sqrt(weights)[:, None] * special_dense * (1.0 / np.sqrt(weights))[
+        None, :
+    ] + np.eye(chnkr.npt)
+    flam_special = chunkermat(
+        chnkr, lap_s, acceleration="flam", dval=1.0, l2scale=True, rank_or_tol=1e-10, proxy=False
+    )
 
     np.testing.assert_allclose(flam_special @ rhs, scaled_special @ rhs, rtol=1e-10, atol=1e-11)
 
@@ -443,7 +612,13 @@ def test_chunkermatapply_flam_accepts_multiple_rhs():
         chnkr,
         lap_s,
         rhs,
-        {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "occ": 8, "rank_or_tol": 1e-10, "useproxy": False},
+        {
+            "_chunkie_normalized_operator_options": True,
+            "acceleration": "flam",
+            "occ": 8,
+            "rank_or_tol": 1e-10,
+            "useproxy": False,
+        },
     )
 
     assert via_flam.shape == rhs.shape
@@ -460,7 +635,13 @@ def test_chunkermatapply_flam_preserves_single_column_rhs():
         chnkr,
         lap_s,
         rhs,
-        {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "occ": 8, "rank_or_tol": 1e-10, "useproxy": False},
+        {
+            "_chunkie_normalized_operator_options": True,
+            "acceleration": "flam",
+            "occ": 8,
+            "rank_or_tol": 1e-10,
+            "useproxy": False,
+        },
     )
 
     assert via_flam.shape == rhs.shape
@@ -474,11 +655,18 @@ def test_chunkerkerneval_flam_preserves_target_data_without_proxy():
         data=np.array([[0.5, -0.25, 0.75]]),
     )
     dens = np.cos(chnkr.r[0].reshape(-1, order="F"))
-    opts = {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "occ": 8, "rank_or_tol": 1e-10}
+    opts = {
+        "_chunkie_normalized_operator_options": True,
+        "acceleration": "flam",
+        "occ": 8,
+        "rank_or_tol": 1e-10,
+    }
 
     dense_mat = chunkerkernevalmat(chnkr, target_data_kernel, targets)
     flam_mat = chunkerkernevalmat(chnkr, target_data_kernel, targets, opts)
-    flam_vals = chunkerkerneval(chnkr, target_data_kernel, dens, targets, opts).reshape(-1, order="F")
+    flam_vals = chunkerkerneval(chnkr, target_data_kernel, dens, targets, opts).reshape(
+        -1, order="F"
+    )
 
     np.testing.assert_allclose(flam_mat, dense_mat, rtol=1e-10, atol=1e-11)
     np.testing.assert_allclose(flam_vals, dense_mat @ dens, rtol=1e-10, atol=1e-11)
@@ -488,7 +676,13 @@ def test_chunkerkerneval_flam_matches_eval_matrix_and_dense():
     chnkr, _ = chunkerfunc(circle, min_chunks=4, order=6)
     targets = np.array([[0.0, 1.4, -0.25], [0.0, 0.2, 1.3]])
     dens = np.cos(chnkr.r[0].reshape(-1, order="F"))
-    opts = {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "occ": 8, "rank_or_tol": 1e-10, "useproxy": False}
+    opts = {
+        "_chunkie_normalized_operator_options": True,
+        "acceleration": "flam",
+        "occ": 8,
+        "rank_or_tol": 1e-10,
+        "useproxy": False,
+    }
 
     dense_mat = chunkerkernevalmat(chnkr, smooth_kernel, targets)
     flam_mat = chunkerkernevalmat(chnkr, smooth_kernel, targets, opts)
@@ -501,7 +695,9 @@ def test_chunkerkerneval_flam_matches_eval_matrix_and_dense():
     dens_vec = np.vstack((np.cos(pts[0]), np.sin(pts[1]))).reshape(-1, order="F")
     dense_vec_mat = chunkerkernevalmat(chnkr, vector_smooth_kernel, targets)
     flam_vec_mat = chunkerkernevalmat(chnkr, vector_smooth_kernel, targets, opts)
-    flam_vec_vals = chunkerkerneval(chnkr, vector_smooth_kernel, dens_vec, targets, opts).reshape(-1, order="F")
+    flam_vec_vals = chunkerkerneval(chnkr, vector_smooth_kernel, dens_vec, targets, opts).reshape(
+        -1, order="F"
+    )
 
     np.testing.assert_allclose(flam_vec_mat, dense_vec_mat, rtol=1e-10, atol=1e-11)
     np.testing.assert_allclose(flam_vec_vals, dense_vec_mat @ dens_vec, rtol=1e-10, atol=1e-11)
@@ -511,11 +707,19 @@ def test_chunkerkerneval_flam_complex_target_eval_matches_dense():
     chnkr, _ = chunkerfunc(circle, min_chunks=4, order=6)
     targets = np.array([[0.0, 1.4, -0.25], [0.0, 0.2, 1.3]])
     dens = np.exp(0.2j * np.arange(chnkr.npt))
-    opts = {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "occ": 8, "rank_or_tol": 1e-10, "useproxy": False}
+    opts = {
+        "_chunkie_normalized_operator_options": True,
+        "acceleration": "flam",
+        "occ": 8,
+        "rank_or_tol": 1e-10,
+        "useproxy": False,
+    }
 
     dense_mat = chunkerkernevalmat(chnkr, complex_smooth_kernel, targets)
     flam_mat = chunkerkernevalmat(chnkr, complex_smooth_kernel, targets, opts)
-    flam_vals = chunkerkerneval(chnkr, complex_smooth_kernel, dens, targets, opts).reshape(-1, order="F")
+    flam_vals = chunkerkerneval(chnkr, complex_smooth_kernel, dens, targets, opts).reshape(
+        -1, order="F"
+    )
 
     np.testing.assert_allclose(flam_mat, dense_mat, rtol=1e-10, atol=1e-11)
     np.testing.assert_allclose(flam_vals, dense_mat @ dens, rtol=1e-10, atol=1e-11)
@@ -529,7 +733,13 @@ def test_chunkerkerneval_flam_interleaved_block_kernel_matches_dense():
     s = kernel(smooth_kernel)
     z = kernel("zero")
     mixed = kernel([[s, -s], [s, z]])
-    opts = {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "occ": 8, "rank_or_tol": 1e-10, "useproxy": False}
+    opts = {
+        "_chunkie_normalized_operator_options": True,
+        "acceleration": "flam",
+        "occ": 8,
+        "rank_or_tol": 1e-10,
+        "useproxy": False,
+    }
 
     dense_mat = chunkerkernevalmat(chnkr, mixed, targets)
     flam_mat = chunkerkernevalmat(chnkr, mixed, targets, opts)
@@ -543,7 +753,12 @@ def test_chunkerkerneval_flam_default_proxy_matches_dense():
     chnkr, _ = chunkerfunc(circle, min_chunks=4, order=6)
     targets = np.array([[0.0, 1.4, -0.25, 0.7], [0.0, 0.2, 1.3, -1.2]])
     dens = np.cos(chnkr.r[0].reshape(-1, order="F"))
-    opts = {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "occ": 8, "rank_or_tol": 1e-10}
+    opts = {
+        "_chunkie_normalized_operator_options": True,
+        "acceleration": "flam",
+        "occ": 8,
+        "rank_or_tol": 1e-10,
+    }
 
     dense_mat = chunkerkernevalmat(chnkr, smooth_kernel, targets)
     proxy_mat = chunkerkernevalmat(chnkr, smooth_kernel, targets, opts)
@@ -557,7 +772,13 @@ def test_chunkerkerneval_flam_proxy_by_level_matches_dense():
     chnkr, _ = chunkerfunc(circle, min_chunks=6, order=6)
     targets = np.array([[0.0, 1.4, -0.25, 0.7], [0.0, 0.2, 1.3, -1.2]])
     dens = np.cos(chnkr.r[0].reshape(-1, order="F"))
-    opts = {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "occ": 8, "rank_or_tol": 1e-10, "proxybylevel": True}
+    opts = {
+        "_chunkie_normalized_operator_options": True,
+        "acceleration": "flam",
+        "occ": 8,
+        "rank_or_tol": 1e-10,
+        "proxybylevel": True,
+    }
 
     dense_mat = chunkerkernevalmat(chnkr, smooth_kernel, targets)
     proxy_mat = chunkerkernevalmat(chnkr, smooth_kernel, targets, opts)
@@ -573,7 +794,13 @@ def test_chunkerkerneval_flam_forceadap_matches_dense_adaptive_corrections():
     dens = np.cos(chnkr.r[0].reshape(-1, order="F"))
     lap_s = kernel("lap", "s")
     opts = {"_chunkie_normalized_operator_options": True, "forceadap": True}
-    flam_opts = {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "forceadap": True, "occ": 8, "rank_or_tol": 1e-10}
+    flam_opts = {
+        "_chunkie_normalized_operator_options": True,
+        "acceleration": "flam",
+        "forceadap": True,
+        "occ": 8,
+        "rank_or_tol": 1e-10,
+    }
 
     dense_mat = chunkerkernevalmat(chnkr, lap_s, targets, opts)
     flam_mat = chunkerkernevalmat(chnkr, lap_s, targets, flam_opts)
@@ -587,7 +814,13 @@ def test_chunkerkerneval_flam_same_source_special_quadrature_matches_dense():
     chnkr, _ = chunkerfunc(circle, min_chunks=4, order=6)
     dens = np.cos(chnkr.r[0].reshape(-1, order="F"))
     lap_s = kernel("lap", "s")
-    opts = {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "occ": 8, "rank_or_tol": 1e-10, "useproxy": False}
+    opts = {
+        "_chunkie_normalized_operator_options": True,
+        "acceleration": "flam",
+        "occ": 8,
+        "rank_or_tol": 1e-10,
+        "useproxy": False,
+    }
 
     dense_mat = chunkermat(chnkr, lap_s)
     flam_mat = chunkerkernevalmat(chnkr, lap_s, chnkr, opts)
@@ -605,7 +838,12 @@ def test_chunkerinterior_flam_matches_direct_classification():
     actual = chunkerinterior(
         chnkr,
         pts,
-        {"_chunkie_normalized_operator_options": True, "acceleration": "flam", "rank_or_tol": 1e-8, "useproxy": False},
+        {
+            "_chunkie_normalized_operator_options": True,
+            "acceleration": "flam",
+            "rank_or_tol": 1e-8,
+            "useproxy": False,
+        },
     )
 
     np.testing.assert_array_equal(actual, direct)

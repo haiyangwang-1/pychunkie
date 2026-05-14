@@ -2,8 +2,7 @@
 
 import numpy as np
 
-from chunkie import chunkerkerneval, chunkermat, chunkgraph, chunkgraphinregion, kernel
-
+from chunkie import ChunkGraph, PointInfo, chunkerkerneval, chunkermat, chunkgraphinregion, kernel
 
 verts = np.array(
     [
@@ -24,14 +23,14 @@ targets = np.array(
     ]
 )
 
-cg = chunkgraph(verts, edges, pref={"k": 12, "nchmax": 2000}, cparams={"nchmin": 8})
+cg = ChunkGraph(verts, edges, pref={"k": 12, "nchmax": 2000}, cparams={"nchmin": 8})
 lap_s = kernel("lap", "s")
-boundary = cg.r.reshape(2, cg.npt, order="F")
-sigma = np.linalg.solve(chunkermat(cg, lap_s), boundary[0])
+nodes = PointInfo.from_any(cg).r
+sigma = np.linalg.solve(chunkermat(cg, lap_s), nodes[0])
 
 region_ids = chunkgraphinregion(cg, targets)
 annular_targets = targets[:, region_ids == 2]
-values = chunkerkerneval(cg, lap_s, sigma, annular_targets, {"forceadap": True}).reshape(-1)
+values = chunkerkerneval(cg, lap_s, sigma, annular_targets, force_adaptive=True).reshape(-1)
 error = np.max(np.abs(values - annular_targets[0]))
 
 print(f"chunkgraph: {len(cg.echnks)} edges, {cg.npt} nodes")

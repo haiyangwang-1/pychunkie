@@ -2,20 +2,19 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
-import warnings
 
 import numpy as np
 from numpy.typing import ArrayLike
 
+from chunkie._layout import as_boundary_point_matrix, as_boundary_vector, boundary_component_weights
+
 from .. import lege
 from ._chunker_polygon import (
     _dyadic_chunkerpoly,
-    _fill_line_chunk,
-    _fill_quadratic_chunk,
-    _polygon_widths,
     _rounded_chunkerpoly,
 )
 from ._nearest import chunk_nearparam as _chunk_nearparam
@@ -38,7 +37,7 @@ class ChunkerPref:
     verttol: float = 1e-12
 
     @classmethod
-    def from_any(cls, pref: "ChunkerPref | dict[str, Any] | None" = None) -> "ChunkerPref":
+    def from_any(cls, pref: ChunkerPref | dict[str, Any] | None = None) -> ChunkerPref:
         if pref is None:
             return cls()
         if isinstance(pref, cls):
@@ -53,7 +52,7 @@ class ChunkerPref:
 class Chunker:
     """Curve divided into Legendre-discretized chunks.
 
-    Arrays follow the MATLAB layout ``dim x k x nch``:
+    Arrays are stored as chunk tensors with shape ``dim x k x nch``:
 
     - ``r`` stores node positions.
     - ``d`` and ``d2`` store first and second derivatives with respect to the
@@ -64,8 +63,8 @@ class Chunker:
 
     User code usually calls :func:`chunkerfunc`, :func:`chunkerpoly`,
     :func:`chunkerfit`, or :func:`chunkerpoints` instead of filling this storage
-    manually. Matrix assembly flattens nodes in Fortran order, matching MATLAB
-    chunk-contiguous ordering.
+    manually. Flat vectors are adapter formats for solvers and backend
+    interfaces; internal geometry should stay in tensor form when possible.
     """
 
     __array_priority__ = 1000
@@ -112,12 +111,24 @@ class Chunker:
         return self.rstor.shape[1]
 
     @property
+    def quadrature_order(self) -> int:
+        return self.k
+
+    @property
     def dim(self) -> int:
         return self.rstor.shape[0]
 
     @property
+    def coordinate_dim(self) -> int:
+        return self.dim
+
+    @property
     def npt(self) -> int:
         return self.k * self.nch
+
+    @property
+    def point_count(self) -> int:
+        return self.npt
 
     @property
     def datadim(self) -> int:
@@ -140,12 +151,28 @@ class Chunker:
         self.rstor[:, :, : self.nch] = value
 
     @property
+    def positions(self) -> np.ndarray:
+        return self.r
+
+    @positions.setter
+    def positions(self, value: ArrayLike) -> None:
+        self.r = value
+
+    @property
     def d(self) -> np.ndarray:
         return self.dstor[:, :, : self.nch]
 
     @d.setter
     def d(self, value: ArrayLike) -> None:
         self.dstor[:, :, : self.nch] = value
+
+    @property
+    def derivatives(self) -> np.ndarray:
+        return self.d
+
+    @derivatives.setter
+    def derivatives(self, value: ArrayLike) -> None:
+        self.d = value
 
     @property
     def d2(self) -> np.ndarray:
@@ -156,12 +183,28 @@ class Chunker:
         self.d2stor[:, :, : self.nch] = value
 
     @property
+    def second_derivatives(self) -> np.ndarray:
+        return self.d2
+
+    @second_derivatives.setter
+    def second_derivatives(self, value: ArrayLike) -> None:
+        self.d2 = value
+
+    @property
     def n(self) -> np.ndarray:
         return self.nstor[:, :, : self.nch]
 
     @n.setter
     def n(self, value: ArrayLike) -> None:
         self.nstor[:, :, : self.nch] = value
+
+    @property
+    def normal_vectors(self) -> np.ndarray:
+        return self.n
+
+    @normal_vectors.setter
+    def normal_vectors(self, value: ArrayLike) -> None:
+        self.n = value
 
     @property
     def wts(self) -> np.ndarray:
@@ -172,12 +215,28 @@ class Chunker:
         self.wtsstor[:, : self.nch] = value
 
     @property
+    def quadrature_weights(self) -> np.ndarray:
+        return self.wts
+
+    @quadrature_weights.setter
+    def quadrature_weights(self, value: ArrayLike) -> None:
+        self.wts = value
+
+    @property
     def adj(self) -> np.ndarray:
         return self.adjstor[:, : self.nch]
 
     @adj.setter
     def adj(self, value: ArrayLike) -> None:
         self.adjstor[:, : self.nch] = value
+
+    @property
+    def adjacency(self) -> np.ndarray:
+        return self.adj
+
+    @adjacency.setter
+    def adjacency(self, value: ArrayLike) -> None:
+        self.adj = value
 
     @property
     def data(self) -> np.ndarray:
@@ -191,7 +250,7 @@ class Chunker:
             raise ValueError("data rows have not been allocated")
         self.datastor[:, :, : self.nch] = value
 
-    def copy(self) -> "Chunker":
+    def copy(self) -> Chunker:
         other = Chunker(
             ChunkerPref(
                 nchmax=self.nchmax,
@@ -215,7 +274,7 @@ class Chunker:
         other.vert = [v.copy() for v in self.vert]
         return other
 
-    def addchunk(self, nchadd: int = 1) -> "Chunker":
+    def addchunk(self, nchadd: int = 1) -> Chunker:
         if int(nchadd) != nchadd or nchadd <= 0:
             raise ValueError("nchadd must be positive integer")
         nchadd = int(nchadd)
@@ -230,7 +289,7 @@ class Chunker:
         self.nch += nchadd
         return self
 
-    def resize(self, nchstornew: int) -> "Chunker":
+    def resize(self, nchstornew: int) -> Chunker:
         if nchstornew < self.nch:
             raise ValueError("new storage is less than number of chunks")
         if nchstornew > self.nchmax:
@@ -238,7 +297,7 @@ class Chunker:
 
         def grow(arr: np.ndarray, shape: tuple[int, ...]) -> np.ndarray:
             out = np.zeros(shape, dtype=arr.dtype)
-            slices = tuple(slice(0, min(a, b)) for a, b in zip(arr.shape, shape))
+            slices = tuple(slice(0, min(a, b)) for a, b in zip(arr.shape, shape, strict=False))
             out[slices] = arr[slices]
             return out
 
@@ -252,7 +311,7 @@ class Chunker:
         self.nchstor = int(nchstornew)
         return self
 
-    def makedatarows(self, nrows: int) -> "Chunker":
+    def makedatarows(self, nrows: int) -> Chunker:
         if nrows <= 0:
             return self
         old = self.datastor
@@ -261,7 +320,7 @@ class Chunker:
         self.hasdata = True
         return self
 
-    def cleardata(self) -> "Chunker":
+    def cleardata(self) -> Chunker:
         self.hasdata = False
         self.datastor = np.zeros((0, self.k, self.nchstor))
         return self
@@ -399,34 +458,34 @@ class Chunker:
         return out
 
     def onesmat(self) -> np.ndarray:
-        wts = self.wts.reshape(-1, order="F")
+        wts = as_boundary_vector(self.wts, name="weights")
         return np.ones((self.npt, 1)) @ wts[None, :]
 
     def normonesmat(self) -> np.ndarray:
-        normals = self.n.reshape(-1, order="F")
-        wts2 = (np.repeat(self.wts.reshape(-1, order="F"), self.dim) * normals)
+        normals = as_boundary_vector(self.n, name="normals")
+        wts2 = boundary_component_weights(self.wts, self.dim) * normals
         return normals[:, None] @ wts2[None, :]
 
     def centroids(self) -> np.ndarray:
         return np.sum(self.r * self.wstor[None, :, None], axis=1) / 2.0
 
-    def datares(self, opts: dict[str, Any] | None = None) -> np.ndarray:
+    def datares(self, options: dict[str, Any] | None = None) -> np.ndarray:
         """Check whether selected data rows are Legendre-resolved per chunk."""
 
-        opts = {} if opts is None else dict(opts)
+        options = {} if options is None else dict(options)
         if not self.hasdata or self.datadim == 0:
             return np.zeros((0, self.nch), dtype=bool)
 
-        idata = np.asarray(opts.get("idata", np.arange(self.datadim)), dtype=int).reshape(-1)
+        idata = np.asarray(options.get("idata", np.arange(self.datadim)), dtype=int).reshape(-1)
         if np.any(idata < 0) or np.any(idata >= self.datadim):
             raise IndexError("data row index out of range")
 
-        ncoeff = int(opts.get("ncoeff", np.floor((self.k + 0.1) / 2.0)))
+        ncoeff = int(options.get("ncoeff", np.floor((self.k + 0.1) / 2.0)))
         ncoeff = min(max(ncoeff, 1), self.k)
-        pleg = opts.get("pleg", 1)
-        tol = float(opts.get("tol", 1.0e-6))
-        pscale = float(opts.get("pscale", 0.0))
-        rel = bool(opts.get("rel", False))
+        pleg = options.get("pleg", 1)
+        tol = float(options.get("tol", 1.0e-6))
+        pscale = float(options.get("pscale", 0.0))
+        rel = bool(options.get("rel", False))
 
         _, _, u, _ = lege.exps(self.k)
         tail = u[self.k - ncoeff :, :]
@@ -523,7 +582,7 @@ class Chunker:
     def checkadjinfo(self) -> int:
         return int(self.sortinfo()[2]["ier"])
 
-    def sort(self) -> tuple["Chunker", dict[str, Any]]:
+    def sort(self) -> tuple[Chunker, dict[str, Any]]:
         inds, adjs, info = self.sortinfo()
         out = self.copy()
         out.r = out.r[:, :, inds]
@@ -536,37 +595,43 @@ class Chunker:
         out.adj = adjs
         return out, info
 
-    def flagnear(self, pts: ArrayLike, opts: dict[str, Any] | None = None, *, fac: float | None = None) -> np.ndarray:
-        opts = _legacy_options(opts, "flagnear opts")
-        _set_option(opts, "fac", fac)
-        fac = float(opts.get("fac", 1.0))
-        points = np.asarray(pts, dtype=float).reshape(self.dim, -1)
-        flags = np.zeros((points.shape[1], self.nch), dtype=bool)
+    def flagnear(
+        self,
+        points: ArrayLike,
+        options: dict[str, Any] | None = None,
+        *,
+        fac: float | None = None,
+    ) -> np.ndarray:
+        options = _legacy_options(options, "flagnear options")
+        _set_option(options, "fac", fac)
+        fac = float(options.get("fac", 1.0))
+        points_arr = np.asarray(points, dtype=float).reshape(self.dim, -1)
+        flags = np.zeros((points_arr.shape[1], self.nch), dtype=bool)
         lens = self.chunklen() * fac
         for ich in range(self.nch):
-            diff = points[:, :, None] - self.r[:, :, ich][:, None, :]
+            diff = points_arr[:, :, None] - self.r[:, :, ich][:, None, :]
             dists = np.sqrt(np.sum(diff**2, axis=0))
             flags[:, ich] = np.any(dists < lens[ich], axis=1)
         return flags
 
     def flagnear_rectangle(
         self,
-        pts: ArrayLike,
-        opts: dict[str, Any] | None = None,
+        points: ArrayLike,
+        options: dict[str, Any] | None = None,
         *,
         rho: float | None = None,
     ) -> np.ndarray:
-        opts = _legacy_options(opts, "flagnear_rectangle opts")
-        _set_option(opts, "rho", rho)
+        options = _legacy_options(options, "flagnear_rectangle options")
+        _set_option(options, "rho", rho)
         if self.dim != 2:
             raise ValueError("flagnear_rectangle is implemented for 2D chunkers")
-        rho = float(opts.get("rho", 1.8))
+        rho = float(options.get("rho", 1.8))
         rectinfo = _bernstein_rectangle_info(self, rho)
-        points = np.asarray(pts, dtype=float).reshape(2, -1)
-        flags = np.zeros((points.shape[1], self.nch), dtype=bool)
+        points_arr = np.asarray(points, dtype=float).reshape(2, -1)
+        flags = np.zeros((points_arr.shape[1], self.nch), dtype=bool)
         for ich in range(self.nch):
-            d1 = points.T @ rectinfo[:, 0, ich]
-            d2 = points.T @ rectinfo[:, 1, ich]
+            d1 = points_arr.T @ rectinfo[:, 0, ich]
+            d2 = points_arr.T @ rectinfo[:, 1, ich]
             flags[:, ich] = (
                 (d1 >= rectinfo[0, 2, ich])
                 & (d1 <= rectinfo[1, 2, ich])
@@ -579,45 +644,52 @@ class Chunker:
         self,
         x: ArrayLike,
         y: ArrayLike,
-        opts: dict[str, Any] | None = None,
+        options: dict[str, Any] | None = None,
         *,
         rho: float | None = None,
     ) -> np.ndarray:
-        opts = _legacy_options(opts, "flagnear_rectangle_grid opts")
-        _set_option(opts, "rho", rho)
-        xx, yy = np.meshgrid(np.asarray(x, dtype=float).reshape(-1), np.asarray(y, dtype=float).reshape(-1))
-        pts = np.vstack((xx.ravel(order="F"), yy.ravel(order="F")))
-        return self.flagnear_rectangle(pts, opts)
+        """Flag a Cartesian target grid, returning ``(len(y), len(x), nch)``."""
+
+        options = _legacy_options(options, "flagnear_rectangle_grid options")
+        _set_option(options, "rho", rho)
+        xx, yy = np.meshgrid(
+            np.asarray(x, dtype=float).reshape(-1), np.asarray(y, dtype=float).reshape(-1)
+        )
+        pts = np.vstack((xx.ravel(), yy.ravel()))
+        flags = self.flagnear_rectangle(pts, options)
+        return flags.reshape(xx.shape + (flags.shape[1],))
 
     def nearest(
         self,
-        ref: ArrayLike,
-        ich: ArrayLike | None = None,
-        opts: dict[str, Any] | None = None,
-        u: ArrayLike | None = None,
+        points: ArrayLike,
+        chunks: ArrayLike | None = None,
+        options: dict[str, Any] | None = None,
+        node_parameters: ArrayLike | None = None,
         *,
         max_iterations: int | None = None,
         threshold: float | None = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """Find the nearest point on this chunker to one or more points.
 
-        Chunk indices in ``ich`` and in the returned ``ichn`` are zero-based,
+        Chunk indices in ``chunks`` and in the returned ``ichn`` are zero-based,
         following the rest of the Python port.
         """
 
-        opts = _legacy_options(opts, "nearest opts")
-        _set_option(opts, "nitermax", max_iterations)
-        _set_option(opts, "thresh", threshold)
-        points = np.asarray(ref, dtype=self.rstor.dtype).reshape(self.dim, -1)
-        nref = points.shape[1]
-        chunks = np.arange(self.nch) if ich is None else np.asarray(ich, dtype=int).reshape(-1)
-        if np.any(chunks < 0) or np.any(chunks >= self.nch):
+        options = _legacy_options(options, "nearest options")
+        _set_option(options, "nitermax", max_iterations)
+        _set_option(options, "thresh", threshold)
+        points_arr = np.asarray(points, dtype=self.rstor.dtype).reshape(self.dim, -1)
+        nref = points_arr.shape[1]
+        chunk_ids = (
+            np.arange(self.nch) if chunks is None else np.asarray(chunks, dtype=int).reshape(-1)
+        )
+        if np.any(chunk_ids < 0) or np.any(chunk_ids >= self.nch):
             raise IndexError("chunk index out of range")
 
-        if u is None:
+        if node_parameters is None:
             _, _, u_arr, _ = lege.exps(self.k)
         else:
-            u_arr = np.asarray(u)
+            u_arr = np.asarray(node_parameters)
 
         best_dist2 = np.full(nref, np.inf)
         rn = np.zeros((self.dim, nref), dtype=self.rstor.dtype)
@@ -626,9 +698,9 @@ class Chunker:
         tn = np.zeros(nref, dtype=float)
         ichn = np.full(nref, -1, dtype=int)
 
-        for idx in chunks:
+        for idx in chunk_ids:
             ti, ri, di, d2i, dist2i = _chunk_nearparam(
-                self.r[:, :, idx], points, opts, self.tstor, u_arr
+                self.r[:, :, idx], points_arr, options, self.tstor, u_arr
             )
             better = dist2i < best_dist2
             if np.any(better):
@@ -640,26 +712,32 @@ class Chunker:
                 ichn[better] = int(idx)
 
         dist = np.sqrt(best_dist2)
-        if np.asarray(ref).reshape(self.dim, -1).shape[1] == 1:
+        if np.asarray(points).reshape(self.dim, -1).shape[1] == 1:
             return rn[:, 0], dn[:, 0], d2n[:, 0], dist[0], tn[0], ichn[0]
         return rn, dn, d2n, dist, tn, ichn
 
     def min(self) -> np.ndarray:
         if self.nch == 0:
             return np.full(self.dim, np.nan)
-        return np.min(np.real(self.r.reshape(self.dim, self.npt, order="F")), axis=1)
+        return np.min(
+            np.real(as_boundary_point_matrix(self.r, self.dim, self.npt, name="positions")), axis=1
+        )
 
     def max(self) -> np.ndarray:
         if self.nch == 0:
             return np.full(self.dim, np.nan)
-        return np.max(np.real(self.r.reshape(self.dim, self.npt, order="F")), axis=1)
+        return np.max(
+            np.real(as_boundary_point_matrix(self.r, self.dim, self.npt, name="positions")), axis=1
+        )
 
-    def recompute_geometry(self) -> "Chunker":
+    def recompute_geometry(self) -> Chunker:
         self.n = self.normals()
         self.wts = self.weights()
         return self
 
-    def upsample(self, kup: int, sigma: ArrayLike | None = None) -> tuple["Chunker", np.ndarray | None]:
+    def upsample(
+        self, kup: int, sigma: ArrayLike | None = None
+    ) -> tuple[Chunker, np.ndarray | None]:
         if kup < self.k:
             raise ValueError("upsampling order must be at least the current order")
         _, _, u, _ = lege.exps(self.k)
@@ -694,7 +772,7 @@ class Chunker:
             sigmaup = np.einsum("ij,djn->din", upmat, sigma_arr)
         return out, sigmaup
 
-    def split(self, ich: int, frac: float = 0.5, stype: str = "a") -> "Chunker":
+    def split(self, ich: int, frac: float = 0.5, stype: str = "a") -> Chunker:
         if ich < 0 or ich >= self.nch:
             raise IndexError("chunk index out of range")
         if not (0.0 < frac < 1.0):
@@ -767,7 +845,7 @@ class Chunker:
 
     def refine(
         self,
-        opts: dict[str, Any] | None = None,
+        options: dict[str, Any] | None = None,
         *,
         split_chunks: ArrayLike | None = None,
         max_chunk_length: float | None = None,
@@ -776,7 +854,7 @@ class Chunker:
         oversample: int | None = None,
         split_type: str | None = None,
         max_chunks: int | None = None,
-    ) -> "Chunker":
+    ) -> Chunker:
         """Return a refined copy after selected splits and length balancing.
 
         Recognized options include ``splitchunks`` for explicit zero-based chunk
@@ -785,26 +863,28 @@ class Chunker:
         for arclength versus parameter-space splitting.
         """
 
-        opts = _legacy_options(opts, "refine opts")
-        _set_option(opts, "splitchunks", split_chunks)
-        _set_option(opts, "maxchunklen", max_chunk_length)
-        _set_option(opts, "lvlr", level_restrict)
-        _set_option(opts, "lvlrfac", level_restrict_factor)
-        _set_option(opts, "nover", oversample)
-        _set_option(opts, "stype", split_type)
-        _set_option(opts, "nchmax", max_chunks)
+        options = _legacy_options(options, "refine options")
+        _set_option(options, "splitchunks", split_chunks)
+        _set_option(options, "maxchunklen", max_chunk_length)
+        _set_option(options, "lvlr", level_restrict)
+        _set_option(options, "lvlrfac", level_restrict_factor)
+        _set_option(options, "nover", oversample)
+        _set_option(options, "stype", split_type)
+        _set_option(options, "nchmax", max_chunks)
         out = self.copy()
-        nchmax = int(opts.get("nchmax", out.nchmax))
+        nchmax = int(options.get("nchmax", out.nchmax))
         if nchmax < out.nch:
             raise ValueError("nchmax must be at least the current number of chunks")
         out.nchmax = nchmax
-        stype = str(opts.get("stype", "a"))
-        for idx in sorted(np.asarray(opts.get("splitchunks", []), dtype=int).reshape(-1), reverse=True):
+        stype = str(options.get("stype", "a"))
+        for idx in sorted(
+            np.asarray(options.get("splitchunks", []), dtype=int).reshape(-1), reverse=True
+        ):
             out.split(int(idx), stype=stype)
 
-        maxchunklen = float(opts.get("maxchunklen", np.inf))
+        maxchunklen = float(options.get("maxchunklen", np.inf))
         if np.isfinite(maxchunklen):
-            maxiter = int(opts.get("maxiter_maxlen", 1000))
+            maxiter = int(options.get("maxiter_maxlen", 1000))
             changed = True
             for _ in range(maxiter):
                 changed = False
@@ -818,10 +898,10 @@ class Chunker:
             if changed:
                 raise RuntimeError("maximum chunk length refinement did not converge")
 
-        lvlr = str(opts.get("lvlr", "a")).lower()
+        lvlr = str(options.get("lvlr", "a")).lower()
         if lvlr == "a":
-            lvlrfac = float(opts.get("lvlrfac", self.lvlrfacdefault))
-            maxiter = int(opts.get("maxiter_lvlr", 1000))
+            lvlrfac = float(options.get("lvlrfac", self.lvlrfacdefault))
+            maxiter = int(options.get("maxiter_lvlr", 1000))
             changed = True
             for _ in range(maxiter):
                 changed = False
@@ -842,24 +922,24 @@ class Chunker:
         elif lvlr not in {"n", "none"}:
             raise ValueError("lvlr must be 'a' or 'n'")
 
-        for _ in range(int(opts.get("nover", 0))):
+        for _ in range(int(options.get("nover", 0))):
             nchold = out.nch
             for idx in range(nchold):
                 out.split(idx, stype=stype)
         return out
 
-    def arcresample(self, opts: dict[str, Any] | None = None) -> tuple["Chunker", float]:
+    def arcresample(self, options: dict[str, Any] | None = None) -> tuple[Chunker, float]:
         """Reparameterize panel nodes by arc length on each existing chunk."""
 
         from ..misc import arcparam
 
-        options = {} if opts is None else dict(opts)
+        options = {} if options is None else dict(options)
         if bool(options.get("mv_bdries", False)):
             sorted_self, info = self.sort()
             components: list[Chunker] = []
             eps = 0.0
             start = 0
-            for nchs, closed in zip(info["nchs"], info["ifclosed"]):
+            for nchs, closed in zip(info["nchs"], info["ifclosed"], strict=False):
                 chunks = np.arange(start, start + int(nchs))
                 pdata = arcparam.init(sorted_self, chunks)
 
@@ -891,7 +971,7 @@ class Chunker:
         out.recompute_geometry()
         return out, pdata.eps
 
-    def translate(self, vector: ArrayLike) -> "Chunker":
+    def translate(self, vector: ArrayLike) -> Chunker:
         vec = np.asarray(vector, dtype=self.rstor.dtype).reshape(-1)
         if vec.size != self.dim:
             raise ValueError("translation vector has incompatible dimension")
@@ -899,7 +979,7 @@ class Chunker:
         out.r = out.r + vec[:, None, None]
         return out
 
-    def transform(self, matrix: ArrayLike) -> "Chunker":
+    def transform(self, matrix: ArrayLike) -> Chunker:
         mat = np.asarray(matrix, dtype=self.rstor.dtype)
         if mat.ndim == 0:
             mat = mat * np.eye(self.dim)
@@ -912,7 +992,7 @@ class Chunker:
         out.recompute_geometry()
         return out
 
-    def reverse(self) -> "Chunker":
+    def reverse(self) -> Chunker:
         out = self.copy()
         out.r = out.r[:, ::-1, :]
         out.d = -out.d[:, ::-1, :]
@@ -930,16 +1010,17 @@ class Chunker:
         r1: ArrayLike | None = None,
         trotat: float = 0.0,
         scale: float = 1.0,
-    ) -> "Chunker":
+    ) -> Chunker:
         if self.dim != 2:
             raise ValueError("move is implemented for 2D chunkers")
         center0 = np.zeros(2) if r0 is None else np.asarray(r0, dtype=float).reshape(2)
         center1 = np.zeros(2) if r1 is None else np.asarray(r1, dtype=float).reshape(2)
-        rot = np.array(
-            [[np.cos(trotat), -np.sin(trotat)], [np.sin(trotat), np.cos(trotat)]]
-        )
+        rot = np.array([[np.cos(trotat), -np.sin(trotat)], [np.sin(trotat), np.cos(trotat)]])
         out = self.copy()
-        out.r = scale * np.einsum("ij,jkl->ikl", rot, out.r - center0[:, None, None]) + center1[:, None, None]
+        out.r = (
+            scale * np.einsum("ij,jkl->ikl", rot, out.r - center0[:, None, None])
+            + center1[:, None, None]
+        )
         out.d = scale * np.einsum("ij,jkl->ikl", rot, out.d)
         out.d2 = scale * np.einsum("ij,jkl->ikl", rot, out.d2)
         normal_sign = -1.0 if scale < 0 else 1.0
@@ -952,7 +1033,7 @@ class Chunker:
         theta: float = 0.0,
         r0: ArrayLike | None = None,
         r1: ArrayLike | None = None,
-    ) -> "Chunker":
+    ) -> Chunker:
         if self.dim != 2:
             raise ValueError("rotate is implemented for 2D chunkers")
         if not np.isreal(theta):
@@ -963,7 +1044,9 @@ class Chunker:
         s = float(np.sin(theta))
         rot = np.array([[c, -s], [s, c]])
         out = self.copy()
-        out.r = np.einsum("ij,jkl->ikl", rot, out.r - center0[:, None, None]) + center1[:, None, None]
+        out.r = (
+            np.einsum("ij,jkl->ikl", rot, out.r - center0[:, None, None]) + center1[:, None, None]
+        )
         out.d = np.einsum("ij,jkl->ikl", rot, out.d)
         out.d2 = np.einsum("ij,jkl->ikl", rot, out.d2)
         out.n = np.einsum("ij,jkl->ikl", rot, out.n)
@@ -974,7 +1057,7 @@ class Chunker:
         theta: float = 0.0,
         r0: ArrayLike | None = None,
         r1: ArrayLike | None = None,
-    ) -> "Chunker":
+    ) -> Chunker:
         if self.dim != 2:
             raise ValueError("reflect is implemented for 2D chunkers")
         if not np.isreal(theta):
@@ -985,62 +1068,49 @@ class Chunker:
         s = float(np.sin(2.0 * theta))
         refmat = np.array([[c, s], [s, -c]])
         out = self.copy()
-        out.r = np.einsum("ij,jkl->ikl", refmat, out.r - center0[:, None, None]) + center1[:, None, None]
+        out.r = (
+            np.einsum("ij,jkl->ikl", refmat, out.r - center0[:, None, None])
+            + center1[:, None, None]
+        )
         out.d = np.einsum("ij,jkl->ikl", refmat, out.d)
         out.d2 = np.einsum("ij,jkl->ikl", refmat, out.d2)
         out.n = np.einsum("ij,jkl->ikl", refmat, out.n)
         return out
 
-    def __add__(self, other: ArrayLike) -> "Chunker":
+    def __add__(self, other: ArrayLike) -> Chunker:
         return self.translate(other)
 
-    def __radd__(self, other: ArrayLike) -> "Chunker":
+    def __radd__(self, other: ArrayLike) -> Chunker:
         return self.translate(other)
 
-    def __mul__(self, other: Any) -> "Chunker":
+    def __mul__(self, other: Any) -> Chunker:
         if np.isscalar(other):
             return self.transform(other)
         raise TypeError("product of chunker and matrix only defined for matrix on left")
 
-    def __rmul__(self, other: Any) -> "Chunker":
+    def __rmul__(self, other: Any) -> Chunker:
         return self.transform(other)
 
-    def __rmatmul__(self, other: Any) -> "Chunker":
+    def __rmatmul__(self, other: Any) -> Chunker:
         return self.transform(other)
-
-
-def chunker(
-    pref: ChunkerPref | dict[str, Any] | None = None,
-    t: ArrayLike | None = None,
-    w: ArrayLike | None = None,
-) -> Chunker:
-    """MATLAB-style constructor alias."""
-
-    return Chunker(pref, t, w)
-
-
-def chunkerpref(pref: ChunkerPref | dict[str, Any] | None = None) -> ChunkerPref:
-    """MATLAB-style preference constructor alias."""
-
-    return ChunkerPref.from_any(pref)
 
 
 _LEGACY_OPTIONS_MARKER = "_chunkie_normalized_geometry_options"
 
 
-def _legacy_options(opts: dict[str, Any] | None, name: str) -> dict[str, Any]:
-    if opts is None:
+def _legacy_options(options: dict[str, Any] | None, name: str) -> dict[str, Any]:
+    if options is None:
         return {_LEGACY_OPTIONS_MARKER: True}
-    if bool(opts.get(_LEGACY_OPTIONS_MARKER, False)):
-        return dict(opts)
+    if bool(options.get(_LEGACY_OPTIONS_MARKER, False)):
+        return dict(options)
     warnings.warn(
         f"{name} dictionaries are deprecated; use keyword-only arguments instead",
         DeprecationWarning,
         stacklevel=3,
     )
-    options = dict(opts)
-    options[_LEGACY_OPTIONS_MARKER] = True
-    return options
+    normalized = dict(options)
+    normalized[_LEGACY_OPTIONS_MARKER] = True
+    return normalized
 
 
 def _set_option(options: dict[str, Any], key: str, value: Any) -> None:
@@ -1196,19 +1266,19 @@ def chunkerfunc(
 
 
 def _warn_if_closed_endpoint_mismatch(
-    chnkr: Chunker,
+    chunker: Chunker,
     eps: float,
     ifclosed: bool,
     fcurve: Callable[[np.ndarray], Any],
     ta: float,
     tb: float,
 ) -> None:
-    if not ifclosed or chnkr.nch == 0:
+    if not ifclosed or chunker.nch == 0:
         return
     endpoint_outputs = _curve_outputs(fcurve, np.array([ta, tb]))
     left = endpoint_outputs[0][:, 0]
     right = endpoint_outputs[0][:, -1]
-    bbox = chnkr.max() - chnkr.min()
+    bbox = chunker.max() - chunker.min()
     scale = float(max(np.max(np.abs(bbox)), 1.0))
     msgbase = "CHUNKERFUNC: "
     if np.linalg.norm(left - right) / scale > eps:
@@ -1227,10 +1297,10 @@ def _warn_if_closed_endpoint_mismatch(
         left_tangent = left_tangent / np.linalg.norm(left_tangent)
         right_tangent = right_tangent / np.linalg.norm(right_tangent)
     else:
-        _, tend = chnkr.chunkends([0, chnkr.nch - 1])
+        _, tend = chunker.chunkends([0, chunker.nch - 1])
         left_tangent = tend[:, 0, 0]
         right_tangent = tend[:, 1, -1]
-    if np.linalg.norm(left_tangent - right_tangent) > eps * chnkr.k:
+    if np.linalg.norm(left_tangent - right_tangent) > eps * chunker.k:
         warnings.warn(
             msgbase
             + "unit tangent vectors at start and end points of curve are not the same to target precision "
@@ -1270,7 +1340,7 @@ def _curve_interval_outputs(
 def _adaptive_curve_breaks(
     fcurve: Callable[[np.ndarray], Any],
     breaks: np.ndarray,
-    k: int,
+    quadrature_order: int,
     nchmax: int,
     dim: int,
     nout: int,
@@ -1279,17 +1349,19 @@ def _adaptive_curve_breaks(
     chsmall: np.ndarray,
     ifclosed: bool,
 ) -> np.ndarray:
-    nodes, weights, u, _ = lege.exps(2 * k)
-    dmat = lege.dermat(2 * k)
+    nodes, weights, u, _ = lege.exps(2 * quadrature_order)
+    dmat = lege.dermat(2 * quadrature_order)
     for _ in range(max(nchmax, 1)):
         radius = _curve_radius_on_breaks(fcurve, breaks, nodes, dim)
         new_breaks = [float(breaks[0])]
         changed = False
         ninterval = breaks.size - 1
-        for idx, (a, b) in enumerate(zip(breaks[:-1], breaks[1:])):
+        for idx, (a, b) in enumerate(zip(breaks[:-1], breaks[1:], strict=False)):
             r, d, d2 = _curve_interval_outputs(fcurve, float(a), float(b), nodes, dmat, dim, nout)
             length = _local_curve_length(d, weights)
-            unresolved = _curve_interval_unresolved(r, d, d2, weights, u, k, eps, radius, nout, b - a)
+            unresolved = _curve_interval_unresolved(
+                r, d, d2, weights, u, quadrature_order, eps, radius, nout, b - a
+            )
             if np.isfinite(maxchunklen):
                 unresolved = unresolved or length > maxchunklen
             if not ifclosed and idx == 0:
@@ -1314,7 +1386,7 @@ def _curve_interval_unresolved(
     d2: np.ndarray,
     weights: np.ndarray,
     u: np.ndarray,
-    k: int,
+    quadrature_order: int,
     eps: float,
     radius: float,
     nout: int,
@@ -1322,13 +1394,15 @@ def _curve_interval_unresolved(
 ) -> bool:
     speed = np.sqrt(np.sum(np.abs(d) ** 2, axis=0))
     speed_cfs = u @ speed
-    low = float(np.sum(np.abs(speed_cfs[:k]) ** 2))
-    high = float(np.sum(np.abs(speed_cfs[k:]) ** 2))
-    speed_err = np.sqrt(high / max(low, np.finfo(float).eps) / k)
-    speed_bad = speed_err > eps if nout >= 2 else speed_err * width > eps * k
+    low = float(np.sum(np.abs(speed_cfs[:quadrature_order]) ** 2))
+    high = float(np.sum(np.abs(speed_cfs[quadrature_order:]) ** 2))
+    speed_err = np.sqrt(high / max(low, np.finfo(float).eps) / quadrature_order)
+    speed_bad = speed_err > eps if nout >= 2 else speed_err * width > eps * quadrature_order
 
     pos_cfs = u @ r.T
-    pos_err = np.sqrt(np.max(np.sum(np.abs(pos_cfs[k:, :]) ** 2, axis=0) / k))
+    pos_err = np.sqrt(
+        np.max(np.sum(np.abs(pos_cfs[quadrature_order:, :]) ** 2, axis=0) / quadrature_order)
+    )
     curve_bad = pos_err / max(radius, np.finfo(float).eps) > eps
 
     curvature_bad = False
@@ -1346,7 +1420,7 @@ def _curve_radius_on_breaks(
 ) -> float:
     mins = np.full(dim, np.inf)
     maxs = np.full(dim, -np.inf)
-    for a, b in zip(breaks[:-1], breaks[1:]):
+    for a, b in zip(breaks[:-1], breaks[1:], strict=False):
         ts = float(a) + (float(b) - float(a)) * (nodes + 1.0) / 2.0
         r = _curve_outputs(fcurve, ts)[0]
         mins = np.minimum(mins, np.min(r, axis=1))
@@ -1358,18 +1432,18 @@ def _curve_radius_on_breaks(
 def _maxlen_curve_breaks(
     fcurve: Callable[[np.ndarray], Any],
     breaks: np.ndarray,
-    k: int,
+    quadrature_order: int,
     nchmax: int,
     dim: int,
     nout: int,
     maxchunklen: float,
 ) -> np.ndarray:
-    nodes, weights, _, _ = lege.exps(k)
-    dmat = lege.dermat(k)
+    nodes, weights, _, _ = lege.exps(quadrature_order)
+    dmat = lege.dermat(quadrature_order)
     for _ in range(max(nchmax, 1)):
         new_breaks = [float(breaks[0])]
         changed = False
-        for a, b in zip(breaks[:-1], breaks[1:]):
+        for a, b in zip(breaks[:-1], breaks[1:], strict=False):
             _, d, _ = _curve_interval_outputs(fcurve, float(a), float(b), nodes, dmat, dim, nout)
             if _local_curve_length(d, weights) > maxchunklen:
                 new_breaks.append(float(0.5 * (a + b)))
@@ -1386,7 +1460,7 @@ def _maxlen_curve_breaks(
 def _level_restrict_curve_breaks(
     fcurve: Callable[[np.ndarray], Any],
     breaks: np.ndarray,
-    k: int,
+    quadrature_order: int,
     nchmax: int,
     dim: int,
     nout: int,
@@ -1394,22 +1468,32 @@ def _level_restrict_curve_breaks(
     lvlrfac: float,
     lvlr: str,
 ) -> np.ndarray:
-    nodes, weights, _, _ = lege.exps(k)
-    dmat = lege.dermat(k)
+    nodes, weights, _, _ = lege.exps(quadrature_order)
+    dmat = lege.dermat(quadrature_order)
     for _ in range(1000):
-        lengths = np.diff(breaks) if lvlr == "t" else np.array([
-            _curve_interval_length(fcurve, float(a), float(b), nodes, weights, dmat, dim, nout)
-            for a, b in zip(breaks[:-1], breaks[1:])
-        ])
+        lengths = (
+            np.diff(breaks)
+            if lvlr == "t"
+            else np.array(
+                [
+                    _curve_interval_length(
+                        fcurve, float(a), float(b), nodes, weights, dmat, dim, nout
+                    )
+                    for a, b in zip(breaks[:-1], breaks[1:], strict=False)
+                ]
+            )
+        )
         flags = np.zeros(lengths.size, dtype=bool)
         for idx, length in enumerate(lengths):
             left = lengths[idx - 1] if idx > 0 else (lengths[-1] if ifclosed else length)
-            right = lengths[idx + 1] if idx + 1 < lengths.size else (lengths[0] if ifclosed else length)
+            right = (
+                lengths[idx + 1] if idx + 1 < lengths.size else (lengths[0] if ifclosed else length)
+            )
             flags[idx] = length > lvlrfac * left or length > lvlrfac * right
         if not np.any(flags):
             return breaks
         new_breaks = [float(breaks[0])]
-        for idx, (a, b) in enumerate(zip(breaks[:-1], breaks[1:])):
+        for idx, (a, b) in enumerate(zip(breaks[:-1], breaks[1:], strict=False)):
             if flags[idx]:
                 new_breaks.append(float(0.5 * (a + b)))
             new_breaks.append(float(b))
@@ -1422,18 +1506,20 @@ def _level_restrict_curve_breaks(
 def _oversample_curve_breaks(
     fcurve: Callable[[np.ndarray], Any],
     breaks: np.ndarray,
-    k: int,
+    quadrature_order: int,
     nchmax: int,
     dim: int,
     nout: int,
     stype: str,
 ) -> np.ndarray:
-    nodes, weights, _, _ = lege.exps(k)
-    dmat = lege.dermat(k)
+    nodes, weights, _, _ = lege.exps(quadrature_order)
+    dmat = lege.dermat(quadrature_order)
     new_breaks = [float(breaks[0])]
-    for a, b in zip(breaks[:-1], breaks[1:]):
+    for a, b in zip(breaks[:-1], breaks[1:], strict=False):
         if stype.startswith("a"):
-            mid = _curve_arclength_midpoint(fcurve, float(a), float(b), nodes, weights, dmat, dim, nout)
+            mid = _curve_arclength_midpoint(
+                fcurve, float(a), float(b), nodes, weights, dmat, dim, nout
+            )
         else:
             mid = float(0.5 * (a + b))
         new_breaks.extend((mid, float(b)))
@@ -1523,8 +1609,8 @@ def chunkerfuncuni(
 
 
 def chunkerfit(
-    xy: ArrayLike,
-    opts: dict[str, Any] | None = None,
+    points: ArrayLike,
+    options: dict[str, Any] | None = None,
     *,
     closed: bool | None = None,
     split_at_points: bool | None = None,
@@ -1536,27 +1622,29 @@ def chunkerfit(
 
     from scipy.interpolate import CubicSpline
 
-    points = np.asarray(xy, dtype=float)
-    if points.ndim != 2 or points.shape[0] != 2:
+    point_array = np.asarray(points, dtype=float)
+    if point_array.ndim != 2 or point_array.shape[0] != 2:
         raise ValueError("Points must be specified as a 2xN matrix")
-    options = _legacy_options(opts, "chunkerfit opts")
-    _set_option(options, "ifclosed", closed)
-    _set_option(options, "splitatpoints", split_at_points)
+    geometry_options = _legacy_options(options, "chunkerfit options")
+    _set_option(geometry_options, "ifclosed", closed)
+    _set_option(geometry_options, "splitatpoints", split_at_points)
     if tol is not None:
-        options.setdefault("cparams", {})["eps"] = tol
+        geometry_options.setdefault("cparams", {})["eps"] = tol
     if pref is not None:
-        options["pref"] = pref
+        geometry_options["pref"] = pref
     if order is not None:
-        p0 = ChunkerPref.from_any(options.get("pref", None))
-        options["pref"] = ChunkerPref(p0.nchmax, int(order), p0.dim, p0.nchstor, p0.verttol)
-    method = str(options.get("method", "spline")).lower()
+        p0 = ChunkerPref.from_any(geometry_options.get("pref", None))
+        geometry_options["pref"] = ChunkerPref(
+            p0.nchmax, int(order), p0.dim, p0.nchstor, p0.verttol
+        )
+    method = str(geometry_options.get("method", "spline")).lower()
     if method != "spline":
         raise ValueError(f"Unsupported method {method!r}")
 
-    ifclosed = bool(options.get("ifclosed", True))
-    pts = points
-    if ifclosed and np.linalg.norm(points[:, 0] - points[:, -1]) > 1e-14:
-        pts = np.column_stack((points, points[:, 0]))
+    ifclosed = bool(geometry_options.get("ifclosed", True))
+    pts = point_array
+    if ifclosed and np.linalg.norm(point_array[:, 0] - point_array[:, -1]) > 1e-14:
+        pts = np.column_stack((point_array, point_array[:, 0]))
     if pts.shape[1] < 3:
         raise ValueError("chunkerfit requires at least three points")
 
@@ -1577,14 +1665,14 @@ def chunkerfit(
             np.vstack((splx(tt_arr, 2), sply(tt_arr, 2))),
         )
 
-    cparams = dict(options.get("cparams", {}))
+    cparams = dict(geometry_options.get("cparams", {}))
     cparams[_LEGACY_OPTIONS_MARKER] = True
     cparams["ifclosed"] = ifclosed
     cparams["ta"] = float(t[0])
     cparams["tb"] = float(t[-1])
-    if bool(options.get("splitatpoints", False)):
+    if bool(geometry_options.get("splitatpoints", False)):
         cparams["tsplits"] = t[1:-1]
-    chnkr, _ = chunkerfunc(splinefunc, cparams, options.get("pref", None))
+    chnkr, _ = chunkerfunc(splinefunc, cparams, geometry_options.get("pref", None))
     # MATLAB chunkerfit's local ppdiff helper leaves fitted second derivatives
     # zero in the returned chunker; keep that observable behavior for parity.
     chnkr.d2 = np.zeros_like(chnkr.d2)
@@ -1692,32 +1780,32 @@ def chunkerpoly(
 
 
 def chunkerpoints(
-    src: ArrayLike | dict[str, ArrayLike],
-    opts: dict[str, Any] | None = None,
+    source: ArrayLike | dict[str, ArrayLike],
+    options: dict[str, Any] | None = None,
     *,
     closed: bool | None = None,
 ) -> Chunker:
     """Create a chunker from panel node values.
 
-    ``src`` may be either a ``(dim, k, nch)`` position array or a mapping
+    ``source`` may be either a ``(dim, k, nch)`` position array or a mapping
     with ``r`` and optional matching ``d``/``d2`` arrays, mirroring MATLAB
     ``chunkerpoints``.
     """
 
-    opts = _legacy_options(opts, "chunkerpoints opts")
-    _set_option(opts, "ifclosed", closed)
+    geometry_options = _legacy_options(options, "chunkerpoints options")
+    _set_option(geometry_options, "ifclosed", closed)
     d_arr = None
     d2_arr = None
-    if isinstance(src, dict):
-        if "r" not in src:
+    if isinstance(source, dict):
+        if "r" not in source:
             raise ValueError("missing field r in chunkerpoints")
-        r_arr = np.asarray(src["r"])
-        if "d" in src and np.asarray(src["d"]).shape == r_arr.shape:
-            d_arr = np.asarray(src["d"], dtype=r_arr.dtype)
-        if "d2" in src and np.asarray(src["d2"]).shape == r_arr.shape:
-            d2_arr = np.asarray(src["d2"], dtype=r_arr.dtype)
+        r_arr = np.asarray(source["r"])
+        if "d" in source and np.asarray(source["d"]).shape == r_arr.shape:
+            d_arr = np.asarray(source["d"], dtype=r_arr.dtype)
+        if "d2" in source and np.asarray(source["d2"]).shape == r_arr.shape:
+            d2_arr = np.asarray(source["d2"], dtype=r_arr.dtype)
     else:
-        r_arr = np.asarray(src)
+        r_arr = np.asarray(source)
 
     if r_arr.ndim != 3:
         raise ValueError("chunkerpoints expects r with shape (dim, k, nch)")
@@ -1741,7 +1829,7 @@ def chunkerpoints(
     adjs = np.zeros((2, nch), dtype=int)
     adjs[0] = np.arange(0, nch)
     adjs[1] = np.arange(2, nch + 2)
-    if bool(opts.get("ifclosed", True)):
+    if bool(geometry_options.get("ifclosed", True)):
         adjs[0, 0] = nch
         adjs[1, -1] = 1
     else:
@@ -1813,12 +1901,12 @@ def merge(
     return out
 
 
-def _bernstein_rectangle_info(chnkr: Chunker, rho: float) -> np.ndarray:
+def _bernstein_rectangle_info(chunker: Chunker, rho: float) -> np.ndarray:
     """Return MATLAB-style rectangle tests for Bernstein ellipse images."""
 
-    ells = _bernstein_ellipse_images(chnkr, rho)
-    _, dc, _ = chnkr.exps()
-    p0 = _legendre_values(np.array([0.0]), chnkr.k - 1).reshape(chnkr.k)
+    ells = _bernstein_ellipse_images(chunker, rho)
+    _, dc, _ = chunker.exps()
+    p0 = _legendre_values(np.array([0.0]), chunker.k - 1).reshape(chunker.k)
     d0 = np.einsum("k,dkn->dn", p0, dc)
     d0_norm = np.sqrt(np.sum(d0**2, axis=0))
     d1s = d0 / d0_norm[None, :]
@@ -1827,7 +1915,7 @@ def _bernstein_rectangle_info(chnkr: Chunker, rho: float) -> np.ndarray:
     d1c = np.einsum("dmn,dn->mn", ells, d1s)
     d2c = np.einsum("dmn,dn->mn", ells, d2s)
 
-    rectinfo = np.zeros((2, 4, chnkr.nch))
+    rectinfo = np.zeros((2, 4, chunker.nch))
     rectinfo[:, 0, :] = d1s
     rectinfo[:, 1, :] = d2s
     rectinfo[0, 2, :] = np.min(d1c, axis=0)
@@ -1837,13 +1925,13 @@ def _bernstein_rectangle_info(chnkr: Chunker, rho: float) -> np.ndarray:
     return rectinfo
 
 
-def _bernstein_ellipse_images(chnkr: Chunker, rho: float) -> np.ndarray:
-    nth = max(2 * chnkr.nch, 20)
+def _bernstein_ellipse_images(chunker: Chunker, rho: float) -> np.ndarray:
+    nth = max(2 * chunker.nch, 20)
     theta = np.linspace(0.0, 2.0 * np.pi, nth + 1)[:-1]
     zrho = rho * np.exp(1j * theta)
     zell = (zrho + 1.0 / zrho) / 2.0
-    zpols = _legendre_values(zell, chnkr.k - 1).T
-    rc, _, _ = chnkr.exps()
+    zpols = _legendre_values(zell, chunker.k - 1).T
+    rc, _, _ = chunker.exps()
     zcoef = rc[0] + 1j * rc[1]
     ell = zpols @ zcoef
     return np.stack((ell.real, ell.imag), axis=0)
