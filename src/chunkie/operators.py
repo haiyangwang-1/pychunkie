@@ -716,12 +716,14 @@ def chunkerinterior(
 
         lap_d = kernel("lap", "d")
         dens = np.ones(chnkr.npt)
+        eval_options = dict(options)
+        eval_options["acceleration"] = acceleration
         vals = chunkerkerneval(
             chnkr,
             lap_d,
             dens,
             PointInfo(r=pts),
-            {_NORMALIZED_OPTIONS_MARKER: True, "acceleration": acceleration, "eps": _fmm_tol(options)},
+            eval_options,
         ).reshape(-1, order="F")
         inside = vals < -0.5
         if _flag(options, "closecorr", _flag(options, "corrections", True)):

@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 383 pytest cases because several MATLAB parity tests are
+collection expands to 384 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -1317,6 +1317,12 @@ options, `chunkerkerneval` with `force_adaptive` plus `near_factor`, and
 Ground truth is agreement with direct interior classification, a correctly
 shaped adaptive evaluation, and edge data preserved on the generated open
 polyline.
+
+`test_chunkerinterior_forwards_accelerated_keyword_options` checks that
+`chunkerinterior` does not merely accept accelerated keyword options but also
+forwards them to its internal layer-potential evaluation. The method monkeypatches
+`chunkerkerneval` and calls `chunkerinterior` with FLAM rank/proxy and near-factor
+keywords. Ground truth is that the normalized options reach the evaluator.
 
 ## `tests/test_kernels.py`
 

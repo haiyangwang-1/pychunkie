@@ -1,5 +1,6 @@
 import numpy as np
 
+import chunkie.operators as operators_mod
 from chunkie import chunkerfunc, chunkerinterior, chunkerkerneval, chunkerpoly, kernel
 
 
@@ -42,3 +43,32 @@ def test_keyword_migration_forms_for_geometry_and_operator_helpers():
     assert near_values.shape == (1, targets.shape[1])
     assert line.datadim == 1
     np.testing.assert_allclose(line.data[:, :, 0], 3.0)
+
+
+def test_chunkerinterior_forwards_accelerated_keyword_options(monkeypatch):
+    chnkr, _ = chunkerfunc(circle, min_chunks=3, order=4)
+    targets = np.array([[0.0, 1.2], [0.0, 0.0]])
+    captured = {}
+
+    def fake_eval(chnkr0, kern, dens, targ, opts=None, **kwargs):
+        captured.update({} if opts is None else opts)
+        captured.update(kwargs)
+        return -np.ones(targ.r.shape[1])
+
+    monkeypatch.setattr(operators_mod, "chunkerkerneval", fake_eval)
+
+    actual = operators_mod.chunkerinterior(
+        chnkr,
+        targets,
+        acceleration="flam",
+        rank_or_tol=1.0e-7,
+        proxy=False,
+        near_factor=0.25,
+        close_correction=False,
+    )
+
+    np.testing.assert_array_equal(actual, [True, True])
+    assert captured["acceleration"] == "flam"
+    assert captured["rank_or_tol"] == 1.0e-7
+    assert captured["useproxy"] is False
+    assert captured["fac"] == 0.25
