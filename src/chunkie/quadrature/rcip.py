@@ -714,7 +714,7 @@ def _local_chunkermat(
                 else:
                     block = quadnative.buildmat(src, kern, opdims)
             else:
-                block = chunkerkernevalmat(src, kern, targ, {"forcesmooth": True})
+                block = chunkerkernevalmat(src, kern, targ, quadrature="smooth")
             block_arr = _zero_coincident_nonfinite_block(
                 block,
                 src,
