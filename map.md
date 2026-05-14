@@ -16,7 +16,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 ## Current Snapshot
 
 - Verification snapshot: `uv run pytest -q --no-test-log` on 2026-05-14 with
-  Python 3.11.9 collected 396 tests: `396 passed` in 320.80 seconds. Full
+  Python 3.11.9 collected 396 tests: `396 passed` in 234.91 seconds. Full
   MATLAB parity runs generate ignored
   `tests/golden/*.mat` files on demand and require a populated
   `external/chunkie-matlab` checkout.

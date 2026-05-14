@@ -10,7 +10,7 @@ stage starts, finishes, changes scope, or leaves known follow-up work.
 - Current stage: complete; future behavior ports continue through the normal living docs
 - Last updated: 2026-05-14
 - Latest verification: `uv run pytest -q --no-test-log` on 2026-05-14,
-  `396 passed` in 320.80 seconds.
+  `396 passed` in 234.91 seconds.
 - Tooling status: `uv run ruff check .` and `uv run mypy` both pass. Mypy is a
   pragmatic first gate over `src/chunkie` with noisy NumPy/dynamic-kernel error
   families disabled while type precision is improved incrementally.
