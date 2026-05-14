@@ -104,6 +104,15 @@ def test_translation_and_scaling_match_matlab_style_operations():
     np.testing.assert_allclose(scaled.area(), 4.0 * chnkr.area(), atol=1e-13)
     np.testing.assert_allclose(scaled.chunklen(), 2.0 * chnkr.chunklen(), atol=1e-13)
 
+    negative_moved = chnkr.move(scale=-2.0)
+    negative_scaled = chnkr * -2.0
+    np.testing.assert_allclose(negative_moved.r, negative_scaled.r)
+    np.testing.assert_allclose(negative_moved.d, negative_scaled.d)
+    np.testing.assert_allclose(negative_moved.d2, negative_scaled.d2)
+    np.testing.assert_allclose(negative_moved.n, negative_scaled.n)
+    np.testing.assert_allclose(negative_moved.wts, negative_scaled.wts)
+    np.testing.assert_allclose(negative_moved.area(), 4.0 * chnkr.area(), atol=1e-13)
+
 
 def test_matrix_transform_updates_derivatives_normals_and_weights():
     chnkr = circle_chunker()

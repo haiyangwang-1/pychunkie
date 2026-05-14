@@ -212,8 +212,9 @@ operator overloads for translation and scalar scaling. The equations are
 `center(r + a) = center(r) + a`, `area(alpha r) = alpha^2 area(r)`, and
 `length(alpha r) = alpha length(r)`. The method uses `__radd__` and scalar
 `__mul__`. Ground truth is the weighted center shift, exact translated and
-scaled coordinate/derivative/normal/weight storage, and exact area and length
-scaling.
+scaled coordinate/derivative/normal/weight storage, exact area and length
+scaling, and agreement between `move(scale=-s)` and scalar transformation for
+positive-determinant negative scaling.
 
 `test_matrix_transform_updates_derivatives_normals_and_weights` checks affine
 matrix transforms. The equations are `r_new = A r`, `d_new = A d`,

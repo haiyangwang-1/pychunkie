@@ -213,7 +213,7 @@ src/
 | `normonesmat` | ✅ 🧪 🎯 | `@chunker/normonesmat.m` | MATLAB parity fixture checks values. |
 | `centroids` | ✅ 🧪 🎯 | `@chunker/centroids.m` | MATLAB parity fixture checks values. |
 | `transform` | ✅ 🧪 🎯 | `@chunker/mtimes.m` | MATLAB parity fixture checks matrix transform. |
-| `move` | ✅ 🧪 🎯 | `@chunker/move.m` | MATLAB parity fixture checks move/rotate/scale composition. |
+| `move` | ⚠️ ✅ 🧪 🎯 | `@chunker/move.m` | MATLAB parity fixture checks positive-scale move/rotate/scale composition; Python also corrects normals for negative scale so `move(scale=-s)` agrees with scalar transformation and preserves positive-determinant area scaling. |
 | `__mul__`, `__rmul__`, `__rmatmul__` | ✅ 🧪 🎯 | `@chunker/mtimes.m` | Scalar and matrix transform behavior. |
 | `chunker` | ✅ 🧪 🎯 | `@chunker/chunker.m` | Python constructor wrapper. |
 | `chunkerfunc` | ✅ 🧪 🎯 | `chunkerfunc.m` | Circle fixture parity plus adaptive curve/speed resolution, level restriction, max-length splitting, oversampling, and MATLAB-style open/closed endpoint warnings. |

@@ -942,7 +942,8 @@ class Chunker:
         out.r = scale * np.einsum("ij,jkl->ikl", rot, out.r - center0[:, None, None]) + center1[:, None, None]
         out.d = scale * np.einsum("ij,jkl->ikl", rot, out.d)
         out.d2 = scale * np.einsum("ij,jkl->ikl", rot, out.d2)
-        out.n = np.einsum("ij,jkl->ikl", rot, out.n)
+        normal_sign = -1.0 if scale < 0 else 1.0
+        out.n = normal_sign * np.einsum("ij,jkl->ikl", rot, out.n)
         out.wts = out.weights()
         return out
 
