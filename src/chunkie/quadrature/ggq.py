@@ -349,7 +349,7 @@ def diagbuildmat(
             wtsi = chnkr.wts[:, i]
         else:
             wtsi = np.asarray(wtss)[:, i]
-        out = out - np.nan_to_num(smooth, nan=0.0, posinf=0.0, neginf=0.0) * np.repeat(wtsi, op1)[None, :]
+        out = out - smooth * np.repeat(wtsi, op1)[None, :]
     return out
 
 

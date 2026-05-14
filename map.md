@@ -16,7 +16,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 ## Current Snapshot
 
 - Verification snapshot: `uv run pytest` on 2026-05-14 with Python 3.11.9
-  collected 379 tests: `379 passed`. Full MATLAB parity runs generate ignored
+  collected 380 tests: `380 passed`. Full MATLAB parity runs generate ignored
   `tests/golden/*.mat` files on demand and require a populated
   `external/chunkie-matlab` checkout.
 - The implemented surface covers core chunkers/chunkgraphs, domain helpers, kernel factories, dense/FMM/FLAM operator paths, GGQ/adaptive quadrature, RCIP helpers, Legendre utilities, and the lightweight rounded-polygon smoother.
@@ -430,7 +430,7 @@ Log/PV/HS support tables are packaged as `.npz` assets and loaded with `importli
 | `chunkgraph_rcip` / `chunkgraphrcip` / `rcipchunkgraph` | ✅ 🧪 🎯 | `chunkgrphrcip*` workflow concepts | Fixture checks selected-vertex compression over a two-edge graph against MATLAB `Rcompchunk`; all public aliases are covered. |
 | `RCIPSaved` | ✅ 🧪 🎯 | `+chnk/+rcip/*` saved structs | Metadata holder populated by recursive compression and checked through MATLAB RCIP fixture fields. |
 | `shiftedlegbasismats`, `chunkerfunclocal` | ✅ 🧪 🎯 | `+chnk/+rcip/shiftedlegbasismats.m`, `chunkerfunclocal.m` | Ported helpers are exercised through recursive RCIP and MATLAB fixtures. |
-| `Rcompchunk` / `rcompchunk` | ✅ 🧪 🎯 | `+chnk/+rcip/Rcompchunk.m` | Recursive local compression solver implemented and tested against MATLAB fixture for a two-edge corner. |
+| `Rcompchunk` / `rcompchunk` | ✅ 🧪 🎯 | `+chnk/+rcip/Rcompchunk.m` | Recursive local compression solver implemented and tested against MATLAB fixture for a two-edge corner; local blocks with nonfinite values are rejected instead of zero-filled. |
 | `rhohatInterp` / `rhohatinterp` | ✅ 🧪 🎯 | `+chnk/+rcip/rhohatInterp.m` | Saved-level backward density interpolation implemented and MATLAB-fixture tested. |
 
 

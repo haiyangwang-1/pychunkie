@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from chunkie import chunkerkerneval, chunkermat, chunkgraph, kernel, lege
 from chunkie.quadrature import panel as pquad
@@ -139,6 +140,27 @@ def test_rcompchunk_runs_recursive_compression_for_corner_edges():
     assert rho[0].size == 4 * cg.k
     assert srcinfo[0].r.shape == (2, 4 * cg.k)
     assert wts[0].shape == (4 * cg.k,)
+
+
+def test_rcompchunk_rejects_nonfinite_local_kernel_blocks():
+    verts = np.array([[0.0, 1.0, 1.0], [0.0, 0.0, 1.0]])
+    edges = np.array([[0, 1], [1, 2]])
+    cg = chunkgraph(verts, edges, pref={"k": 4}, cparams={"nchmin": 2})
+
+    def bad_kernel(src, targ):
+        return np.full((targ.r.shape[1], src.r.shape[1]), np.nan)
+
+    bad_kernel.opdims = (1, 1)
+
+    with pytest.raises(ValueError, match=r"RCIP local matrix block .* non-finite"):
+        rcip.Rcompchunk(
+            cg.echnks,
+            np.array([0, 1]),
+            bad_kernel,
+            1,
+            cg.verts[:, 1],
+            opts={"nsub": 1, "rcip_savedepth": 1},
+        )
 
 
 def test_chunkgraph_rcip_runs_selected_vertices_and_ignores_marked_vertices():

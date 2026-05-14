@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 379 pytest cases because several MATLAB parity tests are
+collection expands to 380 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -1840,6 +1840,12 @@ nontrivial RCIP solve for a Laplace double-layer corner problem. The method is
 depth 2, followed by `rhohatInterp`. Ground truth is a finite non-identity
 compression matrix, deterministic trace/Frobenius/leading-row values, expected
 saved-array counts, and interpolated density, source-info, and weight shapes.
+
+`test_rcompchunk_rejects_nonfinite_local_kernel_blocks` checks that RCIP local
+matrix assembly fails loudly instead of zero-filling bad kernel output. The
+method runs `Rcompchunk` on a two-edge corner with a custom kernel that returns
+`NaN` for every local block. Ground truth is a `ValueError` naming the
+non-finite local block.
 
 `test_chunkgraph_rcip_runs_selected_vertices_and_ignores_marked_vertices`
 checks the chunkgraph-level RCIP driver. The method runs `chunkgraph_rcip` on a

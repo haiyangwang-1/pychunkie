@@ -715,8 +715,58 @@ def _local_chunkermat(
                     block = quadnative.buildmat(src, kern, opdims)
             else:
                 block = chunkerkernevalmat(src, kern, targ, {"forcesmooth": True})
-            out[rows, cols] = np.nan_to_num(block, nan=0.0, posinf=0.0, neginf=0.0)
+            block_arr = _zero_coincident_nonfinite_block(
+                block,
+                src,
+                targ,
+                opdims,
+                f"RCIP local matrix block ({itarg}, {isrc})",
+            )
+            out[rows, cols] = block_arr
     return out
+
+
+def _zero_coincident_nonfinite_block(
+    values: np.ndarray,
+    src: Chunker,
+    targ: Chunker,
+    opdims: tuple[int, int],
+    context: str,
+) -> np.ndarray:
+    arr = np.array(values, copy=True)
+    nonfinite = ~np.isfinite(arr)
+    if not np.any(nonfinite):
+        return arr
+
+    expected = _coincident_chunker_mask(src, targ, opdims, arr.shape)
+    unexpected = nonfinite & ~expected
+    if np.any(unexpected):
+        raise ValueError(f"{context} contains non-finite values away from coincident source/target points")
+    arr[nonfinite] = 0.0
+    return arr
+
+
+def _coincident_chunker_mask(
+    src: Chunker,
+    targ: Chunker,
+    opdims: tuple[int, int],
+    shape: tuple[int, ...],
+) -> np.ndarray:
+    op0 = int(opdims[0])
+    op1 = int(opdims[1])
+    src_pts = src.r.reshape(src.dim, src.npt, order="F")
+    targ_pts = targ.r.reshape(targ.dim, targ.npt, order="F")
+    expected_shape = (op0 * targ.npt, op1 * src.npt)
+    if tuple(shape) != expected_shape:
+        return np.zeros(shape, dtype=bool)
+    tol = 16.0 * np.finfo(float).eps * max(
+        1.0,
+        float(np.max(np.abs(src_pts))) if src_pts.size else 0.0,
+        float(np.max(np.abs(targ_pts))) if targ_pts.size else 0.0,
+    )
+    dist2 = np.sum((targ_pts[:, :, None] - src_pts[:, None, :]) ** 2, axis=0)
+    coincident = dist2 <= tol**2
+    return np.repeat(np.repeat(coincident, op0, axis=0), op1, axis=1)
 
 
 def _select_local_kernel(fkern: Any, itarg: int, isrc: int) -> Any:
