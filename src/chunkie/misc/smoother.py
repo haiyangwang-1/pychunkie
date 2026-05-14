@@ -9,7 +9,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from .. import lege
-from ..geometry.chunker import chunkerpoly
+from ..geometry.chunker import _LEGACY_OPTIONS_MARKER, chunkerpoly
 
 
 @dataclass
@@ -87,6 +87,7 @@ def smooth(verts: ArrayLike, opts: dict[str, Any] | None = None):
     options = {} if opts is None else dict(opts)
     k = int(options.get("k", 16))
     cparams = {
+        _LEGACY_OPTIONS_MARKER: True,
         "rounded": True,
         "ifclosed": options.get("ifclosed", True),
         "autowidthsfac": options.get("autowidthsfac", 0.1),
