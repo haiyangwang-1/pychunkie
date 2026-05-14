@@ -16,7 +16,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 ## Current Snapshot
 
 - Verification snapshot: `uv run pytest` on 2026-05-14 with Python 3.11.9
-  collected 373 tests: `373 passed`. Full MATLAB parity runs generate ignored
+  collected 375 tests: `375 passed`. Full MATLAB parity runs generate ignored
   `tests/golden/*.mat` files on demand and require a populated
   `external/chunkie-matlab` checkout.
 - The implemented surface covers core chunkers/chunkgraphs, domain helpers, kernel factories, dense/FMM/FLAM operator paths, GGQ/adaptive quadrature, RCIP helpers, Legendre utilities, and the lightweight rounded-polygon smoother.
@@ -319,7 +319,7 @@ src/
 | `kernel` | ✅ 🧪 🎯 | `@kernel/kernel.m` | Dispatches strings, callables, existing kernels, Helmholtz-difference kernels, and block arrays for `interleave`; MATLAB fixture covers factory/direct values. |
 | `lap2d_kernel` | ✅ 🧪 🎯 | `@kernel/lap2d.m`, `+chnk/+lap2d/kern.m`, `+chnk/+lap2d/fmm.m` concepts | String dispatch plus `fmm2dpy` single, double, target-normal/tangential derivatives, Hilbert, double-prime, combined-prime, and gradient paths tested against dense direct evaluation; MATLAB fixture checks `@kernel` metadata/eval. |
 | `helm2d_kernel` | ✅ 🧪 🎯 | `@kernel/helm2d.m`, `+chnk/+helm2d/kern.m`, `+chnk/+helm2d/fmm.m` concepts | String dispatch plus `fmm2dpy` single, double, target-normal/tangential derivatives, double-prime, combined-prime, combined-gradient, transmission-representation, single-gradient, and double-gradient paths tested against dense direct evaluation or FMM wiring tests; MATLAB fixture checks `@kernel` metadata/eval for the MATLAB factory-supported selectors and direct `+chnk/+helm2d/kern` fixture values for the extended selectors. |
-| `helm2ddiff_kernel` | ✅ 🧪 🎯 | `@kernel/helm2ddiff.m`, `+chnk/+helm2d/kern.m` `_diff` selectors | Direct Helmholtz-difference kernel factory for scalar, combined, transmission, and interleaved selector families; exact devtools interleave identities are MATLAB-fixture tested. |
+| `helm2ddiff_kernel` | ✅ 🧪 🎯 | `@kernel/helm2ddiff.m`, `+chnk/+helm2d/kern.m` `_diff` selectors | Direct Helmholtz-difference kernel factory for scalar, combined, transmission, and interleaved selector families; exact devtools interleave identities are MATLAB-fixture tested, and same-node single-layer smooth diagonals are Python-tested for finite removable limits. |
 | `helm1d_kernel` | ✅ 🧪 🎯 | `@kernel/helm1d.m`, `+chnk/+helm1d/kern.m` | MATLAB fixture checks `@kernel` metadata/eval for the supported single-layer factory. |
 | `biharm2d_kernel` | ✅ 🧪 🎯 | `fmm2d/src/biharmonic/*`, `+chnk/+flex2d/bhgreen.m` concepts | Biharmonic Green-kernel factory and selectors are compared against MATLAB `bhgreen`-derived fixture data; FMM wiring remains Python direct/FMM-tested. |
 | `stok2d_kernel` | ✅ 🧪 🎯 | `@kernel/stok2d.m`, `+chnk/+stok2d/kern.m`, `+chnk/+stok2d/fmm.m` concepts | String dispatch plus `fmm2dpy` velocity, pressure, gradient, traction, and combined Stokes paths tested against dense direct evaluation or FMM wiring tests; MATLAB fixture checks `@kernel` metadata/eval. |
@@ -361,7 +361,7 @@ their matching `@kernel` factories.
 | `biharm2d.green` | ✅ 🧪 🎯 | `fmm2d/src/biharmonic/bhkernels2d.f`, `+chnk/+flex2d/bhgreen.m` concepts | Biharmonic Green value, gradient, Hessian, and Laplacian are compared against MATLAB `bhgreen`; gradient also checked by finite differences. |
 | `biharm2d.kern` | ✅ 🧪 🎯 | Biharmonic/flex kernel concepts in MATLAB reference | Selectors for single, double, normal derivative, gradient, Hessian, and Laplacian are compared against MATLAB `bhgreen`-derived fixture data. |
 | `lap2d.green` | ✅ 🧪 🎯 | `+chnk/+lap2d/green.m` | Direct formula and derivatives are MATLAB-fixture tested. |
-| `helm2d.green`, `helm2d.helmdiffgreen` | ✅ 🧪 🎯 | `+chnk/+helm2d/green.m`, `helmdiffgreen.m` | Helmholtz value/gradient/Hessian and nonsingular Helmholtz-minus-Laplace Green data are MATLAB-fixture tested. |
+| `helm2d.green`, `helm2d.helmdiffgreen` | ✅ 🧪 🎯 | `+chnk/+helm2d/green.m`, `helmdiffgreen.m` | Helmholtz value/gradient/Hessian and nonsingular Helmholtz-minus-Laplace Green data are MATLAB-fixture tested; coincident value and gradient limits for the Helmholtz-minus-Laplace kernel are filled analytically. |
 | `helm1d.green` | ✅ 🧪 🎯 | `+chnk/+helm1d/green.m` | Value, gradient, and Hessian are MATLAB-fixture tested. |
 | `helm1d.sweep` | ✅ 🧪 🎯 | `+chnk/+helm1d/sweep.m` | Direct causal sums are MATLAB-fixture tested. |
 | `lap2d.kern` | ✅ 🧪 🎯 | `+chnk/+lap2d/kern.m` | Point kernels, including gradient row ordering, are parity-tested. |

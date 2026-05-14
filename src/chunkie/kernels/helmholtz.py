@@ -10,6 +10,9 @@ from . import laplace as lap2d
 from chunkie.geometry import PointInfo
 
 
+_EULER_GAMMA = 0.57721566490153286060651209008240243
+
+
 def green(zk: complex, src: ArrayLike, targ: ArrayLike) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Evaluate the Helmholtz Green's function, gradient, and Hessian."""
 
@@ -38,9 +41,20 @@ def green(zk: complex, src: ArrayLike, targ: ArrayLike) -> tuple[np.ndarray, np.
 def helmdiffgreen(zk: complex, src: ArrayLike, targ: ArrayLike) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Evaluate the Helmholtz Green function with the Laplace log singularity removed."""
 
-    val, grad, hess = green(zk, src, targ)
-    lap_val, lap_grad, lap_hess = lap2d.green(src, targ)
-    return val - lap_val, grad - lap_grad, hess - lap_hess
+    src_arr = np.asarray(src, dtype=float).reshape(2, -1)
+    targ_arr = np.asarray(targ, dtype=float).reshape(2, -1)
+    val, grad, hess = green(zk, src_arr, targ_arr)
+    lap_val, lap_grad, lap_hess = lap2d.green(src_arr, targ_arr)
+    val = val - lap_val
+    grad = grad - lap_grad
+    hess = hess - lap_hess
+
+    r2 = (targ_arr[0, :, None] - src_arr[0, None, :]) ** 2 + (targ_arr[1, :, None] - src_arr[1, None, :]) ** 2
+    coincident = r2 == 0.0
+    if np.any(coincident):
+        val[coincident] = 0.25j - (np.log(zk / 2.0) + _EULER_GAMMA) / (2.0 * np.pi)
+        grad[coincident, :] = 0.0
+    return val, grad, hess
 
 
 def kern(

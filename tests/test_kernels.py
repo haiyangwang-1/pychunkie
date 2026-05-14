@@ -1,6 +1,6 @@
 import numpy as np
 
-from chunkie import PointInfo, chunkerfunc, chunkerkerneval
+from chunkie import PointInfo, chunkerfunc, chunkerkerneval, chunkermat, kernel
 from chunkie.kernels import helmholtz as helm2d
 from chunkie.kernels import laplace as lap2d
 
@@ -100,6 +100,29 @@ def test_helmholtz_green_gradient_matches_finite_difference():
     np.testing.assert_allclose(grad[:, :, 0], gx_fd, rtol=1e-6, atol=1e-7)
     np.testing.assert_allclose(grad[:, :, 1], gy_fd, rtol=1e-6, atol=1e-7)
     np.testing.assert_allclose(hess, hess_fd, rtol=5e-5, atol=5e-6)
+
+
+def test_helmdiffgreen_fills_same_point_value_and_gradient_limits():
+    pts = np.array([[0.0, 0.5], [0.0, -0.25]])
+    zk = 1.3 + 0.2j
+
+    val, grad, _ = helm2d.helmdiffgreen(zk, pts, pts)
+    expected_limit = 0.25j - (np.log(zk / 2.0) + helm2d._EULER_GAMMA) / (2.0 * np.pi)
+    diag = np.diag_indices(pts.shape[1])
+
+    np.testing.assert_allclose(val[diag], expected_limit)
+    np.testing.assert_allclose(grad[diag[0], diag[1], :], 0.0)
+    assert np.isfinite(val).all()
+    assert np.isfinite(grad).all()
+
+
+def test_helmdiff_single_layer_smooth_diagonal_is_finite():
+    chnkr, _ = chunkerfunc(lambda t: circle(t, 1.0), min_chunks=4, order=8)
+    kern = kernel("helmdiff", "s", [1.3, 2.1])
+
+    smooth = chunkermat(chnkr, kern, quadrature="smooth")
+
+    assert np.isfinite(smooth).all()
 
 
 def test_helmholtz_kernel_selectors_have_expected_shapes():

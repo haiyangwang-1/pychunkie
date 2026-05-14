@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 373 pytest cases because several MATLAB parity tests are
+collection expands to 375 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -1315,6 +1315,15 @@ Helmholtz Green's function derivatives. The method evaluates `helm2d.green`
 at complex wavenumber `1.2+0.4i` and compares target `x`/`y` gradients and
 Hessian components to centered finite differences. Ground truth is the
 finite-difference derivative and Hessian data.
+
+`test_helmdiffgreen_fills_same_point_value_and_gradient_limits` checks the
+removable value and gradient limits of the Helmholtz-minus-Laplace Green
+function at coincident source/target points. Ground truth is the analytic
+constant `i/4 - (log(k/2)+gamma)/(2*pi)` for the value and zero gradient.
+
+`test_helmdiff_single_layer_smooth_diagonal_is_finite` checks that forcing the
+smooth/native matrix path for the Helmholtz-difference single-layer kernel does
+not leave same-node diagonal `NaN` values.
 
 `test_helmholtz_kernel_selectors_have_expected_shapes` checks 2D Helmholtz
 single, double, target-normal derivative, and combined selectors. The method is
