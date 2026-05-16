@@ -919,20 +919,20 @@ def test_section_iii_quadratures_match_matlab_fixture():
     )
 
     np.testing.assert_allclose(
-        quadadap.buildmat(chnkr, lap_s, lap_s.opdims, {"sing": "log"}),
+        quadadap.buildmat(chnkr, lap_s, lap_s.opdims, singularity="log"),
         fixture.adap_log_mat,
         rtol=5e-10,
         atol=1e-11,
     )
     close_chnkr = chunker_from_fields(fixture.adap_close_chunker)
     np.testing.assert_allclose(
-        quadadap.buildmat(close_chnkr, lap_s, lap_s.opdims, {"sing": "log"}),
+        quadadap.buildmat(close_chnkr, lap_s, lap_s.opdims, singularity="log"),
         fixture.adap_close_mat,
         rtol=5e-10,
         atol=1e-11,
     )
     np.testing.assert_allclose(
-        quadadap.buildmat(close_chnkr, lap_s, lap_s.opdims, {"sing": "log", "robust": True}),
+        quadadap.buildmat(close_chnkr, lap_s, lap_s.opdims, singularity="log", robust=True),
         fixture.adap_close_robust_mat,
         rtol=5e-10,
         atol=1e-11,

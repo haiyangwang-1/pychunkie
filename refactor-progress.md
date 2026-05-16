@@ -9,19 +9,9 @@ stage starts, finishes, changes scope, or leaves known follow-up work.
 - Overall status: active large-module and API cleanup
 - Current stage: Stage 9 large-module split and API consolidation
 - Last updated: 2026-05-16
-- Latest verification: `uv run pytest tests/test_keyword_options.py
-  tests/test_chunker.py tests/test_geometry_parity.py
-  tests/test_devtools_parity.py::test_chunkerarcparam_devtools_outputs_match_matlab
-  tests/test_devtools_parity.py::test_adapgausswts_devtools_neighbor_block_matches_matlab
-  tests/test_devtools_parity.py::test_flam_proxy_geometry_helpers_match_matlab_fixture
-  tests/test_quadggq.py tests/test_pquad.py tests/test_smoother.py
-  tests/test_rcip.py tests/test_rcip_parity.py
-  tests/test_matlab_parity.py::test_rcip_recursive_compression_matches_matlab_fixture
-  tests/test_easy_parity_stress.py::test_quadggq_stress_noncircle_complex_special_blocks_and_robust_close_eval
-  tests/test_easy_parity_stress.py::test_chunkgraph_rcip_stress_nonorthogonal_vertex_and_global_blocks
-  -q --no-test-log` on 2026-05-16, `82 passed` in 17.36 seconds. Collection
-  snapshot is `398 tests collected`; full-suite
-  pass snapshot remains `396 passed` from 2026-05-14 until the next broad run.
+- Latest verification: `uv run pytest -q --no-test-log` on 2026-05-16,
+  `398 passed` in 214.97 seconds. Collection snapshot is
+  `398 tests collected`.
 - Tooling status: `uv run ruff check .` and `uv run mypy` both pass. Mypy is a
   pragmatic first gate over `src/chunkie` with noisy NumPy/dynamic-kernel error
   families disabled while type precision is improved incrementally.
@@ -398,7 +388,7 @@ Completed notes:
   -q --no-test-log`, `4 passed` in 1.49 seconds.
 - The first numerical tests migrated to the absolute-or-relative helper record
   both absolute and relative error metrics.
-- Full-suite verification after the completed refactor is `396 passed` with the
+- Full-suite verification after the completed refactor is `398 passed` with the
   global timeout active.
 - Whole-repo `uv run ruff check .` passes after the dedicated mechanical cleanup
   and format pass.

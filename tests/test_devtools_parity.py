@@ -1271,10 +1271,7 @@ def test_chunkerpoly_devtools_outputs_match_matlab():
 
 def test_smoother_devtools_output_matches_matlab_thresholds():
     fixture = load_devtools_easy().smoother
-    chnkr, err, err_by_pt = smoother.smooth(
-        fixture.verts,
-        {"lam": float(fixture.opts.lam), "return_error": True},
-    )
+    chnkr, err, err_by_pt = smoother.smooth(fixture.verts, return_error=True)
 
     np.testing.assert_allclose(
         fixture.verts,
@@ -2182,7 +2179,7 @@ def test_chunkermat_quadadap_devtools_outputs_match_matlab():
     kern = kernel("helm", "d", fixture.zk)
 
     ggq = chunkermat(chnkr, kern)
-    adap = quadadap.buildmat(chnkr, kern, kern.opdims, {"sing": "log", "robust": False})
+    adap = quadadap.buildmat(chnkr, kern, kern.opdims, singularity="log", robust=False)
 
     np.testing.assert_allclose(ggq, fixture.mat_ggq, rtol=1e-9, atol=2e-9)
     np.testing.assert_allclose(adap, fixture.mat_adap, rtol=1e-9, atol=2e-9)

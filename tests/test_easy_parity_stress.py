@@ -358,7 +358,10 @@ def test_smoother_stress_returns_valid_rounded_asymmetric_polygon():
     verts = np.array([[0.0, 1.35, 1.8, 0.8, -0.3, -0.55], [0.0, 0.12, 1.0, 1.65, 1.25, 0.45]])
     widths = np.array([0.05, 0.07, 0.06, 0.08, 0.05, 0.04])
     chnkr, err, err_by_pt = smoother.smooth(
-        verts, {"k": 10, "widths": widths, "return_error": True}
+        verts,
+        quadrature_order=10,
+        widths=widths,
+        return_error=True,
     )
 
     assert chnkr.k == 10
