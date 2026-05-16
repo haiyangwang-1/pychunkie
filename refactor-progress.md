@@ -13,7 +13,7 @@ stage starts, finishes, changes scope, or leaves known follow-up work.
   tests/test_operators.py tests/test_flam.py tests/test_rcip.py
   tests/test_kernel.py tests/test_kernel_algebra.py tests/test_kernels.py
   tests/test_easy_parity_stress.py -q --no-test-log` on 2026-05-16,
-  `96 passed` in 5.84 seconds. Full-suite snapshot remains `396 passed` from
+  `96 passed` in 5.91 seconds. Full-suite snapshot remains `396 passed` from
   2026-05-14 until the next broad run.
 - Tooling status: `uv run ruff check .` and `uv run mypy` both pass. Mypy is a
   pragmatic first gate over `src/chunkie` with noisy NumPy/dynamic-kernel error
@@ -533,11 +533,12 @@ Completed notes:
   evaluation, matrix wrappers, block layouts, special quadrature, FMM, FLAM,
   RCIP, and direct-interior helpers live in private responsibility modules
   under `chunkie.operators`, all below 600 lines.
+- `acceleration/flam.py` and `rcip/core.py` are now public facades over private
+  responsibility modules. After this split, all Python source files under
+  `src/` are below 600 lines.
 
 Remaining work:
 
-- `acceleration/flam.py` and `rcip/core.py` are the current source files above
-  600 lines.
 - Remove the remaining legacy option-dictionary entry points and redundant
   aliases in a behavior-preserving sequence with deprecation tests updated.
 - Move dense public kernel constructor helpers from `kernels.factory` into the

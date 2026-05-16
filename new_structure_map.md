@@ -45,14 +45,14 @@ have compatibility wrappers.
 | `src/chunkie/chnk/quadggq.py` | `src/chunkie/quadrature/ggq.py` | Generalized Gaussian quadrature setup and assembly. |
 | `src/chunkie/chnk/quadadap.py` | `src/chunkie/quadrature/adaptive.py` | Adaptive close-evaluation corrections. |
 | `src/chunkie/chnk/pquad.py` | `src/chunkie/quadrature/panel.py` | Panel product quadrature helpers. |
-| `src/chunkie/chnk/rcip.py` | `src/chunkie/rcip/core.py`, `src/chunkie/rcip/algebra.py`, `src/chunkie/rcip/types.py` | RCIP and corner-compression helpers. |
+| `src/chunkie/chnk/rcip.py` | `src/chunkie/rcip/core.py`, private `_matrix`, `_interp`, `_local`, `_graph` modules, `src/chunkie/rcip/algebra.py`, `src/chunkie/rcip/types.py` | RCIP public facade plus split compression, interpolation, local-curve, chunkgraph, algebra, and saved-data helpers. |
 | `src/chunkie/chnk/lap2d.py` | `src/chunkie/kernels/laplace.py` | Laplace formulas and FMM wiring. |
 | `src/chunkie/chnk/helm2d.py` | `src/chunkie/kernels/helmholtz.py` | 2D Helmholtz formulas and FMM wiring. |
 | `src/chunkie/chnk/helm1d.py` | `src/chunkie/kernels/helmholtz_1d.py` | 1D Helmholtz helpers. |
 | `src/chunkie/chnk/biharm2d.py` | `src/chunkie/kernels/biharmonic.py` | Biharmonic formulas. |
 | `src/chunkie/chnk/stok2d.py` | `src/chunkie/kernels/stokes.py` | Stokes formulas and FMM wiring. |
 | `src/chunkie/chnk/elast2d.py` | `src/chunkie/kernels/elasticity.py` | Elasticity formulas. |
-| `src/chunkie/chnk/flam.py` | `src/chunkie/acceleration/flam.py` | FLAM index callbacks and proxy helpers. |
+| `src/chunkie/chnk/flam.py` | `src/chunkie/acceleration/flam.py` plus private `_flam_index`, `_flam_proxy`, and `_flam_common` modules | FLAM public facade with split index callbacks, proxy helpers, and shared layout adapters. |
 | `fmm2dpy` import in kernel factory | `src/chunkie/acceleration/fmm.py` and private `_fmm_*` modules | Optional FMM2D dependency loading and physics-specific FMM selector dispatch now live under `chunkie.acceleration`; the kernel factory imports selector builders from there. |
 
 ## Import Migration Map

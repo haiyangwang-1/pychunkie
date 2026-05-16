@@ -52,11 +52,12 @@ src/
     │   ├── __init__.py
     │   ├── algebra.py
     │   │   └── IPinit, Pbcinit, setup, SchurBana
-    │   ├── types.py
-    │   │   └── class RCIPSaved, class RCIPChunkGraphResult
-    │   └── core.py
-    │       ├── Rcompchunk, rhohatInterp, corner_refine, chunkgraph_rcip
-    │       └── private local-corner helpers
+    │   ├── core.py
+    │   │   └── public RCIP facade
+    │   ├── _matrix.py, _interp.py, _local.py, _graph.py
+    │   │   └── private RCIP compression/interpolation/local/graph helpers
+    │   └── types.py
+    │       └── class RCIPSaved, class RCIPChunkGraphResult
     ├── acceleration/
     │   ├── __init__.py
     │   ├── fmm.py
@@ -66,10 +67,10 @@ src/
     │   ├── _fmm_common.py, _fmm_laplace.py, _fmm_helmholtz.py
     │   ├── _fmm_biharmonic.py, _fmm_stokes.py, _fmm_elasticity.py
     │   │   └── private per-family fmm2dpy selector adapters
+    │   ├── _flam_common.py, _flam_index.py, _flam_proxy.py
+    │   │   └── private FLAM layout, index, and proxy helpers
     │   └── flam.py
-    │       ├── kernbyindex, kernbyindexr
-    │       ├── proxy_square_pts, proxy_circ_pts, proxy_rect_pts, nproxy_square
-    │       └── proxyfun, proxyfunr
+    │       └── public FLAM callback facade
     ├── geometry/
     │   ├── __init__.py
     │   ├── domain.py
@@ -310,6 +311,8 @@ src/
 
 #### `acceleration/flam.py`
 
+- ✅ 🧪 🎯 [src/chunkie/acceleration/flam.py](src/chunkie/acceleration/flam.py) is the public facade for FLAM callback helpers; private `_flam_index.py`, `_flam_proxy.py`, and `_flam_common.py` own index callbacks, proxy construction/callbacks, and shared layout adapters.
+
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
 | `kernbyindex`, `kernbyindexr` | ✅ 🧪 🎯 | `+chnk/+flam/kernbyindex.m`, `kernbyindexr.m` | Python-first signatures use `chunker`, `kernel`, and `target`; callbacks use 0-based row/column DOF indices, apply source weights, let sparse special-quadrature entries overwrite smooth blocks, and accept explicit chunker sequences by merging them for square and rectangular callbacks. MATLAB fixture parity covers square/rectangular Laplace entries and sparse overwrite precedence. |
@@ -443,7 +446,7 @@ Log/PV/HS support tables are packaged as `.npz` assets and loaded with `importli
 
 #### `rcip/core.py`
 
-- ✅ 🧪 🎯 [src/chunkie/rcip/core.py](src/chunkie/rcip/core.py) maps RCIP corner-compression helpers into a dedicated responsibility package rather than treating them as generic quadrature. [src/chunkie/rcip/algebra.py](src/chunkie/rcip/algebra.py) owns the prolongation and Schur-Banachiewicz setup algebra, and [src/chunkie/rcip/types.py](src/chunkie/rcip/types.py) owns the small saved-data containers.
+- ✅ 🧪 🎯 [src/chunkie/rcip/core.py](src/chunkie/rcip/core.py) is the public facade for RCIP corner-compression helpers in a dedicated responsibility package rather than generic quadrature. Private `_matrix.py`, `_interp.py`, `_local.py`, and `_graph.py` own compression construction, saved-density interpolation, local curve helpers, and chunkgraph drivers. [src/chunkie/rcip/algebra.py](src/chunkie/rcip/algebra.py) owns the prolongation and Schur-Banachiewicz setup algebra, and [src/chunkie/rcip/types.py](src/chunkie/rcip/types.py) owns the small saved-data containers.
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
