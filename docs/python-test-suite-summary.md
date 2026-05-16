@@ -140,7 +140,8 @@ operator dispatch. The geometry package still exposes `chunker` and
 domain-helper submodule exported through the top-level facade. The quadrature
 package no longer exports RCIP because RCIP is a separate corner-compression
 package rather than a generic quadrature module. The acceleration package
-exposes both the optional FMM2D loader and the FLAM helper module.
+exposes the optional FMM2D loader, the `FmmKernel` wrapper/FMM selector module,
+and the FLAM helper module.
 
 ## `tests/test_arcparam.py`
 
@@ -1268,16 +1269,17 @@ for `cgrad`, `c2trans`, `all`, `trans_rep`, `trans_rep_prime`, and
 `trans_rep_grad`, and compares each result to direct `kernels.helmholtz.kernel`.
 
 `test_helmholtz_double_gradient_fmm_requests_dipole_gradients` checks the
-new Helmholtz double-gradient FMM wiring with a fake `fmm2dpy` module. The
+Helmholtz double-gradient FMM wiring with a fake acceleration FMM backend. The
 method builds `kernel("helm","dgrad",zk)`, calls its FMM evaluator, and asserts
 that `hfmm2d` receives dipole strengths, source normals, and `pgt=2`. Ground
 truth is the fake module's `gradtarg` returned in Fortran target ordering.
 
 `test_biharmonic_laplacian_fmm_reuses_laplace_single_layer` checks the
-biharmonic Laplacian FMM wiring with a fake `fmm2dpy` module. The method builds
-`biharm2d_kernel("lap")`, calls its FMM evaluator, and asserts that the path
-uses the Laplace single-layer FMM with the analytic constant correction. Ground
-truth is the fake module's potential output combined with `sum(sigma)/(2 pi)`.
+biharmonic Laplacian FMM wiring with a fake acceleration FMM backend. The
+method builds `biharm2d_kernel("lap")`, calls its FMM evaluator, and asserts
+that the path uses the Laplace single-layer FMM with the analytic constant
+correction. Ground truth is the fake module's potential output combined with
+`sum(sigma)/(2 pi)`.
 
 `test_fmm2dpy_biharmonic_selectors_match_direct` checks FMM wiring for
 biharmonic single, double, target-normal derivative, gradient, Hessian, and
@@ -1292,9 +1294,9 @@ results with dense direct results for single, double, pressure, gradient, and
 combined selectors. Ground truth is the direct dense path.
 
 `test_stokes_traction_fmm_reconstructs_stress_from_pressure_and_gradient`
-checks the Stokes traction FMM path with a fake `fmm2dpy` module. The method
-evaluates `kernel("stok","strac",mu)` through its FMM callback and verifies
-that pressure and gradient FMM calls are combined as
+checks the Stokes traction FMM path with a fake acceleration FMM backend. The
+method evaluates `kernel("stok","strac",mu)` through its FMM callback and
+verifies that pressure and gradient FMM calls are combined as
 `-p n + mu (grad u + grad u^T) n`. Ground truth is the explicit stress
 contraction for two target normals.
 

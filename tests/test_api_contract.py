@@ -79,15 +79,17 @@ def test_acceleration_public_exports_are_stable_and_lazy():
         "chunkie.acceleration",
     ):
         acceleration = importlib.import_module("chunkie.acceleration")
-        expected = {"flam", "fmm"}
+        expected = {"FmmKernel", "flam", "fmm", "fmm_kernel"}
         assert set(acceleration.__all__) == expected
         assert "chunkie.acceleration.flam" not in sys.modules
         assert "chunkie.acceleration.fmm" not in sys.modules
 
-        from chunkie.acceleration import flam, fmm
+        from chunkie.acceleration import FmmKernel, flam, fmm, fmm_kernel
 
         assert flam.__name__ == "chunkie.acceleration.flam"
         assert fmm.__name__ == "chunkie.acceleration.fmm"
+        assert fmm_kernel.__name__ == "chunkie.acceleration.fmm_kernel"
+        assert FmmKernel.__name__ == "FmmKernel"
 
 
 def test_geometry_public_exports_are_stable_and_lazy():

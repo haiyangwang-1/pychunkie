@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 from numpy.typing import ArrayLike
 
 from .. import lege
+
+if TYPE_CHECKING:
+    from ._chunker_class import Chunker
 
 
 def chunk_nearparam(
@@ -158,3 +163,51 @@ def chunk_nearparam(
         dist2s[idx] = dist0
 
     return ts, rs, ds, d2s, dist2s
+
+
+def _bernstein_rectangle_info(chunker: Chunker, rho: float) -> np.ndarray:
+    """Return MATLAB-style rectangle tests for Bernstein ellipse images."""
+
+    ells = _bernstein_ellipse_images(chunker, rho)
+    _, dc, _ = chunker.exps()
+    p0 = _legendre_values(np.array([0.0]), chunker.k - 1).reshape(chunker.k)
+    d0 = np.einsum("k,dkn->dn", p0, dc)
+    d0_norm = np.sqrt(np.sum(d0**2, axis=0))
+    d1s = d0 / d0_norm[None, :]
+    d2s = np.vstack((d1s[1], -d1s[0]))
+
+    d1c = np.einsum("dmn,dn->mn", ells, d1s)
+    d2c = np.einsum("dmn,dn->mn", ells, d2s)
+
+    rectinfo = np.zeros((2, 4, chunker.nch))
+    rectinfo[:, 0, :] = d1s
+    rectinfo[:, 1, :] = d2s
+    rectinfo[0, 2, :] = np.min(d1c, axis=0)
+    rectinfo[1, 2, :] = np.max(d1c, axis=0)
+    rectinfo[0, 3, :] = np.min(d2c, axis=0)
+    rectinfo[1, 3, :] = np.max(d2c, axis=0)
+    return rectinfo
+
+
+def _bernstein_ellipse_images(chunker: Chunker, rho: float) -> np.ndarray:
+    nth = max(2 * chunker.nch, 20)
+    theta = np.linspace(0.0, 2.0 * np.pi, nth + 1)[:-1]
+    zrho = rho * np.exp(1j * theta)
+    zell = (zrho + 1.0 / zrho) / 2.0
+    zpols = _legendre_values(zell, chunker.k - 1).T
+    rc, _, _ = chunker.exps()
+    zcoef = rc[0] + 1j * rc[1]
+    ell = zpols @ zcoef
+    return np.stack((ell.real, ell.imag), axis=0)
+
+
+def _legendre_values(xs: ArrayLike, degree: int) -> np.ndarray:
+    xs_arr = np.asarray(xs)
+    flat = xs_arr.reshape(-1)
+    vals = np.zeros((degree + 1, flat.size), dtype=np.result_type(xs_arr, float))
+    vals[0] = 1.0
+    if degree >= 1:
+        vals[1] = flat
+    for k in range(1, degree):
+        vals[k + 1] = ((2 * k + 1) * flat * vals[k] - k * vals[k - 1]) / (k + 1)
+    return vals.reshape((degree + 1,) + xs_arr.shape)

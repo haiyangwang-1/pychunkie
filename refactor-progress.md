@@ -6,11 +6,17 @@ stage starts, finishes, changes scope, or leaves known follow-up work.
 
 ## Current Status
 
-- Overall status: planned Python-first refactor complete
-- Current stage: complete; future behavior ports continue through the normal living docs
-- Last updated: 2026-05-14
-- Latest verification: `uv run pytest -q --no-test-log` on 2026-05-14,
-  `396 passed` in 234.91 seconds.
+- Overall status: active large-module and API cleanup
+- Current stage: Stage 9 large-module split and API consolidation
+- Last updated: 2026-05-16
+- Latest verification: `uv run pytest tests/test_api_contract.py
+  tests/test_chunker.py tests/test_chunkerfunc.py tests/test_chunkerfit.py
+  tests/test_chunkerpoly.py tests/test_chunkgraph.py tests/test_domain.py
+  tests/test_geometry_parity.py tests/test_kernel.py tests/test_kernel_algebra.py
+  tests/test_kernels.py tests/test_biharm2d.py tests/test_stok2d.py
+  tests/test_elast2d.py tests/test_helm1d.py -q --no-test-log` on
+  2026-05-16, `98 passed` in 3.17 seconds. Full-suite snapshot remains
+  `396 passed` from 2026-05-14 until the next broad run.
 - Tooling status: `uv run ruff check .` and `uv run mypy` both pass. Mypy is a
   pragmatic first gate over `src/chunkie` with noisy NumPy/dynamic-kernel error
   families disabled while type precision is improved incrementally.
@@ -478,12 +484,61 @@ Completed notes:
   package. `core.py` keeps the heavy dense/FMM/FLAM assembly and evaluation
   coordinator, `options.py` owns keyword-option normalization/accessors, and
   `types.py` owns small operator wrappers/context containers.
-- The FMM boundary is split conservatively: optional `fmm2dpy` loading now lives
-  in `src/chunkie/acceleration/fmm.py`, while physics-specific FMM selector
-  formulas remain in `src/chunkie/kernels/factory.py` with the kernel metadata.
+- The FMM boundary was initially split conservatively: optional `fmm2dpy`
+  loading moved to `src/chunkie/acceleration/fmm.py`; Stage 9 moved the
+  selector formulas and wrapper into `chunkie.acceleration` as well.
 
 Remaining work:
 
-- None for this structural pass. Future work can further split
-  `operators/core.py` or kernel FMM dispatch when a stable ownership boundary
-  becomes clearer.
+- The remaining structural work is tracked in Stage 9.
+
+## Stage 9: Large-Module Split And API Consolidation
+
+Status: in progress
+
+Goals:
+
+- Keep large implementation files below roughly 600 lines when the split has a
+  stable ownership boundary.
+- Move FMM selector/adaptor code fully under `chunkie.acceleration` and keep
+  `kernels.factory` focused on dense kernel metadata and algebra.
+- Split chunker, chunkgraph, and domain internals by responsibility while
+  preserving the documented public API.
+- Finish the legacy option-dictionary deprecation/removal and merge redundant
+  public aliases in a follow-up behavior slice.
+- Split `operators/core.py` once stable helper boundaries are identified.
+
+Acceptance:
+
+- Focused geometry, kernel, operator, and API contract tests pass after each
+  slice.
+- Living docs identify moved responsibilities and remaining large-file/API
+  cleanup explicitly.
+- No MATLAB fixture or devtools coverage claim changes unless parity behavior
+  actually changes.
+
+Completed notes:
+
+- `geometry/chunker.py` is now a facade over private `_chunker_*` modules for
+  storage, geometry analysis, nearest/rectangle checks, refinement,
+  transforms, constructors, point construction, fitting, polygon construction,
+  preferences, and option helpers.
+- `geometry/chunkgraph.py` is now a facade over `_chunkgraph_build.py`,
+  `_chunkgraph_refine.py`, and `_chunkgraph_regions.py`.
+- `geometry/domain.py` delegates region helpers to the chunkgraph region module
+  and `geometry/_hypoctree.py` owns `HypOctNode`, `HypOctTree`, and
+  `hypoct_uni`.
+- FMM selector functions moved from `kernels/factory.py` into
+  `acceleration/_fmm_*.py`, with `acceleration/fmm_kernel.py` exposing
+  `FmmKernel` and the selector builders used by `Kernel`.
+
+Remaining work:
+
+- Split `operators/core.py`; `acceleration/flam.py` and `rcip/core.py` are the
+  other current source files above 600 lines.
+- Remove the remaining legacy option-dictionary entry points and redundant
+  aliases in a behavior-preserving sequence with deprecation tests updated.
+- Move dense public kernel constructor helpers from `kernels.factory` into the
+  corresponding family modules where that can be done without circular imports.
+- Normalize kernel selector strings to fully spelled names after the FMM/dense
+  selector maps are split enough to keep compatibility handling isolated.

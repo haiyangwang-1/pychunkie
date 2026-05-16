@@ -16,8 +16,8 @@ notes, but Python code no longer mirrors those package names.
 - `chunkie.rcip`: corner-compression and recursive local-refinement helpers.
 - `chunkie.kernels`: concrete kernel families plus the `Kernel` wrapper and
   `kernel(...)` factory.
-- `chunkie.acceleration`: optional FMM2D loading plus FLAM callback and proxy
-  helpers.
+- `chunkie.acceleration`: optional FMM2D loading, FMM selector/adaptor helpers,
+  and FLAM callback/proxy helpers.
 - `chunkie.operators`: dense/FMM/FLAM operator orchestration, option
   normalization, and small operator wrappers.
 
@@ -29,9 +29,9 @@ have compatibility wrappers.
 | Old path | Current path | Notes |
 | --- | --- | --- |
 | `src/chunkie/chnk/__init__.py` | removed | The `chunkie.chnk` namespace was deleted. |
-| `src/chunkie/chunker.py` | `src/chunkie/geometry/chunker.py` | `Chunker`, `ChunkerPref`, chunker constructors, merge helpers, and keyword-only option APIs. |
-| `src/chunkie/chunkgraph.py` | `src/chunkie/geometry/chunkgraph.py` | `ChunkGraph`, graph constructors, region helpers, graph refinement, and graph near-flag methods. |
-| `src/chunkie/domain.py` | `src/chunkie/geometry/domain.py` | Top-level curve, region, and hyperoctree domain helpers. |
+| `src/chunkie/chunker.py` | `src/chunkie/geometry/chunker.py` plus private `_chunker_*` modules | Public chunker facade; storage, geometry analysis, nearest/rectangle checks, refinement, transforms, constructors, points/merge, and preferences are split by responsibility. |
+| `src/chunkie/chunkgraph.py` | `src/chunkie/geometry/chunkgraph.py` plus private `_chunkgraph_*` modules | Public chunkgraph class/facade; construction, refinement, and region/face-cycle helpers are split by responsibility. |
+| `src/chunkie/domain.py` | `src/chunkie/geometry/domain.py`, `src/chunkie/geometry/_hypoctree.py` | Top-level curve/domain wrappers; hyperoctree data structures and uniform tree construction live in `_hypoctree.py`, while region wrappers reuse chunkgraph region helpers. |
 | `src/chunkie/_chunker_polygon.py` | `src/chunkie/geometry/_chunker_polygon.py` | Private polygon construction helpers used by `chunkerpoly`. |
 | `src/chunkie/geometry/predicates.py` | removed | Dead public helpers were deleted. The nearest-panel routine is now private in `geometry/_nearest.py`. |
 | `src/chunkie/operators.py::PointInfo` | `src/chunkie/geometry/pointinfo.py` | Public construction is through `PointInfo.from_chunker`, `from_points`, and `from_mapping`. |
@@ -39,7 +39,7 @@ have compatibility wrappers.
 | `src/chunkie/numerics/arcparam.py` | `src/chunkie/misc/arcparam.py` | Arclength parametrization helpers. |
 | `src/chunkie/numerics/smoother.py` | `src/chunkie/misc/smoother.py` | Lightweight polygon smoothing helpers. |
 | `src/chunkie/numerics/special.py` | `src/chunkie/misc/absconvgauss.py` | Special scalar helper module. |
-| `src/chunkie/kernel.py` | `src/chunkie/kernels/factory.py` | `Kernel`, `kernel(...)`, algebra helpers, and FMM dispatch wiring. |
+| `src/chunkie/kernel.py` | `src/chunkie/kernels/factory.py`, `src/chunkie/acceleration/fmm_kernel.py`, `src/chunkie/acceleration/_fmm_*.py` | `Kernel`, `kernel(...)`, and algebra helpers stay in the kernel factory; FMM selector wiring and `FmmKernel` live under acceleration. |
 | `src/chunkie/chnk/curves.py` | `src/chunkie/geometry/curves.py` | Curve constructors such as `linefunc`, `fsine`, and `fpara`. |
 | `src/chunkie/chnk/quadnative.py` | `src/chunkie/quadrature/native.py` | Native smooth dense assembly. |
 | `src/chunkie/chnk/quadggq.py` | `src/chunkie/quadrature/ggq.py` | Generalized Gaussian quadrature setup and assembly. |
@@ -53,7 +53,7 @@ have compatibility wrappers.
 | `src/chunkie/chnk/stok2d.py` | `src/chunkie/kernels/stokes.py` | Stokes formulas and FMM wiring. |
 | `src/chunkie/chnk/elast2d.py` | `src/chunkie/kernels/elasticity.py` | Elasticity formulas. |
 | `src/chunkie/chnk/flam.py` | `src/chunkie/acceleration/flam.py` | FLAM index callbacks and proxy helpers. |
-| `fmm2dpy` import in kernel factory | `src/chunkie/acceleration/fmm.py` | Optional FMM2D dependency loading; physics-specific FMM dispatch remains in `kernels/factory.py`. |
+| `fmm2dpy` import in kernel factory | `src/chunkie/acceleration/fmm.py` and private `_fmm_*` modules | Optional FMM2D dependency loading and physics-specific FMM selector dispatch now live under `chunkie.acceleration`; the kernel factory imports selector builders from there. |
 
 ## Import Migration Map
 
@@ -108,16 +108,15 @@ Examples:
 | `chunkie.quadrature` | operators, quadrature tests, and special-quadrature parity tests. |
 | `chunkie.rcip` | operators, RCIP tests, RCIP parity tests, and nonsmooth chunkgraph workflows. |
 | `chunkie.kernels` | operators, kernel tests, operator tests, MATLAB parity tests. |
-| `chunkie.acceleration` | kernels, operators, FMM/FLAM tests, devtools parity tests. |
+| `chunkie.acceleration` | kernels, operators, FMM/FLAM tests, devtools parity tests; owns optional FMM loading, selector dispatch, `FmmKernel`, and FLAM callbacks. |
 | `chunkie.operators` | top-level facade, operator tests, keyword-option tests, and quadrature tests that exercise operator dispatch. |
 
 ## Notes For Future Refactors
 
-- Keep heavy operator assembly/application logic in `operators/core.py`; move
-  support code out only when the ownership boundary is stable enough to reduce
-  cognitive load.
-- Keep concrete kernel math in `chunkie.kernels`; no JIT work was introduced in
-  this structure pass.
+- Keep heavy operator assembly/application logic in `operators/core.py`; it is
+  still the main remaining large-module split candidate.
+- Keep concrete kernel math in `chunkie.kernels`; FMM acceleration adapters now
+  sit under `chunkie.acceleration`.
 - Keep MATLAB reference names in parity docs and fixture descriptions where they
   identify upstream behavior, even though Python imports now use
   responsibility-based package names.

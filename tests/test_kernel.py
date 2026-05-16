@@ -168,6 +168,7 @@ def test_helmholtz_factory_transmission_selectors_match_direct_kernel():
 
 def test_helmholtz_double_gradient_fmm_requests_dipole_gradients(monkeypatch):
     kernel_mod = importlib.import_module("chunkie.kernels.factory")
+    fmm_mod = importlib.import_module("chunkie.acceleration._fmm_helmholtz")
 
     class FakeFmm2d:
         def __init__(self):
@@ -183,7 +184,7 @@ def test_helmholtz_double_gradient_fmm_requests_dipole_gradients(monkeypatch):
             return Output()
 
     fake = FakeFmm2d()
-    monkeypatch.setattr(kernel_mod, "_fmm2dpy", fake)
+    monkeypatch.setattr(fmm_mod, "fmm2dpy", fake)
 
     kern = kernel_mod.helm2d_kernel("dgrad", 1.2 + 0.3j)
     src = PointInfo(
@@ -208,6 +209,7 @@ def test_helmholtz_double_gradient_fmm_requests_dipole_gradients(monkeypatch):
 
 def test_biharmonic_laplacian_fmm_reuses_laplace_single_layer(monkeypatch):
     kernel_mod = importlib.import_module("chunkie.kernels.factory")
+    fmm_mod = importlib.import_module("chunkie.acceleration._fmm_common")
 
     class FakeFmm2d:
         def __init__(self):
@@ -223,7 +225,7 @@ def test_biharmonic_laplacian_fmm_reuses_laplace_single_layer(monkeypatch):
             return Output()
 
     fake = FakeFmm2d()
-    monkeypatch.setattr(kernel_mod, "_fmm2dpy", fake)
+    monkeypatch.setattr(fmm_mod, "fmm2dpy", fake)
 
     kern = kernel_mod.biharm2d_kernel("lap")
     src = PointInfo(r=np.array([[0.0, 1.0], [0.0, 0.0]]))
@@ -287,6 +289,7 @@ def test_fmm2dpy_stokes_layers_match_direct():
 
 def test_stokes_traction_fmm_reconstructs_stress_from_pressure_and_gradient(monkeypatch):
     kernel_mod = importlib.import_module("chunkie.kernels.factory")
+    fmm_mod = importlib.import_module("chunkie.acceleration._fmm_stokes")
 
     class FakeFmm2d:
         def __init__(self):
@@ -303,7 +306,7 @@ def test_stokes_traction_fmm_reconstructs_stress_from_pressure_and_gradient(monk
             return Output()
 
     fake = FakeFmm2d()
-    monkeypatch.setattr(kernel_mod, "_fmm2dpy", fake)
+    monkeypatch.setattr(fmm_mod, "fmm2dpy", fake)
 
     mu = 1.7
     kern = kernel_mod.stok2d_kernel("strac", mu)
