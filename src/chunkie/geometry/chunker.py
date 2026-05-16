@@ -102,6 +102,15 @@ class Chunker:
             nodes=self.nodes,
         )
 
+    @property
+    def signed_curvature(self) -> NDArray[np.floating]:
+        if self.coordinate_dim != 2:
+            raise ValueError("signed_curvature currently supports two-dimensional curves")
+        dx, dy = self.derivatives
+        ddx, ddy = self.second_derivatives
+        speed = np.linalg.norm(self.derivatives, axis=0)
+        return (dx * ddy - dy * ddx) / speed**3
+
     def translated(self, vector: ArrayLike) -> Chunker:
         offset = np.asarray(vector, dtype=float).reshape(self.coordinate_dim, 1, 1)
         return replace(self, positions=self.positions + offset)

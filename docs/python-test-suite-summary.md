@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-16,
-  `10 passed` in 0.36 seconds.
+  `11 passed` in 0.80 seconds.
 
 ## Test Organization Target
 
@@ -35,3 +35,6 @@ meaningfully.
   boundary.
 - `tests/system/test_density.py`: component-major over panel-major density
   vector adapters.
+- `tests/system/test_laplace_exterior_dirichlet.py`: dense exterior Laplace
+  double-layer solve and off-boundary evaluation for the unit-circle cosine
+  mode.

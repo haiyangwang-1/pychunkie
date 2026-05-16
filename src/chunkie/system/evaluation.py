@@ -8,6 +8,8 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
+from chunkie.quadrature import apply_panel_potential
+
 
 @dataclass(frozen=True)
 class FieldResult:
@@ -18,4 +20,22 @@ class FieldResult:
 
 
 def evaluate_solution(solution, targets, *, field: str, config=None) -> FieldResult:
-    raise NotImplementedError("Solution evaluation follows dense system assembly")
+    if field not in solution.system.fields:
+        raise KeyError(field)
+    values = None
+    for layer in solution.system.fields[field]:
+        density = solution.densities[layer.density]
+        contribution = layer.coefficient * apply_panel_potential(
+            layer.source.pointinfo,
+            targets,
+            layer.kernel,
+            density.component_values,
+        )
+        values = contribution if values is None else values + contribution
+    assert values is not None
+    return FieldResult(
+        points=targets,
+        values=values,
+        field=field,
+        diagnostics={"evaluation": "dense", "config": config},
+    )

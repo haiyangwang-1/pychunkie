@@ -10,6 +10,7 @@ def test_top_level_rewrite_api_exports_design_objects():
         "Density",
         "IntegralSystem",
         "Kernel",
+        "LaplaceExteriorDirichletSystem",
         "LayerPotential",
         "SystemMatrix",
         "SystemSolution",

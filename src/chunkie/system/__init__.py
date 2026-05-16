@@ -3,6 +3,7 @@
 from .config import SystemConfig
 from .density import Density, DensityLayout, DensitySpace
 from .equation import BoundaryEquation, IntegralSystem
+from .laplace import LaplaceExteriorDirichletSystem
 from .layer import LayerPotential
 from .matrix import SystemMatrix
 from .solution import SystemSolution
@@ -16,6 +17,7 @@ __all__ = [
     "DensitySpace",
     "IntegralSystem",
     "JumpTerm",
+    "LaplaceExteriorDirichletSystem",
     "LayerPotential",
     "SystemConfig",
     "SystemMatrix",

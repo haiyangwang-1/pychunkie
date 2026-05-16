@@ -20,6 +20,11 @@ system is the Laplace exterior Dirichlet formulation:
 u(x) = D[sigma](x)
 ```
 
-Current implementation status: density layout and system records are active
-scaffolding; dense assembly and analytic solve tests follow the geometry and
-kernel baseline.
+Current implementation status:
+
+- Density layout and system records are active.
+- Scalar dense assembly supports one unknown and one boundary equation.
+- `LaplaceExteriorDirichletSystem` solves the unit-circle cosine mode and
+  evaluates the exterior field at an off-boundary target.
+- General block systems, constraints, nonsmooth corrections, and accelerated
+  matvecs remain required upcoming work.
