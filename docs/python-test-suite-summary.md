@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 396 pytest cases because several MATLAB parity tests are
+collection expands to 397 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -1346,13 +1346,13 @@ polyline.
 `test_chunkerinterior_forwards_accelerated_keyword_options` checks that
 `chunkerinterior` does not merely accept accelerated keyword options but also
 forwards them to its internal layer-potential evaluation. The method monkeypatches
-`operators.core.chunkerkerneval` and calls `chunkerinterior` with FLAM
+the private evaluation-module owner of `chunkerkerneval` and calls `chunkerinterior` with FLAM
 rank/proxy and near-factor keywords. Ground truth is that the normalized options
 reach the evaluator.
 
 `test_operator_python_first_keywords_map_to_backend_options` checks that public
 operator keywords no longer require backend dictionary names. The method
-monkeypatches `operators.core.chunkerflam`, calls
+monkeypatches the matrix-wrapper owner of `chunkerflam`, calls
 `chunkermat(..., acceleration="flam")` with `flam_occupancy`, `rank_or_tol`,
 and `proxy`, and verifies the normalized backend options passed to the
 factorization boundary.
@@ -1361,6 +1361,10 @@ factorization boundary.
 RCIP option aliases. The method normalizes `rcip_subdivisions`,
 `rcip_save_depth`, and `rcip_eval_depth`; ground truth is that they map to the
 internal RCIP keys consumed by the existing compression/evaluation helpers.
+
+`test_legacy_option_dictionaries_emit_deprecation_warnings` checks that legacy
+dict-style options still work but emit `DeprecationWarning` at representative
+operator, adaptive-quadrature, and smoother public entry points.
 
 ## `tests/test_layout_adapters.py`
 

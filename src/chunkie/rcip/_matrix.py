@@ -9,6 +9,7 @@ from numpy.typing import ArrayLike
 
 from chunkie._layout import as_boundary_point_matrix
 
+from .._legacy import warn_legacy_options
 from ..geometry.chunker import Chunker, ChunkerPref, merge
 from ._local import _rcip_edge_records, _shiftedcurve, chunkerfunclocal, shiftedlegbasismats
 from .algebra import SchurBana, setup
@@ -31,7 +32,7 @@ def Rcompchunk(
 ) -> tuple[np.ndarray, RCIPSaved]:
     """Compute the RCIP compression matrix for chunks adjacent to a corner."""
 
-    options = {} if options is None else dict(options)
+    options = warn_legacy_options(options, "rcip.Rcompchunk")
     chunks = [chunker] if isinstance(chunker, Chunker) else list(chunker)
     if not chunks:
         raise ValueError("Rcompchunk requires at least one edge chunker")

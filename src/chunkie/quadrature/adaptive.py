@@ -24,6 +24,7 @@ from numpy.typing import ArrayLike
 from chunkie._layout import as_boundary_point_matrix
 
 from .. import lege
+from .._legacy import warn_legacy_options
 from ..geometry import PointInfo
 from ..geometry.chunker import Chunker
 from . import ggq as quadggq
@@ -46,7 +47,7 @@ def buildmat(
 
     chunker = chunker
     kernel = kernel
-    options = {} if options is None else dict(options)
+    options = warn_legacy_options(options, "adaptive.buildmat")
     qtype = str(options.get("sing", getattr(kernel, "sing", "log") or "log")).lower()
     if qtype != "log":
         return quadggq.buildmat(
@@ -123,7 +124,7 @@ def adapgausswts(
     src_chunk = source_chunk
     targinfo = target
     kernel = kernel
-    options = {} if options is None else dict(options)
+    options = warn_legacy_options(options, "adaptive.adapgausswts")
     eps = float(options.get("eps", 1.0e-12))
     maxints = int(options.get("maxints", 100000))
     maxdepth = int(options.get("maxdepth", 52))

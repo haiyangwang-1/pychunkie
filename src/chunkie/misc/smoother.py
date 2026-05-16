@@ -9,6 +9,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from .. import lege
+from .._legacy import warn_legacy_options
 from ..geometry.chunker import _LEGACY_OPTIONS_MARKER, chunkerpoly
 
 
@@ -90,7 +91,7 @@ def smooth(vertices: ArrayLike, options: dict[str, Any] | None = None):
     the chunker, like MATLAB's first output.
     """
 
-    options = {} if options is None else dict(options)
+    options = warn_legacy_options(options, "smoother.smooth")
     quadrature_order = int(options.get("k", 16))
     cparams = {
         _LEGACY_OPTIONS_MARKER: True,

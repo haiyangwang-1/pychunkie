@@ -32,6 +32,8 @@ The ignored directories `.venv/`, `.pytest_cache/`, and `.git/` are not expanded
 src/
 └── chunkie/
     ├── __init__.py
+    ├── _legacy.py
+    │   └── shared deprecation helper for legacy public option dictionaries
     ├── _layout.py
     │   └── private boundary vector/tensor adapter helpers
     ├── operators/

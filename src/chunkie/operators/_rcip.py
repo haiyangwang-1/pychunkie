@@ -141,7 +141,11 @@ def _chunkgraph_rcip_mat(
             circL=circ_l,
             starS=star_s,
             circS=circ_s,
-            options={"nsub": nsub, "rcip_savedepth": savedepth},
+            options={
+                "_chunkie_normalized_operator_options": True,
+                "nsub": nsub,
+                "rcip_savedepth": savedepth,
+            },
         )
         starind = _rcip_corner_star_indices(cg, edges, signs)
         rcipsav.starind = starind

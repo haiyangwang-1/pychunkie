@@ -7,6 +7,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import ArrayLike
 
+from .._legacy import warn_legacy_options
 from ._matrix import Rcompchunk
 from .types import RCIPChunkGraphResult, RCIPSaved
 
@@ -52,7 +53,7 @@ def chunkgraph_rcip(
     ignored = set(
         _normalize_vertex_list([] if ignore_vertices is None else ignore_vertices, nvert).tolist()
     )
-    options = {} if options is None else dict(options)
+    options = warn_legacy_options(options, "rcip.chunkgraph_rcip")
 
     used_vertices: list[int] = []
     edge_indices: list[np.ndarray] = []

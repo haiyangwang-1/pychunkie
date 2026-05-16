@@ -1,8 +1,12 @@
 import numpy as np
+import pytest
 
 import chunkie.operators as operators_mod
 from chunkie import chunkerfunc, chunkerinterior, chunkerkerneval, chunkermat, chunkerpoly, kernel
-from chunkie.operators import core as operators_core
+from chunkie.misc import smoother
+from chunkie.operators import _evaluation as operators_evaluation
+from chunkie.operators import _matrices as operators_matrices
+from chunkie.quadrature import adaptive as quadadap
 
 
 def circle(t):
@@ -56,7 +60,7 @@ def test_chunkerinterior_forwards_accelerated_keyword_options(monkeypatch):
         captured.update(kwargs)
         return -np.ones(target.r.shape[1])
 
-    monkeypatch.setattr(operators_core, "chunkerkerneval", fake_eval)
+    monkeypatch.setattr(operators_evaluation, "chunkerkerneval", fake_eval)
 
     actual = operators_mod.chunkerinterior(
         boundary,
@@ -85,7 +89,7 @@ def test_operator_python_first_keywords_map_to_backend_options(monkeypatch):
         captured["kwargs"] = dict(kwargs)
         return object()
 
-    monkeypatch.setattr(operators_core, "chunkerflam", fake_chunkerflam)
+    monkeypatch.setattr(operators_matrices, "chunkerflam", fake_chunkerflam)
 
     chunkermat(
         boundary,
@@ -115,3 +119,19 @@ def test_rcip_keyword_options_normalize_to_internal_names():
     assert options["nsub"] == 6
     assert options["rcip_savedepth"] == 4
     assert options["rcip_eval_depth"] == 3
+
+
+def test_legacy_option_dictionaries_emit_deprecation_warnings():
+    boundary, _ = chunkerfunc(circle, min_chunks=3, order=4)
+
+    with pytest.warns(DeprecationWarning, match="option dictionaries are deprecated"):
+        chunkermat(boundary, kernel("lap", "s"), {"forcesmooth": True})
+
+    with pytest.warns(DeprecationWarning, match="option dictionaries are deprecated"):
+        quadadap.buildmat(boundary, kernel("lap", "s"), options={"sing": "log"})
+
+    with pytest.warns(DeprecationWarning, match="option dictionaries are deprecated"):
+        smoother.smooth(
+            np.array([[0.0, 1.0, 1.0], [0.0, 0.0, 1.0]]),
+            options={"k": 4},
+        )

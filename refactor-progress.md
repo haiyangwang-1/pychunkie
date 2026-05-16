@@ -9,12 +9,11 @@ stage starts, finishes, changes scope, or leaves known follow-up work.
 - Overall status: active large-module and API cleanup
 - Current stage: Stage 9 large-module split and API consolidation
 - Last updated: 2026-05-16
-- Latest verification: `uv run pytest tests/test_api_contract.py
-  tests/test_operators.py tests/test_flam.py tests/test_rcip.py
-  tests/test_kernel.py tests/test_kernel_algebra.py tests/test_kernels.py
-  tests/test_easy_parity_stress.py -q --no-test-log` on 2026-05-16,
-  `96 passed` in 5.91 seconds. Full-suite snapshot remains `396 passed` from
-  2026-05-14 until the next broad run.
+- Latest verification: `uv run pytest tests/test_keyword_options.py
+  tests/test_quadggq.py tests/test_smoother.py tests/test_rcip.py
+  tests/test_operators.py -q --no-test-log` on 2026-05-16, `52 passed` in
+  6.11 seconds. Collection snapshot is `397 tests collected`; full-suite
+  pass snapshot remains `396 passed` from 2026-05-14 until the next broad run.
 - Tooling status: `uv run ruff check .` and `uv run mypy` both pass. Mypy is a
   pragmatic first gate over `src/chunkie` with noisy NumPy/dynamic-kernel error
   families disabled while type precision is improved incrementally.
@@ -536,6 +535,9 @@ Completed notes:
 - `acceleration/flam.py` and `rcip/core.py` are now public facades over private
   responsibility modules. After this split, all Python source files under
   `src/` are below 600 lines.
+- Legacy option dictionaries now share a deprecation helper so representative
+  operator, adaptive-quadrature, RCIP, and smoother public entry points warn
+  while normalized internal adapter dictionaries stay quiet.
 
 Remaining work:
 
