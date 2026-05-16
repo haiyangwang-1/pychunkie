@@ -3,126 +3,178 @@
 from __future__ import annotations
 
 import numpy as np
-from numpy.typing import ArrayLike
 
-from chunkie.geometry import PointInfo
-
-
-def green(
-    source: ArrayLike,
-    target: ArrayLike,
-    nolog: bool = False,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Evaluate the 2D Laplace Green's function, gradient, and Hessian."""
-
-    source_points = np.asarray(source, dtype=float).reshape(2, -1)
-    target_points = np.asarray(target, dtype=float).reshape(2, -1)
-    rx = target_points[0, :, None] - source_points[0, None, :]
-    ry = target_points[1, :, None] - source_points[1, None, :]
-    r2 = rx**2 + ry**2
-
-    with np.errstate(divide="ignore", invalid="ignore"):
-        val = (
-            np.empty((target_points.shape[1], source_points.shape[1]))
-            if nolog
-            else -np.log(r2) / (4.0 * np.pi)
-        )
-        grad = np.empty((target_points.shape[1], source_points.shape[1], 2))
-        grad[:, :, 0] = -rx / (2.0 * np.pi * r2)
-        grad[:, :, 1] = -ry / (2.0 * np.pi * r2)
-        r4 = r2**2
-        hess = np.empty((target_points.shape[1], source_points.shape[1], 3))
-        hess[:, :, 0] = rx**2 / (np.pi * r4) - 1.0 / (2.0 * np.pi * r2)
-        hess[:, :, 1] = rx * ry / (np.pi * r4)
-        hess[:, :, 2] = ry**2 / (np.pi * r4) - 1.0 / (2.0 * np.pi * r2)
-    if nolog:
-        val = np.empty((0, 0))
-    return val, grad, hess
+from .base import Kernel, flat_normals, flat_positions
+from .singularities import (
+    GeometryRequirements,
+    LaplaceBasis,
+    LaplaceSingularExpansion,
+    LaplaceSingularTerm,
+    SingularityInfo,
+    matrix_coefficient,
+)
 
 
-def kernel(
-    source: PointInfo | dict | ArrayLike,
-    target: PointInfo | dict | ArrayLike,
-    kind: str,
-    coefs: ArrayLike | None = None,
-) -> np.ndarray:
-    """Evaluate standard Laplace layer kernels.
-
-    Selectors include single layer ``"s"``, double layer ``"d"``,
-    target-normal derivative ``"sp"``, tangential derivative ``"stau"``,
-    source-gradient rows ``"sgrad"``, double-layer gradient ``"dgrad"``,
-    hypersingular normal-normal derivative ``"dp"``, and combined forms
-    ``"c"``, ``"cp"``, and ``"cgrad"``.
-    """
-
-    source_info = PointInfo.from_any(source)
-    target_info = PointInfo.from_any(target)
-    typ = kind.lower()
-    val, grad, hess = green(
-        source_info.r,
-        target_info.r,
-        nolog=typ not in {"s", "single", "c", "combined"},
+def kernel(selector: str = "s") -> Kernel:
+    selector = _canonical_selector(selector)
+    input_dim, output_dim = _dimensions(selector)
+    return Kernel(
+        family="laplace",
+        selector=selector,
+        params={},
+        input_dim=input_dim,
+        output_dim=output_dim,
+        singularity=_singularity(selector),
+        evaluator=lambda source, target: evaluate(selector, source, target),
     )
 
-    if typ in {"s", "single"}:
-        return val
-    if typ in {"d", "double"}:
-        _require(source_info.n, "source normals")
-        return -(
-            grad[:, :, 0] * source_info.n[0, None, :] + grad[:, :, 1] * source_info.n[1, None, :]
-        )
-    if typ in {"sp", "sprime"}:
-        _require(target_info.n, "target normals")
-        return grad[:, :, 0] * target_info.n[0, :, None] + grad[:, :, 1] * target_info.n[1, :, None]
-    if typ == "stau":
-        _require(target_info.n, "target normals")
-        return (
-            -grad[:, :, 0] * target_info.n[1, :, None] + grad[:, :, 1] * target_info.n[0, :, None]
-        )
-    if typ in {"hilb"}:
-        _require(source_info.n, "source normals")
-        return 2.0 * (
-            grad[:, :, 0] * source_info.n[1, None, :] - grad[:, :, 1] * source_info.n[0, None, :]
-        )
-    if typ in {"sgrad", "sg"}:
-        return grad.transpose(0, 2, 1).reshape(2 * target_info.r.shape[1], source_info.r.shape[1])
-    if typ in {"dgrad", "dg"}:
-        _require(source_info.n, "source normals")
-        sub = -(
-            hess[:, :, 0:2] * source_info.n[0, None, :, None]
-            + hess[:, :, 1:3] * source_info.n[1, None, :, None]
-        )
-        return sub.transpose(0, 2, 1).reshape(2 * target_info.r.shape[1], source_info.r.shape[1])
-    if typ in {"dp", "dprime"}:
-        _require(source_info.n, "source normals")
-        _require(target_info.n, "target normals")
-        return -(
-            hess[:, :, 0] * source_info.n[0, None, :] * target_info.n[0, :, None]
-            + hess[:, :, 1]
-            * (
-                source_info.n[1, None, :] * target_info.n[0, :, None]
-                + source_info.n[0, None, :] * target_info.n[1, :, None]
+
+def evaluate(selector: str, source, target):
+    selector = _canonical_selector(selector)
+    source_positions = flat_positions(source)
+    target_positions = flat_positions(target)
+    dx = target_positions[0, :, None] - source_positions[0, None, :]
+    dy = target_positions[1, :, None] - source_positions[1, None, :]
+    r = (dx, dy)
+    r2 = dx**2 + dy**2
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        value = -np.log(r2) / (4.0 * np.pi)
+        gradient = np.stack((-dx / (2.0 * np.pi * r2), -dy / (2.0 * np.pi * r2)), axis=0)
+        hessian = np.empty((2, 2, target_positions.shape[1], source_positions.shape[1]), dtype=float)
+        for a in range(2):
+            for b in range(2):
+                delta = 1.0 if a == b else 0.0
+                hessian[a, b] = (2.0 * r[a] * r[b] - delta * r2) / (2.0 * np.pi * r2**2)
+
+    if selector == "s":
+        return value[None, None, :, :]
+    if selector == "sg":
+        return gradient[:, None, :, :]
+    if selector == "sp":
+        target_normals = flat_normals(target, label="target")
+        return np.einsum("rts,rt->ts", gradient, target_normals)[None, None, :, :]
+    if selector == "d":
+        source_normals = flat_normals(source, label="source")
+        return -np.einsum("rts,rs->ts", gradient, source_normals)[None, None, :, :]
+    if selector == "dg":
+        source_normals = flat_normals(source, label="source")
+        return -np.einsum("abts,bs->ats", hessian, source_normals)[:, None, :, :]
+    if selector == "dp":
+        source_normals = flat_normals(source, label="source")
+        target_normals = flat_normals(target, label="target")
+        return -np.einsum("abts,bs,at->ts", hessian, source_normals, target_normals)[
+            None, None, :, :
+        ]
+    raise ValueError(f"unknown Laplace selector {selector!r}")
+
+
+def _canonical_selector(selector: str) -> str:
+    aliases = {
+        "single": "s",
+        "sgrad": "sg",
+        "sprime": "sp",
+        "double": "d",
+        "dgrad": "dg",
+        "dprime": "dp",
+    }
+    return aliases.get(selector.lower(), selector.lower())
+
+
+def _dimensions(selector: str) -> tuple[int, int]:
+    if selector in {"sg", "dg"}:
+        return 1, 2
+    return 1, 1
+
+
+def _singularity(selector: str) -> SingularityInfo:
+    input_dim, output_dim = _dimensions(selector)
+    requirements = GeometryRequirements(
+        source_normals=selector in {"d", "dg", "dp"},
+        target_normals=selector in {"sp", "dp"},
+    )
+    terms: list[LaplaceSingularTerm] = []
+
+    if selector == "s":
+        terms.append(LaplaceSingularTerm(LaplaceBasis(()), 1.0, "Laplace single-layer log"))
+        boundary_limit = "removable"
+    elif selector == "sg":
+        for a in range(2):
+            terms.append(
+                LaplaceSingularTerm(
+                    LaplaceBasis((a,)),
+                    matrix_coefficient(2, 1, a),
+                    f"Cartesian gradient component {a}",
+                )
             )
-            + hess[:, :, 2] * source_info.n[1, None, :] * target_info.n[1, :, None]
-        )
-    if typ in {"c", "combined"}:
-        c = np.ones(2) if coefs is None else np.asarray(coefs)
-        return c[0] * kernel(source_info, target_info, "d") + c[1] * kernel(
-            source_info, target_info, "s"
-        )
-    if typ in {"cp", "cprime"}:
-        c = np.ones(2) if coefs is None else np.asarray(coefs)
-        return c[0] * kernel(source_info, target_info, "dp") + c[1] * kernel(
-            source_info, target_info, "sp"
-        )
-    if typ in {"cg", "cgrad"}:
-        c = np.ones(2) if coefs is None else np.asarray(coefs)
-        return c[0] * kernel(source_info, target_info, "dg") + c[1] * kernel(
-            source_info, target_info, "sg"
-        )
-    raise ValueError(f"Unknown Laplace kernel type {kind!r}.")
+        boundary_limit = "pv"
+    elif selector == "sp":
+        for a in range(2):
+            terms.append(LaplaceSingularTerm(LaplaceBasis((a,)), _target_normal_coefficient(a)))
+        boundary_limit = "pv"
+    elif selector == "d":
+        for a in range(2):
+            terms.append(LaplaceSingularTerm(LaplaceBasis((a,)), _source_normal_coefficient(a, sign=-1.0)))
+        boundary_limit = "pv"
+    elif selector == "dg":
+        for a in range(2):
+            for b in range(2):
+                terms.append(
+                    LaplaceSingularTerm(
+                        LaplaceBasis((a, b)),
+                        _source_normal_coefficient(b, sign=-1.0, output_dim=2, output=a),
+                    )
+                )
+        boundary_limit = "hs"
+    elif selector == "dp":
+        for a in range(2):
+            for b in range(2):
+                terms.append(LaplaceSingularTerm(LaplaceBasis((a, b)), _normal_pair_coefficient(a, b, -1.0)))
+        boundary_limit = "hs"
+    else:
+        boundary_limit = "smooth"
+
+    return SingularityInfo(
+        family="laplace",
+        selector=selector,
+        input_dim=input_dim,
+        output_dim=output_dim,
+        expansion=LaplaceSingularExpansion(input_dim=input_dim, output_dim=output_dim, terms=tuple(terms)),
+        boundary_limit=boundary_limit,
+        remainder_regular="smooth",
+        requirements=requirements,
+        side_sensitive=selector in {"d", "sp", "dp"},
+    )
 
 
-def _require(value: object, label: str) -> None:
-    if value is None:
-        raise ValueError(f"{label} are required")
+def _source_normal_coefficient(component: int, *, sign: float, output_dim: int = 1, output: int = 0):
+    def coefficient(source, target):
+        source_normals = flat_normals(source, label="source")
+        target_count = flat_positions(target).shape[1]
+        values = np.zeros((output_dim, 1, target_count, source_normals.shape[1]))
+        values[output, 0] = sign * source_normals[component][None, :]
+        return values
+
+    return coefficient
+
+
+def _target_normal_coefficient(component: int):
+    def coefficient(source, target):
+        target_normals = flat_normals(target, label="target")
+        source_count = flat_positions(source).shape[1]
+        values = np.zeros((1, 1, target_normals.shape[1], source_count))
+        values[0, 0] = target_normals[component][:, None]
+        return values
+
+    return coefficient
+
+
+def _normal_pair_coefficient(target_component: int, source_component: int, sign: float):
+    def coefficient(source, target):
+        source_normals = flat_normals(source, label="source")
+        target_normals = flat_normals(target, label="target")
+        values = np.zeros((1, 1, target_normals.shape[1], source_normals.shape[1]))
+        values[0, 0] = sign * target_normals[target_component][:, None] * source_normals[source_component][None, :]
+        return values
+
+    return coefficient

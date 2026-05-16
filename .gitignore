@@ -24,3 +24,5 @@ examples/*_error_log10.png
 # scripts/clean_test_data.py to remove local copies.
 tests/golden/*.mat
 tests/golden/*.npz
+tests_old/golden/*.mat
+tests_old/golden/*.npz
