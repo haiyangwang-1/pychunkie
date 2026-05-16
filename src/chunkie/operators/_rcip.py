@@ -102,6 +102,8 @@ def _is_rcip_second_kind_kernel(kernel: Callable[[Any, Any], np.ndarray]) -> boo
     return typ in {
         "d",
         "double",
+        "double layer",
+        "normal derivative of single layer",
         "sp",
         "sprime",
     }

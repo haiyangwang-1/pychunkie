@@ -9,10 +9,12 @@ stage starts, finishes, changes scope, or leaves known follow-up work.
 - Overall status: active large-module and API cleanup
 - Current stage: Stage 9 large-module split and API consolidation
 - Last updated: 2026-05-16
-- Latest verification: `uv run pytest tests/test_keyword_options.py
-  tests/test_quadggq.py tests/test_smoother.py tests/test_rcip.py
-  tests/test_operators.py -q --no-test-log` on 2026-05-16, `52 passed` in
-  6.11 seconds. Collection snapshot is `397 tests collected`; full-suite
+- Latest verification: `uv run pytest tests/test_kernel.py tests/test_kernels.py
+  tests/test_kernel_algebra.py tests/test_pquad.py tests/test_quadggq.py
+  tests/test_operators.py tests/test_rcip.py
+  tests/test_matlab_parity.py::test_kernel_objects_match_matlab_fixture
+  -q --no-test-log` on 2026-05-16, `123 passed` in 6.89 seconds. Collection
+  snapshot is `398 tests collected`; full-suite
   pass snapshot remains `396 passed` from 2026-05-14 until the next broad run.
 - Tooling status: `uv run ruff check .` and `uv run mypy` both pass. Mypy is a
   pragmatic first gate over `src/chunkie` with noisy NumPy/dynamic-kernel error
@@ -538,6 +540,9 @@ Completed notes:
 - Legacy option dictionaries now share a deprecation helper so representative
   operator, adaptive-quadrature, RCIP, and smoother public entry points warn
   while normalized internal adapter dictionaries stay quiet.
+- Kernel factory metadata now records fully spelled selector type names, while
+  legacy short selector inputs remain dispatch aliases; `Kernel.conj` and
+  `Kernel.conjugate` share one implementation.
 
 Remaining work:
 

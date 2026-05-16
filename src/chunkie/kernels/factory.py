@@ -50,6 +50,7 @@ from . import (
 from . import (
     stokes as stok2d,
 )
+from ._selectors import canonical_kernel_type
 
 _KERNEL_PROBE_EXCEPTIONS = (
     AttributeError,
@@ -184,8 +185,7 @@ class Kernel:
             iszero=self.iszero,
         )
 
-    def conjugate(self) -> Kernel:
-        return self.conj()
+    conjugate = conj
 
     @staticmethod
     def zeros(m: int = 1, n: int | None = None) -> Kernel:
@@ -238,19 +238,24 @@ def kernel(spec: str | Callable[[Any, Any], np.ndarray] | Kernel, *args: Any) ->
     raise ValueError(f"Kernel {spec!r} not found")
 
 
+def _with_kernel_type(kernel_obj: Kernel, kind: str) -> Kernel:
+    kernel_obj.type = canonical_kernel_type(kind)
+    return kernel_obj
+
+
 def lap2d_kernel(kind: str, coefs: Any | None = None) -> Kernel:
     """Build a 2D Laplace layer kernel."""
 
     typ = kind.lower()
     if typ in {"c", "combined"}:
         c = np.ones(2) if coefs is None else np.asarray(coefs)
-        return lap2d_kernel("d") * c[0] + lap2d_kernel("s") * c[1]
+        return _with_kernel_type(lap2d_kernel("d") * c[0] + lap2d_kernel("s") * c[1], typ)
     if typ in {"cp", "cprime"}:
         c = np.ones(2) if coefs is None else np.asarray(coefs)
-        return lap2d_kernel("dp") * c[0] + lap2d_kernel("sp") * c[1]
+        return _with_kernel_type(lap2d_kernel("dp") * c[0] + lap2d_kernel("sp") * c[1], typ)
     if typ in {"cg", "cgrad"}:
         c = np.ones(2) if coefs is None else np.asarray(coefs)
-        return lap2d_kernel("dg") * c[0] + lap2d_kernel("sg") * c[1]
+        return _with_kernel_type(lap2d_kernel("dg") * c[0] + lap2d_kernel("sg") * c[1], typ)
     opdims = (2, 1) if typ in {"sg", "sgrad", "dg", "dgrad"} else (1, 1)
     sing = {
         "s": "log",
@@ -270,7 +275,7 @@ def lap2d_kernel(kind: str, coefs: Any | None = None) -> Kernel:
     }.get(typ, "log")
     return Kernel(
         name="laplace",
-        type=typ,
+        type=canonical_kernel_type(typ),
         eval=lambda s, t: lap2d.kernel(s, t, typ, coefs),
         fmm=_lap2d_fmm(typ, coefs) or _direct_fmm(lambda s, t: lap2d.kernel(s, t, typ, coefs)),
         opdims=opdims,
@@ -293,13 +298,17 @@ def helm2d_kernel(kind: str, zk: complex, coefs: Any | None = None) -> Kernel:
         opdims = (1, 1)
     if typ in {"c", "combined"}:
         c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs)
-        return helm2d_kernel("d", zk) * c[0] + helm2d_kernel("s", zk) * c[1]
+        return _with_kernel_type(helm2d_kernel("d", zk) * c[0] + helm2d_kernel("s", zk) * c[1], typ)
     if typ in {"cp", "cprime"}:
         c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs)
-        return helm2d_kernel("dp", zk) * c[0] + helm2d_kernel("sp", zk) * c[1]
+        return _with_kernel_type(
+            helm2d_kernel("dp", zk) * c[0] + helm2d_kernel("sp", zk) * c[1], typ
+        )
     if typ in {"cg", "cgrad"}:
         c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs)
-        return helm2d_kernel("dg", zk) * c[0] + helm2d_kernel("sg", zk) * c[1]
+        return _with_kernel_type(
+            helm2d_kernel("dg", zk) * c[0] + helm2d_kernel("sg", zk) * c[1], typ
+        )
     sing = (
         "log"
         if typ in {"s", "single", "d", "double", "sp", "sprime", "trans_rep", "trep"}
@@ -307,7 +316,7 @@ def helm2d_kernel(kind: str, zk: complex, coefs: Any | None = None) -> Kernel:
     )
     return Kernel(
         name="helmholtz",
-        type=typ,
+        type=canonical_kernel_type(typ),
         eval=lambda s, t: helm2d.kernel(zk, s, t, typ, coefs),
         fmm=_helm2d_fmm(typ, zk, coefs)
         or _direct_fmm(lambda s, t: helm2d.kernel(zk, s, t, typ, coefs)),
@@ -372,7 +381,7 @@ def helm2ddiff_kernel(kind: str, zks: Any, coefs: Any | None = None) -> Kernel:
 
     return Kernel(
         name="helmholtz difference",
-        type=typ,
+        type=canonical_kernel_type(typ),
         eval=eval_,
         fmm=_direct_fmm(eval_),
         opdims=opdims,
@@ -405,7 +414,7 @@ def helm1d_kernel(kind: str, zk: complex, coefs: Any | None = None) -> Kernel:
     typ = kind.lower()
     return Kernel(
         name="helmholtz1d",
-        type=typ,
+        type=canonical_kernel_type(typ),
         eval=lambda s, t: helm1d.kernel(zk, s, t, typ, coefs),
         fmm=_direct_fmm(lambda s, t: helm1d.kernel(zk, s, t, typ, coefs)),
         opdims=(1, 1),
@@ -421,7 +430,7 @@ def biharm2d_kernel(kind: str) -> Kernel:
     opdims = (2, 1) if typ in {"sgrad", "sg"} else (3, 1) if typ in {"shess", "hess"} else (1, 1)
     return Kernel(
         name="biharmonic",
-        type=typ,
+        type=canonical_kernel_type(typ),
         eval=lambda s, t: biharm2d.kernel(s, t, typ),
         fmm=_biharm2d_fmm(typ) or _direct_fmm(lambda s, t: biharm2d.kernel(s, t, typ)),
         opdims=opdims,
@@ -474,7 +483,7 @@ def stok2d_kernel(kind: str, mu: float = 1.0, coefs: Any | None = None) -> Kerne
     }.get(typ, "smooth")
     return Kernel(
         name="stokes",
-        type=typ,
+        type=canonical_kernel_type(typ),
         eval=lambda s, t: stok2d.kernel(mu, s, t, typ, coefs),
         fmm=_stok2d_fmm(typ, mu, coefs)
         or _direct_fmm(lambda s, t: stok2d.kernel(mu, s, t, typ, coefs)),
@@ -506,7 +515,7 @@ def elast2d_kernel(kind: str, lam: float, mu: float) -> Kernel:
     }.get(typ, "smooth")
     return Kernel(
         name="elasticity",
-        type=typ,
+        type=canonical_kernel_type(typ),
         eval=lambda s, t: elast2d.kernel(lam, mu, s, t, typ),
         fmm=_elast2d_fmm(typ, lam, mu)
         or _direct_fmm(lambda s, t: elast2d.kernel(lam, mu, s, t, typ)),

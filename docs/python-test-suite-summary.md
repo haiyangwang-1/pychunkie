@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 397 pytest cases because several MATLAB parity tests are
+collection expands to 398 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -1237,6 +1237,11 @@ negation, division, and complex conjugation of kernels. The equations are
 `1+2i` to `1-2i`. The method uses dense layer evaluation with a custom complex
 kernel. Ground truth is the corresponding algebraic output, including
 `(1-2i) * sum(weights)` for the custom conjugated kernel.
+
+`test_kernel_type_metadata_uses_spelled_names` checks that built-in kernel
+factory metadata uses fully spelled selector names such as `single layer` and
+`gradient of single layer`, while legacy short selector inputs still dispatch
+to the same kernel formulas.
 
 `test_kernel_fmm_fallback_matches_direct_layer_evaluation` checks the FMM path
 for a Laplace single-layer kernel. The method evaluates the same circle density

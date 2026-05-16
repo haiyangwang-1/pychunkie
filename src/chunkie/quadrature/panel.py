@@ -428,11 +428,11 @@ def splitinfo_for_kernel(kernel: Any) -> SplitInfo | None:
 
 
 def _laplace_splitinfo(kind: str, coefs: Any, scale: Any = 1.0) -> SplitInfo | None:
-    if kind in {"s", "single"}:
+    if kind in {"s", "single", "single layer"}:
         return SplitInfo((LOG,), ("r",), lambda s, t: (scale * _ones(t, s),), (1, 1))
-    if kind in {"d", "double"}:
+    if kind in {"d", "double", "double layer"}:
         return SplitInfo((CAUCHY,), ("r",), lambda s, t: (scale * _ones(t, s),), (1, 1))
-    if kind in {"c", "combined"}:
+    if kind in {"c", "combined", "combined layer"}:
         c = np.ones(2) if coefs is None else np.asarray(coefs).reshape(-1)
 
         def functions(s: PointInfo, t: PointInfo) -> tuple[np.ndarray, np.ndarray]:
@@ -450,7 +450,7 @@ def _helmholtz_splitinfo(
         return None
     from chunkie.kernels import helmholtz as helm2d
 
-    if kind in {"s", "single"}:
+    if kind in {"s", "single", "single layer"}:
         return SplitInfo(
             (SMOOTH, LOG),
             ("r", "r"),
@@ -459,7 +459,7 @@ def _helmholtz_splitinfo(
             ),
             (1, 1),
         )
-    if kind in {"d", "double"}:
+    if kind in {"d", "double", "double layer"}:
         return SplitInfo(
             (SMOOTH, LOG, CAUCHY),
             ("r", "r", "r"),
@@ -468,7 +468,7 @@ def _helmholtz_splitinfo(
             ),
             (1, 1),
         )
-    if kind in {"c", "combined"}:
+    if kind in {"c", "combined", "combined layer"}:
         c = np.array([1.0, 1.0j]) if coefs is None else np.asarray(coefs).reshape(-1)
         return SplitInfo(
             (SMOOTH, LOG, CAUCHY),

@@ -56,6 +56,15 @@ def test_kernel_subtract_negate_divide_and_conjugate():
     custom = kernel(lambda src, targ: (1.0 + 2.0j) * np.ones((targ.r.shape[1], src.r.shape[1])))
     vals = chunkerkerneval(chnkr, custom.conj(), dens, target)
     np.testing.assert_allclose(vals, (1.0 - 2.0j) * np.sum(chnkr.wts))
+    vals = chunkerkerneval(chnkr, custom.conjugate(), dens, target)
+    np.testing.assert_allclose(vals, (1.0 - 2.0j) * np.sum(chnkr.wts))
+
+
+def test_kernel_type_metadata_uses_spelled_names():
+    assert kernel("lap", "s").type == "single layer"
+    assert kernel("lap", "sg").type == "gradient of single layer"
+    assert kernel("lap", "c").type == "combined layer"
+    assert kernel("stok", "strac").type == "traction of single layer"
 
 
 def test_kernel_fmm_fallback_matches_direct_layer_evaluation():

@@ -192,6 +192,7 @@ def _is_laplace_double_kernel(kernel: Callable[[Any, Any], np.ndarray]) -> bool:
     ).lower() in {
         "d",
         "double",
+        "double layer",
     }
 
 
@@ -199,6 +200,7 @@ def _is_laplace_sprime_kernel(kernel: Callable[[Any, Any], np.ndarray]) -> bool:
     return str(getattr(kernel, "name", "")).lower() == "laplace" and str(
         getattr(kernel, "type", "")
     ).lower() in {
+        "normal derivative of single layer",
         "sp",
         "sprime",
     }
@@ -210,6 +212,7 @@ def _is_stokes_strac_kernel(kernel: Callable[[Any, Any], np.ndarray]) -> bool:
     ).lower() in {
         "strac",
         "straction",
+        "traction of single layer",
     }
 
 
