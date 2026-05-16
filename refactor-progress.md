@@ -10,13 +10,11 @@ stage starts, finishes, changes scope, or leaves known follow-up work.
 - Current stage: Stage 9 large-module split and API consolidation
 - Last updated: 2026-05-16
 - Latest verification: `uv run pytest tests/test_api_contract.py
-  tests/test_chunker.py tests/test_chunkerfunc.py tests/test_chunkerfit.py
-  tests/test_chunkerpoly.py tests/test_chunkgraph.py tests/test_domain.py
-  tests/test_geometry_parity.py tests/test_kernel.py tests/test_kernel_algebra.py
-  tests/test_kernels.py tests/test_biharm2d.py tests/test_stok2d.py
-  tests/test_elast2d.py tests/test_helm1d.py -q --no-test-log` on
-  2026-05-16, `98 passed` in 3.17 seconds. Full-suite snapshot remains
-  `396 passed` from 2026-05-14 until the next broad run.
+  tests/test_operators.py tests/test_flam.py tests/test_rcip.py
+  tests/test_kernel.py tests/test_kernel_algebra.py tests/test_kernels.py
+  tests/test_easy_parity_stress.py -q --no-test-log` on 2026-05-16,
+  `96 passed` in 5.84 seconds. Full-suite snapshot remains `396 passed` from
+  2026-05-14 until the next broad run.
 - Tooling status: `uv run ruff check .` and `uv run mypy` both pass. Mypy is a
   pragmatic first gate over `src/chunkie` with noisy NumPy/dynamic-kernel error
   families disabled while type precision is improved incrementally.
@@ -531,11 +529,15 @@ Completed notes:
 - FMM selector functions moved from `kernels/factory.py` into
   `acceleration/_fmm_*.py`, with `acceleration/fmm_kernel.py` exposing
   `FmmKernel` and the selector builders used by `Kernel`.
+- `operators/core.py` is now a public facade. Dense assembly, target
+  evaluation, matrix wrappers, block layouts, special quadrature, FMM, FLAM,
+  RCIP, and direct-interior helpers live in private responsibility modules
+  under `chunkie.operators`, all below 600 lines.
 
 Remaining work:
 
-- Split `operators/core.py`; `acceleration/flam.py` and `rcip/core.py` are the
-  other current source files above 600 lines.
+- `acceleration/flam.py` and `rcip/core.py` are the current source files above
+  600 lines.
 - Remove the remaining legacy option-dictionary entry points and redundant
   aliases in a behavior-preserving sequence with deprecation tests updated.
 - Move dense public kernel constructor helpers from `kernels.factory` into the

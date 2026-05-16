@@ -35,7 +35,7 @@ have compatibility wrappers.
 | `src/chunkie/_chunker_polygon.py` | `src/chunkie/geometry/_chunker_polygon.py` | Private polygon construction helpers used by `chunkerpoly`. |
 | `src/chunkie/geometry/predicates.py` | removed | Dead public helpers were deleted. The nearest-panel routine is now private in `geometry/_nearest.py`. |
 | `src/chunkie/operators.py::PointInfo` | `src/chunkie/geometry/pointinfo.py` | Public construction is through `PointInfo.from_chunker`, `from_points`, and `from_mapping`. |
-| `src/chunkie/operators.py` | `src/chunkie/operators/core.py`, `src/chunkie/operators/options.py`, `src/chunkie/operators/types.py` | Operator assembly/application package split. |
+| `src/chunkie/operators.py` | `src/chunkie/operators/core.py` plus private `_assembly`, `_evaluation`, `_matrices`, `_common`, `_blocks`, `_special`, `_fmm`, `_flam`, `_rcip`, and `_interior` modules | Public operator facade with assembly, evaluation, acceleration, special-quadrature, RCIP, block-layout, and direct-interior responsibilities split into smaller files. |
 | `src/chunkie/numerics/arcparam.py` | `src/chunkie/misc/arcparam.py` | Arclength parametrization helpers. |
 | `src/chunkie/numerics/smoother.py` | `src/chunkie/misc/smoother.py` | Lightweight polygon smoothing helpers. |
 | `src/chunkie/numerics/special.py` | `src/chunkie/misc/absconvgauss.py` | Special scalar helper module. |
@@ -113,8 +113,8 @@ Examples:
 
 ## Notes For Future Refactors
 
-- Keep heavy operator assembly/application logic in `operators/core.py`; it is
-  still the main remaining large-module split candidate.
+- Keep `operators/core.py` as a public facade; assembly/evaluation support code
+  belongs in the private responsibility modules under `chunkie.operators`.
 - Keep concrete kernel math in `chunkie.kernels`; FMM acceleration adapters now
   sit under `chunkie.acceleration`.
 - Keep MATLAB reference names in parity docs and fixture descriptions where they

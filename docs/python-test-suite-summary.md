@@ -1762,12 +1762,12 @@ grid specification. Ground truth is the obvious square membership of the
 sample targets.
 
 `test_chunkerinterior_fmm_matches_direct_with_close_correction` checks the
-accelerated interior classifier. The method monkeypatches `chunkerkerneval` to
-verify the FMM path is used, evaluates points inside, outside, and very close
-to a circle boundary, and compares against the direct classifier. Ground truth
-is the exact expected circle membership `[inside, outside, just-inside,
-just-outside]` plus direct/FMM classification agreement after close-boundary
-correction.
+accelerated interior classifier. The method monkeypatches the evaluation-module
+`chunkerkerneval` owner to verify the FMM path is used, evaluates points
+inside, outside, and very close to a circle boundary, and compares against the
+direct classifier. Ground truth is the exact expected circle membership
+`[inside, outside, just-inside, just-outside]` plus direct/FMM classification
+agreement after close-boundary correction.
 
 ## `tests/test_quadggq.py`
 

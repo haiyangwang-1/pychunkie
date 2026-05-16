@@ -37,12 +37,13 @@ src/
     ├── operators/
     │   ├── __init__.py
     │   ├── core.py
-    │   │   ├── class ChunkerFMMMatrix
-    │   │   ├── class ChunkerFLAMMatrix
-    │   │   ├── chunkermat, chunkermatapply, chunkerflam
-    │   │   ├── chunkerintegral, chunkerinterior
-    │   │   ├── chunkerkerneval, chunkerkernevalmat
-    │   │   └── private dense/FMM/FLAM/RCIP helpers
+    │   │   └── public operator facade
+    │   ├── _assembly.py, _evaluation.py, _matrices.py
+    │   │   └── public assembly/evaluation implementations and matrix wrappers
+    │   ├── _common.py, _blocks.py, _special.py
+    │   │   └── shared coercion, block layout, scaling, and quadrature helpers
+    │   ├── _fmm.py, _flam.py, _rcip.py, _interior.py
+    │   │   └── acceleration, RCIP, and direct-interior implementation helpers
     │   ├── options.py
     │   │   └── public keyword-option normalizer and typed internal accessors
     │   └── types.py
@@ -358,12 +359,12 @@ their matching `@kernel` factories.
 
 #### `operators/core.py`
 
-- ✅ 🧪 🎯 [src/chunkie/operators/core.py](src/chunkie/operators/core.py) maps dense/direct operator assembly and evaluation helpers behind the [src/chunkie/operators/__init__.py](src/chunkie/operators/__init__.py) package facade. Public operator signatures are Python-first (`chunker`, `kernel`, `density`, `target`/`points`, and `options`), while backend adapter internals may still use legacy dictionary keys at explicit boundaries. [src/chunkie/operators/options.py](src/chunkie/operators/options.py) owns option normalization/accessors, and [src/chunkie/operators/types.py](src/chunkie/operators/types.py) owns small operator data wrappers.
+- ✅ 🧪 🎯 [src/chunkie/operators/core.py](src/chunkie/operators/core.py) is the public facade for dense/direct operator assembly and evaluation helpers behind the [src/chunkie/operators/__init__.py](src/chunkie/operators/__init__.py) package facade. Public operator signatures are Python-first (`chunker`, `kernel`, `density`, `target`/`points`, and `options`), while backend adapter internals may still use legacy dictionary keys at explicit boundaries. Implementation is split across private `_assembly`, `_evaluation`, `_matrices`, `_common`, `_blocks`, `_special`, `_fmm`, `_flam`, `_rcip`, and `_interior` modules. [src/chunkie/operators/options.py](src/chunkie/operators/options.py) owns option normalization/accessors, and [src/chunkie/operators/types.py](src/chunkie/operators/types.py) owns small operator data wrappers.
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
 | `chunkermat` | ⚠️ 🧪 🎯 | `chunkermat.m` | Default `acceleration="dense"` native/special matrix path parity-tested, including dense l2 scaling, Laplace/Helmholtz starfish Dirichlet solve/target evaluation, Stokes combined-velocity and traction-system solve/target diagnostics, close-touching robust adaptive correction via `adaptive_correction`, Laplace `sprime` removable self limits plus Stokes single-layer traction self limits plus PV/HS singular diagnostics, chunker-sequence/chunkgraph block-kernel opdim assembly with finite special-quadrature self blocks, and a custom data-bearing Hilbert/cotangent PV kernel; nonsmooth scalar chunkgraphs now default to MATLAB-style RCIP corner compression for second-kind Laplace/Helmholtz kernels and attach `RCIPContext` metadata for postprocessed evaluation; `acceleration="fmm"` returns `ChunkerFMMMatrix` for scalar and block-kernel matrices whose blocks expose FMM evaluators, with MATLAB forced-FMM scalar matvec parity and Python dense cross-checks for block products/l2 scaling and diagonal special-correction self blocks; `acceleration="flam"` returns `ChunkerFLAMMatrix` backed by PyFLAM with sparse special-quadrature overwrites and MATLAB FLAM matvec/solve parity for scalar, level-dependent proxy, and smooth multi-chunker block kernels; Python-first option keywords include `flam_occupancy`, `rcip_subdivisions`, and `rcip_save_depth` for backend knobs that still map to legacy internal names. |
-| private helpers | 🧩 ✅ | Internal Python helpers | Chunker/chunker-sequence coercion, explicit boundary layout adapters, weighted density conversion, kernel evaluation, special-quadrature dispatch, dense l2 matrix scaling, RCIP context handling, and normalized keyword-only option handling with temporary dict deprecation warnings. Helper boundaries touched by the naming pass use `chunker`, `kernel`, `options`, `density`, `source`, and `target` where those names improve readability. The normalizer maps Python-first keywords such as `correction_matrix`, `flam_occupancy`, `rcip_subdivisions`, `rcip_save_depth`, and `rcip_eval_depth` onto internal adapter keys. |
+| private helpers | 🧩 ✅ | Internal Python helpers | Chunker/chunker-sequence coercion, explicit boundary layout adapters, weighted density conversion, kernel evaluation, special-quadrature dispatch, dense l2 matrix scaling, RCIP context handling, FMM/FLAM dispatch helpers, direct polygon interior tests, and normalized keyword-only option handling with temporary dict deprecation warnings. Helper boundaries are split by responsibility across private operator modules. The normalizer maps Python-first keywords such as `correction_matrix`, `flam_occupancy`, `rcip_subdivisions`, `rcip_save_depth`, and `rcip_eval_depth` onto internal adapter keys. |
 | `ChunkerRCIPMatrix`, `RCIPContext` | ✅ 🧪 | MATLAB RCIP workflow metadata | Dense `ndarray` subclass and context holder returned/attached by default chunkgraph RCIP assembly; Python tests verify compressed solve metadata caching and corner-aware target reconstruction. |
 | `ChunkerFMMMatrix` | ✅ 🧪 🎯 | `chunkermatapply.m`, `+chnk/chunkerkerneval_smooth.m` FMM concepts | Matrix-free `scipy.sparse.linalg.LinearOperator` returned by `chunkermat(..., acceleration="fmm")`; constructor and public attributes use `chunker`, `kernel`, and `options`; caches sparse special-quadrature corrections, supports vector/multiple-RHS products, single-chunker and block-kernel matrix application, and l2-scaled FMM products. Scalar deterministic RHS matvecs have MATLAB forced-FMM parity; block-kernel FMM products, including singular diagonal self blocks corrected exactly once, are Python-tested against dense block matrices. |
 | `ChunkerFLAMMatrix` | ⚠️ ✅ 🧪 🎯 | `chunkerflam.m`, `+chnk/+flam/*` concepts | Matrix-free `LinearOperator` returned by `chunkermat(..., acceleration="flam")`; constructor and public attributes use `chunker`, `kernel`, and `options`; supports vector, multiple-RHS, adjoint products, multi-chunker block kernels, exposes `.factor`, `.solve(rhs, trans="n")` including adjoint solves, `.logdet()`, and dense materialization helpers when backed by PyFLAM `rskelf`; scalar Laplace no-proxy and level-dependent proxy `rskelf` matvec/solve plus smooth block-kernel `rskelf` matvec/solve are fixture-tested against MATLAB FLAM on deterministic random RHS vectors. |
