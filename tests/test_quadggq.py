@@ -108,7 +108,7 @@ def test_quadggq_handles_complex_helmholtz_single_layer_blocks():
     helm_s = kernel("helm", "s", 1.3 + 0.2j)
 
     mat = quadggq.buildmat(chnkr, helm_s, helm_s.opdims)
-    adap = quadadap.buildmat(chnkr, helm_s, options={"sing": "log", "eps": 1e-9})
+    adap = quadadap.buildmat(chnkr, helm_s, singularity="log", eps=1e-9)
 
     assert np.iscomplexobj(mat)
     np.testing.assert_allclose(mat, adap, rtol=5e-8, atol=5e-9)
@@ -269,7 +269,7 @@ def test_quadadap_buildmat_uses_adaptive_neighbor_blocks(monkeypatch):
 
     monkeypatch.setattr(quadadap, "adapgausswts", wrapped)
 
-    adap = quadadap.buildmat(chnkr, lap_s, options={"sing": "log"})
+    adap = quadadap.buildmat(chnkr, lap_s, singularity="log")
     ggq = quadggq.buildmat(chnkr, lap_s, lap_s.opdims, singularity="log")
 
     assert len(calls) == 2 * chnkr.nch
@@ -297,8 +297,8 @@ def test_quadadap_robust_mode_repairs_non_neighbor_close_blocks(monkeypatch):
 
     monkeypatch.setattr(quadadap, "adapgausswts", wrapped)
 
-    standard = quadadap.buildmat(chnkr, lap_s, options={"sing": "log", "robust": False})
-    robust = quadadap.buildmat(chnkr, lap_s, options={"sing": "log", "robust": True})
+    standard = quadadap.buildmat(chnkr, lap_s, singularity="log", robust=False)
+    robust = quadadap.buildmat(chnkr, lap_s, singularity="log", robust=True)
 
     assert np.isfinite(robust).all()
     assert any(ntarg != chnkr.k for _, ntarg in calls)

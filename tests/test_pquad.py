@@ -299,13 +299,13 @@ def test_quadadap_neighbor_blocks_use_pquad_when_side_is_explicit(monkeypatch):
     monkeypatch.setattr(quadadap, "adapgausswts", wrapped_adap)
 
     pquad_mat = quadadap.buildmat(
-        chnkr, kern, options={"sing": "log", "side": "e", "usepquad": True}
+        chnkr, kern, singularity="log", side="e", use_panel_quadrature=True
     )
     assert len(pquad_calls) == 2 * chnkr.nch
     assert not adap_calls
 
     fallback = quadadap.buildmat(
-        chnkr, kern, options={"sing": "log", "side": "e", "usepquad": False}
+        chnkr, kern, singularity="log", side="e", use_panel_quadrature=False
     )
     np.testing.assert_allclose(pquad_mat, fallback, rtol=5e-6, atol=2e-6)
 

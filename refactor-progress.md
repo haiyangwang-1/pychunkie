@@ -9,11 +9,17 @@ stage starts, finishes, changes scope, or leaves known follow-up work.
 - Overall status: active large-module and API cleanup
 - Current stage: Stage 9 large-module split and API consolidation
 - Last updated: 2026-05-16
-- Latest verification: `uv run pytest tests/test_kernel.py tests/test_kernels.py
-  tests/test_kernel_algebra.py tests/test_pquad.py tests/test_quadggq.py
-  tests/test_operators.py tests/test_rcip.py
-  tests/test_matlab_parity.py::test_kernel_objects_match_matlab_fixture
-  -q --no-test-log` on 2026-05-16, `123 passed` in 6.89 seconds. Collection
+- Latest verification: `uv run pytest tests/test_keyword_options.py
+  tests/test_chunker.py tests/test_geometry_parity.py
+  tests/test_devtools_parity.py::test_chunkerarcparam_devtools_outputs_match_matlab
+  tests/test_devtools_parity.py::test_adapgausswts_devtools_neighbor_block_matches_matlab
+  tests/test_devtools_parity.py::test_flam_proxy_geometry_helpers_match_matlab_fixture
+  tests/test_quadggq.py tests/test_pquad.py tests/test_smoother.py
+  tests/test_rcip.py tests/test_rcip_parity.py
+  tests/test_matlab_parity.py::test_rcip_recursive_compression_matches_matlab_fixture
+  tests/test_easy_parity_stress.py::test_quadggq_stress_noncircle_complex_special_blocks_and_robust_close_eval
+  tests/test_easy_parity_stress.py::test_chunkgraph_rcip_stress_nonorthogonal_vertex_and_global_blocks
+  -q --no-test-log` on 2026-05-16, `82 passed` in 17.36 seconds. Collection
   snapshot is `398 tests collected`; full-suite
   pass snapshot remains `396 passed` from 2026-05-14 until the next broad run.
 - Tooling status: `uv run ruff check .` and `uv run mypy` both pass. Mypy is a
@@ -537,18 +543,19 @@ Completed notes:
 - `acceleration/flam.py` and `rcip/core.py` are now public facades over private
   responsibility modules. After this split, all Python source files under
   `src/` are below 600 lines.
-- Legacy option dictionaries now share a deprecation helper so representative
-  operator, adaptive-quadrature, RCIP, and smoother public entry points warn
-  while normalized internal adapter dictionaries stay quiet.
+- Legacy option dictionaries now share a deprecation helper so operator,
+  adaptive-quadrature, RCIP, smoother, geometry, matrix-wrapper, and FLAM proxy
+  public entry points warn while normalized internal adapter dictionaries stay
+  quiet.
 - Kernel factory metadata now records fully spelled selector type names, while
   legacy short selector inputs remain dispatch aliases; `Kernel.conj` and
   `Kernel.conjugate` share one implementation.
 
 Remaining work:
 
-- Remove the remaining legacy option-dictionary entry points and redundant
-  aliases in a behavior-preserving sequence with deprecation tests updated.
+- Remove the deprecated option-dictionary parameters and redundant aliases in a
+  behavior-preserving sequence once the deprecation window is closed.
 - Move dense public kernel constructor helpers from `kernels.factory` into the
   corresponding family modules where that can be done without circular imports.
-- Normalize kernel selector strings to fully spelled names after the FMM/dense
-  selector maps are split enough to keep compatibility handling isolated.
+- Remove compatibility handling for legacy short kernel selector input strings
+  once downstream callers are migrated to the fully spelled selectors.

@@ -132,7 +132,8 @@ def test_rcompchunk_runs_recursive_compression_for_corner_edges():
         kernel=kernel("lap", "d"),
         dimension=1,
         vertex=cg.verts[:, 1],
-        options={"_chunkie_normalized_operator_options": True, "nsub": 2, "rcip_savedepth": 2},
+        subdivisions=2,
+        save_depth=2,
     )
 
     assert rmat.shape == (2 * 2 * cg.k, 2 * 2 * cg.k)
@@ -189,7 +190,8 @@ def test_rcompchunk_rejects_nonfinite_local_kernel_blocks():
             kernel=bad_kernel,
             dimension=1,
             vertex=cg.verts[:, 1],
-            options={"_chunkie_normalized_operator_options": True, "nsub": 1, "rcip_savedepth": 1},
+            subdivisions=1,
+            save_depth=1,
         )
 
 
@@ -207,8 +209,9 @@ def test_chunkgraph_rcip_runs_selected_vertices_and_ignores_marked_vertices():
         graph=cg,
         kernel=kernel("lap", "d"),
         dimension=1,
-        options={"_chunkie_normalized_operator_options": True, "nsub": 1, "rcip_savedepth": 1},
         ignore_vertices=[0],
+        subdivisions=1,
+        save_depth=1,
     )
 
     np.testing.assert_array_equal(result.vertices, [1, 2, 3])
@@ -229,7 +232,8 @@ def test_chunkgraph_rcip_runs_selected_vertices_and_ignores_marked_vertices():
             kernel=kernel("lap", "d"),
             dimension=1,
             vertex=cg.verts[:, vertex],
-            options={"_chunkie_normalized_operator_options": True, "nsub": 1, "rcip_savedepth": 1},
+            subdivisions=1,
+            save_depth=1,
         )
         np.testing.assert_allclose(rmat, direct)
         np.testing.assert_allclose(
@@ -265,7 +269,8 @@ def test_chunkgraph_rcip_subselects_global_block_kernels():
         kernel=blocks,
         dimension=1,
         vertices=[1],
-        options={"_chunkie_normalized_operator_options": True, "nsub": 1, "rcip_savedepth": 1},
+        subdivisions=1,
+        save_depth=1,
     )
 
     np.testing.assert_array_equal(result.vertices, [1])

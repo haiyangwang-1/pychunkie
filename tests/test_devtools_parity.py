@@ -613,14 +613,14 @@ def test_chunkerarcparam_devtools_outputs_match_matlab():
     np.testing.assert_allclose(fixture.der_d_residual, 0.0, atol=1e-8)
     np.testing.assert_allclose(fixture.orthogonality, 0.0, atol=1e-8)
 
-    resampled, eps = chnkr.arcresample({"mv_bdries": 0})
+    resampled, eps = chnkr.arcresample(move_boundaries=False)
     assert_chunker_fields_match(resampled, fixture.resampled, atol=1e-10)
     np.testing.assert_allclose(eps, fixture.resampled_eps, rtol=1e-8, atol=1e-12)
     assert float(fixture.resampled_area_err) < 1e-8
     assert float(fixture.resampled_len_err) < 1e-8
     np.testing.assert_allclose(fixture.resampled_speed_ratio, 1.0, atol=1e-6)
 
-    resampled_mv, eps_mv = chnkr.arcresample({"mv_bdries": 1})
+    resampled_mv, eps_mv = chnkr.arcresample(move_boundaries=True)
     np.testing.assert_allclose(eps_mv, fixture.resampled_mv_eps, rtol=1e-8, atol=1e-12)
     assert float(fixture.resampled_mv_area_err) < 1e-8
     assert float(fixture.resampled_mv_len_err) < 1e-8
@@ -2159,7 +2159,7 @@ def test_adapgausswts_devtools_neighbor_block_matches_matlab():
         nodes,
         weights,
         bary,
-        {"eps": float(fixture.eps)},
+        eps=float(fixture.eps),
     )
     ggq = chunkermat(chnkr, kern)
     rows = slice(target_chunk * chnkr.k, (target_chunk + 1) * chnkr.k)
@@ -2841,7 +2841,8 @@ def test_flam_proxy_geometry_helpers_match_matlab_fixture():
     assert flam.nproxy_square(
         kernel("lap", "s"),
         float(fixture.nproxy_lap_s_width),
-        {"nsrc": int(fixture.nproxy_lap_s_nsrc), "rank_or_tol": float(fixture.nproxy_lap_s_tol)},
+        source_count=int(fixture.nproxy_lap_s_nsrc),
+        rank_or_tol=float(fixture.nproxy_lap_s_tol),
     ) == int(fixture.nproxy_lap_s)
 
     chnkr = chunker_from_fields(fixture.kernbyindex_chunker)

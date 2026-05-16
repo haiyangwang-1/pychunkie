@@ -37,17 +37,48 @@ _ADAPTIVE_FAILURE_REASONS = {
 }
 
 
+def _set_option(options: dict[str, Any], key: str, value: Any) -> None:
+    if value is not None:
+        options[key] = value
+
+
 def buildmat(
     chunker: Chunker,
     kernel: Callable[[Any, Any], np.ndarray],
     opdims: tuple[int, int] | None = None,
     options: dict[str, Any] | None = None,
+    *,
+    singularity: str | None = None,
+    ignored_chunks: ArrayLike | None = None,
+    robust: bool | None = None,
+    eps: float | None = None,
+    max_intervals: int | None = None,
+    max_depth: int | None = None,
+    translation_invariant: bool | None = None,
+    recompute_source_normals: bool | None = None,
+    use_panel_quadrature: bool | None = None,
+    force_panel_quadrature: bool | None = None,
+    side: str | None = None,
+    side_tolerance: float | None = None,
 ) -> np.ndarray:
     """Assemble a dense matrix with adaptive close-panel replacements."""
 
     chunker = chunker
     kernel = kernel
     options = warn_legacy_options(options, "adaptive.buildmat")
+    _set_option(options, "sing", singularity)
+    _set_option(options, "ilist", ignored_chunks)
+    _set_option(options, "robust", robust)
+    _set_option(options, "eps", eps)
+    _set_option(options, "maxints", max_intervals)
+    _set_option(options, "maxdepth", max_depth)
+    _set_option(options, "transinv", translation_invariant)
+    _set_option(options, "recompute_source_normals", recompute_source_normals)
+    _set_option(options, "usepquad", use_panel_quadrature)
+    _set_option(options, "forcepquad", force_panel_quadrature)
+    _set_option(options, "side", side)
+    _set_option(options, "side_tol", side_tolerance)
+    options["_chunkie_legacy_options_warned"] = True
     qtype = str(options.get("sing", getattr(kernel, "sing", "log") or "log")).lower()
     if qtype != "log":
         return quadggq.buildmat(
@@ -110,6 +141,12 @@ def adapgausswts(
     weights: ArrayLike | None = None,
     barywts: ArrayLike | None = None,
     options: dict[str, Any] | None = None,
+    *,
+    eps: float | None = None,
+    max_intervals: int | None = None,
+    max_depth: int | None = None,
+    translation_invariant: bool | None = None,
+    recompute_source_normals: bool | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Adaptive source-panel quadrature weights for one chunk and target set.
 
@@ -125,6 +162,12 @@ def adapgausswts(
     targinfo = target
     kernel = kernel
     options = warn_legacy_options(options, "adaptive.adapgausswts")
+    _set_option(options, "eps", eps)
+    _set_option(options, "maxints", max_intervals)
+    _set_option(options, "maxdepth", max_depth)
+    _set_option(options, "transinv", translation_invariant)
+    _set_option(options, "recompute_source_normals", recompute_source_normals)
+    options["_chunkie_legacy_options_warned"] = True
     eps = float(options.get("eps", 1.0e-12))
     maxints = int(options.get("maxints", 100000))
     maxdepth = int(options.get("maxdepth", 52))

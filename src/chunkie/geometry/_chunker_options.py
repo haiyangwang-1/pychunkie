@@ -18,8 +18,9 @@ def _legacy_options(options: dict[str, Any] | None, name: str) -> dict[str, Any]
         return {_LEGACY_OPTIONS_MARKER: True}
     if bool(options.get(_LEGACY_OPTIONS_MARKER, False)):
         return dict(options)
+    label = name.removesuffix(" options")
     warnings.warn(
-        f"{name} dictionaries are deprecated; use keyword-only arguments instead",
+        f"{label} option dictionaries are deprecated; use keyword-only arguments instead",
         DeprecationWarning,
         stacklevel=3,
     )

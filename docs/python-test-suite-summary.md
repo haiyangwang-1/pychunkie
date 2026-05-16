@@ -164,7 +164,7 @@ curvature vector, and arclength differential identities.
 `test_arcresample_makes_panel_speed_constant` checks that `Chunker.arcresample`
 reparameterizes panels by arclength. The invariant is that each panel has
 constant speed density `chunklen / 2` on the reference interval `[-1,1]`.
-The method is `Chunker.arcresample(options=...)` on a Legendre chunker. Ground truth is
+The method is `Chunker.arcresample(...)` on a Legendre chunker. Ground truth is
 preservation of area and total length, nonnegative reported error, and constant
 panel speed after fixed-boundary resampling, plus preserved circle radius,
 tangent/radius orthogonality, normals, and curvature.
@@ -316,7 +316,7 @@ derivatives are inferred, and exact preservation of explicitly supplied
 `test_datares_flags_high_order_data_coefficients` checks data-resolution
 detection in Legendre coefficient space. The low-order row `1+t^2` should be
 resolved, while a row equal to the highest Legendre mode should not. The method
-uses `lege.exps` to get the expansion matrix and `Chunker.datares(options=...)` with a
+uses `lege.exps` to get the expansion matrix and `Chunker.datares(...)` with a
 tolerance. Ground truth is the expected boolean flags for all data rows and for
 an explicitly selected row.
 
@@ -1171,7 +1171,7 @@ recomputation, left/right translation operators, and
 derivatives.
 
 `test_chunker_refinement_and_reconstruction_helpers_match_matlab_fixture`
-checks `split`, `refine`, `upsample`, `arcresample(options=...)`, `rotate`, `reflect`,
+checks `split`, `refine`, `upsample`, `arcresample(...)`, `rotate`, `reflect`,
 `reverse`, `chunkerpoints`, and `merge`. The split/refine fixture stores
 MATLAB geometry after recomputing normals and weights so Python's live geometry
 caches are compared to the same state.
@@ -1369,7 +1369,8 @@ internal RCIP keys consumed by the existing compression/evaluation helpers.
 
 `test_legacy_option_dictionaries_emit_deprecation_warnings` checks that legacy
 dict-style options still work but emit `DeprecationWarning` at representative
-operator, adaptive-quadrature, and smoother public entry points.
+operator, adaptive-quadrature, smoother, geometry, and FLAM proxy public entry
+points.
 
 ## `tests/test_layout_adapters.py`
 
@@ -1863,7 +1864,7 @@ per chunk while preserving equality with the GGQ special matrix on a circle.
 
 `test_quadadap_robust_mode_repairs_non_neighbor_close_blocks` checks robust
 close-interaction replacement. The method merges two nearly touching circles,
-enables `quadadap.buildmat(..., options={"robust": True})`, and verifies
+enables `quadadap.buildmat(..., robust=True)`, and verifies
 adaptive correction calls for target subsets outside the self/neighbor blocks.
 Ground truth is a finite matrix, at least one non-panel-sized adaptive target
 set, and a measurable difference from the non-robust matrix.
@@ -1915,7 +1916,7 @@ functions carry the scalar factor.
 public target-evaluation matrix path. The method places an off-boundary close
 target near a source panel, monkeypatches `pquad.panel_matrix`, and verifies
 `chunkerkernevalmat(..., force_adaptive=True)` uses inferred-side pquad while
-matching the `usepquad=False` adaptive fallback.
+matching the `use_panel_quadrature=False` adaptive fallback.
 
 `test_forceadap_sparse_correction_prefers_pquad_and_matches_matrix` checks the
 sparse correction path used by `corrections=True`. The method compares a
@@ -1930,7 +1931,7 @@ oversampled-Gauss fallback.
 `test_chunkermat_side_option_uses_pquad_for_special_neighbors` checks the
 public same-source matrix path when a boundary side is provided. The method
 uses `chunkermat(..., side="e")`, verifies pquad is called for eligible
-special neighbor blocks, and compares against `usepquad=False`.
+special neighbor blocks, and compares against `use_panel_quadrature=False`.
 
 `test_quadadap_neighbor_blocks_use_pquad_when_side_is_explicit` checks the
 adaptive matrix builder with explicit boundary side. The method verifies
@@ -2045,7 +2046,7 @@ for points, normals, pseudo-normals, and weights, first-panel coordinates and
 normal fields, and weight sum equal to the original edge-length sum.
 
 `test_smoother_smooth_returns_rounded_chunker_and_error_outputs` checks the
-high-level smoother path. The method is `smoother.smooth(vertices=..., options=...)` on a square with
+high-level smoother path. The method is `smoother.smooth(vertices=..., quadrature_order=..., widths=...)` on a square with
 width `0.1` and `return_error=True`, internally producing a rounded chunker.
 Ground truth is eight chunks, zero reported smoothing error in the current
 implementation, per-point error shape, rounded edge geometry, clean adjacency,

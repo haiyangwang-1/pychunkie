@@ -214,12 +214,18 @@ class ChunkerRefineMixin:
                 out.split(idx, stype=stype)
         return out
 
-    def arcresample(self, options: dict[str, Any] | None = None) -> tuple[Chunker, float]:
+    def arcresample(
+        self,
+        options: dict[str, Any] | None = None,
+        *,
+        move_boundaries: bool | None = None,
+    ) -> tuple[Chunker, float]:
         """Reparameterize panel nodes by arc length on each existing chunk."""
 
         from ..misc import arcparam
 
-        options = {} if options is None else dict(options)
+        options = _legacy_options(options, "arcresample options")
+        _set_option(options, "mv_bdries", move_boundaries)
         if bool(options.get("mv_bdries", False)):
             sorted_self, info = self.sort()
             components: list[Chunker] = []

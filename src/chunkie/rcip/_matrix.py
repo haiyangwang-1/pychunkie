@@ -16,6 +16,11 @@ from .algebra import SchurBana, setup
 from .types import RCIPSaved
 
 
+def _set_option(options: dict[str, Any], key: str, value: Any) -> None:
+    if value is not None:
+        options[key] = value
+
+
 def Rcompchunk(
     chunker: list[Chunker] | tuple[Chunker, ...] | Chunker,
     edge_chunks: ArrayLike,
@@ -29,10 +34,15 @@ def Rcompchunk(
     starS: ArrayLike | None = None,
     circS: ArrayLike | None = None,
     options: dict[str, Any] | None = None,
+    *,
+    subdivisions: int | None = None,
+    save_depth: int | None = None,
 ) -> tuple[np.ndarray, RCIPSaved]:
     """Compute the RCIP compression matrix for chunks adjacent to a corner."""
 
     options = warn_legacy_options(options, "rcip.Rcompchunk")
+    _set_option(options, "nsub", subdivisions)
+    _set_option(options, "rcip_savedepth", save_depth)
     chunks = [chunker] if isinstance(chunker, Chunker) else list(chunker)
     if not chunks:
         raise ValueError("Rcompchunk requires at least one edge chunker")

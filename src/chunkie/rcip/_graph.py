@@ -12,6 +12,11 @@ from ._matrix import Rcompchunk
 from .types import RCIPChunkGraphResult, RCIPSaved
 
 
+def _set_option(options: dict[str, Any], key: str, value: Any) -> None:
+    if value is not None:
+        options[key] = value
+
+
 def corner_refine(
     cg: Any, vertices: ArrayLike | None = None, depth: int = 1, stype: str = "a"
 ) -> Any:
@@ -38,6 +43,9 @@ def chunkgraph_rcip(
     vertices: ArrayLike | None = None,
     options: dict[str, Any] | None = None,
     ignore_vertices: ArrayLike | None = None,
+    *,
+    subdivisions: int | None = None,
+    save_depth: int | None = None,
 ) -> RCIPChunkGraphResult:
     """Run RCIP compression at selected chunkgraph vertices.
 
@@ -54,6 +62,9 @@ def chunkgraph_rcip(
         _normalize_vertex_list([] if ignore_vertices is None else ignore_vertices, nvert).tolist()
     )
     options = warn_legacy_options(options, "rcip.chunkgraph_rcip")
+    _set_option(options, "nsub", subdivisions)
+    _set_option(options, "rcip_savedepth", save_depth)
+    options["_chunkie_legacy_options_warned"] = True
 
     used_vertices: list[int] = []
     edge_indices: list[np.ndarray] = []

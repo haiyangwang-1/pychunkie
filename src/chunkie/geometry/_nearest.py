@@ -8,6 +8,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from .. import lege
+from .._legacy import warn_legacy_options
 
 if TYPE_CHECKING:
     from ._chunker_class import Chunker
@@ -19,10 +20,17 @@ def chunk_nearparam(
     options: dict | None = None,
     t: ArrayLike | None = None,
     u: ArrayLike | None = None,
+    *,
+    max_iterations: int | None = None,
+    threshold: float | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Find nearest curve parameters on a single chunk."""
 
-    option_values = {} if options is None else dict(options)
+    option_values = warn_legacy_options(options, "chunk_nearparam")
+    if max_iterations is not None:
+        option_values["nitermax"] = max_iterations
+    if threshold is not None:
+        option_values["thresh"] = threshold
     maxnewt = int(option_values.get("nitermax", 15))
     thresh0 = float(option_values.get("thresh", 1.0e-14))
 

@@ -957,7 +957,8 @@ def test_rcip_recursive_compression_matches_matlab_fixture():
         kernel=kernel("lap", "d"),
         dimension=1,
         vertex=fixture.vert0,
-        options={"_chunkie_normalized_operator_options": True, "nsub": 2, "rcip_savedepth": 2},
+        subdivisions=2,
+        save_depth=2,
     )
 
     np.testing.assert_allclose(rmat, fixture.R, rtol=1e-12, atol=1e-13)

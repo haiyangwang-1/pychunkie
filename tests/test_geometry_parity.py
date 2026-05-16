@@ -265,7 +265,7 @@ def test_chunker_core_geometry_helpers_match_matlab_fixture():
     assert_chunker_matches_fields(base.sort()[0], fixture.sorted)
 
     data_base = attach_data(base, fixture.data)
-    actual_datares = data_base.datares({"idata": [0, 1], "ncoeff": 3, "tol": 1.0e-8})
+    actual_datares = data_base.datares(data_indices=[0, 1], coefficient_count=3, tolerance=1.0e-8)
     np.testing.assert_array_equal(actual_datares, np.asarray(fixture.datares, dtype=bool))
 
 

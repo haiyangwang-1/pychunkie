@@ -11,6 +11,7 @@ from chunkie._layout import as_boundary_vector, boundary_component_weights
 
 from .. import lege
 from ._chunker_adjacency import _remap_adjacency
+from ._chunker_options import _legacy_options, _set_option
 
 if TYPE_CHECKING:
     from ._chunker_class import Chunker
@@ -161,10 +162,26 @@ class ChunkerGeometryMixin:
     def centroids(self) -> np.ndarray:
         return np.sum(self.r * self.wstor[None, :, None], axis=1) / 2.0
 
-    def datares(self, options: dict[str, Any] | None = None) -> np.ndarray:
+    def datares(
+        self,
+        options: dict[str, Any] | None = None,
+        *,
+        data_indices: ArrayLike | None = None,
+        coefficient_count: int | None = None,
+        legendre_power: int | None = None,
+        tolerance: float | None = None,
+        scale: float | None = None,
+        relative: bool | None = None,
+    ) -> np.ndarray:
         """Check whether selected data rows are Legendre-resolved per chunk."""
 
-        options = {} if options is None else dict(options)
+        options = _legacy_options(options, "datares options")
+        _set_option(options, "idata", data_indices)
+        _set_option(options, "ncoeff", coefficient_count)
+        _set_option(options, "pleg", legendre_power)
+        _set_option(options, "tol", tolerance)
+        _set_option(options, "pscale", scale)
+        _set_option(options, "rel", relative)
         if not self.hasdata or self.datadim == 0:
             return np.zeros((0, self.nch), dtype=bool)
 

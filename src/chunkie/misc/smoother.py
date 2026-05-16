@@ -13,6 +13,11 @@ from .._legacy import warn_legacy_options
 from ..geometry.chunker import _LEGACY_OPTIONS_MARKER, chunkerpoly
 
 
+def _set_option(options: dict[str, Any], key: str, value: Any) -> None:
+    if value is not None:
+        options[key] = value
+
+
 @dataclass
 class UniformMesh:
     verts: np.ndarray
@@ -82,7 +87,16 @@ def get_mesh(umesh: UniformMesh, chunk_counts: ArrayLike, quadrature_order: int)
     return SmoothMesh(np.hstack(rs), np.hstack(ns), np.hstack(ps), np.concatenate(ws))
 
 
-def smooth(vertices: ArrayLike, options: dict[str, Any] | None = None):
+def smooth(
+    vertices: ArrayLike,
+    options: dict[str, Any] | None = None,
+    *,
+    quadrature_order: int | None = None,
+    closed: bool | None = None,
+    auto_width_factor: float | None = None,
+    widths: ArrayLike | float | None = None,
+    return_error: bool | None = None,
+):
     """Build a rounded chunker from polygon vertices.
 
     This is a dependency-light smoother workflow compatible with the
@@ -92,6 +106,11 @@ def smooth(vertices: ArrayLike, options: dict[str, Any] | None = None):
     """
 
     options = warn_legacy_options(options, "smoother.smooth")
+    _set_option(options, "k", quadrature_order)
+    _set_option(options, "ifclosed", closed)
+    _set_option(options, "autowidthsfac", auto_width_factor)
+    _set_option(options, "widths", widths)
+    _set_option(options, "return_error", return_error)
     quadrature_order = int(options.get("k", 16))
     cparams = {
         _LEGACY_OPTIONS_MARKER: True,

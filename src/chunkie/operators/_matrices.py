@@ -10,6 +10,7 @@ from numpy.typing import ArrayLike
 from scipy.sparse import spmatrix
 from scipy.sparse.linalg import LinearOperator
 
+from .._legacy import warn_legacy_options
 from ..geometry.chunker import Chunker
 from ._blocks import _block_kernel_layout, _block_operator_dtype, _is_block_kernel_matrix
 from ._common import (
@@ -28,6 +29,7 @@ from ._special import (
     _block_uses_special_quadrature,
     _special_correction_matrix,
 )
+from .options import _NORMALIZED_OPTIONS_MARKER
 
 
 class ChunkerFMMMatrix(LinearOperator):
@@ -40,7 +42,8 @@ class ChunkerFMMMatrix(LinearOperator):
         options: dict[str, Any] | None = None,
     ):
         self.kernel = kernel
-        self.options = {} if options is None else dict(options)
+        self.options = warn_legacy_options(options, "ChunkerFMMMatrix")
+        self.options[_NORMALIZED_OPTIONS_MARKER] = True
         self._correction_mat: spmatrix | None = None
         if _is_block_kernel_matrix(kernel):
             self.chunker = chunker
@@ -124,7 +127,8 @@ class ChunkerFLAMMatrix(LinearOperator):
     ):
         self.chunker = _require_chunker(chunker) if not _is_block_kernel_matrix(kernel) else chunker
         self.kernel = kernel
-        self.options = {} if options is None else dict(options)
+        self.options = warn_legacy_options(options, "ChunkerFLAMMatrix")
+        self.options[_NORMALIZED_OPTIONS_MARKER] = True
         self.factor = chunkerflam(self.chunker, self.kernel, dval, self.options)
         self.flamtype = _flamtype(self.options)
         if _is_block_kernel_matrix(kernel):

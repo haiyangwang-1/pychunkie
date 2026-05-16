@@ -118,11 +118,8 @@ def test_chunkgraph_rcip_driver_matches_matlab_fixture():
         kernel=kernel("lap", "d"),
         dimension=scalar_int(case.ndim),
         vertices=as_1d(case.vertices0, int),
-        options={
-            "_chunkie_normalized_operator_options": True,
-            "nsub": scalar_int(case.nsub),
-            "rcip_savedepth": scalar_int(case.rcip_savedepth),
-        },
+        subdivisions=scalar_int(case.nsub),
+        save_depth=scalar_int(case.rcip_savedepth),
     )
 
     assert isinstance(result, rcip.RCIPChunkGraphResult)

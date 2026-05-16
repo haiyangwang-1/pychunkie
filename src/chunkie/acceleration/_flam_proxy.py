@@ -10,6 +10,7 @@ from numpy.typing import ArrayLike
 
 from .. import lege
 from .._layout import as_boundary_vector
+from .._legacy import warn_legacy_options
 from ._flam_common import (
     _as_chunker,
     _as_index_array,
@@ -23,10 +24,21 @@ from ._flam_common import (
 from ._flam_index import _subblock_from_dofs
 
 
-def proxy_square_pts(proxy_order: int = 64, options: dict[str, Any] | None = None):
+def _set_option(options: dict[str, Any], key: str, value: Any) -> None:
+    if value is not None:
+        options[key] = value
+
+
+def proxy_square_pts(
+    proxy_order: int = 64,
+    options: dict[str, Any] | None = None,
+    *,
+    use_legendre: bool | None = None,
+):
     """Return square proxy points, tangents, weights, and inside predicate."""
 
-    options = {} if options is None else dict(options)
+    options = warn_legacy_options(options, "proxy_square_pts")
+    _set_option(options, "iflege", use_legendre)
     proxy_order = int(proxy_order)
     if proxy_order <= 0 or proxy_order % 4 != 0:
         raise ValueError("number of square proxy points must be a positive multiple of 4")
@@ -74,10 +86,13 @@ def proxy_rect_pts(
     half_lengths: ArrayLike | None = None,
     counts: ArrayLike | None = None,
     options: dict[str, Any] | None = None,
+    *,
+    use_legendre: bool | None = None,
 ):
     """Return rectangular proxy geometry around ``[-lxy[0],lxy[0]] x [-lxy[1],lxy[1]]``."""
 
-    options = {} if options is None else dict(options)
+    options = warn_legacy_options(options, "proxy_rect_pts")
+    _set_option(options, "iflege", use_legendre)
     half_lengths = (
         np.ones(2) if half_lengths is None else np.asarray(half_lengths, dtype=float).reshape(2)
     )
@@ -140,10 +155,17 @@ def nproxy_square(
     kernel: Callable[[Any, Any], np.ndarray],
     width: float,
     options: dict[str, Any] | None = None,
+    *,
+    source_count: int | None = None,
+    rank_or_tol: float | None = None,
+    eps: float | None = None,
 ) -> int:
     """Choose a square proxy order by convergence of a random-source test."""
 
-    options = {} if options is None else dict(options)
+    options = warn_legacy_options(options, "nproxy_square")
+    _set_option(options, "nsrc", source_count)
+    _set_option(options, "rank_or_tol", rank_or_tol)
+    _set_option(options, "eps", eps)
     nsrc = int(options.get("nsrc", 200))
     rank_or_tol = float(options.get("rank_or_tol", options.get("eps", 1.0e-13)))
     width = float(width)

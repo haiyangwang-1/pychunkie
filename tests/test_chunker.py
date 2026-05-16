@@ -343,10 +343,10 @@ def test_datares_flags_high_order_data_coefficients():
         axis=0,
     )[:, :, None]
 
-    flags = chnkr.datares(options={"tol": 1e-10})
+    flags = chnkr.datares(tolerance=1e-10)
 
     np.testing.assert_array_equal(flags, [[True], [False]])
-    np.testing.assert_array_equal(chnkr.datares(options={"idata": [1], "tol": 1e-10}), [[False]])
+    np.testing.assert_array_equal(chnkr.datares(data_indices=[1], tolerance=1e-10), [[False]])
 
 
 def test_merge_combines_chunkers_and_pads_data_rows():

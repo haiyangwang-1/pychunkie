@@ -37,7 +37,9 @@ def test_smoother_smooth_returns_rounded_chunker_and_error_outputs():
     verts = np.array([[0.0, 1.0, 1.0, 0.0], [0.0, 0.0, 1.0, 1.0]])
     chnkr, err, err_by_pt = smoother.smooth(
         vertices=verts,
-        options={"k": 8, "widths": 0.1, "return_error": True},
+        quadrature_order=8,
+        widths=0.1,
+        return_error=True,
     )
     u = (chnkr.tstor + 1.0) / 2.0
 

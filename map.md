@@ -215,13 +215,13 @@ src/
 | `arclengthfun` | ✅ 🧪 🎯 | `@chunker/arclengthfun.m` | Tested on circle data and MATLAB fixture values. |
 | `chunkends` | ✅ 🧪 🎯 | `@chunker/chunkends.m` | Endpoint and tangent normalization behavior parity-tested. |
 | `signed_curvature` | ✅ 🧪 🎯 | `@chunker/signed_curvature.m` | Strict geometry fixture covers noncircular curvature values. |
-| `datares` | ✅ 🧪 🎯 | `@chunker/datares.m` | Python-first signature uses `options`; Python tested for high-order data flags and MATLAB fixture parity. |
+| `datares` | ✅ 🧪 🎯 | `@chunker/datares.m` | Python-first signature uses keyword arguments such as `data_indices`, `coefficient_count`, and `tolerance`; legacy option dictionaries warn. Python tested for high-order data flags and MATLAB fixture parity. |
 | `sortinfo` | ✅ 🧪 🎯 | `@chunker/sortinfo.m` | Strict geometry fixture covers sorted indices, adjacency, and info fields. |
 | `min`, `max` | ✅ 🧪 🎯 | `@chunker/min.m`, `@chunker/max.m` | Tested against nodewise extrema and MATLAB fixture values. |
 | `upsample` | ✅ 🧪 🎯 | `@chunker/upsample.m` | Python tested with density transfer and MATLAB fixture parity. |
 | `split` | ✅ 🧪 🎯 | `@chunker/split.m` | Focused parameter-space and arclength split parity covers geometry, weights, adjacency, and curved-panel scalar Newton updates. |
 | `refine` | ✅ 🧪 🎯 | `@chunker/refine.m` | Splits selected chunks, enforces max chunk length, arc-length level restriction, and oversampling; fixture covers selected split plus oversampling. |
-| `arcresample` | ✅ 🧪 🎯 | `@chunker/arcresample.m`, `+chnk/+arcparam/*` | Python-first signature uses `options`; Python tested for near-constant panel speed and MATLAB geometry parity, including fixed-boundary and boundary-moving `mv_bdries` modes. |
+| `arcresample` | ✅ 🧪 🎯 | `@chunker/arcresample.m`, `+chnk/+arcparam/*` | Python-first signature uses `move_boundaries`; legacy option dictionaries warn. Python tested for near-constant panel speed and MATLAB geometry parity, including fixed-boundary and boundary-moving modes. |
 | `reverse` | ✅ 🧪 🎯 | `@chunker/reverse.m` | Python tested with polygon helpers and MATLAB fixture parity. |
 | `rotate` | ✅ 🧪 🎯 | `@chunker/rotate.m` | Strict geometry fixture covers rotation about source/destination centers. |
 | `reflect` | ✅ 🧪 🎯 | `@chunker/reflect.m` | Strict geometry fixture covers reflection about shifted lines. |
@@ -318,7 +318,7 @@ src/
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
 | `kernbyindex`, `kernbyindexr` | ✅ 🧪 🎯 | `+chnk/+flam/kernbyindex.m`, `kernbyindexr.m` | Python-first signatures use `chunker`, `kernel`, and `target`; callbacks use 0-based row/column DOF indices, apply source weights, let sparse special-quadrature entries overwrite smooth blocks, and accept explicit chunker sequences by merging them for square and rectangular callbacks. MATLAB fixture parity covers square/rectangular Laplace entries and sparse overwrite precedence. |
-| `proxy_square_pts`, `proxy_circ_pts`, `proxy_rect_pts`, `nproxy_square` | ✅ 🧪 🎯 | `+chnk/+flam/proxy_square_pts.m`, `proxy_circ_pts.m`, `proxy_rect_pts.m`, `nproxy_square.m` | Python-first signatures use names such as `proxy_order`, `half_lengths`, `counts`, `point_count`, and `options`; proxy geometry, normals, the square inside predicate, and deterministic Laplace adaptive proxy-order selection are Python-tested and MATLAB-fixture tested. |
+| `proxy_square_pts`, `proxy_circ_pts`, `proxy_rect_pts`, `nproxy_square` | ✅ 🧪 🎯 | `+chnk/+flam/proxy_square_pts.m`, `proxy_circ_pts.m`, `proxy_rect_pts.m`, `nproxy_square.m` | Python-first signatures use names such as `proxy_order`, `half_lengths`, `counts`, `point_count`, `use_legendre`, `source_count`, and `rank_or_tol`; legacy option dictionaries warn. Proxy geometry, normals, the square inside predicate, and deterministic Laplace adaptive proxy-order selection are Python-tested and MATLAB-fixture tested. |
 | `proxyfun`, `proxyfunr` | ✅ 🧪 🎯 | `+chnk/+flam/proxyfun.m`, `proxyfunr.m` | 0-based callback helpers for PyFLAM compression use Python-first `chunker`, `kernel`, and `target` adapter names around pyflam's positional callback arguments; Python tests cover neighbor filtering, callback shapes, and integrated default/level-dependent rectangular proxy target evaluation, while MATLAB fixture parity covers Laplace proxy matrices and filtered neighbor indices. |
 
 #### `geometry/pointinfo.py` and private nearest helpers
@@ -413,8 +413,8 @@ their matching `@kernel` factories.
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
-| `buildmat` | ✅ 🧪 🎯 | `+chnk/+quadadap/buildmat.m` | Python-first signature uses `chunker`, `kernel`, and `options`; MATLAB fixture checks log self blocks, adaptive Gauss neighbor blocks, and robust close non-neighbor replacement; eligible close blocks can use Helsing-Ojala pquad when requested by the operator path or `usepquad=True`, while adaptive weights remain the low-level default/fallback and use MATLAB's translation-invariant recentering by default. Public close-panel assembly warns when adaptive recursion returns max-depth or max-interval failure statuses. Other singularity types delegate to `quadggq`. |
-| `adapgausswts` | ✅ 🧪 🎯 | `+chnk/adapgausswts.m` | Python-first signature uses `chunker`, `source_chunk`, `target`, `kernel`, and `options`; direct adaptive Gauss weight construction is devtools-fixture tested on the starfish Helmholtz double-layer neighbor block, including recursion metadata and agreement with the GGQ reference matrix block; callers now preserve and report nonzero status through warning helpers instead of silently discarding it. |
+| `buildmat` | ✅ 🧪 🎯 | `+chnk/+quadadap/buildmat.m` | Python-first signature uses `chunker`, `kernel`, and keyword controls such as `singularity`, `robust`, `eps`, `use_panel_quadrature`, and `side`; legacy option dictionaries warn. MATLAB fixture checks log self blocks, adaptive Gauss neighbor blocks, and robust close non-neighbor replacement; eligible close blocks can use Helsing-Ojala pquad when requested by the operator path or keyword controls, while adaptive weights remain the low-level default/fallback and use MATLAB's translation-invariant recentering by default. Public close-panel assembly warns when adaptive recursion returns max-depth or max-interval failure statuses. Other singularity types delegate to `quadggq`. |
+| `adapgausswts` | ✅ 🧪 🎯 | `+chnk/adapgausswts.m` | Python-first signature uses `chunker`, `source_chunk`, `target`, `kernel`, plus keywords such as `eps`, `max_intervals`, and `max_depth`; legacy option dictionaries warn. Direct adaptive Gauss weight construction is devtools-fixture tested on the starfish Helmholtz double-layer neighbor block, including recursion metadata and agreement with the GGQ reference matrix block; callers now preserve and report nonzero status through warning helpers instead of silently discarding it. |
 
 #### `quadrature/panel.py`
 
@@ -458,10 +458,10 @@ Log/PV/HS support tables are packaged as `.npz` assets and loaded with `importli
 | `Pbcinit` | ✅ 🧪 🎯 | `+chnk/+rcip/Pbcinit.m` | Python-first parameter names use `interpolation`, `edge_count`, and `dimension`; block-diagonal prolongation matrix is MATLAB-fixture tested. Lowercase MATLAB-compatible aliases were removed from the Python-first API. |
 | `setup` | ✅ 🧪 🎯 | `+chnk/+rcip/setup.m` | Python-first parameter names use `quadrature_order`, `dimension`, `edge_count`, and `starts_at_corner`; prolongation blocks plus zero-based translations of MATLAB index arrays are fixture-tested. |
 | `SchurBana` | ✅ 🧪 🎯 | `+chnk/+rcip/SchurBana.m` | Schur-Banachiewicz update is MATLAB-fixture tested on a deterministic well-conditioned block system. Lowercase MATLAB-compatible aliases were removed from the Python-first API. |
-| `chunkgraph_rcip` | ✅ 🧪 🎯 | `chunkgrphrcip*` workflow concepts | Fixture checks selected-vertex compression over a two-edge graph against MATLAB `Rcompchunk`; redundant MATLAB-style aliases were removed. |
+| `chunkgraph_rcip` | ✅ 🧪 🎯 | `chunkgrphrcip*` workflow concepts | Python-first signature uses `subdivisions` and `save_depth`; legacy option dictionaries warn. Fixture checks selected-vertex compression over a two-edge graph against MATLAB `Rcompchunk`; redundant MATLAB-style aliases were removed. |
 | `RCIPSaved` | ✅ 🧪 🎯 | `+chnk/+rcip/*` saved structs | Metadata holder populated by recursive compression and checked through MATLAB RCIP fixture fields. |
 | `shiftedlegbasismats`, `chunkerfunclocal` | ✅ 🧪 🎯 | `+chnk/+rcip/shiftedlegbasismats.m`, `chunkerfunclocal.m` | `shiftedlegbasismats` uses `quadrature_order`; ported helpers are exercised through recursive RCIP and MATLAB fixtures. |
-| `Rcompchunk` | ✅ 🧪 🎯 | `+chnk/+rcip/Rcompchunk.m` | Recursive local compression solver implemented and tested against MATLAB fixture for a two-edge corner; local blocks with nonfinite values are rejected instead of zero-filled. The lowercase alias was removed. |
+| `Rcompchunk` | ✅ 🧪 🎯 | `+chnk/+rcip/Rcompchunk.m` | Python-first signature uses `subdivisions` and `save_depth`; legacy option dictionaries warn. Recursive local compression solver implemented and tested against MATLAB fixture for a two-edge corner; local blocks with nonfinite values are rejected instead of zero-filled. The lowercase alias was removed. |
 | `rhohatInterp` | ✅ 🧪 🎯 | `+chnk/+rcip/rhohatInterp.m` | Saved-level backward density interpolation implemented and MATLAB-fixture tested. The lowercase alias was removed. |
 
 
@@ -494,7 +494,7 @@ Log/PV/HS support tables are packaged as `.npz` assets and loaded with `importli
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
-| `smooth` | ⚠️ 🧪 | `+chnk/+smoother/smooth.m`, `smooth_curve*.m` | Python-first signature uses `vertices` and `options`; lightweight rounded-`chunkerpoly` workflow with optional zero error outputs; full MATLAB smoothing/Newton workflow is a non-goal. |
+| `smooth` | ⚠️ 🧪 | `+chnk/+smoother/smooth.m`, `smooth_curve*.m` | Python-first signature uses `vertices`, `quadrature_order`, `widths`, and `return_error`; legacy option dictionaries warn. Lightweight rounded-`chunkerpoly` workflow with optional zero error outputs; full MATLAB smoothing/Newton workflow is a non-goal. |
 | `smooth_curve`, `smooth_curve2`, `smooth_curve3` | ⚠️ 🧪 | `+chnk/+smoother/smooth_curve*.m` | Aliases to the lightweight `smooth` baseline; full MATLAB smoothing/Newton behavior is a non-goal. |
 | `UniformMesh` | ✅ 🧪 | `+chnk/+smoother/get_umesh.m` output structs | Dataclass for polygon edge mesh metadata. |
 | `SmoothMesh` | ✅ 🧪 | `+chnk/+smoother/get_mesh.m` output structs | Dataclass for sampled smoother mesh metadata. |

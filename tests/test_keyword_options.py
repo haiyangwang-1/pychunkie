@@ -3,6 +3,7 @@ import pytest
 
 import chunkie.operators as operators_mod
 from chunkie import chunkerfunc, chunkerinterior, chunkerkerneval, chunkermat, chunkerpoly, kernel
+from chunkie.acceleration import flam
 from chunkie.misc import smoother
 from chunkie.operators import _evaluation as operators_evaluation
 from chunkie.operators import _matrices as operators_matrices
@@ -135,3 +136,12 @@ def test_legacy_option_dictionaries_emit_deprecation_warnings():
             np.array([[0.0, 1.0, 1.0], [0.0, 0.0, 1.0]]),
             options={"k": 4},
         )
+
+    with pytest.warns(DeprecationWarning, match="option dictionaries are deprecated"):
+        boundary.datares(options={"tol": 1.0e-10})
+
+    with pytest.warns(DeprecationWarning, match="option dictionaries are deprecated"):
+        boundary.arcresample({"mv_bdries": 0})
+
+    with pytest.warns(DeprecationWarning, match="option dictionaries are deprecated"):
+        flam.proxy_square_pts(8, options={"iflege": False})

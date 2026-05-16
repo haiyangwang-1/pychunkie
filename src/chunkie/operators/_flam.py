@@ -179,11 +179,13 @@ def _chunkerflam_proxyfun(
     from ..acceleration import flam
 
     rank_or_tol = _flam_rank_or_tol(options)
-    optsnpxy = {"rank_or_tol": float(rank_or_tol), "nsrc": _flam_occ(options)}
+    proxy_source_count = _flam_occ(options)
     width = float(np.max(chunker.max() - chunker.min()))
     proxybylevel = _flag(options, "proxybylevel")
     if not proxybylevel:
-        npxy = flam.nproxy_square(kernel, width, optsnpxy)
+        npxy = flam.nproxy_square(
+            kernel, width, source_count=proxy_source_count, rank_or_tol=float(rank_or_tol)
+        )
         if npxy == -1:
             return None
         pr, ptau, pw, pin = flam.proxy_square_pts(npxy)
@@ -223,7 +225,9 @@ def _chunkerflam_proxyfun(
     ):
         _ = x
         level_width = float(np.max(np.asarray(box_size, dtype=float)))
-        npxy = flam.nproxy_square(kernel, level_width, optsnpxy)
+        npxy = flam.nproxy_square(
+            kernel, level_width, source_count=proxy_source_count, rank_or_tol=float(rank_or_tol)
+        )
         if npxy == -1:
             return np.zeros((0, np.asarray(slf).size)), np.asarray(nbr, dtype=np.int64)
         pr, ptau, pw, pin = flam.proxy_square_pts(npxy)
@@ -321,12 +325,14 @@ def _chunkerkerneval_proxyfun(
     from ..acceleration import flam
 
     rank_or_tol = _flam_rank_or_tol(options)
-    optsnpxy = {"rank_or_tol": float(rank_or_tol), "nsrc": _flam_occ(options)}
+    proxy_source_count = _flam_occ(options)
     all_points = np.column_stack((np.real(targinfo.r), np.real(PointInfo.from_any(chunker).r)))
     width = float(np.max(np.max(all_points, axis=1) - np.min(all_points, axis=1)))
     proxybylevel = _flag(options, "proxybylevel")
     if not proxybylevel:
-        npxy = flam.nproxy_square(kernel, width, optsnpxy)
+        npxy = flam.nproxy_square(
+            kernel, width, source_count=proxy_source_count, rank_or_tol=float(rank_or_tol)
+        )
         if npxy == -1:
             return None
         pr, ptau, pw, pin = flam.proxy_square_pts(npxy)
@@ -370,7 +376,9 @@ def _chunkerkerneval_proxyfun(
         center: np.ndarray,
     ):
         level_width = float(np.max(np.asarray(box_size, dtype=float)))
-        npxy = flam.nproxy_square(kernel, level_width, optsnpxy)
+        npxy = flam.nproxy_square(
+            kernel, level_width, source_count=proxy_source_count, rank_or_tol=float(rank_or_tol)
+        )
         if npxy == -1:
             slf_size = np.asarray(slf).size
             if str(rc).lower() == "c":

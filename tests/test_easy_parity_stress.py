@@ -212,12 +212,16 @@ def test_quadggq_stress_noncircle_complex_special_blocks_and_robust_close_eval()
     standard = quadadap.buildmat(
         chunker=close_pair,
         kernel=lap_s,
-        options={"sing": "log", "robust": False, "eps": 1e-9},
+        singularity="log",
+        robust=False,
+        eps=1e-9,
     )
     robust = quadadap.buildmat(
         chunker=close_pair,
         kernel=lap_s,
-        options={"sing": "log", "robust": True, "eps": 1e-9},
+        singularity="log",
+        robust=True,
+        eps=1e-9,
     )
 
     assert np.isfinite(robust).all()
@@ -280,7 +284,8 @@ def test_chunkgraph_rcip_stress_nonorthogonal_vertex_and_global_blocks():
         dimension=1,
         vertices=[1, 3],
         ignore_vertices=[3],
-        options={"_chunkie_normalized_operator_options": True, "nsub": 2, "rcip_savedepth": 2},
+        subdivisions=2,
+        save_depth=2,
     )
     expected_edges = np.asarray(cg.vstruc[1][0], dtype=int)
 
