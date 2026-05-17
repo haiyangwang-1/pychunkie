@@ -11,8 +11,10 @@ implemented behavior, known limitations, or verification snapshots change.
 - Previous implementation archived in `src_old/`.
 - Previous tests archived in `tests_old/`.
 - Previous docs and status notes archived in `docs_old/`.
+- Smooth Laplace circle examples use the rewrite system API and generate
+  solution/error figures for interior/exterior Dirichlet and Neumann cases.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `118 passed` in 5.09 seconds; `uv run ruff check .` passes; `uv run mypy`
+  `122 passed` in 9.74 seconds; `uv run ruff check .` passes; `uv run mypy`
   passes over `src/chunkie`.
 
 ## Source Tree

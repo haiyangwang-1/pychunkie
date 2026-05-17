@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `118 passed` in 5.09 seconds.
+  `122 passed` in 9.74 seconds.
 
 ## Test Organization Target
 
@@ -22,6 +22,7 @@ meaningfully.
 - `tests/rcip/`: local compression and interpolation.
 - `tests/system/`: density layout, assembly, traces, solves, and evaluation.
 - `tests/backends/`: FMM and FLAM comparisons against dense references.
+- `tests/examples/`: executable example workflows and generated artifact checks.
 
 ## Active Tests
 
@@ -119,6 +120,9 @@ meaningfully.
 - `tests/system/test_laplace_neumann.py`: finite Laplace adjoint
   double-layer self diagonal and interior/exterior Neumann circle solves
   against analytic linear/dipole fields up to an additive constant.
+- `tests/examples/test_smooth_laplace_examples.py`: executable smooth-circle
+  Laplace interior/exterior Dirichlet and Neumann examples, including generated
+  solution and `log10(abs(error))` figure outputs.
 - `tests/system/test_fmm_matvec.py`: scalar Laplace FMM system matvec for
   off-boundary trace equations compared against dense assembly.
 - `tests/system/test_matrix_free_matvec.py`: dense-reference matrix-free trace
