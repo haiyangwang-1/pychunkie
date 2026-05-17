@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `113 passed` in 4.50 seconds.
+  `114 passed` in 4.53 seconds.
 
 ## Test Organization Target
 
@@ -105,7 +105,8 @@ meaningfully.
   reconstruction for `ChunkGraph` region `BoundaryPart` sources and targets.
 - `tests/system/test_multi_density_assembly.py`: dense block assembly for
   multiple unknown density spaces and multiple boundary equations, including
-  jump insertion and multi-density solve reconstruction.
+  jump insertion, multi-density solve reconstruction, and multi-scalar-density
+  FLAM solve reconstruction.
 - `tests/system/test_corrections.py`: component-major dense panel replacement
   insertion for adaptive local quadrature blocks, generated GGQ Laplace
   self-panel replacement, and automatic self-panel correction selection.

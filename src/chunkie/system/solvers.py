@@ -17,14 +17,9 @@ def solve_system(system, *, config: SystemConfig) -> SystemSolution:
     rhs = rhs_vector(system)
     diagnostics: dict[str, object] = {"solve_method": config.solve_method}
     if config.solve_method == "flam":
-        if len(system.unknowns) != 1:
-            raise NotImplementedError(
-                "FLAM solve integration currently supports one unknown density"
-            )
-        unknown = system.unknowns[0]
         factor = factor_system(
             matrix,
-            _solver_points(unknown),
+            _solver_points(system.unknowns),
             occupancy=config.flam_occupancy,
             tolerance=config.flam_tolerance,
         )
@@ -87,9 +82,33 @@ def _gmres_solve(matrix, rhs, config: SystemConfig):
     return vector, int(info), iteration_count
 
 
-def _solver_points(unknown) -> object:
-    if unknown.component_count != 1:
-        raise NotImplementedError("FLAM solve integration currently supports scalar unknowns")
-    if not hasattr(unknown.geometry, "pointinfo"):
-        raise TypeError("FLAM solve integration requires geometry pointinfo")
-    return unknown.geometry.pointinfo.flat_positions
+def _solver_points(unknowns) -> object:
+    point_blocks = []
+    for unknown in unknowns:
+        if unknown.component_count != 1:
+            raise NotImplementedError("FLAM solve integration currently supports scalar unknowns")
+        if not hasattr(unknown.geometry, "pointinfo"):
+            raise TypeError("FLAM solve integration requires geometry pointinfo")
+        # FLAM sees the same dense solver-vector order as the matrix columns.
+        # Multiple scalar unknowns therefore concatenate repeated geometry
+        # point clouds in unknown-block order.
+        point_blocks.append(unknown.geometry.pointinfo.flat_positions)
+    if len(point_blocks) == 1:
+        return point_blocks[0]
+
+    base_dim = max(block.shape[0] for block in point_blocks)
+    spans = [
+        float(np.max(block, initial=0.0) - np.min(block, initial=0.0))
+        for block in point_blocks
+        if block.size
+    ]
+    block_spacing = (max(spans) if spans else 1.0) + 1.0
+    lifted_blocks = []
+    for block_id, block in enumerate(point_blocks):
+        lifted = np.zeros((base_dim + 1, block.shape[1]), dtype=float)
+        lifted[: block.shape[0]] = block
+        # Repeated unknowns on the same geometry would otherwise give FLAM
+        # duplicate points. The extra coordinate is a backend-only block axis.
+        lifted[-1] = block_id * block_spacing
+        lifted_blocks.append(lifted)
+    return np.concatenate(lifted_blocks, axis=1)

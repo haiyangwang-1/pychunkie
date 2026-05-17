@@ -45,8 +45,10 @@ Current implementation status:
 - Dense and GMRES solves reconstruct one `Density` object per unknown block.
   The first GMRES path uses SciPy's `LinearOperator` over the dense reference
   matrix and records solver diagnostics on `SystemSolution`.
-- `SystemConfig(solve_method="flam")` routes scalar one-unknown dense-reference solves
-  through the FLAM backend before reconstructing the density object.
+- `SystemConfig(solve_method="flam")` routes scalar dense-reference solves
+  through the FLAM backend before reconstructing density objects. Multiple
+  scalar unknown blocks are supported by adding a backend-only block coordinate
+  so repeated geometry points remain distinct for pyFLAM.
 - Field evaluation honors `SystemConfig.evaluation_method="fmm"` for supported
   Laplace layer potentials and compares against dense evaluation.
 - `matrix_free_matvec` and `SystemOperator` apply trace terms directly through

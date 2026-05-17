@@ -21,7 +21,9 @@ Current implementation status:
   dense reference matrix and exposes apply, solve, and log-determinant
   comparisons against dense linear algebra, including complex multiple-RHS
   inputs. `SystemConfig(solve_method="flam")` can use this path for scalar
-  one-unknown dense-reference systems. Callback-based assembly remains upcoming.
+  dense-reference systems with one or more unknown blocks; repeated geometry
+  points are separated by a backend-only block coordinate before factorization.
+  Callback-based assembly remains upcoming.
 - `docs/structured-rskelf-transmission.md` defines the structured RSKELF target:
   pyFLAM should consume row/column density metadata and per-block proxy samples
   instead of receiving an already-flattened transmission matrix.

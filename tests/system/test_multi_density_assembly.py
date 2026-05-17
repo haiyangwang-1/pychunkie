@@ -10,6 +10,7 @@ from chunkie.system import (
     IntegralSystem,
     JumpTerm,
     LayerPotential,
+    SystemConfig,
 )
 
 
@@ -23,7 +24,9 @@ def test_dense_assembly_builds_two_density_two_equation_blocks():
     mu = DensitySpace("mu", boundary)
     sigma_layer = LayerPotential("sigma_single", boundary, single, "sigma", coefficient=2.0)
     mu_layer = LayerPotential("mu_single", boundary, single, "mu", coefficient=-3.0)
-    sigma_layer_row2 = LayerPotential("sigma_single_row2", boundary, single, "sigma", coefficient=0.5)
+    sigma_layer_row2 = LayerPotential(
+        "sigma_single_row2", boundary, single, "sigma", coefficient=0.5
+    )
     mu_layer_row2 = LayerPotential("mu_single_row2", boundary, single, "mu", coefficient=4.0)
 
     system = IntegralSystem(
@@ -44,7 +47,9 @@ def test_dense_assembly_builds_two_density_two_equation_blocks():
                 "neumann",
                 boundary,
                 (
-                    BoundaryTrace(sigma_layer_row2, boundary, "exterior", jump=JumpTerm(-0.5, "sigma")),
+                    BoundaryTrace(
+                        sigma_layer_row2, boundary, "exterior", jump=JumpTerm(-0.5, "sigma")
+                    ),
                     BoundaryTrace(mu_layer_row2, boundary, "exterior"),
                 ),
                 np.zeros(boundary.point_count),
@@ -95,4 +100,41 @@ def test_dense_solve_reconstructs_multiple_density_vectors():
 
     np.testing.assert_allclose(solution.densities["sigma"].values, sigma_rhs)
     np.testing.assert_allclose(solution.densities["mu"].values, mu_rhs)
+    assert np.linalg.norm(solution.residual) < 1.0e-12
+
+
+def test_flam_solve_reconstructs_multiple_scalar_density_vectors():
+    boundary = circle(quadrature_order=4, panel_count=4)
+    single = kernel("laplace", selector="s")
+    sigma = DensitySpace("sigma", boundary)
+    mu = DensitySpace("mu", boundary)
+    zero_sigma = LayerPotential("sigma_zero", boundary, single, "sigma", coefficient=0.0)
+    zero_mu = LayerPotential("mu_zero", boundary, single, "mu", coefficient=0.0)
+    sigma_rhs = boundary.positions[0]
+    mu_rhs = 2.0 * boundary.positions[1]
+    system = IntegralSystem(
+        name="two_density_flam_identity",
+        geometry=boundary,
+        unknowns=(sigma, mu),
+        equations=(
+            BoundaryEquation(
+                "sigma_eq",
+                boundary,
+                (BoundaryTrace(zero_sigma, boundary, "exterior", jump=JumpTerm(1.0, "sigma")),),
+                sigma_rhs,
+            ),
+            BoundaryEquation(
+                "mu_eq",
+                boundary,
+                (BoundaryTrace(zero_mu, boundary, "exterior", jump=JumpTerm(1.0, "mu")),),
+                mu_rhs,
+            ),
+        ),
+    )
+
+    solution = system.solve(config=SystemConfig(solve_method="flam", flam_occupancy=16))
+
+    assert solution.diagnostics["backend"] == "flam"
+    np.testing.assert_allclose(solution.densities["sigma"].values, sigma_rhs, atol=1.0e-12)
+    np.testing.assert_allclose(solution.densities["mu"].values, mu_rhs, atol=1.0e-12)
     assert np.linalg.norm(solution.residual) < 1.0e-12
