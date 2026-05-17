@@ -8,6 +8,8 @@ def test_top_level_rewrite_api_exports_design_objects():
         "BoundaryTrace",
         "ChunkGraph",
         "Chunker",
+        "Constraint",
+        "ConstraintTerm",
         "Density",
         "IntegralSystem",
         "Kernel",

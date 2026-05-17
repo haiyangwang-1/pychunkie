@@ -18,7 +18,9 @@ def assemble_system_matrix(system, *, config: SystemConfig) -> SystemMatrix:
     row_slices = _equation_row_slices(system.equations)
     column_slices = _unknown_column_slices(system.unknowns)
     unknowns = {unknown.name: unknown for unknown in system.unknowns}
-    row_count = sum(row_slice.stop - row_slice.start for row_slice in row_slices.values())
+    equation_row_count = sum(row_slice.stop - row_slice.start for row_slice in row_slices.values())
+    constraint_row_slices = _constraint_row_slices(system.constraints, start=equation_row_count)
+    row_count = equation_row_count + len(system.constraints)
     column_count = sum(column_slice.stop - column_slice.start for column_slice in column_slices.values())
     matrix = np.zeros((row_count, column_count), dtype=complex)
 
@@ -52,11 +54,22 @@ def assemble_system_matrix(system, *, config: SystemConfig) -> SystemMatrix:
                     raise ValueError("jump terms require matching row and column layout")
                 matrix[row_slice, jump_slice] += term.jump.coefficient * np.eye(*jump_shape)
 
+    for constraint in system.constraints:
+        row_slice = constraint_row_slices[constraint.name]
+        for term in constraint.terms:
+            try:
+                unknown = unknowns[term.density]
+            except KeyError as exc:
+                raise ValueError(f"constraint term references unknown density {term.density!r}") from exc
+            column_slice = column_slices[unknown.name]
+            matrix[row_slice, column_slice] += _constraint_row(term, unknown)
+
     diagnostics = {
         "assembly": "dense",
-        "unknowns": tuple(unknown.name for unknown in system.unknowns),
-        "equations": tuple(equation.name for equation in system.equations),
-    }
+            "unknowns": tuple(unknown.name for unknown in system.unknowns),
+            "equations": tuple(equation.name for equation in system.equations),
+            "constraints": tuple(constraint.name for constraint in system.constraints),
+        }
     if config.use_rcip:
         from .nonsmooth import build_rcip_state
 
@@ -72,7 +85,9 @@ def assemble_system_matrix(system, *, config: SystemConfig) -> SystemMatrix:
 
 
 def rhs_vector(system) -> np.ndarray:
-    return np.concatenate([_equation_rhs_vector(equation) for equation in system.equations])
+    equation_rhs = [_equation_rhs_vector(equation) for equation in system.equations]
+    constraint_rhs = [np.asarray([constraint.value], dtype=complex) for constraint in system.constraints]
+    return np.concatenate(equation_rhs + constraint_rhs)
 
 
 def _equation_rhs_vector(equation) -> np.ndarray:
@@ -110,6 +125,10 @@ def equation_row_slices(equations) -> dict[str, slice]:
     return _equation_row_slices(equations)
 
 
+def constraint_row_slices(constraints, *, start: int = 0) -> dict[str, slice]:
+    return _constraint_row_slices(constraints, start=start)
+
+
 def _equation_row_slices(equations) -> dict[str, slice]:
     offset = 0
     out: dict[str, slice] = {}
@@ -119,6 +138,17 @@ def _equation_row_slices(equations) -> dict[str, slice]:
         row_count = _equation_row_count(equation)
         out[equation.name] = slice(offset, offset + row_count)
         offset += row_count
+    return out
+
+
+def _constraint_row_slices(constraints, *, start: int = 0) -> dict[str, slice]:
+    offset = int(start)
+    out: dict[str, slice] = {}
+    for constraint in constraints:
+        if constraint.name in out:
+            raise ValueError(f"duplicate constraint name {constraint.name!r}")
+        out[constraint.name] = slice(offset, offset + 1)
+        offset += 1
     return out
 
 
@@ -136,6 +166,31 @@ def _unknown_column_slices(unknowns) -> dict[str, slice]:
 
 def identity_system_matrix(size: int, *, config: SystemConfig | None = None) -> SystemMatrix:
     return SystemMatrix(np.eye(size), SystemConfig() if config is None else config)
+
+
+def _constraint_row(term, unknown) -> np.ndarray:
+    point_count = _point_count(unknown.geometry)
+    coefficients = term.coefficients(unknown.geometry.pointinfo) if callable(term.coefficients) else term.coefficients
+    arr = np.asarray(coefficients, dtype=complex)
+    if arr.ndim == 0:
+        arr = np.full(point_count, arr, dtype=complex)
+    elif arr.ndim == 2 and arr.shape == _panel_shape(unknown.geometry):
+        arr = arr.T.reshape(-1)
+    elif arr.ndim == 1 and arr.size == point_count:
+        arr = arr.reshape(-1)
+    elif arr.ndim == 2 and arr.shape == (unknown.component_count, point_count):
+        return arr.reshape(1, -1)
+    else:
+        raise ValueError("constraint coefficients have incompatible shape")
+
+    if unknown.component_count == 1:
+        return arr.reshape(1, -1)
+    component = term.component
+    if component is None:
+        raise ValueError("component must be specified for scalar coefficients on vector unknowns")
+    row = np.zeros((1, unknown.component_count * point_count), dtype=complex)
+    row[0, int(component) * point_count : (int(component) + 1) * point_count] = arr
+    return row
 
 
 def _trace_matrix(trace: BoundaryTrace, unknown) -> np.ndarray:

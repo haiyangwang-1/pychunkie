@@ -29,6 +29,8 @@ Current implementation status:
 - Right-hand sides may be scalar panel data, component panel data, or already
   flattened component-major vectors, and multi-equation right-hand sides are
   concatenated in equation order.
+- `Constraint` and `ConstraintTerm` append explicit dense rows after boundary
+  equations for compatibility conditions such as scalar charge constraints.
 - `PanelCorrection`, `build_panel_correction`, and `build_corrections` provide
   dense replacement-block insertion and first-pass automatic self/near panel
   selection for adaptive, Helsing-Ojala, and GGQ local panel matrices.
@@ -49,7 +51,7 @@ Current implementation status:
   point-view kernel contractions without materializing the global dense matrix.
 - `fmm_matvec` applies supported scalar Laplace trace terms with FMM2D for
   off-boundary systems and compares against dense assembly.
-- Constraints, recursive RCIP Schur updates, nonsmooth correction insertion,
-  and broader accelerated matvecs remain required upcoming work.
+- Recursive RCIP Schur updates, nonsmooth correction insertion, and broader
+  accelerated matvecs remain required upcoming work.
 - `docs/structured-rskelf-transmission.md` records the transmission-system and
   structured RSKELF design target for multiple boundaries and densities.

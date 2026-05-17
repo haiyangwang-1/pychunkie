@@ -20,6 +20,20 @@ class BoundaryEquation:
 
 
 @dataclass(frozen=True)
+class ConstraintTerm:
+    density: str
+    coefficients: object
+    component: int | None = None
+
+
+@dataclass(frozen=True)
+class Constraint:
+    name: str
+    terms: tuple[ConstraintTerm, ...]
+    value: complex = 0.0
+
+
+@dataclass(frozen=True)
 class IntegralSystem:
     name: str
     geometry: object

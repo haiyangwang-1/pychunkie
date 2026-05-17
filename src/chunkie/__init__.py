@@ -6,6 +6,8 @@ from .kernels import Kernel, kernel
 from .system import (
     BoundaryEquation,
     BoundaryTrace,
+    Constraint,
+    ConstraintTerm,
     Density,
     IntegralSystem,
     LaplaceExteriorDirichletSystem,
@@ -19,6 +21,8 @@ __all__ = [
     "BoundaryTrace",
     "ChunkGraph",
     "Chunker",
+    "Constraint",
+    "ConstraintTerm",
     "Density",
     "IntegralSystem",
     "Kernel",

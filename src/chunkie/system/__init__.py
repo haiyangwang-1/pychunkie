@@ -3,7 +3,7 @@
 from .config import SystemConfig
 from .corrections import PanelCorrection, build_corrections, build_panel_correction
 from .density import Density, DensityLayout, DensitySpace
-from .equation import BoundaryEquation, IntegralSystem
+from .equation import BoundaryEquation, Constraint, ConstraintTerm, IntegralSystem
 from .laplace import LaplaceExteriorDirichletSystem
 from .layer import LayerPotential
 from .matrix import SystemMatrix
@@ -15,6 +15,8 @@ from .trace import BoundaryTrace, JumpTerm
 __all__ = [
     "BoundaryEquation",
     "BoundaryTrace",
+    "Constraint",
+    "ConstraintTerm",
     "Density",
     "DensityLayout",
     "DensitySpace",

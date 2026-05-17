@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `101 passed` in 4.46 seconds.
+  `102 passed` in 4.31 seconds.
 
 ## Test Organization Target
 
@@ -102,6 +102,8 @@ meaningfully.
 - `tests/system/test_corrections.py`: component-major dense panel replacement
   insertion for adaptive local quadrature blocks, generated GGQ Laplace
   self-panel replacement, and automatic self-panel correction selection.
+- `tests/system/test_constraints.py`: explicit dense scalar constraint rows,
+  constraint right-hand-side concatenation, and assembly diagnostics.
 - `tests/system/test_laplace_exterior_dirichlet.py`: dense exterior Laplace
   double-layer solve, FLAM solve field comparison, plus dense and FMM
   off-boundary evaluation for the unit-circle cosine mode.
