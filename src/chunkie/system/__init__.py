@@ -8,6 +8,7 @@ from .laplace import LaplaceExteriorDirichletSystem
 from .layer import LayerPotential
 from .matrix import SystemMatrix
 from .matvec import fmm_matvec
+from .nonsmooth import build_rcip_state
 from .solution import SystemSolution
 from .trace import BoundaryTrace, JumpTerm
 
@@ -26,5 +27,6 @@ __all__ = [
     "SystemMatrix",
     "SystemSolution",
     "build_panel_correction",
+    "build_rcip_state",
     "fmm_matvec",
 ]

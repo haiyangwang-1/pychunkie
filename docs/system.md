@@ -33,6 +33,10 @@ Current implementation status:
   replacement-block insertion boundary for adaptive and Helsing-Ojala local
   panel matrices. Generated GGQ self-panel replacement is active for Laplace
   single-layer blocks.
+- `build_rcip_state` discovers nonsmooth `ChunkGraph` vertices, builds dyadic
+  local corner geometry plus split-panel prolongation blocks, and dense
+  assembly records active RCIP state in `SystemMatrix.diagnostics` without
+  changing the dense reference matrix.
 - `LaplaceExteriorDirichletSystem` solves the unit-circle cosine mode and
   evaluates the exterior field at an off-boundary target.
 - Dense solves reconstruct one `Density` object per unknown block.
@@ -42,7 +46,7 @@ Current implementation status:
   Laplace layer potentials and compares against dense evaluation.
 - `fmm_matvec` applies supported scalar Laplace trace terms with FMM2D for
   off-boundary systems and compares against dense assembly.
-- General `ChunkGraph` systems, constraints, nonsmooth corrections, and
-  accelerated matvecs remain required upcoming work.
+- Constraints, recursive RCIP Schur updates, nonsmooth correction insertion,
+  and broader accelerated matvecs remain required upcoming work.
 - `docs/structured-rskelf-transmission.md` records the transmission-system and
   structured RSKELF design target for multiple boundaries and densities.

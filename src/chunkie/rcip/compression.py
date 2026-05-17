@@ -10,7 +10,19 @@ from numpy.typing import ArrayLike, NDArray
 
 
 @dataclass(frozen=True)
+class RCIPCornerState:
+    vertex_id: int
+    edge_ids: tuple[int, ...]
+    boundary_part: object
+    local_geometry: object
+    prolongation: NDArray[np.floating]
+    weighted_prolongation: NDArray[np.floating]
+    compressed_inverse: NDArray[np.generic]
+
+
+@dataclass(frozen=True)
 class RCIPState:
+    corners: tuple[RCIPCornerState, ...] = ()
     metadata: dict[str, Any] = field(default_factory=dict)
 
 

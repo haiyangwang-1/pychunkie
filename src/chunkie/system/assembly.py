@@ -52,14 +52,22 @@ def assemble_system_matrix(system, *, config: SystemConfig) -> SystemMatrix:
                     raise ValueError("jump terms require matching row and column layout")
                 matrix[row_slice, jump_slice] += term.jump.coefficient * np.eye(*jump_shape)
 
+    diagnostics = {
+        "assembly": "dense",
+        "unknowns": tuple(unknown.name for unknown in system.unknowns),
+        "equations": tuple(equation.name for equation in system.equations),
+    }
+    if config.use_rcip:
+        from .nonsmooth import build_rcip_state
+
+        rcip_state = build_rcip_state(system, config=config)
+        if rcip_state.metadata.get("active"):
+            diagnostics["rcip"] = rcip_state
+
     return SystemMatrix(
         matrix,
         config,
-        diagnostics={
-            "assembly": "dense",
-            "unknowns": tuple(unknown.name for unknown in system.unknowns),
-            "equations": tuple(equation.name for equation in system.equations),
-        },
+        diagnostics=diagnostics,
     )
 
 

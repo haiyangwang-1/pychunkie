@@ -56,5 +56,7 @@ def test_geometry_rcip_and_system_exports_include_new_rewrite_helpers():
         assert name in rcip.__all__
         assert hasattr(rcip, name)
 
+    assert "build_rcip_state" in system.__all__
+    assert hasattr(system, "build_rcip_state")
     assert "fmm_matvec" in system.__all__
     assert hasattr(system, "fmm_matvec")
