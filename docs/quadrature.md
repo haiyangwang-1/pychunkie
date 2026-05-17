@@ -30,5 +30,12 @@ absorbed into panel data before Helsing-Ojala or GGQ weights are applied.
   subpanels. It is the conservative fallback for close-panel reference values
   before specialized Helsing-Ojala or GGQ rules are wired into the correction
   layer.
+- `helsing_ojala_weights` exposes the local log, Cauchy, and derivative
+  product weights on one complex source panel.
+- `build_helsing_ojala_panel_matrix` currently supports the Laplace
+  single-layer log basis and returns a local matrix on the original panel
+  density nodes.
 
-Helsing-Ojala and GGQ parity are required rewrite milestones.
+Remaining Helsing-Ojala work includes normal-derivative, hypersingular, and
+smooth-amplitude `SingularityInfo` dispatch. GGQ parity is also a required
+rewrite milestone.

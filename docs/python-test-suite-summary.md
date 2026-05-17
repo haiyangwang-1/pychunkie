@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-16,
-  `24 passed` in 1.04 seconds.
+  `26 passed` in 1.36 seconds.
 
 ## Test Organization Target
 
@@ -46,6 +46,10 @@ meaningfully.
 - `tests/quadrature/test_panel.py`: dense panel weighting at the quadrature
   boundary, component-major dense operator matrix materialization, and
   adaptive close-panel integration against an analytic straight-panel
+  logarithmic integral.
+- `tests/quadrature/test_helsing_ojala.py`: Helsing-Ojala log, Cauchy, and
+  derivative product weights against oversampled Legendre moments, plus a
+  Laplace single-layer close-panel matrix against an analytic straight-panel
   logarithmic integral.
 - `tests/system/test_density.py`: component-major over panel-major density
   vector adapters.
