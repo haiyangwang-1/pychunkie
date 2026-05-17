@@ -24,6 +24,9 @@ Current implementation status:
 - Basic `Chunker` storage and point views are active.
 - `Chunker` exposes panel lengths, total length, signed area, arclength
   density, unit tangents, and signed curvature using the panel-major tensors.
+- `arclength_parameterization`, `evaluate_arclength`, and
+  `resample_by_arclength` are active for evaluating a discretized curve by
+  physical arclength and rebuilding panels with constant arclength speed.
 - Translation, uniform scaling, affine transforms, rotations, and reflections
   are active. Transforms recompute normals and quadrature weights from the
   transformed tangent instead of carrying stale geometric metadata.

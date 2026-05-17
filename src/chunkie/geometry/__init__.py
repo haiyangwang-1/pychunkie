@@ -1,5 +1,11 @@
 """Geometry storage and construction."""
 
+from .arclength import (
+    ArcLengthParameterization,
+    arclength_parameterization,
+    evaluate_arclength,
+    resample_by_arclength,
+)
 from .chunker import Chunker
 from .chunkgraph import (
     BoundaryPart,
@@ -17,6 +23,7 @@ from .transforms import affine, reflect, rotate, scale, translate
 
 __all__ = [
     "BoundaryPart",
+    "ArcLengthParameterization",
     "ChunkGraph",
     "Chunker",
     "GraphEdge",
@@ -28,14 +35,17 @@ __all__ = [
     "PointMap",
     "RegionCycle",
     "SignedEdge",
+    "arclength_parameterization",
     "chunker_from_curve",
     "chunker_from_polygon",
     "circle",
     "ellipse",
+    "evaluate_arclength",
     "flagnear",
     "flagnear_rectangle",
     "flagnear_rectangle_grid",
     "nearest_point",
+    "resample_by_arclength",
     "affine",
     "reflect",
     "rotate",

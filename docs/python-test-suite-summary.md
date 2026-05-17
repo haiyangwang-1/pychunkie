@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `81 passed` in 2.70 seconds.
+  `84 passed` in 3.67 seconds.
 
 ## Test Organization Target
 
@@ -36,6 +36,9 @@ meaningfully.
 - `tests/geometry/test_chunker_metrics.py`: migrated geometry metric and
   transform behavior for panel lengths, total length, signed area, tangents,
   curvature, translation, scaling, affine maps, rotation, and reflection.
+- `tests/geometry/test_arclength.py`: migrated arclength parameterization and
+  resampling behavior for circle node evaluation, arclength derivatives, and
+  constant-speed panels.
 - `tests/geometry/test_curve_constructors.py`: migrated curve-constructor
   behavior for closed analytic curves, open curves with free ends, and
   position-only callbacks differentiated into panel derivatives.

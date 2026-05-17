@@ -34,12 +34,16 @@ def test_old_matlab_shaped_operator_names_are_not_active_api():
 
 def test_geometry_rcip_and_system_exports_include_new_rewrite_helpers():
     for name in (
+        "ArcLengthParameterization",
         "NearestPoint",
         "affine",
+        "arclength_parameterization",
+        "evaluate_arclength",
         "flagnear_rectangle",
         "flagnear_rectangle_grid",
         "nearest_point",
         "reflect",
+        "resample_by_arclength",
         "rotate",
         "scale",
         "translate",
