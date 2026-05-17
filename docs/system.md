@@ -29,7 +29,8 @@ Current implementation status:
   flattened component-major vectors.
 - `PanelCorrection` and `build_panel_correction` provide the first dense
   replacement-block insertion boundary for adaptive and Helsing-Ojala local
-  panel matrices.
+  panel matrices. Generated GGQ self-panel replacement is active for Laplace
+  single-layer blocks.
 - `LaplaceExteriorDirichletSystem` solves the unit-circle cosine mode and
   evaluates the exterior field at an off-boundary target.
 - `SystemConfig(solve_method="flam")` routes scalar dense-reference solves

@@ -36,3 +36,23 @@ def test_panel_correction_replaces_component_major_dense_block():
     unchanged = np.ones(matrix.shape, dtype=bool)
     unchanged[np.ix_(correction.rows, correction.columns)] = False
     np.testing.assert_allclose(matrix[unchanged], original[unchanged])
+
+
+def test_panel_correction_uses_ggq_for_laplace_single_layer_self_block():
+    boundary = chunker_from_polygon([(0, 0), (1, 0), (1, 1), (0, 1)], quadrature_order=8)
+    laplace_s = kernel("laplace", selector="s")
+    matrix = dense_panel_operator_matrix(boundary.pointinfo, boundary.pointinfo, laplace_s)
+    target_point_ids = boundary.point_map.to_point_id(0, np.arange(boundary.quadrature_order))
+
+    correction = build_panel_correction(
+        boundary,
+        boundary,
+        laplace_s,
+        source_panel_id=0,
+        target_point_ids=target_point_ids,
+        method="ggq",
+    )
+    correction.apply_to(matrix)
+
+    assert np.isfinite(correction.values).all()
+    np.testing.assert_allclose(matrix[np.ix_(correction.rows, correction.columns)], correction.values)

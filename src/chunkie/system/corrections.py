@@ -11,6 +11,7 @@ from chunkie.geometry import Chunker
 from chunkie.kernels import Kernel
 from chunkie.quadrature import (
     adaptive_panel_matrix,
+    build_ggq_self_panel_matrix,
     build_helsing_ojala_panel_matrix,
     operator_matrix_from_weighted_kernel,
 )
@@ -65,8 +66,13 @@ def build_panel_correction(
         if side is None:
             raise ValueError("Helsing-Ojala panel corrections require an explicit side")
         tensor = build_helsing_ojala_panel_matrix(panel, target_points, kernel, side=side)
+    elif method0 == "ggq":
+        expected = source.point_map.to_point_id(source_panel_id, np.arange(source.quadrature_order))
+        if not np.array_equal(point_ids, expected):
+            raise ValueError("generated GGQ panel corrections currently require the matching self-panel targets")
+        tensor = build_ggq_self_panel_matrix(panel, kernel)
     else:
-        raise ValueError("panel correction method must be 'adaptive' or 'helsing_ojala'")
+        raise ValueError("panel correction method must be 'adaptive', 'helsing_ojala', or 'ggq'")
 
     rows, columns = panel_block_indices(
         source,
