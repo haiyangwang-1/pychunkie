@@ -15,4 +15,6 @@ Current implementation status:
 - `system.backends.fmm2d.apply_fmm` evaluates scalar Laplace single- and
   double-layer potentials with `fmm2dpy` and compares against dense panel
   quadrature at off-boundary targets.
-- FLAM is still a required upcoming backend milestone.
+- `system.backends.flam.factor_system` builds a `pyflam.rskelf` factor from a
+  dense reference matrix and exposes apply/solve comparisons against dense
+  linear algebra. Callback-based assembly remains upcoming.

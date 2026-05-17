@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-16,
-  `31 passed` in 1.32 seconds.
+  `32 passed` in 1.39 seconds.
 
 ## Test Organization Target
 
@@ -60,3 +60,5 @@ meaningfully.
   mode.
 - `tests/backends/test_fmm2d.py`: FMM2D Laplace single- and double-layer
   evaluation against dense panel quadrature at off-boundary targets.
+- `tests/backends/test_flam.py`: FLAM recursive-skeletonization apply and solve
+  compared against a dense reference matrix.
