@@ -10,6 +10,9 @@ kernel_values[o, i, t, s]
 where `o` is output component, `i` is input component, `t` is target point, and
 `s` is source point.
 
+The detailed mathematical reference for singularity extraction lives in
+`docs/singularity-extraction.md`.
+
 ## Singularity Metadata
 
 The rewrite uses operational singularity metadata rather than string labels.
