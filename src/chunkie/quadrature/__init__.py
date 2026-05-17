@@ -7,7 +7,12 @@ from .helsing_ojala import (
     helsing_ojala_weights,
 )
 from .legendre import legendre_rule
-from .panel import apply_panel_potential, dense_panel_matrix, dense_panel_operator_matrix
+from .panel import (
+    apply_panel_potential,
+    dense_panel_matrix,
+    dense_panel_operator_matrix,
+    operator_matrix_from_weighted_kernel,
+)
 
 __all__ = [
     "adaptive_panel_matrix",
@@ -19,4 +24,5 @@ __all__ = [
     "helsing_ojala_log_singular_matrix",
     "helsing_ojala_weights",
     "legendre_rule",
+    "operator_matrix_from_weighted_kernel",
 ]

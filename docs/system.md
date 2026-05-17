@@ -27,6 +27,9 @@ Current implementation status:
   blocks materialized through the component-major operator matrix layout.
 - Right-hand sides may be scalar panel data, component panel data, or already
   flattened component-major vectors.
+- `PanelCorrection` and `build_panel_correction` provide the first dense
+  replacement-block insertion boundary for adaptive and Helsing-Ojala local
+  panel matrices.
 - `LaplaceExteriorDirichletSystem` solves the unit-circle cosine mode and
   evaluates the exterior field at an off-boundary target.
 - General block systems, constraints, nonsmooth corrections, and accelerated
