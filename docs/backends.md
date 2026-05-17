@@ -9,3 +9,10 @@ Required backend milestones:
 
 Backends consume kernel metadata and system layout. Kernel objects do not call
 FMM or FLAM directly.
+
+Current implementation status:
+
+- `system.backends.fmm2d.apply_fmm` evaluates scalar Laplace single- and
+  double-layer potentials with `fmm2dpy` and compares against dense panel
+  quadrature at off-boundary targets.
+- FLAM is still a required upcoming backend milestone.

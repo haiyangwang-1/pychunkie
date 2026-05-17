@@ -12,7 +12,7 @@ implemented behavior, known limitations, or verification snapshots change.
 - Previous tests archived in `tests_old/`.
 - Previous docs and status notes archived in `docs_old/`.
 - Verification snapshot: `uv run pytest -q` on 2026-05-16,
-  `29 passed` in 1.38 seconds; `uv run ruff check .` passes; `uv run mypy`
+  `31 passed` in 1.32 seconds; `uv run ruff check .` passes; `uv run mypy`
   passes over `src/chunkie`.
 
 ## Source Tree
@@ -24,7 +24,7 @@ implemented behavior, known limitations, or verification snapshots change.
 | `chunkie.quadrature` | in progress | Dense panel helpers, component-major dense operator materialization, adaptive source-panel fallback, Helsing-Ojala log/Cauchy product weights, and log-basis `SingularityInfo` smooth-amplitude dispatch are active; GGQ parity and derivative-basis singularity dispatch are required upcoming milestones. |
 | `chunkie.rcip` | scaffolded | RCIP is required for the rewrite and is not treated as deferred. |
 | `chunkie.system` | in progress | Density layout, dense one-unknown/one-equation assembly, solve, evaluation, panel replacement corrections, and `LaplaceExteriorDirichletSystem` are active for the first Laplace circle regression. Trace blocks use the quadrature operator-matrix adapter. |
-| `chunkie.system.backends` | scaffolded | FMM and FLAM are required rewrite milestones after dense references are stable. |
+| `chunkie.system.backends` | in progress | FMM2D evaluates scalar Laplace single- and double-layer potentials against dense references. FLAM remains a required upcoming milestone. |
 
 ## Public API Target
 
