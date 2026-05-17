@@ -7,6 +7,7 @@ from chunkie.system import (
     BoundaryTrace,
     DensitySpace,
     IntegralSystem,
+    JumpTerm,
     LayerPotential,
     SystemConfig,
     build_rcip_state,
@@ -71,3 +72,34 @@ def test_dense_assembly_records_rcip_state_without_changing_reference_matrix():
     assert len(with_rcip.diagnostics["rcip"].corners) == 4
     assert "rcip" not in without_rcip.diagnostics
     np.testing.assert_allclose(with_rcip.to_dense(), without_rcip.to_dense())
+
+
+def test_rcip_state_attaches_finite_local_trace_operators():
+    graph = _square_graph(quadrature_order=4)
+    boundary = graph.boundary(1, side="left")
+    double = kernel("laplace", selector="d")
+    density = DensitySpace("sigma", boundary)
+    layer = LayerPotential("double", boundary, double, "sigma")
+    system = IntegralSystem(
+        "square",
+        graph,
+        (density,),
+        (
+            BoundaryEquation(
+                "dirichlet",
+                boundary,
+                (BoundaryTrace(layer, boundary, "interior", jump=JumpTerm(-0.5, "sigma")),),
+                boundary.pointinfo.positions[0],
+            ),
+        ),
+    )
+
+    state = build_rcip_state(system, config=SystemConfig(rcip_subdivisions=3))
+
+    for corner in state.corners:
+        assert corner.local_operator is not None
+        assert corner.local_operator.shape == (
+            corner.local_geometry.point_count,
+            corner.local_geometry.point_count,
+        )
+        assert np.all(np.isfinite(corner.local_operator))

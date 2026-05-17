@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `138 passed` in 16.59 seconds.
+  `139 passed` in 17.32 seconds.
 
 ## Test Organization Target
 
@@ -138,7 +138,8 @@ meaningfully.
   application and jump-only block application compared against dense assembly.
 - `tests/system/test_rcip_integration.py`: system-level RCIP corner-state
   discovery for `ChunkGraph` geometry and dense assembly diagnostics that leave
-  the reference matrix unchanged.
+  the reference matrix unchanged, plus finite local trace operators attached to
+  RCIP corner state.
 - `tests/backends/test_fmm2d.py`: FMM2D Laplace and Helmholtz single- and
   double-layer evaluation plus Stokes single-layer velocity against dense panel
   quadrature at off-boundary targets.

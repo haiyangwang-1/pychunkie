@@ -43,7 +43,9 @@ Current implementation status:
 - `build_rcip_state` discovers nonsmooth `ChunkGraph` vertices, builds dyadic
   local corner geometry plus split-panel prolongation blocks, and dense
   assembly records active RCIP state in `SystemMatrix.diagnostics` without
-  changing the dense reference matrix.
+  changing the dense reference matrix. When a trace term is present, the state
+  includes the finite dense local trace operator and one-sided jump for each
+  corner.
 - `LaplaceExteriorDirichletSystem` solves the unit-circle cosine mode and
   evaluates the exterior field at an off-boundary target.
 - The smooth Laplace examples build the same system records directly for
@@ -65,7 +67,7 @@ Current implementation status:
   point-view kernel contractions without materializing the global dense matrix.
 - `fmm_matvec` applies supported scalar Laplace trace terms with FMM2D for
   off-boundary systems and compares against dense assembly.
-- Recursive RCIP Schur updates, nonsmooth correction insertion, and broader
+- Recursive RCIP operator compression, nonsmooth correction insertion, and broader
   accelerated matvecs remain required upcoming work.
 - `docs/structured-rskelf-transmission.md` records the transmission-system and
   structured RSKELF design target for multiple boundaries and densities.

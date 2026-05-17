@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from chunkie.geometry import ChunkGraph
+from chunkie.quadrature import dense_panel_operator_matrix
 from chunkie.rcip import (
     RCIPCornerState,
     RCIPState,
@@ -14,6 +15,7 @@ from chunkie.rcip import (
 )
 
 from .config import SystemConfig
+from .trace import BoundaryTrace
 
 
 def build_rcip_state(system, *, config: SystemConfig | None = None) -> RCIPState:
@@ -29,6 +31,7 @@ def build_rcip_state(system, *, config: SystemConfig | None = None) -> RCIPState
     nodes = geometry.edges[0].chunker.nodes
     weights = geometry.edges[0].chunker.reference_weights
     _, _, interpolation, weighted_transfer = build_split_panel_prolongation(nodes, weights)
+    trace_template = _first_trace_term(system)
     corners: list[RCIPCornerState] = []
     for vertex in geometry.vertices:
         edge_ids = tuple(int(edge_id) for edge_id in vertex.incident_edges)
@@ -56,6 +59,11 @@ def build_rcip_state(system, *, config: SystemConfig | None = None) -> RCIPState
                 prolongation=block_prolongation,
                 weighted_prolongation=weighted_block,
                 compressed_inverse=np.eye(star_size),
+                local_operator=(
+                    _local_corner_trace_operator(local_geometry, trace_template)
+                    if trace_template is not None
+                    else None
+                ),
             )
         )
 
@@ -82,3 +90,30 @@ def _corner_directions(graph: ChunkGraph, vertex_id: int, edge_ids: tuple[int, .
             raise ValueError("incident edge does not touch vertex")
         directions.append(other - vertex_position)
     return np.column_stack(directions)
+
+
+def _first_trace_term(system) -> BoundaryTrace | None:
+    for equation in system.equations:
+        for term in equation.terms:
+            if isinstance(term, BoundaryTrace):
+                return term
+    return None
+
+
+def _local_corner_trace_operator(local_geometry, trace: BoundaryTrace) -> np.ndarray:
+    matrix = dense_panel_operator_matrix(
+        local_geometry.pointinfo,
+        local_geometry.pointinfo,
+        trace.layer.kernel,
+    )
+    if trace.layer.kernel.family == "laplace" and trace.layer.kernel.selector in {"d", "sp"}:
+        diagonal = (-local_geometry.signed_curvature / (4.0 * np.pi)).T.reshape(-1)
+        np.fill_diagonal(matrix, diagonal * local_geometry.pointinfo.flat_weights)
+    if trace.jump is not None:
+        if matrix.shape[0] != matrix.shape[1]:
+            raise ValueError("local RCIP jump terms require square trace operators")
+        # This local matrix is the dense reference object used by Schur
+        # compression. Global insertion is separate; here the one-sided jump is
+        # stored in the same local ordering as the refined corner panels.
+        matrix = matrix + trace.jump.coefficient * np.eye(matrix.shape[0])
+    return matrix

@@ -37,6 +37,10 @@ class LocalCornerGeometry:
         return self.quadrature_order * self.panel_count
 
     @property
+    def signed_curvature(self) -> NDArray[np.floating]:
+        return np.zeros((self.quadrature_order, self.panel_count), dtype=float)
+
+    @property
     def pointinfo(self) -> PointInfoView:
         second_derivatives = np.zeros_like(self.derivatives)
         return PointInfoView(

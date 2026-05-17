@@ -19,6 +19,7 @@ class RCIPCornerState:
     prolongation: NDArray[np.floating]
     weighted_prolongation: NDArray[np.floating]
     compressed_inverse: NDArray[np.generic]
+    local_operator: NDArray[np.generic] | None = None
 
 
 @dataclass(frozen=True)

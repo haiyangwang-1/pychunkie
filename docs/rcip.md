@@ -21,9 +21,12 @@ Current implementation status:
   integration.
 - `interpolate_density` applies prolongation matrices to scalar or component
   density values.
+- `build_rcip_state` attaches finite dense local trace operators for graph
+  corner systems when a boundary trace is available, including the one-sided
+  jump in the local refined-panel ordering.
 
 Required upcoming work:
 
-- local corner operator assembly,
 - interpolation of reconstructed corner densities,
+- recursive local compression from the attached operators,
 - and system-level insertion/evaluation through `chunkie.system.nonsmooth`.
