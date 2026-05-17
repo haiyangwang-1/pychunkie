@@ -7,6 +7,7 @@ from .equation import BoundaryEquation, IntegralSystem
 from .laplace import LaplaceExteriorDirichletSystem
 from .layer import LayerPotential
 from .matrix import SystemMatrix
+from .matvec import fmm_matvec
 from .solution import SystemSolution
 from .trace import BoundaryTrace, JumpTerm
 
@@ -25,4 +26,5 @@ __all__ = [
     "SystemMatrix",
     "SystemSolution",
     "build_panel_correction",
+    "fmm_matvec",
 ]

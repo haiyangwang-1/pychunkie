@@ -40,6 +40,8 @@ Current implementation status:
   through the FLAM backend before reconstructing the density object.
 - Field evaluation honors `SystemConfig.evaluation_method="fmm"` for supported
   Laplace layer potentials and compares against dense evaluation.
+- `fmm_matvec` applies supported scalar Laplace trace terms with FMM2D for
+  off-boundary systems and compares against dense assembly.
 - General `ChunkGraph` systems, constraints, nonsmooth corrections, and
   accelerated matvecs remain required upcoming work.
 - `docs/structured-rskelf-transmission.md` records the transmission-system and

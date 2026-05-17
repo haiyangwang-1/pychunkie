@@ -98,6 +98,10 @@ def unknown_column_slices(unknowns) -> dict[str, slice]:
     return _unknown_column_slices(unknowns)
 
 
+def equation_row_slices(equations) -> dict[str, slice]:
+    return _equation_row_slices(equations)
+
+
 def _equation_row_slices(equations) -> dict[str, slice]:
     offset = 0
     out: dict[str, slice] = {}
