@@ -36,13 +36,15 @@ absorbed into panel data before Helsing-Ojala or GGQ weights are applied.
   layer.
 - `helsing_ojala_weights` exposes the local log, Cauchy, and derivative
   product weights on one complex source panel.
-- `build_helsing_ojala_panel_matrix` supports Laplace single-layer log weights,
-  Laplace double-layer Cauchy weights, and log-basis kernels such as Helmholtz
-  single layer by combining special quadrature for the declared singular part
-  with ordinary Gauss quadrature for the smooth remainder.
+- `build_helsing_ojala_panel_matrix` supports Laplace-basis log, principal
+  value, and hypersingular derivative terms by combining special quadrature for
+  the declared singular part with ordinary Gauss quadrature for the smooth
+  remainder.
 - `helsing_ojala_log_singular_matrix` consumes log-basis terms from
   `SingularityInfo`, including smooth target/source amplitudes such as the
   Helmholtz $J_0(k\rho)$ factor.
+- `helsing_ojala_singular_matrix` is the broader metadata dispatch path for
+  `LaplaceBasis(())`, `LaplaceBasis((a,))`, and `LaplaceBasis((a,b))`.
 - `setup_ggq` and `ggq_removable_rules` create generated GGQ-style neighbor
   and self split rules with interpolation matrices. Removable self-rule parity
   is checked against the archived MATLAB fixture in `tests/golden/quadggq.mat`;
@@ -50,5 +52,5 @@ absorbed into panel data before Helsing-Ojala or GGQ weights are applied.
 - `build_ggq_self_panel_matrix` uses generated self split rules to build a
   Laplace single-layer self-panel matrix on the original source nodes.
 
-Remaining Helsing-Ojala work includes normal-derivative and hypersingular
-`SingularityInfo` dispatch. GGQ parity is also a required rewrite milestone.
+Remaining GGQ parity and global correction coverage are required rewrite
+milestones.

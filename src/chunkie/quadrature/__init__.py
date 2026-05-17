@@ -14,6 +14,7 @@ from .ggq import (
 from .helsing_ojala import (
     build_helsing_ojala_panel_matrix,
     helsing_ojala_log_singular_matrix,
+    helsing_ojala_singular_matrix,
     helsing_ojala_weights,
 )
 from .legendre import legendre_rule
@@ -35,6 +36,7 @@ __all__ = [
     "GGQRuleSet",
     "ggq_removable_rules",
     "helsing_ojala_log_singular_matrix",
+    "helsing_ojala_singular_matrix",
     "helsing_ojala_weights",
     "legendre_rule",
     "operator_matrix_from_weighted_kernel",

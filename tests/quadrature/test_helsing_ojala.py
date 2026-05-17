@@ -77,6 +77,39 @@ def test_helsing_ojala_panel_matrix_integrates_close_laplace_double_layer():
     np.testing.assert_allclose(value, exact, rtol=1.0e-12, atol=1.0e-12)
 
 
+def test_helsing_ojala_panel_matrix_integrates_close_laplace_gradient():
+    panel = chunker_from_polygon(np.array([[0.0, 1.0], [0.0, 0.0]]), closed=False, quadrature_order=14).panel(0)
+    target = np.array([[0.37], [2.0e-3]])
+    laplace_gradient = kernel("laplace", selector="sg")
+
+    matrix = build_helsing_ojala_panel_matrix(panel, target, laplace_gradient, side="i")
+    value = np.sum(matrix[:, 0, 0], axis=1)
+
+    x0 = target[0, 0]
+    height = target[1, 0]
+    left = x0 - 1.0
+    right = x0
+    expected_x = -(np.log(right**2 + height**2) - np.log(left**2 + height**2)) / (4.0 * np.pi)
+    expected_y = (np.arctan(left / height) - np.arctan(right / height)) / (2.0 * np.pi)
+
+    assert matrix.shape == (2, 1, 1, panel.nodes.size)
+    np.testing.assert_allclose(value, [expected_x, expected_y], rtol=1.0e-11, atol=1.0e-11)
+
+
+def test_helsing_ojala_derivative_basis_panel_matrices_match_adaptive_reference():
+    boundary = chunker_from_polygon([(0, 0), (1, 0), (1, 1), (0, 1)], quadrature_order=16)
+    panel = boundary.panel(0)
+    target = np.array([[0.37], [3.0e-2]])
+
+    for selector in ("sg", "dg"):
+        laplace_kernel = kernel("laplace", selector=selector)
+        matrix = build_helsing_ojala_panel_matrix(panel, target, laplace_kernel, side="i")
+        expected = adaptive_panel_matrix(panel, target, laplace_kernel, tolerance=1.0e-12)
+
+        assert matrix.shape == expected.shape
+        np.testing.assert_allclose(matrix, expected, rtol=2.0e-9, atol=2.0e-9)
+
+
 def test_helsing_ojala_log_singular_matrix_consumes_smooth_amplitudes():
     boundary = chunker_from_polygon([(0, 0), (1, 0), (1, 1), (0, 1)], quadrature_order=10)
     panel = boundary.panel(0)

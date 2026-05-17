@@ -16,51 +16,37 @@ def build_helsing_ojala_panel_matrix(
     *,
     side: str,
 ) -> NDArray[np.generic]:
-    """Build the first Helsing-Ojala panel block for Laplace layer kernels.
+    """Build a Helsing-Ojala corrected panel block from singular metadata."""
 
-    This is deliberately narrow: it establishes the local panel-matrix contract
-    and the log/Cauchy product weights. Other Laplace-basis terms will land as
-    separate tested slices before global correction insertion uses this path.
-    """
-
-    if kernel.family != "laplace" or kernel.selector not in {"s", "d"}:
-        return _log_singular_panel_matrix(panel, target, kernel, side=side)
-
-    source = _panel_complex_points(panel)
-    source_normal = _panel_complex_normals(panel)
-    source_wxp = _panel_complex_speed_weights(panel)
-    start, end = _panel_endpoints(panel)
-    target_points = _target_complex_points(target)
-    special = helsing_ojala_weights(
-        target_points,
-        source,
-        source_normal,
-        source_wxp,
-        start,
-        end,
-        side,
-        nout=2 if kernel.selector == "d" else 1,
-    )
-    weights = special[0] if kernel.selector == "s" else np.real(special[1])
-    return weights[None, None, :, :]
+    return _singular_panel_matrix(panel, target, kernel, side=side)
 
 
-def _log_singular_panel_matrix(
+def _corrected_singular_panel_matrix(
     panel: PanelView,
     target,
     kernel: Kernel,
     *,
     side: str,
 ) -> NDArray[np.generic]:
-    if any(term.basis.derivative for term in kernel.singularity.expansion.terms):
-        raise NotImplementedError("Helsing-Ojala panel matrix does not yet dispatch derivative bases")
-    singular_special = helsing_ojala_log_singular_matrix(panel, target, kernel, side=side)
+    singular_special = helsing_ojala_singular_matrix(panel, target, kernel, side=side)
     dense_values = kernel(panel, target) * panel.weights[None, None, None, :]
     singular_dense = kernel.singularity.expansion.evaluate(panel, target) * panel.weights[None, None, None, :]
     # The singular amplitudes may be target/source dependent. Helsing-Ojala
     # handles that declared singular part, while the finite remainder stays on
     # ordinary Gauss weights in the original panel basis.
     return singular_special + dense_values - singular_dense
+
+
+def _singular_panel_matrix(
+    panel: PanelView,
+    target,
+    kernel: Kernel,
+    *,
+    side: str,
+) -> NDArray[np.generic]:
+    if not kernel.singularity.expansion.terms:
+        return kernel(panel, target) * panel.weights[None, None, None, :]
+    return _corrected_singular_panel_matrix(panel, target, kernel, side=side)
 
 
 def helsing_ojala_log_singular_matrix(
@@ -70,19 +56,29 @@ def helsing_ojala_log_singular_matrix(
     *,
     side: str,
 ) -> NDArray[np.generic]:
-    """Build the log-basis singular part declared by ``kernel.singularity``.
+    """Build the log-basis singular part declared by ``kernel.singularity``."""
 
-    Smooth amplitudes are evaluated at target/source node pairs and multiplied
-    columnwise into the Helsing-Ojala log weights. Derivative Laplace bases need
-    different product weights, so they are rejected until those paths are added.
-    """
+    if any(term.basis.derivative for term in kernel.singularity.expansion.terms):
+        raise NotImplementedError("helsing_ojala_log_singular_matrix only accepts log-basis terms")
+    return helsing_ojala_singular_matrix(panel, target, kernel, side=side)
+
+
+def helsing_ojala_singular_matrix(
+    panel: PanelView,
+    target,
+    kernel: Kernel,
+    *,
+    side: str,
+) -> NDArray[np.generic]:
+    """Build the declared Laplace-basis singular part with product weights."""
 
     source = _panel_complex_points(panel)
     source_normal = _panel_complex_normals(panel)
     source_wxp = _panel_complex_speed_weights(panel)
     start, end = _panel_endpoints(panel)
     target_points = _target_complex_points(target)
-    log_weights = helsing_ojala_weights(
+    max_derivative = max(len(term.basis.derivative) for term in kernel.singularity.expansion.terms)
+    special_weights = helsing_ojala_weights(
         target_points,
         source,
         source_normal,
@@ -90,20 +86,44 @@ def helsing_ojala_log_singular_matrix(
         start,
         end,
         side,
-        nout=1,
-    )[0]
+        nout=min(max_derivative + 1, 4),
+    )
     out = np.zeros((kernel.output_dim, kernel.input_dim, target_points.size, source.size), dtype=complex)
     for term in kernel.singularity.expansion.terms:
-        if term.basis.derivative:
-            raise NotImplementedError("Helsing-Ojala singular dispatch currently supports log-basis terms only")
+        basis_weights = _laplace_basis_product_weights(term.basis.derivative, special_weights)
         amplitude = term.coefficient_values(
             panel,
             target,
             output_dim=kernel.output_dim,
             input_dim=kernel.input_dim,
         )
-        out = out + amplitude * log_weights[None, None, :, :]
+        out = out + amplitude * basis_weights[None, None, :, :]
     return np.real_if_close(out)
+
+
+def _laplace_basis_product_weights(
+    derivative: tuple[int, ...],
+    special_weights: tuple[NDArray[np.complexfloating], ...],
+) -> NDArray[np.generic]:
+    if len(derivative) == 0:
+        return special_weights[0]
+    if len(derivative) == 1:
+        # For C = i/(2*pi) int ds_y/(y-z), the target-gradient components of
+        # G=-(1/2*pi)log|z-y| are (G_x, G_y) = (imag(C), real(C)).
+        cauchy = special_weights[1]
+        return np.imag(cauchy) if derivative[0] == 0 else np.real(cauchy)
+    if len(derivative) == 2:
+        # The differentiated Cauchy weight D = i/(2*pi) int ds_y/(y-z)^2
+        # encodes the symmetric Hessian as
+        # G_xx=imag(D), G_xy=G_yx=real(D), and G_yy=-imag(D).
+        first_derivative = special_weights[2]
+        a, b = derivative
+        if a == 0 and b == 0:
+            return np.imag(first_derivative)
+        if a == 1 and b == 1:
+            return -np.imag(first_derivative)
+        return np.real(first_derivative)
+    raise NotImplementedError("Helsing-Ojala dispatch supports Laplace bases through second derivatives")
 
 
 def helsing_ojala_weights(

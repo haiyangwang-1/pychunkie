@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `86 passed` in 3.50 seconds.
+  `88 passed` in 3.23 seconds.
 
 ## Test Organization Target
 
@@ -72,8 +72,9 @@ meaningfully.
 - `tests/quadrature/test_helsing_ojala.py`: Helsing-Ojala log, Cauchy, and
   derivative product weights against oversampled Legendre moments, plus a
   Laplace single-layer close-panel matrix, Laplace double-layer close-panel
-  matrix, Helmholtz log-basis smooth-amplitude dispatch, and Helmholtz
-  single-layer close-panel correction against the adaptive reference path.
+  matrix, Laplace gradient/double-gradient derivative-basis dispatch, Helmholtz
+  log-basis smooth-amplitude dispatch, and Helmholtz single-layer close-panel
+  correction against the adaptive reference path.
 - `tests/quadrature/test_ggq.py`: generated GGQ-style self split rules,
   interpolation matrices, archived MATLAB removable-rule fixture parity, and a
   Laplace single-layer self-panel matrix against an analytic straight-segment
