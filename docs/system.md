@@ -45,6 +45,8 @@ Current implementation status:
   through the FLAM backend before reconstructing the density object.
 - Field evaluation honors `SystemConfig.evaluation_method="fmm"` for supported
   Laplace layer potentials and compares against dense evaluation.
+- `matrix_free_matvec` and `SystemOperator` apply trace terms directly through
+  point-view kernel contractions without materializing the global dense matrix.
 - `fmm_matvec` applies supported scalar Laplace trace terms with FMM2D for
   off-boundary systems and compares against dense assembly.
 - Constraints, recursive RCIP Schur updates, nonsmooth correction insertion,

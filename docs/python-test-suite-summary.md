@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `95 passed` in 3.91 seconds.
+  `97 passed` in 4.47 seconds.
 
 ## Test Organization Target
 
@@ -104,6 +104,8 @@ meaningfully.
   off-boundary evaluation for the unit-circle cosine mode.
 - `tests/system/test_fmm_matvec.py`: scalar Laplace FMM system matvec for
   off-boundary trace equations compared against dense assembly.
+- `tests/system/test_matrix_free_matvec.py`: dense-reference matrix-free trace
+  application and jump-only block application compared against dense assembly.
 - `tests/system/test_rcip_integration.py`: system-level RCIP corner-state
   discovery for `ChunkGraph` geometry and dense assembly diagnostics that leave
   the reference matrix unchanged.
