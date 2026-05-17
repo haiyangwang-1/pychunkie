@@ -1,10 +1,12 @@
 import numpy as np
 from numpy.polynomial.legendre import leggauss
+from scipy.special import jv
 
 from chunkie.geometry import chunker_from_polygon
 from chunkie.kernels import kernel
 from chunkie.quadrature import (
     build_helsing_ojala_panel_matrix,
+    helsing_ojala_log_singular_matrix,
     helsing_ojala_weights,
 )
 
@@ -55,3 +57,22 @@ def test_helsing_ojala_panel_matrix_integrates_close_laplace_single_layer():
 
     assert matrix.shape == (1, 1, 1, panel.nodes.size)
     np.testing.assert_allclose(value, exact, rtol=1.0e-12, atol=1.0e-12)
+
+
+def test_helsing_ojala_log_singular_matrix_consumes_smooth_amplitudes():
+    boundary = chunker_from_polygon([(0, 0), (1, 0), (1, 1), (0, 1)], quadrature_order=10)
+    panel = boundary.panel(0)
+    target = np.array([[0.5], [2.0e-3]])
+    wavenumber = 1.7
+
+    helmholtz_s = kernel("helmholtz", selector="s", wavenumber=wavenumber)
+    laplace_s = kernel("laplace", selector="s")
+    singular = helsing_ojala_log_singular_matrix(panel, target, helmholtz_s, side="i")
+    laplace_weights = build_helsing_ojala_panel_matrix(panel, target, laplace_s, side="i")
+
+    source_positions = panel.positions
+    distances = np.linalg.norm(target[:, :, None] - source_positions[:, None, :], axis=0)
+    expected = jv(0, wavenumber * distances)[None, None, :, :] * laplace_weights
+
+    assert singular.shape == (1, 1, 1, panel.nodes.size)
+    np.testing.assert_allclose(singular, expected, rtol=1.0e-13, atol=1.0e-13)

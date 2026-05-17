@@ -3,6 +3,7 @@
 from .adaptive import adaptive_panel_matrix, build_adaptive_panel_matrix
 from .helsing_ojala import (
     build_helsing_ojala_panel_matrix,
+    helsing_ojala_log_singular_matrix,
     helsing_ojala_weights,
 )
 from .legendre import legendre_rule
@@ -15,6 +16,7 @@ __all__ = [
     "build_helsing_ojala_panel_matrix",
     "dense_panel_matrix",
     "dense_panel_operator_matrix",
+    "helsing_ojala_log_singular_matrix",
     "helsing_ojala_weights",
     "legendre_rule",
 ]

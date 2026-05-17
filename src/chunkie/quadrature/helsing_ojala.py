@@ -44,6 +44,49 @@ def build_helsing_ojala_panel_matrix(
     return weights[None, None, :, :]
 
 
+def helsing_ojala_log_singular_matrix(
+    panel: PanelView,
+    target,
+    kernel: Kernel,
+    *,
+    side: str,
+) -> NDArray[np.generic]:
+    """Build the log-basis singular part declared by ``kernel.singularity``.
+
+    Smooth amplitudes are evaluated at target/source node pairs and multiplied
+    columnwise into the Helsing-Ojala log weights. Derivative Laplace bases need
+    different product weights, so they are rejected until those paths are added.
+    """
+
+    source = _panel_complex_points(panel)
+    source_normal = _panel_complex_normals(panel)
+    source_wxp = _panel_complex_speed_weights(panel)
+    start, end = _panel_endpoints(panel)
+    target_points = _target_complex_points(target)
+    log_weights = helsing_ojala_weights(
+        target_points,
+        source,
+        source_normal,
+        source_wxp,
+        start,
+        end,
+        side,
+        nout=1,
+    )[0]
+    out = np.zeros((kernel.output_dim, kernel.input_dim, target_points.size, source.size), dtype=complex)
+    for term in kernel.singularity.expansion.terms:
+        if term.basis.derivative:
+            raise NotImplementedError("Helsing-Ojala singular dispatch currently supports log-basis terms only")
+        amplitude = term.coefficient_values(
+            panel,
+            target,
+            output_dim=kernel.output_dim,
+            input_dim=kernel.input_dim,
+        )
+        out = out + amplitude * log_weights[None, None, :, :]
+    return np.real_if_close(out)
+
+
 def helsing_ojala_weights(
     target: ArrayLike,
     source: ArrayLike,

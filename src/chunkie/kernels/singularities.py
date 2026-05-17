@@ -80,8 +80,14 @@ class LaplaceSingularTerm:
     coefficient: Coefficient = 1.0
     meaning: str = ""
 
-    def evaluate(self, source: Any, target: Any, *, output_dim: int, input_dim: int) -> NDArray[np.generic]:
-        basis_values = self.basis.evaluate(source, target)
+    def coefficient_values(
+        self,
+        source: Any,
+        target: Any,
+        *,
+        output_dim: int,
+        input_dim: int,
+    ) -> NDArray[np.generic]:
         coefficient = self.coefficient(source, target) if callable(self.coefficient) else self.coefficient
         coefficient_array = np.asarray(coefficient)
 
@@ -91,7 +97,11 @@ class LaplaceSingularTerm:
             coefficient_array = coefficient_array[:, :, None, None]
         elif coefficient_array.ndim != 4:
             raise ValueError("singularity coefficient must be scalar, [out, in], or [out, in, target, source]")
+        return coefficient_array
 
+    def evaluate(self, source: Any, target: Any, *, output_dim: int, input_dim: int) -> NDArray[np.generic]:
+        basis_values = self.basis.evaluate(source, target)
+        coefficient_array = self.coefficient_values(source, target, output_dim=output_dim, input_dim=input_dim)
         return coefficient_array * basis_values[None, None, :, :]
 
     def scaled(self, factor: complex) -> LaplaceSingularTerm:

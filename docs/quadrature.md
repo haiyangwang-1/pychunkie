@@ -35,7 +35,9 @@ absorbed into panel data before Helsing-Ojala or GGQ weights are applied.
 - `build_helsing_ojala_panel_matrix` currently supports the Laplace
   single-layer log basis and returns a local matrix on the original panel
   density nodes.
+- `helsing_ojala_log_singular_matrix` consumes log-basis terms from
+  `SingularityInfo`, including smooth target/source amplitudes such as the
+  Helmholtz $J_0(k\rho)$ factor.
 
-Remaining Helsing-Ojala work includes normal-derivative, hypersingular, and
-smooth-amplitude `SingularityInfo` dispatch. GGQ parity is also a required
-rewrite milestone.
+Remaining Helsing-Ojala work includes normal-derivative and hypersingular
+`SingularityInfo` dispatch. GGQ parity is also a required rewrite milestone.
