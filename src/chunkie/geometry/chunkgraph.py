@@ -9,6 +9,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from .chunker import Chunker
+from .constructors import chunker_from_polygon
 from .points import PointInfoView
 
 
@@ -87,6 +88,54 @@ class ChunkGraph:
             label="interior",
         )
         return cls(vertices=[start], edges=[edge], regions=[exterior, interior])
+
+    @classmethod
+    def from_vertices(
+        cls,
+        vertices,
+        edge_vertices,
+        *,
+        quadrature_order: int = 16,
+        exterior_region: int = 0,
+        interior_region: int = 1,
+    ) -> ChunkGraph:
+        vertex_array = _as_vertex_array(vertices)
+        edge_array = _as_edge_array(edge_vertices)
+        graph_vertices = [
+            GraphVertex(id=index, position=vertex_array[:, index], incident_edges=tuple(np.where(edge_array == index)[1]))
+            for index in range(vertex_array.shape[1])
+        ]
+        graph_edges: list[GraphEdge] = []
+        for edge_id in range(edge_array.shape[1]):
+            start_vertex = int(edge_array[0, edge_id])
+            end_vertex = int(edge_array[1, edge_id])
+            edge_chunker = chunker_from_polygon(
+                vertex_array[:, [start_vertex, end_vertex]],
+                quadrature_order=quadrature_order,
+                closed=False,
+            )
+            # Directed region metadata follows the usual planar convention:
+            # walking an interface in its stored orientation, the bounded
+            # material region is on the left and the exterior is on the right.
+            graph_edges.append(
+                GraphEdge(
+                    id=edge_id,
+                    chunker=edge_chunker,
+                    start_vertex=start_vertex,
+                    end_vertex=end_vertex,
+                    orientation=1,
+                    left_region=interior_region,
+                    right_region=exterior_region,
+                )
+            )
+        exterior = GraphRegion(exterior_region, (), bounded=False, label="exterior")
+        interior = GraphRegion(
+            interior_region,
+            (RegionCycle(tuple(SignedEdge(edge_id=edge_id, orientation=1) for edge_id in range(edge_array.shape[1]))),),
+            bounded=True,
+            label="interior",
+        )
+        return cls(vertices=graph_vertices, edges=graph_edges, regions=[exterior, interior])
 
     @property
     def point_count(self) -> int:
@@ -229,3 +278,25 @@ def _cycle_vertices(graph: ChunkGraph, cycle: RegionCycle) -> NDArray[np.floatin
     if not parts:
         return np.zeros((2, 0))
     return np.concatenate(parts, axis=1)
+
+
+def _as_vertex_array(vertices) -> NDArray[np.floating]:
+    vertex_array = np.asarray(vertices, dtype=float)
+    if vertex_array.ndim != 2:
+        raise ValueError("vertices must be a two-dimensional array")
+    if vertex_array.shape[0] != 2 and vertex_array.shape[1] == 2:
+        vertex_array = vertex_array.T
+    if vertex_array.shape[0] != 2:
+        raise ValueError("vertices must have shape (2, vertex_count) or (vertex_count, 2)")
+    return vertex_array
+
+
+def _as_edge_array(edge_vertices) -> NDArray[np.integer]:
+    edge_array = np.asarray(edge_vertices, dtype=np.int64)
+    if edge_array.ndim != 2:
+        raise ValueError("edge_vertices must be a two-dimensional array")
+    if edge_array.shape[0] != 2 and edge_array.shape[1] == 2:
+        edge_array = edge_array.T
+    if edge_array.shape[0] != 2:
+        raise ValueError("edge_vertices must have shape (2, edge_count) or (edge_count, 2)")
+    return edge_array

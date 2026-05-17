@@ -36,7 +36,8 @@ Current implementation status:
   implementations. Curve constructors accept full `(positions, derivatives,
   second_derivatives)` callbacks and position-only callbacks, with finite
   differences used only at that adapter boundary.
-- `ChunkGraph` records, merged point views, edge point views, region boundary
-  parts, and single-cycle region classification are active. Multi-edge
-  refinement, orientation-reversed boundary views, and full multi-region
-  system integration remain required upcoming work.
+- `ChunkGraph.from_vertices` builds multi-edge graphs from vertices and
+  directed edge indices. `ChunkGraph` records, merged point views, edge point
+  views, region boundary parts, and single-cycle region classification are
+  active. Multi-edge refinement, orientation-reversed boundary views, and full
+  multi-region system integration remain required upcoming work.

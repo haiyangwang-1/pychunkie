@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `74 passed` in 2.69 seconds.
+  `76 passed` in 2.48 seconds.
 
 ## Test Organization Target
 
@@ -30,6 +30,9 @@ meaningfully.
 - `tests/geometry/test_chunker.py`: panel-major `Chunker` storage, normals,
   point maps, polygon construction, near-panel flags, `ChunkGraph` merged
   point views, boundary parts, and single-boundary region classification.
+- `tests/geometry/test_chunkgraph.py`: multi-edge `ChunkGraph` construction
+  from vertices and directed edges, edge geometry, merged boundary parts, and
+  square region classification.
 - `tests/geometry/test_chunker_metrics.py`: migrated geometry metric and
   transform behavior for panel lengths, total length, signed area, tangents,
   curvature, translation, scaling, affine maps, rotation, and reflection.
