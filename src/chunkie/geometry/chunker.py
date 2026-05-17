@@ -88,6 +88,33 @@ class Chunker:
             point_map=self.point_map,
         )
 
+    @property
+    def arclength_density(self) -> NDArray[np.floating]:
+        return np.linalg.norm(self.derivatives, axis=0)
+
+    @property
+    def panel_lengths(self) -> NDArray[np.floating]:
+        return np.sum(self.weights, axis=0)
+
+    @property
+    def length(self) -> float:
+        return float(np.sum(self.weights))
+
+    @property
+    def area(self) -> float:
+        if self.coordinate_dim != 2:
+            raise ValueError("area currently supports two-dimensional curves")
+        x, y = self.positions
+        dx, dy = self.derivatives
+        # Derivatives are with respect to each panel's Legendre reference
+        # coordinate, so the line integral uses reference weights directly.
+        integrand = x * dy - y * dx
+        return float(0.5 * np.sum(integrand * self.reference_weights[:, None]))
+
+    @property
+    def tangents(self) -> NDArray[np.floating]:
+        return self.derivatives / self.arclength_density[None, :, :]
+
     def panel(self, panel_id: int) -> PanelView:
         if not 0 <= panel_id < self.panel_count:
             raise IndexError("panel_id out of range")
@@ -122,13 +149,63 @@ class Chunker:
             else np.asarray(center, dtype=float).reshape(self.coordinate_dim, 1, 1)
         )
         scale = float(factor)
+        return self.affine(scale * np.eye(self.coordinate_dim), offset=(1.0 - scale) * center_array[:, 0, 0])
+
+    def affine(self, matrix: ArrayLike, *, offset: ArrayLike | None = None) -> Chunker:
+        matrix_array = np.asarray(matrix, dtype=float)
+        if matrix_array.shape != (self.coordinate_dim, self.coordinate_dim):
+            raise ValueError("affine matrix must have shape (coordinate_dim, coordinate_dim)")
+        offset_array = (
+            np.zeros((self.coordinate_dim, 1, 1))
+            if offset is None
+            else np.asarray(offset, dtype=float).reshape(self.coordinate_dim, 1, 1)
+        )
+
+        # Affine transforms are an adapter boundary for geometry: positions and
+        # derivatives transform linearly, while normals/weights are recomputed
+        # from the transformed tangent so orientation and scaling stay coherent.
+        positions = np.einsum("ab,bsS->asS", matrix_array, self.positions) + offset_array
+        derivatives = np.einsum("ab,bsS->asS", matrix_array, self.derivatives)
+        second_derivatives = np.einsum("ab,bsS->asS", matrix_array, self.second_derivatives)
+        weights = np.linalg.norm(derivatives, axis=0) * self.reference_weights[:, None]
+        normals = right_normals(derivatives)
         return replace(
             self,
-            positions=center_array + scale * (self.positions - center_array),
-            derivatives=scale * self.derivatives,
-            second_derivatives=scale * self.second_derivatives,
-            weights=abs(scale) * self.weights,
+            positions=positions,
+            derivatives=derivatives,
+            second_derivatives=second_derivatives,
+            normals=normals,
+            weights=weights,
+            orientation=_transformed_orientation(self.orientation, matrix_array),
         )
+
+    def rotated(
+        self,
+        angle: float,
+        *,
+        center: ArrayLike | None = None,
+        target_center: ArrayLike | None = None,
+    ) -> Chunker:
+        source_center = np.zeros(self.coordinate_dim) if center is None else np.asarray(center, dtype=float)
+        destination = source_center if target_center is None else np.asarray(target_center, dtype=float)
+        c = float(np.cos(angle))
+        s = float(np.sin(angle))
+        matrix = np.array([[c, -s], [s, c]])
+        return self.affine(matrix, offset=destination - matrix @ source_center)
+
+    def reflected(
+        self,
+        angle: float,
+        *,
+        center: ArrayLike | None = None,
+        target_center: ArrayLike | None = None,
+    ) -> Chunker:
+        source_center = np.zeros(self.coordinate_dim) if center is None else np.asarray(center, dtype=float)
+        destination = source_center if target_center is None else np.asarray(target_center, dtype=float)
+        c = float(np.cos(2.0 * angle))
+        s = float(np.sin(2.0 * angle))
+        matrix = np.array([[c, s], [s, -c]])
+        return self.affine(matrix, offset=destination - matrix @ source_center)
 
 
 def right_normals(derivatives: NDArray[np.floating]) -> NDArray[np.floating]:
@@ -145,3 +222,14 @@ def right_normals(derivatives: NDArray[np.floating]) -> NDArray[np.floating]:
     normals[0] = derivatives[1] / speed
     normals[1] = -derivatives[0] / speed
     return normals
+
+
+def _transformed_orientation(
+    orientation: Literal["ccw", "cw", "open"] | None,
+    matrix: NDArray[np.floating],
+) -> Literal["ccw", "cw", "open"] | None:
+    if orientation in {None, "open"}:
+        return orientation
+    if np.linalg.det(matrix) >= 0.0:
+        return orientation
+    return "cw" if orientation == "ccw" else "ccw"

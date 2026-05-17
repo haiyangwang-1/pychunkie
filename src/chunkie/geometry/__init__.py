@@ -13,6 +13,7 @@ from .chunkgraph import (
 from .constructors import chunker_from_curve, chunker_from_polygon, circle, ellipse
 from .near import flagnear
 from .points import PanelView, PointInfoView, PointMap
+from .transforms import affine, reflect, rotate, scale, translate
 
 __all__ = [
     "BoundaryPart",
@@ -31,4 +32,9 @@ __all__ = [
     "circle",
     "ellipse",
     "flagnear",
+    "affine",
+    "reflect",
+    "rotate",
+    "scale",
+    "translate",
 ]
