@@ -50,6 +50,30 @@ def test_dense_assembly_accepts_chunkgraph_boundary_part_blocks():
     np.testing.assert_allclose(matrix, expected)
 
 
+def test_laplace_graph_double_layer_self_diagonal_is_finite():
+    boundary = _square_boundary_part(quadrature_order=5)
+    double = kernel("laplace", selector="d")
+    density = DensitySpace("sigma", boundary)
+    layer = LayerPotential("sigma_double", boundary, double, "sigma")
+    system = IntegralSystem(
+        name="chunkgraph_double_reference",
+        geometry=boundary.graph,
+        unknowns=(density,),
+        equations=(
+            BoundaryEquation(
+                "dirichlet",
+                boundary,
+                (BoundaryTrace(layer, boundary, "left", jump=JumpTerm(-0.5, "sigma")),),
+                boundary.pointinfo.positions[0],
+            ),
+        ),
+    )
+
+    matrix = system.assemble().to_dense()
+
+    assert np.all(np.isfinite(matrix))
+
+
 def test_dense_solve_reconstructs_chunkgraph_boundary_part_density():
     boundary = _square_boundary_part(quadrature_order=4)
     single = kernel("laplace", selector="s")

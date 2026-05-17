@@ -1,29 +1,45 @@
-"""Shared utilities for the nonsmooth Laplace examples."""
+"""Shared square-corner Laplace example machinery."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
+from numpy.typing import NDArray
 
-from chunkie import PointInfo, chunkerkerneval, chunkerkernevalmat, chunkerpoly, kernel
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt  # noqa: E402
 
-DEFAULT_DEPTH = 40
+from chunkie.geometry import BoundaryPart, ChunkGraph
+from chunkie.kernels import kernel
+from chunkie.system import (
+    BoundaryEquation,
+    BoundaryTrace,
+    DensitySpace,
+    IntegralSystem,
+    JumpTerm,
+    LayerPotential,
+    SystemConfig,
+)
+
+Side = Literal["interior", "exterior"]
+Condition = Literal["dirichlet", "neumann"]
+
+DEFAULT_QUADRATURE_ORDER = 32
 DEFAULT_GRID_SIZE = 80
+DEFAULT_RCIP_SUBDIVISIONS = 20
 
-SQUARE_VERTS = np.array(
+SQUARE_VERTICES = np.array(
     [
         [-1.0, 1.0, 1.0, -1.0],
         [-1.0, -1.0, 1.0, 1.0],
-    ]
+    ],
 )
 SQUARE_EDGES = np.array([[0, 1, 2, 3], [1, 2, 3, 0]])
-
 INTERIOR_TARGETS = np.array([[0.0, 0.3, -0.2], [0.0, 0.2, 0.4]])
 EXTERIOR_TARGETS = np.array([[1.3, 2.0, -1.4, 0.2], [0.2, 0.5, -1.2, 1.5]])
 
@@ -37,186 +53,273 @@ ERROR_CMAP = LinearSegmentedColormap.from_list(
 )
 
 
-def make_square(depth: int = DEFAULT_DEPTH):
-    """Build the true-corner square with dyadic corner refinement."""
+@dataclass(frozen=True)
+class NonsmoothLaplaceExampleResult:
+    side: Side
+    condition: Condition
+    graph: ChunkGraph
+    boundary: BoundaryPart
+    system: IntegralSystem
+    target_points: NDArray[np.floating]
+    values: NDArray[np.floating]
+    truth: NDArray[np.floating]
+    additive_constant: float
+    residual_norm: float
+    max_error: float
+    rcip_corner_count: int
+    solution_path: Path
+    error_path: Path
 
-    return chunkerpoly(
-        SQUARE_VERTS,
-        {"ifclosed": True, "dyadic": True, "depth": depth, "widths": 0.25},
-        {"k": 12, "nchmax": max(2000, 16 * depth)},
+
+def make_square_graph(*, quadrature_order: int = DEFAULT_QUADRATURE_ORDER) -> ChunkGraph:
+    return ChunkGraph.from_vertices(
+        SQUARE_VERTICES,
+        SQUARE_EDGES,
+        quadrature_order=quadrature_order,
     )
 
 
-def boundary_nodes(boundary) -> np.ndarray:
-    return PointInfo.from_any(boundary).r
+def interior_solution(targets: NDArray[np.floating]) -> NDArray[np.floating]:
+    return np.asarray(targets, dtype=float)[0]
 
 
-def boundary_normals(boundary) -> np.ndarray:
-    return PointInfo.from_any(boundary).n
+def exterior_solution(targets: NDArray[np.floating]) -> NDArray[np.floating]:
+    points = np.asarray(targets, dtype=float)
+    return points[0] / np.sum(points * points, axis=0)
 
 
-def boundary_weights(boundary) -> np.ndarray:
-    return boundary.quadrature_weights.T.reshape(-1)
+def analytic_solution(side: Side, targets: NDArray[np.floating]) -> NDArray[np.floating]:
+    return interior_solution(targets) if side == "interior" else exterior_solution(targets)
 
 
-def interior_solution(targets: np.ndarray) -> np.ndarray:
-    return np.asarray(targets)[0]
+def analytic_gradient(side: Side, targets: NDArray[np.floating]) -> NDArray[np.floating]:
+    points = np.asarray(targets, dtype=float)
+    if side == "interior":
+        return np.vstack((np.ones(points.shape[1]), np.zeros(points.shape[1])))
+    x = points[0]
+    y = points[1]
+    radius2 = x * x + y * y
+    radius4 = radius2 * radius2
+    return np.vstack(((y * y - x * x) / radius4, -2.0 * x * y / radius4))
 
 
-def interior_gradient(targets: np.ndarray) -> np.ndarray:
-    pts = np.asarray(targets)
-    return np.vstack((np.ones(pts.shape[1]), np.zeros(pts.shape[1])))
+def build_laplace_square_system(
+    side: Side,
+    condition: Condition,
+    *,
+    quadrature_order: int = DEFAULT_QUADRATURE_ORDER,
+) -> tuple[ChunkGraph, BoundaryPart, IntegralSystem]:
+    graph = make_square_graph(quadrature_order=quadrature_order)
+    boundary = graph.boundary(1, side="interior")
+    density = DensitySpace("sigma", boundary)
 
+    if condition == "dirichlet":
+        trace_kernel = kernel("laplace", selector="d")
+        field_kernel = trace_kernel
+        # Right normals point outside the square, so the same one-sided
+        # double-layer jumps used on smooth curves apply on each smooth side.
+        jump = -0.5 if side == "interior" else 0.5
+        rhs = analytic_solution(side, boundary.pointinfo.positions)
+        layer_name = "double"
+        equation_name = "dirichlet"
+    else:
+        trace_kernel = kernel("laplace", selector="sp")
+        field_kernel = kernel("laplace", selector="s")
+        jump = 0.5 if side == "interior" else -0.5
+        rhs = _normal_derivative(side, boundary)
+        layer_name = "single"
+        equation_name = "neumann"
 
-def exterior_solution(targets: np.ndarray) -> np.ndarray:
-    pts = np.asarray(targets, dtype=float)
-    r2 = np.sum(pts**2, axis=0)
-    return pts[0] / r2
-
-
-def exterior_gradient(targets: np.ndarray) -> np.ndarray:
-    pts = np.asarray(targets, dtype=float)
-    x = pts[0]
-    y = pts[1]
-    r2 = x**2 + y**2
-    r4 = r2**2
-    return np.vstack(((y**2 - x**2) / r4, -2.0 * x * y / r4))
-
-
-def corrected_single_layer(
-    boundary, sigma: np.ndarray, const: float, targets: np.ndarray
-) -> np.ndarray:
-    """Evaluate S sigma + const using sparse near corrections."""
-
-    lap_s = kernel("lap", "s")
-    correction_matrix = chunkerkernevalmat(
-        boundary, lap_s, targets, corrections=True, near_factor=1.0
+    trace_layer = LayerPotential(f"{layer_name}_trace", boundary, trace_kernel, "sigma")
+    field_layer = LayerPotential(layer_name, boundary, field_kernel, "sigma")
+    trace = BoundaryTrace(trace_layer, boundary, side, jump=JumpTerm(jump, "sigma"))
+    system = IntegralSystem(
+        f"nonsmooth_laplace_{side}_{condition}",
+        graph,
+        (density,),
+        (BoundaryEquation(equation_name, boundary, (trace,), rhs),),
+        fields={"u": (field_layer,)},
     )
-    vals = chunkerkerneval(
-        boundary,
-        lap_s,
-        sigma,
-        targets,
-        quadrature="smooth",
-        correction_matrix=correction_matrix,
+    return graph, boundary, system
+
+
+def solve_case(
+    side: Side,
+    condition: Condition,
+    *,
+    quadrature_order: int = DEFAULT_QUADRATURE_ORDER,
+    rcip_subdivisions: int = DEFAULT_RCIP_SUBDIVISIONS,
+    grid_size: int = DEFAULT_GRID_SIZE,
+    output_dir: Path | str | None = None,
+    stem: str | None = None,
+) -> NonsmoothLaplaceExampleResult:
+    graph, boundary, system = build_laplace_square_system(
+        side,
+        condition,
+        quadrature_order=quadrature_order,
     )
-    return vals.reshape(-1) + const
+    config = SystemConfig(rcip_subdivisions=rcip_subdivisions)
+    solution = system.solve(config=config)
+    targets = INTERIOR_TARGETS if side == "interior" else EXTERIOR_TARGETS
+    raw_values = np.asarray(solution.evaluate(targets).values[0], dtype=complex).real
+    truth = analytic_solution(side, targets)
+    # The single-layer Neumann representation fixes the derivative data but not
+    # the additive potential constant, so align against off-boundary reference
+    # points before measuring the example error.
+    additive_constant = float(np.mean(truth - raw_values)) if condition == "neumann" else 0.0
+    values = raw_values + additive_constant
+
+    destination = Path(__file__).resolve().parent if output_dir is None else Path(output_dir)
+    destination.mkdir(parents=True, exist_ok=True)
+    file_stem = f"nonsmooth_laplace_{side}_{condition}" if stem is None else stem
+    solution_path, error_path = write_solution_plots(
+        side,
+        condition,
+        solution,
+        additive_constant,
+        grid_size=grid_size,
+        destination=destination,
+        stem=file_stem,
+    )
+    rcip_state = solution.operator.diagnostics.get("rcip") if solution.operator is not None else None
+    corner_count = len(rcip_state.corners) if rcip_state is not None else 0
+
+    return NonsmoothLaplaceExampleResult(
+        side=side,
+        condition=condition,
+        graph=graph,
+        boundary=boundary,
+        system=system,
+        target_points=targets,
+        values=values,
+        truth=truth,
+        additive_constant=additive_constant,
+        residual_norm=float(np.linalg.norm(solution.residual)),
+        max_error=float(np.max(np.abs(values - truth))),
+        rcip_corner_count=corner_count,
+        solution_path=solution_path,
+        error_path=error_path,
+    )
 
 
-def constant_fit(boundary, sigma: np.ndarray, targets: np.ndarray, truth: np.ndarray) -> float:
-    """Fit the additive constant left undetermined by a Neumann solve."""
-
-    vals = corrected_single_layer(boundary, sigma, 0.0, targets)
-    return float(np.mean(truth - vals))
-
-
-def target_error(boundary, sigma: np.ndarray, const: float, targets: np.ndarray, truth_fn) -> float:
-    vals = corrected_single_layer(boundary, sigma, const, targets)
-    return float(np.max(np.abs(vals - truth_fn(targets))))
+def main_case(side: Side, condition: Condition) -> NonsmoothLaplaceExampleResult:
+    result = solve_case(side, condition)
+    print(
+        f"square graph: {len(result.graph.edges)} edges, "
+        f"{result.boundary.point_count} nodes, {result.rcip_corner_count} RCIP corners"
+    )
+    print(
+        f"{side} {condition} residual: {result.residual_norm:.3e}; "
+        f"target max error: {result.max_error:.3e}"
+    )
+    print(f"solution figure: {result.solution_path}")
+    print(f"log10 abs error figure: {result.error_path}")
+    return result
 
 
 def write_solution_plots(
-    output_dir: Path,
+    side: Side,
+    condition: Condition,
+    solution,
+    additive_constant: float,
+    *,
+    grid_size: int,
+    destination: Path,
     stem: str,
-    title: str,
-    boundary,
-    sigma: np.ndarray,
-    const: float,
-    side: str,
-    truth_fn,
-    grid_size: int = DEFAULT_GRID_SIZE,
-) -> dict[str, Path]:
-    """Write solution and log10(abs(error)) PNGs for a single layer potential."""
+) -> tuple[Path, Path]:
+    x_grid, y_grid, mask = _field_grid(side, grid_size)
+    targets = np.vstack((x_grid[mask], y_grid[mask]))
+    values = np.asarray(solution.evaluate(targets).values[0], dtype=complex).real + additive_constant
+    truth = analytic_solution(side, targets)
 
-    xs, ys, domain, targets, truth = _grid(side, truth_fn, grid_size)
-    values = np.full(domain.shape, np.nan)
-    values[domain] = corrected_single_layer(boundary, sigma, const, targets)
-    error = np.log10(np.maximum(np.abs(values - truth), 1e-16))
+    field = np.full(x_grid.shape, np.nan)
+    field[mask] = values
+    error = np.full(x_grid.shape, np.nan)
+    error[mask] = np.log10(np.maximum(np.abs(values - truth), 1.0e-16))
 
-    paths = {
-        "solution": output_dir / f"{stem}_solution.png",
-        "error": output_dir / f"{stem}_error_log10.png",
-    }
-    _plot_field(
-        paths["solution"],
-        values,
-        xs,
-        ys,
-        f"{title}: layer potential",
+    solution_path = destination / f"{stem}_solution.png"
+    error_path = destination / f"{stem}_error_log10.png"
+    title_prefix = f"Nonsmooth Laplace {side} {condition}"
+    _save_scalar_plot(
+        x_grid,
+        y_grid,
+        field,
+        solution_path,
+        title=f"{title_prefix}: solution",
         cmap=SOLUTION_CMAP,
         vmin=-1.0,
         vmax=1.0,
         ticks=[-1.0, -0.5, 0.0, 0.5, 1.0],
-        label="u",
+        colorbar_label="u",
     )
-    _plot_field(
-        paths["error"],
+    _save_scalar_plot(
+        x_grid,
+        y_grid,
         error,
-        xs,
-        ys,
-        f"{title}: log10 abs error",
+        error_path,
+        title=f"{title_prefix}: log10 abs error",
         cmap=ERROR_CMAP,
         vmin=-14.0,
         vmax=-3.0,
-        ticks=[-14, -11, -8, -5, -3],
-        label="log10 |error|",
+        ticks=[-14.0, -11.0, -8.0, -5.0, -3.0],
+        colorbar_label="log10(abs(error))",
     )
-    return paths
+    return solution_path, error_path
 
 
-def _grid(side: str, truth_fn, grid_size: int):
+def _normal_derivative(side: Side, boundary: BoundaryPart) -> NDArray[np.floating]:
+    gradient = analytic_gradient(side, boundary.pointinfo.flat_positions)
+    normals = boundary.pointinfo.flat_normals
+    values = np.sum(gradient * normals, axis=0)
+    return values.reshape(boundary.panel_count, boundary.quadrature_order).T
+
+
+def _field_grid(side: Side, grid_size: int) -> tuple[NDArray[np.floating], NDArray[np.floating], NDArray[np.bool_]]:
     bounds = (-1.15, 1.15) if side == "interior" else (-2.0, 2.0)
-    xs = np.linspace(bounds[0], bounds[1], grid_size)
-    ys = np.linspace(bounds[0], bounds[1], grid_size)
-    xx, yy = np.meshgrid(xs, ys)
+    axis = np.linspace(bounds[0], bounds[1], int(grid_size))
+    x_grid, y_grid = np.meshgrid(axis, axis)
     if side == "interior":
-        domain = (np.abs(xx) <= 0.995) & (np.abs(yy) <= 0.995)
-    elif side == "exterior":
-        domain = (np.abs(xx) >= 1.005) | (np.abs(yy) >= 1.005)
+        mask = (np.abs(x_grid) <= 0.995) & (np.abs(y_grid) <= 0.995)
     else:
-        raise ValueError("side must be 'interior' or 'exterior'")
-    targets = np.vstack((xx[domain], yy[domain]))
-    truth = np.full(xx.shape, np.nan)
-    truth[domain] = truth_fn(targets)
-    return xs, ys, domain, targets, truth
+        mask = (np.abs(x_grid) >= 1.005) | (np.abs(y_grid) >= 1.005)
+    return x_grid, y_grid, mask
 
 
-def _plot_field(
+def _save_scalar_plot(
+    x_grid: NDArray[np.floating],
+    y_grid: NDArray[np.floating],
+    data: NDArray[np.floating],
     path: Path,
-    values: np.ndarray,
-    xs: np.ndarray,
-    ys: np.ndarray,
-    title: str,
     *,
+    title: str,
     cmap,
     vmin: float,
     vmax: float,
     ticks: list[float],
-    label: str,
+    colorbar_label: str,
 ) -> None:
-    cmap = cmap.copy()
-    cmap.set_bad("#eeeeee")
+    active_cmap = cmap.copy()
+    active_cmap.set_bad("#eeeeee")
     fig, ax = plt.subplots(figsize=(5.8, 4.8), dpi=160)
     mesh = ax.pcolormesh(
-        xs,
-        ys,
-        np.ma.masked_invalid(values),
+        x_grid[0],
+        y_grid[:, 0],
+        np.ma.masked_invalid(data),
         shading="auto",
-        cmap=cmap,
+        cmap=active_cmap,
         vmin=vmin,
         vmax=vmax,
     )
-    outline = np.column_stack((SQUARE_VERTS, SQUARE_VERTS[:, :1]))
+    outline = np.column_stack((SQUARE_VERTICES, SQUARE_VERTICES[:, :1]))
     ax.plot(outline[0], outline[1], color="black", linewidth=0.7)
     ax.set_aspect("equal", adjustable="box")
-    ax.set_xlim(float(xs[0]), float(xs[-1]))
-    ax.set_ylim(float(ys[0]), float(ys[-1]))
+    ax.set_xlim(float(x_grid.min()), float(x_grid.max()))
+    ax.set_ylim(float(y_grid.min()), float(y_grid.max()))
     ax.set_xlabel("x")
     ax.set_ylabel("y")
     ax.set_title(title)
-    cbar = fig.colorbar(mesh, ax=ax, ticks=ticks, fraction=0.046, pad=0.04)
-    cbar.set_label(label)
+    colorbar = fig.colorbar(mesh, ax=ax, ticks=ticks, fraction=0.046, pad=0.04)
+    colorbar.set_label(colorbar_label)
     fig.tight_layout()
-    path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path)
     plt.close(fig)

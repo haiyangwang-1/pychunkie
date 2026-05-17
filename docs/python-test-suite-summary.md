@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `122 passed` in 9.74 seconds.
+  `127 passed` in 10.21 seconds.
 
 ## Test Organization Target
 
@@ -36,8 +36,8 @@ meaningfully.
   point views, boundary parts, and single-boundary region classification.
 - `tests/geometry/test_chunkgraph.py`: multi-edge `ChunkGraph` construction
   from vertices and directed edges, edge geometry, merged boundary parts,
-  orientation-reversed boundary part tensors, and square/nested region
-  classification.
+  boundary-part curvature, orientation-reversed boundary part tensors, and
+  square/nested region classification.
 - `tests/geometry/test_chunker_metrics.py`: migrated geometry metric and
   transform behavior for panel lengths, total length, signed area, tangents,
   curvature, panel endpoints/centroids/bounds, translation, scaling, affine
@@ -104,7 +104,8 @@ meaningfully.
   vector adapters for scalar and component densities, including invalid-shape
   validation.
 - `tests/system/test_chunkgraph_assembly.py`: dense assembly and solve
-  reconstruction for `ChunkGraph` region `BoundaryPart` sources and targets.
+  reconstruction for `ChunkGraph` region `BoundaryPart` sources and targets,
+  plus finite Laplace double-layer self diagonals on graph boundaries.
 - `tests/system/test_multi_density_assembly.py`: dense block assembly for
   multiple unknown density spaces and multiple boundary equations, including
   jump insertion, multi-density solve reconstruction, and multi-scalar-density
@@ -123,6 +124,9 @@ meaningfully.
 - `tests/examples/test_smooth_laplace_examples.py`: executable smooth-circle
   Laplace interior/exterior Dirichlet and Neumann examples, including generated
   solution and `log10(abs(error))` figure outputs.
+- `tests/examples/test_nonsmooth_laplace_examples.py`: executable square-corner
+  Laplace interior/exterior Dirichlet and Neumann examples, including RCIP
+  corner-state discovery and generated solution/error figure outputs.
 - `tests/system/test_fmm_matvec.py`: scalar Laplace FMM system matvec for
   off-boundary trace equations compared against dense assembly.
 - `tests/system/test_matrix_free_matvec.py`: dense-reference matrix-free trace

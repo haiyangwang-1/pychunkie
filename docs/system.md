@@ -49,6 +49,9 @@ Current implementation status:
 - The smooth Laplace examples build the same system records directly for
   interior/exterior Dirichlet and Neumann circle problems, then write solution
   and `log10(abs(error))` field figures.
+- The nonsmooth square examples build `ChunkGraph` boundary systems for the
+  same four Laplace cases, record RCIP corner state, and write matching
+  solution/error figures.
 - Dense and GMRES solves reconstruct one `Density` object per unknown block.
   The first GMRES path uses SciPy's `LinearOperator` over the dense reference
   matrix and records solver diagnostics on `SystemSolution`.

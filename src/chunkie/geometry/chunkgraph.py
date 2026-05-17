@@ -76,6 +76,20 @@ class BoundaryPart:
     def quadrature_order(self) -> int:
         return int(self.points.positions.shape[1])
 
+    @property
+    def signed_curvature(self) -> NDArray[np.floating]:
+        positions = self.points.positions
+        if positions.shape[0] != 2:
+            raise ValueError("signed_curvature currently supports two-dimensional curves")
+        dx, dy = self.points.derivatives
+        ddx, ddy = self.points.second_derivatives
+        speed = np.linalg.norm(self.points.derivatives, axis=0)
+        # BoundaryPart is a view, but dense trace assembly still needs the same
+        # smooth-panel finite-part diagonal used by Chunker sources. Straight
+        # graph edges have zero second derivative, so polygon sides contribute
+        # the expected zero curvature away from vertices.
+        return (dx * ddy - dy * ddx) / speed**3
+
 
 @dataclass
 class ChunkGraph:

@@ -57,7 +57,10 @@ Current implementation status:
 - `ChunkGraph.from_vertices` builds multi-edge graphs from vertices and
   directed edge indices. `ChunkGraph` records, merged point views, edge point
   views, region boundary parts, selected-edge `BoundaryPart` views, and
-  oriented nested-cycle region classification are active. Reversed
+  oriented nested-cycle region classification are active. `BoundaryPart`
+  exposes signed curvature from its oriented point tensors so graph-boundary
+  trace assembly can use the same smooth-panel diagonal convention as
+  `Chunker`. Reversed
   `BoundaryPart` orientations reverse point order and weights, flip first
   derivatives and right normals by the reference-coordinate chain rule, and
   keep second derivatives unchanged. Adaptive refinement and full multi-region

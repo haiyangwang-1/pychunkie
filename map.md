@@ -13,15 +13,17 @@ implemented behavior, known limitations, or verification snapshots change.
 - Previous docs and status notes archived in `docs_old/`.
 - Smooth Laplace circle examples use the rewrite system API and generate
   solution/error figures for interior/exterior Dirichlet and Neumann cases.
+- Nonsmooth square Laplace examples use `ChunkGraph` boundary systems and
+  generate solution/error figures for the same four boundary-value cases.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `122 passed` in 9.74 seconds; `uv run ruff check .` passes; `uv run mypy`
+  `127 passed` in 10.21 seconds; `uv run ruff check .` passes; `uv run mypy`
   passes over `src/chunkie`.
 
 ## Source Tree
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| `chunkie.geometry` | in progress | Panel-major `Chunker`, point maps, panel endpoint/centroid/bounds diagnostics, reusable curve callbacks, basic/adaptive constructors, metrics, arclength parameterization/resampling, Bernstein reference ellipses/panel images, quadrature-order interpolation, uniform split-panel refinement, affine/rotate/reflect transforms, near-panel node-distance flags, rectangle flags, nearest-point projection, orientation-aware selected-edge `BoundaryPart` views, and operational single- and multi-edge `ChunkGraph` records/views/nested classification are active. |
+| `chunkie.geometry` | in progress | Panel-major `Chunker`, point maps, panel endpoint/centroid/bounds diagnostics, reusable curve callbacks, basic/adaptive constructors, metrics, arclength parameterization/resampling, Bernstein reference ellipses/panel images, quadrature-order interpolation, uniform split-panel refinement, affine/rotate/reflect transforms, near-panel node-distance flags, rectangle flags, nearest-point projection, orientation-aware selected-edge `BoundaryPart` views with curvature diagnostics, and operational single- and multi-edge `ChunkGraph` records/views/nested classification are active. |
 | `chunkie.kernels` | in progress | Kernel object, Laplace/Helmholtz/biharmonic/Stokes/elasticity formulas, registry, algebra, and singularity metadata foundation are active. Laplace metadata uses `G`, `G_a`, and `G_ab`; smooth amplitudes are allowed on those bases for special-quadrature consumption; Helmholtz metadata differentiates `J0(k*rho) * G`; biharmonic metadata uses `B=-(rho^2/4)G`; Stokes velocity metadata covers `s` and `d`; elasticity single-displacement metadata covers `s`; algebra scales and cancels exact scalar/matrix singular terms. |
 | `chunkie.quadrature` | in progress | Legendre polynomial/transform/interpolation/integration utilities, dense panel helpers, component-major dense operator materialization, adaptive source-panel fallback, Helsing-Ojala log/Cauchy/derivative product weights, generated GGQ-style split rules/panel matrices, fixture-backed GGQ removable-rule parity, log/PV/HS `SingularityInfo` smooth-amplitude dispatch, and Helmholtz single-layer HO panel correction are active; broader MATLAB GGQ table parity remains a required milestone. |
 | `chunkie.rcip` | in progress | Dyadic local corner geometry with pointinfo-compatible derivatives/normals/weights, barycentric and split-panel prolongation matrices, edge/component block prolongation, dense single-level and recursive Schur compression updates, corner state records, and density interpolation are active. Local corner operator assembly remains required upcoming work. |

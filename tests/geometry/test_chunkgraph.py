@@ -55,6 +55,7 @@ def test_chunkgraph_multi_edge_boundary_and_region_classification():
     np.testing.assert_array_equal(boundary.orientation, [1, 1, 1, 1])
     np.testing.assert_allclose(graph.pointinfo.flat_positions[:, boundary.point_indices], boundary.points.flat_positions)
     np.testing.assert_array_equal(regions, [1, 0, 0])
+    np.testing.assert_allclose(boundary.signed_curvature, 0.0)
 
 
 def test_chunkgraph_boundary_part_selects_edge_subset_in_global_order():
