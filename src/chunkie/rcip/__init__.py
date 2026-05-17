@@ -1,6 +1,6 @@
 """Recursive compressed inverse preconditioning primitives."""
 
-from .compression import RCIPState
+from .compression import RCIPState, schur_compress_block
 from .interpolation import interpolate_density
 from .local_geometry import LocalCornerGeometry, build_local_corner_geometry
 from .prolongation import (
@@ -17,4 +17,5 @@ __all__ = [
     "build_prolongation",
     "build_split_panel_prolongation",
     "interpolate_density",
+    "schur_compress_block",
 ]

@@ -7,6 +7,7 @@ from chunkie.rcip import (
     build_prolongation,
     build_split_panel_prolongation,
     interpolate_density,
+    schur_compress_block,
 )
 
 
@@ -58,6 +59,52 @@ def test_block_prolongation_lifts_edges_and_components():
 
     np.testing.assert_allclose(block, np.kron(np.eye(3), np.kron(interpolation, np.eye(2))))
     np.testing.assert_allclose(weighted_block, np.kron(np.eye(3), np.kron(weighted_transfer, np.eye(2))))
+
+
+def test_schur_compress_block_matches_direct_block_formula():
+    rng = np.random.default_rng(1234)
+    fine_star_count = 4
+    fine_eliminated_count = 2
+    size = fine_star_count + fine_eliminated_count
+    prolongation = rng.random((fine_star_count, fine_star_count // 2))
+    weighted_prolongation = rng.random((fine_star_count, fine_star_count // 2))
+    local_matrix = rng.random((size, size))
+    local_matrix[
+        np.ix_(range(fine_star_count, size), range(fine_star_count, size))
+    ] += 3.0 * np.eye(fine_eliminated_count)
+    seed_inverse = np.eye(fine_star_count)
+    fine_star = np.arange(fine_star_count)
+    fine_eliminated = np.arange(fine_star_count, size)
+    coarse_star = np.arange(fine_star_count // 2)
+    coarse_eliminated = np.arange(fine_star_count // 2, fine_star_count)
+
+    actual = schur_compress_block(
+        prolongation,
+        weighted_prolongation,
+        local_matrix,
+        seed_inverse,
+        fine_star,
+        fine_eliminated,
+        coarse_star,
+        coarse_eliminated,
+    )
+
+    expected = seed_inverse.copy()
+    eliminated_to_star = local_matrix[np.ix_(fine_eliminated, fine_star)] @ expected
+    weighted_star = weighted_prolongation.T @ expected
+    weighted_coupling = weighted_star @ local_matrix[np.ix_(fine_star, fine_eliminated)]
+    eliminated_inverse = np.linalg.inv(
+        local_matrix[np.ix_(fine_eliminated, fine_eliminated)]
+        - eliminated_to_star @ local_matrix[np.ix_(fine_star, fine_eliminated)]
+    )
+    eliminated_to_prolonged = eliminated_inverse @ (eliminated_to_star @ prolongation)
+    expected[np.ix_(coarse_star, coarse_star)] = weighted_star @ prolongation + (
+        weighted_coupling @ eliminated_to_prolonged
+    )
+    expected[np.ix_(coarse_eliminated, coarse_eliminated)] = eliminated_inverse
+    expected[np.ix_(coarse_eliminated, coarse_star)] = -eliminated_to_prolonged
+    expected[np.ix_(coarse_star, coarse_eliminated)] = -weighted_coupling @ eliminated_inverse
+    np.testing.assert_allclose(actual, expected)
 
 
 def test_interpolate_density_handles_component_rows():

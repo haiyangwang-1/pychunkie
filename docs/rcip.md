@@ -13,12 +13,14 @@ Current implementation status:
   weighted transfer matrices used when RCIP recursively refines a corner panel.
 - `build_block_prolongation` lifts scalar prolongation matrices into the local
   edge/component block layout used by corner compression.
+- `schur_compress_block` applies the dense reference Schur/Banachiewicz update
+  for one RCIP local elimination step.
 - `interpolate_density` applies prolongation matrices to scalar or component
   density values.
 
 Required upcoming work:
 
 - local corner operator assembly,
-- compressed inverse recursion,
+- recursive compression drivers,
 - interpolation of reconstructed corner densities,
 - and system-level insertion/evaluation through `chunkie.system.nonsmooth`.
