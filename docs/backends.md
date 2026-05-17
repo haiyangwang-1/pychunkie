@@ -18,4 +18,5 @@ Current implementation status:
   path through `SystemConfig(evaluation_method="fmm")`.
 - `system.backends.flam.factor_system` builds a `pyflam.rskelf` factor from a
   dense reference matrix and exposes apply/solve comparisons against dense
-  linear algebra. Callback-based assembly remains upcoming.
+  linear algebra. `SystemConfig(solve_method="flam")` can use this path for
+  scalar dense-reference systems. Callback-based assembly remains upcoming.
