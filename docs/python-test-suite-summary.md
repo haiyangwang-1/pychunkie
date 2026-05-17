@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-16,
-  `41 passed` in 1.65 seconds.
+  `42 passed` in 2.30 seconds.
 
 ## Test Organization Target
 
@@ -52,8 +52,9 @@ meaningfully.
   derivative product weights against oversampled Legendre moments, plus a
   Laplace single-layer close-panel matrix, Laplace double-layer close-panel
   matrix, and Helmholtz log-basis smooth-amplitude dispatch.
-- `tests/quadrature/test_ggq.py`: generated GGQ-style self split rules and
-  interpolation matrices.
+- `tests/quadrature/test_ggq.py`: generated GGQ-style self split rules,
+  interpolation matrices, and a Laplace single-layer self-panel matrix against
+  an analytic straight-segment logarithmic integral.
 - `tests/rcip/test_primitives.py`: dyadic local corner geometry, barycentric
   prolongation, and scalar/component density interpolation.
 - `tests/system/test_density.py`: component-major over panel-major density

@@ -1,7 +1,9 @@
 import numpy as np
 from numpy.polynomial.legendre import leggauss
 
-from chunkie.quadrature import ggq_removable_rules, setup_ggq
+from chunkie.geometry import chunker_from_polygon
+from chunkie.kernels import kernel
+from chunkie.quadrature import build_ggq_self_panel_matrix, ggq_removable_rules, setup_ggq
 
 
 def test_generated_ggq_self_rules_split_around_each_legendre_node():
@@ -39,3 +41,18 @@ def test_ggq_setup_builds_interpolators_for_neighbor_and_self_rules():
             1.0 + nodes - 2.0 * nodes**3,
             atol=1.0e-13,
         )
+
+
+def test_generated_ggq_self_panel_matrix_matches_straight_segment_log_integral():
+    boundary = chunker_from_polygon([(0, 0), (1, 0), (1, 1), (0, 1)], quadrature_order=8)
+    panel = boundary.panel(0)
+    laplace_s = kernel("laplace", selector="s")
+
+    matrix = build_ggq_self_panel_matrix(panel, laplace_s, rules=setup_ggq(8, nfac_self=64))
+    values = np.sum(matrix[0, 0], axis=1)
+    target_x = panel.positions[0]
+    exact_log_integral = target_x * np.log(target_x) + (1.0 - target_x) * np.log(1.0 - target_x) - 1.0
+    exact = -exact_log_integral / (2.0 * np.pi)
+
+    assert matrix.shape == (1, 1, panel.nodes.size, panel.nodes.size)
+    np.testing.assert_allclose(values, exact, rtol=3.0e-6, atol=5.0e-7)

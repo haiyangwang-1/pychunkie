@@ -41,6 +41,8 @@ absorbed into panel data before Helsing-Ojala or GGQ weights are applied.
 - `setup_ggq` and `ggq_removable_rules` create generated GGQ-style neighbor
   and self split rules with interpolation matrices. MATLAB table-backed parity
   is still upcoming.
+- `build_ggq_self_panel_matrix` uses generated self split rules to build a
+  Laplace single-layer self-panel matrix on the original source nodes.
 
 Remaining Helsing-Ojala work includes normal-derivative and hypersingular
 `SingularityInfo` dispatch. GGQ parity is also a required rewrite milestone.
