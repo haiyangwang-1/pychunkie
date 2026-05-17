@@ -28,7 +28,9 @@ Current implementation status:
   are active. Transforms recompute normals and quadrature weights from the
   transformed tangent instead of carrying stale geometric metadata.
 - Circle, ellipse, curve, and polygon constructors are active first-pass
-  implementations.
+  implementations. Curve constructors accept full `(positions, derivatives,
+  second_derivatives)` callbacks and position-only callbacks, with finite
+  differences used only at that adapter boundary.
 - `ChunkGraph` records, merged point views, edge point views, region boundary
   parts, and single-cycle region classification are active. Multi-edge
   refinement, orientation-reversed boundary views, and full multi-region
