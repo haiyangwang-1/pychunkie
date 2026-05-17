@@ -12,8 +12,8 @@ parity tests, ranked port status, or suggested next ports.
 - The old Python-side devtools snapshot generator is archived in
   `docs_old/scripts/`; it depends on removed public APIs.
 - No active rewrite devtools parity tests have been migrated yet.
-- Current active verification is `uv run pytest -q`, `39 passed` in
-  1.60 seconds, on 2026-05-16.
+- Current active verification is `uv run pytest -q`, `40 passed` in
+  1.52 seconds, on 2026-05-16.
 - MATLAB table-backed GGQ parity, RCIP compression parity, and broader
   `ChunkGraph` parity remain required milestones.
   FMM has active dense-reference tests for scalar Laplace layer evaluation but

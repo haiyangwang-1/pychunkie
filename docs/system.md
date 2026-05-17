@@ -32,5 +32,7 @@ Current implementation status:
   panel matrices.
 - `LaplaceExteriorDirichletSystem` solves the unit-circle cosine mode and
   evaluates the exterior field at an off-boundary target.
+- Field evaluation honors `SystemConfig.evaluation_method="fmm"` for supported
+  Laplace layer potentials and compares against dense evaluation.
 - General block systems, constraints, nonsmooth corrections, and accelerated
   matvecs remain required upcoming work.
