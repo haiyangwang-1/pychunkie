@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `52 passed` in 1.69 seconds.
+  `57 passed` in 1.89 seconds.
 
 ## Test Organization Target
 
@@ -44,6 +44,9 @@ meaningfully.
   finite smooth remainder and double-layer exact Laplace-basis singular split.
 - `tests/kernels/test_elasticity_singularity.py`: elasticity single-displacement
   exact Laplace-basis singular split.
+- `tests/kernels/test_formula_parity.py`: migrated closed-form and
+  finite-difference kernel formula checks for Laplace, Helmholtz, biharmonic,
+  Stokes, and elasticity kernels through the new kernel API.
 - `tests/quadrature/test_panel.py`: dense panel weighting at the quadrature
   boundary, component-major dense operator matrix materialization, and
   adaptive close-panel integration against an analytic straight-panel
