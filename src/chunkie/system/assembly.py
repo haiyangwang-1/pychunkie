@@ -21,18 +21,24 @@ def assemble_system_matrix(system, *, config: SystemConfig) -> SystemMatrix:
     equation_row_count = sum(row_slice.stop - row_slice.start for row_slice in row_slices.values())
     constraint_row_slices = _constraint_row_slices(system.constraints, start=equation_row_count)
     row_count = equation_row_count + len(system.constraints)
-    column_count = sum(column_slice.stop - column_slice.start for column_slice in column_slices.values())
+    column_count = sum(
+        column_slice.stop - column_slice.start for column_slice in column_slices.values()
+    )
     matrix = np.zeros((row_count, column_count), dtype=complex)
 
     for equation in system.equations:
         row_slice = row_slices[equation.name]
         for term in equation.terms:
             if not isinstance(term, BoundaryTrace):
-                raise NotImplementedError("only BoundaryTrace terms are supported in dense bootstrap assembly")
+                raise NotImplementedError(
+                    "only BoundaryTrace terms are supported in dense bootstrap assembly"
+                )
             try:
                 unknown = unknowns[term.layer.density]
             except KeyError as exc:
-                raise ValueError(f"trace term references unknown density {term.layer.density!r}") from exc
+                raise ValueError(
+                    f"trace term references unknown density {term.layer.density!r}"
+                ) from exc
             column_slice = column_slices[unknown.name]
             expected_shape = (
                 row_slice.stop - row_slice.start,
@@ -47,7 +53,9 @@ def assemble_system_matrix(system, *, config: SystemConfig) -> SystemMatrix:
                 try:
                     jump_unknown = unknowns[term.jump.density]
                 except KeyError as exc:
-                    raise ValueError(f"jump term references unknown density {term.jump.density!r}") from exc
+                    raise ValueError(
+                        f"jump term references unknown density {term.jump.density!r}"
+                    ) from exc
                 jump_slice = column_slices[jump_unknown.name]
                 jump_shape = (row_slice.stop - row_slice.start, jump_slice.stop - jump_slice.start)
                 if jump_shape[0] != jump_shape[1]:
@@ -60,16 +68,18 @@ def assemble_system_matrix(system, *, config: SystemConfig) -> SystemMatrix:
             try:
                 unknown = unknowns[term.density]
             except KeyError as exc:
-                raise ValueError(f"constraint term references unknown density {term.density!r}") from exc
+                raise ValueError(
+                    f"constraint term references unknown density {term.density!r}"
+                ) from exc
             column_slice = column_slices[unknown.name]
             matrix[row_slice, column_slice] += _constraint_row(term, unknown)
 
     diagnostics = {
         "assembly": "dense",
-            "unknowns": tuple(unknown.name for unknown in system.unknowns),
-            "equations": tuple(equation.name for equation in system.equations),
-            "constraints": tuple(constraint.name for constraint in system.constraints),
-        }
+        "unknowns": tuple(unknown.name for unknown in system.unknowns),
+        "equations": tuple(equation.name for equation in system.equations),
+        "constraints": tuple(constraint.name for constraint in system.constraints),
+    }
     if config.use_rcip:
         from .nonsmooth import build_rcip_state
 
@@ -86,7 +96,9 @@ def assemble_system_matrix(system, *, config: SystemConfig) -> SystemMatrix:
 
 def rhs_vector(system) -> np.ndarray:
     equation_rhs = [_equation_rhs_vector(equation) for equation in system.equations]
-    constraint_rhs = [np.asarray([constraint.value], dtype=complex) for constraint in system.constraints]
+    constraint_rhs = [
+        np.asarray([constraint.value], dtype=complex) for constraint in system.constraints
+    ]
     return np.concatenate(equation_rhs + constraint_rhs)
 
 
@@ -111,7 +123,9 @@ def _equation_rhs_vector(equation) -> np.ndarray:
             raise ValueError("rank-3 boundary data must have shape (component, local_node, panel)")
         vector = arr.swapaxes(1, 2).reshape(-1)
     else:
-        raise ValueError("boundary data must be a vector, panel scalar field, or component panel field")
+        raise ValueError(
+            "boundary data must be a vector, panel scalar field, or component panel field"
+        )
     if vector.size != output_dim * point_count:
         raise ValueError("boundary data has incompatible size")
     return vector
@@ -170,7 +184,11 @@ def identity_system_matrix(size: int, *, config: SystemConfig | None = None) -> 
 
 def _constraint_row(term, unknown) -> np.ndarray:
     point_count = _point_count(unknown.geometry)
-    coefficients = term.coefficients(unknown.geometry.pointinfo) if callable(term.coefficients) else term.coefficients
+    coefficients = (
+        term.coefficients(unknown.geometry.pointinfo)
+        if callable(term.coefficients)
+        else term.coefficients
+    )
     arr = np.asarray(coefficients, dtype=complex)
     if arr.ndim == 0:
         arr = np.full(point_count, arr, dtype=complex)
@@ -197,20 +215,23 @@ def _trace_matrix(trace: BoundaryTrace, unknown) -> np.ndarray:
     source = trace.layer.source
     target = trace.target
     if not hasattr(source, "pointinfo") or not hasattr(target, "pointinfo"):
-        raise NotImplementedError("dense bootstrap assembly requires source and target pointinfo views")
+        raise NotImplementedError(
+            "dense bootstrap assembly requires source and target pointinfo views"
+        )
     if trace.layer.kernel.input_dim != unknown.component_count:
         raise ValueError("kernel input dimension must match density component count")
 
     block = dense_panel_operator_matrix(source.pointinfo, target.pointinfo, trace.layer.kernel)
 
-    # Smooth closed-curve double-layer self blocks have a finite diagonal limit.
-    # We insert the local limit here so the dense reference path is usable before
-    # special quadrature owns same-panel correction.
+    # Smooth closed-curve Laplace double-layer and adjoint double-layer traces
+    # share the same principal-value diagonal limit with the project right-normal
+    # convention. Same-panel special quadrature will eventually own this block,
+    # but the dense reference path needs the finite limit today.
     if (
         source is target
         and hasattr(source, "signed_curvature")
         and trace.layer.kernel.family == "laplace"
-        and trace.layer.kernel.selector == "d"
+        and trace.layer.kernel.selector in {"d", "sp"}
     ):
         diagonal = (-source.signed_curvature / (4.0 * np.pi)).T.reshape(-1)
         weights = source.pointinfo.flat_weights
@@ -238,7 +259,9 @@ def _equation_output_dim(equation) -> int:
     output_dim: int | None = None
     for term in equation.terms:
         if not isinstance(term, BoundaryTrace):
-            raise NotImplementedError("only BoundaryTrace terms are supported in dense bootstrap assembly")
+            raise NotImplementedError(
+                "only BoundaryTrace terms are supported in dense bootstrap assembly"
+            )
         term_output_dim = term.layer.kernel.output_dim
         if output_dim is None:
             output_dim = term_output_dim

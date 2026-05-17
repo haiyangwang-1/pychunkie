@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `115 passed` in 3.99 seconds.
+  `118 passed` in 5.09 seconds.
 
 ## Test Organization Target
 
@@ -116,6 +116,9 @@ meaningfully.
 - `tests/system/test_laplace_exterior_dirichlet.py`: dense exterior Laplace
   double-layer solve, GMRES and FLAM solve field comparisons, plus dense and
   FMM off-boundary evaluation for the unit-circle cosine mode.
+- `tests/system/test_laplace_neumann.py`: finite Laplace adjoint
+  double-layer self diagonal and interior/exterior Neumann circle solves
+  against analytic linear/dipole fields up to an additive constant.
 - `tests/system/test_fmm_matvec.py`: scalar Laplace FMM system matvec for
   off-boundary trace equations compared against dense assembly.
 - `tests/system/test_matrix_free_matvec.py`: dense-reference matrix-free trace

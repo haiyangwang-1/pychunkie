@@ -26,6 +26,10 @@ Current implementation status:
 - Dense assembly supports multiple unknown density blocks and multiple boundary
   equations for `Chunker` and `ChunkGraph` `BoundaryPart` trace terms, with
   trace blocks materialized through the component-major operator matrix layout.
+- Dense self assembly inserts the finite smooth-boundary diagonal limit for
+  Laplace double-layer and adjoint double-layer traces, so Dirichlet and
+  Neumann circle solves have finite reference matrices before special
+  quadrature owns all same-panel corrections.
 - Right-hand sides may be scalar panel data, component panel data, or already
   flattened component-major vectors, and multi-equation right-hand sides are
   concatenated in equation order.
