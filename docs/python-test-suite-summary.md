@@ -11,8 +11,8 @@ meaningfully.
 - Previous test-suite summary is archived in
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
-- Verification snapshot: `uv run pytest -q` on 2026-05-16,
-  `43 passed` in 1.92 seconds.
+- Verification snapshot: `uv run pytest -q` on 2026-05-17,
+  `52 passed` in 1.69 seconds.
 
 ## Test Organization Target
 
@@ -55,10 +55,17 @@ meaningfully.
 - `tests/quadrature/test_ggq.py`: generated GGQ-style self split rules,
   interpolation matrices, and a Laplace single-layer self-panel matrix against
   an analytic straight-segment logarithmic integral.
+- `tests/quadrature/test_legendre.py`: migrated Legendre utility behavior for
+  coefficient/value transforms, polynomial derivatives, interpolation,
+  integration, barycentric weights, Bernstein ellipse points, Taylor stepping,
+  and scalar/vector adaptive Gauss integration.
 - `tests/rcip/test_primitives.py`: dyadic local corner geometry, barycentric
   prolongation, and scalar/component density interpolation.
 - `tests/system/test_density.py`: component-major over panel-major density
   vector adapters.
+- `tests/system/test_multi_density_assembly.py`: dense block assembly for
+  multiple unknown density spaces and multiple boundary equations, including
+  jump insertion and multi-density solve reconstruction.
 - `tests/system/test_corrections.py`: component-major dense panel replacement
   insertion for adaptive local quadrature blocks and generated GGQ Laplace
   self-panel replacement.

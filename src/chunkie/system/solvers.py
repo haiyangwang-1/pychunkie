@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .assembly import rhs_vector
+from .assembly import rhs_vector, unknown_column_slices
 from .backends.flam import factor_system
 from .config import SystemConfig
 from .density import Density
@@ -12,8 +12,10 @@ from .solution import SystemSolution
 def solve_system(system, *, config: SystemConfig) -> SystemSolution:
     matrix = system.assemble(config=config)
     rhs = rhs_vector(system)
-    unknown = system.unknowns[0]
     if config.solve_method == "flam":
+        if len(system.unknowns) != 1:
+            raise NotImplementedError("FLAM solve integration currently supports one unknown density")
+        unknown = system.unknowns[0]
         factor = factor_system(
             matrix,
             _solver_points(unknown),
@@ -23,16 +25,20 @@ def solve_system(system, *, config: SystemConfig) -> SystemSolution:
         vector = factor.solve(rhs)
     else:
         vector = matrix.solve(rhs)
-    density = Density.from_vector(
-        unknown.name,
-        unknown.geometry,
-        vector,
-        component_count=unknown.component_count,
-    )
+    column_slices = unknown_column_slices(system.unknowns)
+    densities = {
+        unknown.name: Density.from_vector(
+            unknown.name,
+            unknown.geometry,
+            vector[column_slices[unknown.name]],
+            component_count=unknown.component_count,
+        )
+        for unknown in system.unknowns
+    }
     return SystemSolution(
         system=system,
         operator=matrix,
-        densities={unknown.name: density},
+        densities=densities,
         constants={},
         residual=matrix.matvec(vector) - rhs,
     )

@@ -13,42 +13,62 @@ from .trace import BoundaryTrace
 
 
 def assemble_system_matrix(system, *, config: SystemConfig) -> SystemMatrix:
-    if len(system.unknowns) != 1 or len(system.equations) != 1:
-        raise NotImplementedError("dense assembly currently supports one unknown and one equation")
-
-    unknown = system.unknowns[0]
-    equation = system.equations[0]
-    row_count = _equation_row_count(equation)
-    column_count = _point_count(unknown.geometry) * unknown.component_count
+    # Dense assembly keeps named equation and density blocks until this
+    # explicit row/column-slice boundary, where the solver-facing matrix is
+    # flattened into component-major linear algebra layout.
+    row_slices = _equation_row_slices(system.equations)
+    column_slices = _unknown_column_slices(system.unknowns)
+    unknowns = {unknown.name: unknown for unknown in system.unknowns}
+    row_count = sum(row_slice.stop - row_slice.start for row_slice in row_slices.values())
+    column_count = sum(column_slice.stop - column_slice.start for column_slice in column_slices.values())
     matrix = np.zeros((row_count, column_count), dtype=complex)
 
-    for term in equation.terms:
-        if not isinstance(term, BoundaryTrace):
-            raise NotImplementedError("only BoundaryTrace terms are supported in dense bootstrap assembly")
-        if term.layer.density != unknown.name:
-            raise NotImplementedError("dense bootstrap assembly supports one matching density")
-        block = _trace_matrix(term, unknown)
-        if block.shape != matrix.shape:
-            raise ValueError("trace block shape does not match dense system layout")
-        matrix += term.layer.coefficient * block
-        if term.jump is not None:
-            if term.jump.density != unknown.name:
-                raise NotImplementedError("dense bootstrap assembly supports jumps on the matching density")
-            if row_count != column_count:
-                raise ValueError("jump terms require matching row and column layout")
-            matrix += term.jump.coefficient * np.eye(row_count, column_count)
+    for equation in system.equations:
+        row_slice = row_slices[equation.name]
+        for term in equation.terms:
+            if not isinstance(term, BoundaryTrace):
+                raise NotImplementedError("only BoundaryTrace terms are supported in dense bootstrap assembly")
+            try:
+                unknown = unknowns[term.layer.density]
+            except KeyError as exc:
+                raise ValueError(f"trace term references unknown density {term.layer.density!r}") from exc
+            column_slice = column_slices[unknown.name]
+            expected_shape = (
+                row_slice.stop - row_slice.start,
+                column_slice.stop - column_slice.start,
+            )
+            if term.layer.coefficient != 0:
+                block = _trace_matrix(term, unknown)
+                if block.shape != expected_shape:
+                    raise ValueError("trace block shape does not match dense system layout")
+                matrix[row_slice, column_slice] += term.layer.coefficient * block
+            if term.jump is not None:
+                try:
+                    jump_unknown = unknowns[term.jump.density]
+                except KeyError as exc:
+                    raise ValueError(f"jump term references unknown density {term.jump.density!r}") from exc
+                jump_slice = column_slices[jump_unknown.name]
+                jump_shape = (row_slice.stop - row_slice.start, jump_slice.stop - jump_slice.start)
+                if jump_shape[0] != jump_shape[1]:
+                    raise ValueError("jump terms require matching row and column layout")
+                matrix[row_slice, jump_slice] += term.jump.coefficient * np.eye(*jump_shape)
 
     return SystemMatrix(
         matrix,
         config,
-        diagnostics={"assembly": "dense", "unknown": unknown.name, "equation": equation.name},
+        diagnostics={
+            "assembly": "dense",
+            "unknowns": tuple(unknown.name for unknown in system.unknowns),
+            "equations": tuple(equation.name for equation in system.equations),
+        },
     )
 
 
 def rhs_vector(system) -> np.ndarray:
-    if len(system.equations) != 1:
-        raise NotImplementedError("dense bootstrap RHS supports one equation")
-    equation = system.equations[0]
+    return np.concatenate([_equation_rhs_vector(equation) for equation in system.equations])
+
+
+def _equation_rhs_vector(equation) -> np.ndarray:
     output_dim = _equation_output_dim(equation)
     point_count = _point_count(equation.target)
     rhs = equation.rhs(equation.target.pointinfo) if callable(equation.rhs) else equation.rhs
@@ -73,6 +93,34 @@ def rhs_vector(system) -> np.ndarray:
     if vector.size != output_dim * point_count:
         raise ValueError("boundary data has incompatible size")
     return vector
+
+
+def unknown_column_slices(unknowns) -> dict[str, slice]:
+    return _unknown_column_slices(unknowns)
+
+
+def _equation_row_slices(equations) -> dict[str, slice]:
+    offset = 0
+    out: dict[str, slice] = {}
+    for equation in equations:
+        if equation.name in out:
+            raise ValueError(f"duplicate equation name {equation.name!r}")
+        row_count = _equation_row_count(equation)
+        out[equation.name] = slice(offset, offset + row_count)
+        offset += row_count
+    return out
+
+
+def _unknown_column_slices(unknowns) -> dict[str, slice]:
+    offset = 0
+    out: dict[str, slice] = {}
+    for unknown in unknowns:
+        if unknown.name in out:
+            raise ValueError(f"duplicate unknown density name {unknown.name!r}")
+        column_count = _point_count(unknown.geometry) * unknown.component_count
+        out[unknown.name] = slice(offset, offset + column_count)
+        offset += column_count
+    return out
 
 
 def identity_system_matrix(size: int, *, config: SystemConfig | None = None) -> SystemMatrix:

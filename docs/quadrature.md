@@ -13,6 +13,10 @@ Implementation order:
 
 Current helpers:
 
+- `legendre_rule`, `exps`, `pols`, `matrin`, `intmat`, and related helpers
+  provide the active Legendre transform/interpolation layer used by dense
+  panel rules, adaptive fallback, and old-test migration. These utilities keep
+  coefficient-space operations separate from solver-vector layouts.
 - `dense_panel_matrix` evaluates uncorrected weighted kernel tensors with shape
   `(output, input, target, source)`.
 - `dense_panel_operator_matrix` materializes those tensors into the solver
