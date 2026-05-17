@@ -24,6 +24,9 @@ Current implementation status:
 - Basic `Chunker` storage and point views are active.
 - `Chunker` exposes panel lengths, total length, signed area, arclength
   density, unit tangents, and signed curvature using the panel-major tensors.
+- `Chunker` exposes panel endpoint positions, endpoint unit tangents, weighted
+  panel centroids, and coordinate bounds for diagnostics and graph/RCIP
+  bookkeeping.
 - `geometry.curves` provides reusable line-segment, parabola, sine-graph,
   starfish, and Fourier-radius callbacks with first and second parameter
   derivatives for constructor tests and examples.

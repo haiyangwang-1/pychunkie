@@ -39,7 +39,9 @@ class Chunker:
         self.adjacency = np.asarray(self.adjacency, dtype=np.int64)
 
         if self.positions.ndim != 3:
-            raise ValueError("positions must have shape (coordinate_dim, quadrature_order, panel_count)")
+            raise ValueError(
+                "positions must have shape (coordinate_dim, quadrature_order, panel_count)"
+            )
         if self.derivatives.shape != self.positions.shape:
             raise ValueError("derivatives must match positions")
         if self.second_derivatives.shape != self.positions.shape:
@@ -97,6 +99,28 @@ class Chunker:
         return np.sum(self.weights, axis=0)
 
     @property
+    def panel_centroids(self) -> NDArray[np.floating]:
+        return np.einsum("RsS,sS->RS", self.positions, self.weights) / self.panel_lengths[None, :]
+
+    @property
+    def bounds(self) -> tuple[NDArray[np.floating], NDArray[np.floating]]:
+        flat = self.pointinfo.flat_positions
+        return np.min(flat, axis=1), np.max(flat, axis=1)
+
+    @property
+    def panel_endpoints(self) -> NDArray[np.floating]:
+        interpolation = _interpolation_matrix(self.nodes, np.array([-1.0, 1.0]))
+        return np.einsum("es,RsS->ReS", interpolation, self.positions)
+
+    @property
+    def panel_endpoint_tangents(self) -> NDArray[np.floating]:
+        interpolation = _interpolation_matrix(self.nodes, np.array([-1.0, 1.0]))
+        derivatives = np.einsum("es,RsS->ReS", interpolation, self.derivatives)
+        # Endpoint tangents are unit vectors; derivative magnitudes near corners
+        # belong to panel length/weights, not orientation diagnostics.
+        return derivatives / np.linalg.norm(derivatives, axis=0, keepdims=True)
+
+    @property
     def length(self) -> float:
         return float(np.sum(self.weights))
 
@@ -149,7 +173,9 @@ class Chunker:
             else np.asarray(center, dtype=float).reshape(self.coordinate_dim, 1, 1)
         )
         scale = float(factor)
-        return self.affine(scale * np.eye(self.coordinate_dim), offset=(1.0 - scale) * center_array[:, 0, 0])
+        return self.affine(
+            scale * np.eye(self.coordinate_dim), offset=(1.0 - scale) * center_array[:, 0, 0]
+        )
 
     def affine(self, matrix: ArrayLike, *, offset: ArrayLike | None = None) -> Chunker:
         matrix_array = np.asarray(matrix, dtype=float)
@@ -186,8 +212,12 @@ class Chunker:
         center: ArrayLike | None = None,
         target_center: ArrayLike | None = None,
     ) -> Chunker:
-        source_center = np.zeros(self.coordinate_dim) if center is None else np.asarray(center, dtype=float)
-        destination = source_center if target_center is None else np.asarray(target_center, dtype=float)
+        source_center = (
+            np.zeros(self.coordinate_dim) if center is None else np.asarray(center, dtype=float)
+        )
+        destination = (
+            source_center if target_center is None else np.asarray(target_center, dtype=float)
+        )
         c = float(np.cos(angle))
         s = float(np.sin(angle))
         matrix = np.array([[c, -s], [s, c]])
@@ -200,8 +230,12 @@ class Chunker:
         center: ArrayLike | None = None,
         target_center: ArrayLike | None = None,
     ) -> Chunker:
-        source_center = np.zeros(self.coordinate_dim) if center is None else np.asarray(center, dtype=float)
-        destination = source_center if target_center is None else np.asarray(target_center, dtype=float)
+        source_center = (
+            np.zeros(self.coordinate_dim) if center is None else np.asarray(center, dtype=float)
+        )
+        destination = (
+            source_center if target_center is None else np.asarray(target_center, dtype=float)
+        )
         c = float(np.cos(2.0 * angle))
         s = float(np.sin(2.0 * angle))
         matrix = np.array([[c, s], [s, -c]])
@@ -233,3 +267,26 @@ def _transformed_orientation(
     if np.linalg.det(matrix) >= 0.0:
         return orientation
     return "cw" if orientation == "ccw" else "ccw"
+
+
+def _interpolation_matrix(
+    nodes: NDArray[np.floating], targets: NDArray[np.floating]
+) -> NDArray[np.floating]:
+    weights = _barycentric_weights(nodes)
+    matrix = np.empty((targets.size, nodes.size), dtype=float)
+    for row, target in enumerate(targets):
+        differences = target - nodes
+        exact = np.isclose(differences, 0.0, atol=1.0e-15, rtol=0.0)
+        if np.any(exact):
+            matrix[row] = 0.0
+            matrix[row, np.argmax(exact)] = 1.0
+            continue
+        scaled = weights / differences
+        matrix[row] = scaled / np.sum(scaled)
+    return matrix
+
+
+def _barycentric_weights(nodes: NDArray[np.floating]) -> NDArray[np.floating]:
+    differences = nodes[:, None] - nodes[None, :]
+    np.fill_diagonal(differences, 1.0)
+    return 1.0 / np.prod(differences, axis=1)
