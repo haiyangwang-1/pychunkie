@@ -61,6 +61,7 @@ def test_geometry_rcip_and_system_exports_include_new_rewrite_helpers():
     for name in (
         "build_block_prolongation",
         "build_split_panel_prolongation",
+        "recursive_schur_compress",
         "schur_compress_block",
     ):
         assert name in rcip.__all__

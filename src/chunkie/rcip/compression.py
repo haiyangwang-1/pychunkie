@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -24,6 +25,31 @@ class RCIPCornerState:
 class RCIPState:
     corners: tuple[RCIPCornerState, ...] = ()
     metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class RCIPSchurLevel:
+    """Inputs for one dense RCIP Schur compression level."""
+
+    prolongation: ArrayLike
+    weighted_prolongation: ArrayLike
+    local_matrix: ArrayLike
+    fine_star_indices: ArrayLike
+    fine_eliminated_indices: ArrayLike
+    coarse_star_indices: ArrayLike
+    coarse_eliminated_indices: ArrayLike
+
+
+@dataclass(frozen=True)
+class RecursiveCompressionResult:
+    """Dense reference output of a multi-level RCIP compression."""
+
+    compressed_inverse: NDArray[np.generic]
+    level_inverses: tuple[NDArray[np.generic], ...]
+
+    @property
+    def level_count(self) -> int:
+        return len(self.level_inverses)
 
 
 def schur_compress_block(
@@ -66,3 +92,34 @@ def schur_compress_block(
     compressed[np.ix_(coarse_eliminated, coarse_star)] = -eliminated_to_prolonged
     compressed[np.ix_(coarse_star, coarse_eliminated)] = -weighted_coupling @ eliminated_inverse
     return compressed
+
+
+def recursive_schur_compress(
+    levels: Sequence[RCIPSchurLevel],
+    seed_inverse: ArrayLike,
+) -> RecursiveCompressionResult:
+    """Apply a sequence of dense RCIP Schur updates.
+
+    This reference driver keeps every intermediate inverse so system-level RCIP
+    code can attach diagnostics before the production corner recursion is
+    optimized or specialized.
+    """
+
+    current = np.asarray(seed_inverse)
+    history: list[NDArray[np.generic]] = []
+    for level in levels:
+        current = schur_compress_block(
+            level.prolongation,
+            level.weighted_prolongation,
+            level.local_matrix,
+            current,
+            level.fine_star_indices,
+            level.fine_eliminated_indices,
+            level.coarse_star_indices,
+            level.coarse_eliminated_indices,
+        )
+        history.append(current)
+    return RecursiveCompressionResult(
+        compressed_inverse=current,
+        level_inverses=tuple(history),
+    )

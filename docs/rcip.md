@@ -15,12 +15,14 @@ Current implementation status:
   edge/component block layout used by corner compression.
 - `schur_compress_block` applies the dense reference Schur/Banachiewicz update
   for one RCIP local elimination step.
+- `recursive_schur_compress` applies a sequence of dense Schur levels and
+  retains each intermediate inverse for diagnostics and later system
+  integration.
 - `interpolate_density` applies prolongation matrices to scalar or component
   density values.
 
 Required upcoming work:
 
 - local corner operator assembly,
-- recursive compression drivers,
 - interpolation of reconstructed corner densities,
 - and system-level insertion/evaluation through `chunkie.system.nonsmooth`.

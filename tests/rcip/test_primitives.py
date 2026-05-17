@@ -2,11 +2,13 @@ import numpy as np
 from numpy.polynomial.legendre import leggauss
 
 from chunkie.rcip import (
+    RCIPSchurLevel,
     build_block_prolongation,
     build_local_corner_geometry,
     build_prolongation,
     build_split_panel_prolongation,
     interpolate_density,
+    recursive_schur_compress,
     schur_compress_block,
 )
 
@@ -41,13 +43,19 @@ def test_prolongation_interpolates_polynomials_exactly():
 
 def test_split_panel_prolongation_preserves_polynomial_integrals():
     source, weights = leggauss(8)
-    target, target_weights, interpolation, weighted_transfer = build_split_panel_prolongation(source, weights)
+    target, target_weights, interpolation, weighted_transfer = build_split_panel_prolongation(
+        source, weights
+    )
     values = source**5 - 0.2 * source**3 + 0.7
     expected_target = target**5 - 0.2 * target**3 + 0.7
 
     np.testing.assert_allclose(interpolation @ values, expected_target, atol=1.0e-14)
-    np.testing.assert_allclose(np.sum(target_weights * expected_target), weights @ values, atol=1.0e-14)
-    np.testing.assert_allclose(np.sum(weighted_transfer @ (weights * values)), weights @ values, atol=1.0e-14)
+    np.testing.assert_allclose(
+        np.sum(target_weights * expected_target), weights @ values, atol=1.0e-14
+    )
+    np.testing.assert_allclose(
+        np.sum(weighted_transfer @ (weights * values)), weights @ values, atol=1.0e-14
+    )
 
 
 def test_block_prolongation_lifts_edges_and_components():
@@ -58,7 +66,9 @@ def test_block_prolongation_lifts_edges_and_components():
     weighted_block = build_block_prolongation(weighted_transfer, edge_count=3, component_count=2)
 
     np.testing.assert_allclose(block, np.kron(np.eye(3), np.kron(interpolation, np.eye(2))))
-    np.testing.assert_allclose(weighted_block, np.kron(np.eye(3), np.kron(weighted_transfer, np.eye(2))))
+    np.testing.assert_allclose(
+        weighted_block, np.kron(np.eye(3), np.kron(weighted_transfer, np.eye(2)))
+    )
 
 
 def test_schur_compress_block_matches_direct_block_formula():
@@ -69,9 +79,9 @@ def test_schur_compress_block_matches_direct_block_formula():
     prolongation = rng.random((fine_star_count, fine_star_count // 2))
     weighted_prolongation = rng.random((fine_star_count, fine_star_count // 2))
     local_matrix = rng.random((size, size))
-    local_matrix[
-        np.ix_(range(fine_star_count, size), range(fine_star_count, size))
-    ] += 3.0 * np.eye(fine_eliminated_count)
+    local_matrix[np.ix_(range(fine_star_count, size), range(fine_star_count, size))] += (
+        3.0 * np.eye(fine_eliminated_count)
+    )
     seed_inverse = np.eye(fine_star_count)
     fine_star = np.arange(fine_star_count)
     fine_eliminated = np.arange(fine_star_count, size)
@@ -105,6 +115,55 @@ def test_schur_compress_block_matches_direct_block_formula():
     expected[np.ix_(coarse_eliminated, coarse_star)] = -eliminated_to_prolonged
     expected[np.ix_(coarse_star, coarse_eliminated)] = -weighted_coupling @ eliminated_inverse
     np.testing.assert_allclose(actual, expected)
+
+
+def test_recursive_schur_compress_records_each_dense_level():
+    rng = np.random.default_rng(4321)
+    fine_star_count = 4
+    fine_eliminated_count = 2
+    size = fine_star_count + fine_eliminated_count
+    fine_star = np.arange(fine_star_count)
+    fine_eliminated = np.arange(fine_star_count, size)
+    coarse_star = np.arange(fine_star_count // 2)
+    coarse_eliminated = np.arange(fine_star_count // 2, fine_star_count)
+    seed_inverse = np.eye(fine_star_count)
+    levels = []
+    manual = seed_inverse
+
+    for _ in range(2):
+        prolongation = rng.random((fine_star_count, fine_star_count // 2))
+        weighted_prolongation = rng.random((fine_star_count, fine_star_count // 2))
+        local_matrix = rng.random((size, size))
+        local_matrix[np.ix_(fine_eliminated, fine_eliminated)] += 4.0 * np.eye(
+            fine_eliminated_count
+        )
+        levels.append(
+            RCIPSchurLevel(
+                prolongation=prolongation,
+                weighted_prolongation=weighted_prolongation,
+                local_matrix=local_matrix,
+                fine_star_indices=fine_star,
+                fine_eliminated_indices=fine_eliminated,
+                coarse_star_indices=coarse_star,
+                coarse_eliminated_indices=coarse_eliminated,
+            )
+        )
+        manual = schur_compress_block(
+            prolongation,
+            weighted_prolongation,
+            local_matrix,
+            manual,
+            fine_star,
+            fine_eliminated,
+            coarse_star,
+            coarse_eliminated,
+        )
+
+    result = recursive_schur_compress(levels, seed_inverse)
+
+    assert result.level_count == 2
+    np.testing.assert_allclose(result.compressed_inverse, manual)
+    np.testing.assert_allclose(result.level_inverses[-1], manual)
 
 
 def test_interpolate_density_handles_component_rows():
