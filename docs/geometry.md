@@ -41,7 +41,9 @@ Current implementation status:
 - Circle, ellipse, curve, and polygon constructors are active first-pass
   implementations. Curve constructors accept full `(positions, derivatives,
   second_derivatives)` callbacks and position-only callbacks, with finite
-  differences used only at that adapter boundary.
+  differences used only at that adapter boundary. `chunker_from_curve` now
+  adaptively splits unresolved parameter intervals with a high-vs-low Gauss
+  arclength estimate and records accepted intervals in metadata.
 - `ChunkGraph.from_vertices` builds multi-edge graphs from vertices and
   directed edge indices. `ChunkGraph` records, merged point views, edge point
   views, region boundary parts, selected-edge `BoundaryPart` views, and

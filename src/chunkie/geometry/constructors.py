@@ -77,17 +77,28 @@ def chunker_from_curve(
     min_panel_count: int = 8,
     max_panel_count: int | None = None,
 ) -> Chunker:
-    panel_count = min_panel_count if max_panel_count is None else min(min_panel_count, max_panel_count)
     start, stop = (0.0, 2.0 * np.pi) if closed else (0.0, 1.0)
+    panel_limit = max(int(min_panel_count), int(max_panel_count) if max_panel_count is not None else 4096)
+    breaks = _adaptive_parameter_breaks(
+        curve,
+        start=start,
+        stop=stop,
+        quadrature_order=quadrature_order,
+        tolerance=tolerance,
+        min_panel_count=min_panel_count,
+        max_panel_count=panel_limit,
+    )
     return _chunker_from_parameter_curve(
         curve,
         quadrature_order=quadrature_order,
-        panel_count=panel_count,
-        start=start,
-        stop=stop,
+        breaks=breaks,
         closed=closed,
         orientation="ccw" if closed else "open",
-        metadata={"constructor": "chunker_from_curve", "tolerance": tolerance},
+        metadata={
+            "constructor": "chunker_from_curve",
+            "tolerance": tolerance,
+            "parameter_intervals": np.vstack((breaks[:-1], breaks[1:])),
+        },
     )
 
 
@@ -141,24 +152,31 @@ def _chunker_from_parameter_curve(
     curve: Curve,
     *,
     quadrature_order: int,
-    panel_count: int,
-    start: float,
-    stop: float,
+    breaks: NDArray[np.floating] | None = None,
+    panel_count: int | None = None,
+    start: float | None = None,
+    stop: float | None = None,
     closed: bool,
     orientation: str,
     metadata: dict[str, Any],
 ) -> Chunker:
     nodes, reference_weights = leggauss(quadrature_order)
-    breaks = np.linspace(start, stop, panel_count + 1)
+    if breaks is None:
+        if panel_count is None or start is None or stop is None:
+            raise ValueError("uniform curve construction requires panel_count, start, and stop")
+        breaks = np.linspace(start, stop, panel_count + 1)
+    else:
+        breaks = np.asarray(breaks, dtype=float)
+    panel_total = breaks.size - 1
     first_positions, _, _ = _curve_outputs(curve, np.array([breaks[0]]))
     coordinate_dim = first_positions.shape[0]
 
-    positions = np.empty((coordinate_dim, quadrature_order, panel_count), dtype=float)
+    positions = np.empty((coordinate_dim, quadrature_order, panel_total), dtype=float)
     derivatives = np.empty_like(positions)
     second = np.empty_like(positions)
-    weights = np.empty((quadrature_order, panel_count), dtype=float)
+    weights = np.empty((quadrature_order, panel_total), dtype=float)
 
-    for panel_id in range(panel_count):
+    for panel_id in range(panel_total):
         half_width = 0.5 * (breaks[panel_id + 1] - breaks[panel_id])
         midpoint = 0.5 * (breaks[panel_id + 1] + breaks[panel_id])
         parameters = midpoint + half_width * nodes
@@ -177,7 +195,7 @@ def _chunker_from_parameter_curve(
         weights=weights,
         nodes=nodes,
         reference_weights=reference_weights,
-        adjacency=_adjacency(panel_count, closed),
+        adjacency=_adjacency(panel_total, closed),
         closed=closed,
         orientation=orientation,  # type: ignore[arg-type]
         metadata=metadata,
@@ -198,6 +216,65 @@ def _curve_outputs(curve: Curve, parameters: NDArray[np.floating]):
     d = (rp - rm) / (2.0 * h)
     d2 = (rp - 2.0 * r + rm) / h**2
     return r, d, d2
+
+
+def _adaptive_parameter_breaks(
+    curve: Curve,
+    *,
+    start: float,
+    stop: float,
+    quadrature_order: int,
+    tolerance: float,
+    min_panel_count: int,
+    max_panel_count: int,
+) -> NDArray[np.floating]:
+    initial = np.linspace(start, stop, int(min_panel_count) + 1)
+    accepted: list[tuple[float, float]] = []
+    stack = [(float(initial[index]), float(initial[index + 1]), 0) for index in range(initial.size - 2, -1, -1)]
+    total_width = max(abs(stop - start), np.finfo(float).eps)
+    while stack:
+        left, right, depth = stack.pop()
+        error, scale = _arclength_resolution_error(curve, left, right, quadrature_order)
+        interval_budget = max(abs(right - left) / total_width, np.finfo(float).eps)
+        would_exceed_limit = len(accepted) + len(stack) + 2 > max_panel_count
+        if error <= tolerance * scale * interval_budget or would_exceed_limit or depth >= 30:
+            accepted.append((left, right))
+            continue
+        midpoint = 0.5 * (left + right)
+        stack.append((midpoint, right, depth + 1))
+        stack.append((left, midpoint, depth + 1))
+
+    accepted.sort(key=lambda interval: interval[0])
+    breaks = [accepted[0][0]]
+    breaks.extend(right for _, right in accepted)
+    return np.asarray(breaks, dtype=float)
+
+
+def _arclength_resolution_error(
+    curve: Curve,
+    left: float,
+    right: float,
+    quadrature_order: int,
+) -> tuple[float, float]:
+    low_nodes, low_weights = leggauss(max(4, int(quadrature_order)))
+    high_nodes, high_weights = leggauss(max(2 * int(quadrature_order) + 8, 32))
+    low = _interval_length(curve, left, right, low_nodes, low_weights)
+    high = _interval_length(curve, left, right, high_nodes, high_weights)
+    return abs(high - low), 1.0 + abs(high)
+
+
+def _interval_length(
+    curve: Curve,
+    left: float,
+    right: float,
+    nodes: NDArray[np.floating],
+    weights: NDArray[np.floating],
+) -> float:
+    half_width = 0.5 * (right - left)
+    midpoint = 0.5 * (right + left)
+    parameters = midpoint + half_width * nodes
+    _, derivatives, _ = _curve_outputs(curve, parameters)
+    return float(abs(half_width) * np.sum(weights * np.linalg.norm(derivatives, axis=0)))
 
 
 def _adjacency(panel_count: int, closed: bool) -> NDArray[np.integer]:

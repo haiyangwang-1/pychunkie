@@ -84,3 +84,45 @@ def test_chunker_from_curve_differentiates_position_only_callback():
         np.testing.assert_allclose(boundary.second_derivatives[:, :, panel_id], expected_second, atol=5.0e-4)
     np.testing.assert_allclose(np.linalg.norm(boundary.normals, axis=0), 1.0, atol=1.0e-12)
     np.testing.assert_allclose(np.sum(boundary.positions * boundary.normals, axis=0), 1.0, atol=1.0e-10)
+
+
+def test_chunker_from_curve_adaptively_refines_unresolved_open_curve():
+    frequency = 24.0 * np.pi
+
+    def wavy(t):
+        t = np.asarray(t)
+        positions = np.vstack((t, 0.05 * np.sin(frequency * t)))
+        derivatives = np.vstack((np.ones_like(t), 0.05 * frequency * np.cos(frequency * t)))
+        second = np.vstack((np.zeros_like(t), -0.05 * frequency**2 * np.sin(frequency * t)))
+        return positions, derivatives, second
+
+    coarse = chunker_from_curve(
+        wavy,
+        closed=False,
+        quadrature_order=8,
+        min_panel_count=1,
+        max_panel_count=1,
+    )
+    refined = chunker_from_curve(
+        wavy,
+        closed=False,
+        quadrature_order=8,
+        min_panel_count=1,
+        max_panel_count=256,
+        tolerance=1.0e-6,
+    )
+    intervals = refined.metadata["parameter_intervals"]
+
+    assert coarse.panel_count == 1
+    assert refined.panel_count > coarse.panel_count
+    np.testing.assert_allclose(intervals[0, 0], 0.0)
+    np.testing.assert_allclose(intervals[1, -1], 1.0)
+    np.testing.assert_allclose(intervals[1, :-1], intervals[0, 1:])
+    np.testing.assert_allclose(refined.panel_lengths, np.sum(refined.weights, axis=0), atol=1.0e-14)
+
+    nodes, weights = np.polynomial.legendre.leggauss(2000)
+    parameters = 0.5 * (nodes + 1.0)
+    reference_length = 0.5 * np.sum(
+        weights * np.sqrt(1.0 + (0.05 * frequency * np.cos(frequency * parameters)) ** 2),
+    )
+    np.testing.assert_allclose(refined.length, reference_length, rtol=5.0e-8, atol=5.0e-9)
