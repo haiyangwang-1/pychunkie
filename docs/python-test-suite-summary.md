@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `70 passed` in 1.72 seconds.
+  `73 passed` in 1.90 seconds.
 
 ## Test Organization Target
 
@@ -59,8 +59,8 @@ meaningfully.
   Stokes, and elasticity kernels through the new kernel API.
 - `tests/quadrature/test_panel.py`: dense panel weighting at the quadrature
   boundary, component-major dense operator matrix materialization, and
-  adaptive close-panel integration against an analytic straight-panel
-  logarithmic integral.
+  direct weighted-kernel tensor layout checks, plus adaptive close-panel
+  integration against an analytic straight-panel logarithmic integral.
 - `tests/quadrature/test_helsing_ojala.py`: Helsing-Ojala log, Cauchy, and
   derivative product weights against oversampled Legendre moments, plus a
   Laplace single-layer close-panel matrix, Laplace double-layer close-panel
@@ -77,7 +77,8 @@ meaningfully.
   prolongation, dense Schur compression updates, and scalar/component density
   interpolation.
 - `tests/system/test_density.py`: component-major over panel-major density
-  vector adapters.
+  vector adapters for scalar and component densities, including invalid-shape
+  validation.
 - `tests/system/test_multi_density_assembly.py`: dense block assembly for
   multiple unknown density spaces and multiple boundary equations, including
   jump insertion and multi-density solve reconstruction.

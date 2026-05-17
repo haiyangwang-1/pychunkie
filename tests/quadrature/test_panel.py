@@ -7,6 +7,7 @@ from chunkie.quadrature import (
     apply_panel_potential,
     dense_panel_matrix,
     dense_panel_operator_matrix,
+    operator_matrix_from_weighted_kernel,
 )
 
 
@@ -40,6 +41,26 @@ def test_dense_panel_operator_matrix_uses_component_major_solver_layout():
 
     assert matrix.shape == (2 * target.shape[1], 2 * boundary.point_count)
     np.testing.assert_allclose(applied.reshape(2, target.shape[1]), field)
+
+
+def test_operator_matrix_materializes_component_major_kernel_tensor():
+    weighted_kernel = np.empty((2, 2, 1, 3))
+    weighted_kernel[0, 0, 0] = [1.0, 2.0, 3.0]
+    weighted_kernel[0, 1, 0] = [4.0, 5.0, 6.0]
+    weighted_kernel[1, 0, 0] = [7.0, 8.0, 9.0]
+    weighted_kernel[1, 1, 0] = [10.0, 11.0, 12.0]
+
+    matrix = operator_matrix_from_weighted_kernel(weighted_kernel)
+
+    np.testing.assert_array_equal(
+        matrix,
+        np.array(
+            [
+                [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+                [7.0, 8.0, 9.0, 10.0, 11.0, 12.0],
+            ],
+        ),
+    )
 
 
 def test_adaptive_panel_matrix_integrates_close_straight_panel_log():
