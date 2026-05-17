@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-16,
-  `21 passed` in 1.31 seconds.
+  `22 passed` in 1.23 seconds.
 
 ## Test Organization Target
 
@@ -41,6 +41,8 @@ meaningfully.
   Laplace-basis product-rule expansions.
 - `tests/kernels/test_stokes_singularity.py`: Stokes velocity single-layer
   finite smooth remainder and double-layer exact Laplace-basis singular split.
+- `tests/kernels/test_elasticity_singularity.py`: elasticity single-displacement
+  exact Laplace-basis singular split.
 - `tests/quadrature/test_panel.py`: dense panel weighting at the quadrature
   boundary.
 - `tests/system/test_density.py`: component-major over panel-major density

@@ -58,5 +58,5 @@ Current implementation status:
   and Hessian selectors using $B=-(\rho^2/4)G$ product-rule terms.
 - Stokes velocity single- and double-layer metadata is active for `s` and `d`,
   using the Stokeslet split through `G` and `B_ij`.
-- Elasticity metadata should be introduced only when the corresponding
-  smooth-remainder tests are added.
+- Elasticity single-displacement metadata is active for `s`, using
+  `2*pi*(gamma-beta)*delta_ij*G + 4*pi*gamma*B_ij`.
