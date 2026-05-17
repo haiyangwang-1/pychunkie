@@ -23,7 +23,10 @@ u(x) = D[sigma](x)
 Current implementation status:
 
 - Density layout and system records are active.
-- Scalar dense assembly supports one unknown and one boundary equation.
+- Dense assembly supports one unknown and one boundary equation, with trace
+  blocks materialized through the component-major operator matrix layout.
+- Right-hand sides may be scalar panel data, component panel data, or already
+  flattened component-major vectors.
 - `LaplaceExteriorDirichletSystem` solves the unit-circle cosine mode and
   evaluates the exterior field at an off-boundary target.
 - General block systems, constraints, nonsmooth corrections, and accelerated

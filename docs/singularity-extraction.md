@@ -11,7 +11,7 @@ $$
 K(x,y) = K_{\mathrm{sing}}(x,y) + K_{\mathrm{smooth}}(x,y),
 $$
 
-where $K_{\mathrm{sing}}$ is represented as coefficiented 2D Laplace basis
+where $K_{\mathrm{sing}}$ is represented as smooth-amplitude 2D Laplace basis
 terms and $K_{\mathrm{smooth}}$ is verified numerically before the metadata is
 used by quadrature or backend dispatch.
 
@@ -58,6 +58,55 @@ $$
 
 where $B_\alpha$ is one of $G$, $G_a$, $G_{ab}$, or a future higher derivative
 basis.
+
+## Smooth Amplitudes
+
+The multiplier $c_{oi\alpha}(x,y)$ is a smooth amplitude, not necessarily a
+constant. This is different from the leading singular coefficient:
+
+$$
+c_{oi\alpha}^{0}(y) = \lim_{x\to y} c_{oi\alpha}(x,y),
+$$
+
+which is often constant or a geometry-dependent tensor such as a normal
+component. The metadata keeps the full smooth amplitude when that makes the
+subtracted remainder smoother.
+
+This is compatible with Helsing-Ojala and other special quadrature rules. On a
+source panel, the singular contribution has the local form:
+
+$$
+\int_{\Gamma_p} c(x,y)B(x,y)\sigma(y)\,ds_y.
+$$
+
+For a fixed target $x$, define the panel density seen by the special rule as:
+
+$$
+q_x(y)=c(x,y)\sigma(y)J(y),
+$$
+
+where $J(y)$ is the source speed or quadrature Jacobian. If $c(x,y)$,
+$\sigma(y)$, and $J(y)$ are smooth on the panel, then $q_x(y)$ is a smooth
+panel function. The special rule only needs to know which singular basis
+$B(x,y)$ is present; the smooth amplitude is absorbed into the interpolated
+panel data.
+
+For example, Helmholtz uses:
+
+$$
+H_{k,\mathrm{sing}}(x,y)=J_0(k|x-y|)G(x,y),
+$$
+
+with smooth amplitude $J_0(k|x-y|)$ and leading coefficient $1$. Likewise,
+Cartesian Laplace metadata writes:
+
+$$
+D(x,y)=-n_s[a](y)G_a(x,y),
+$$
+
+so $-n_s[a](y)$ is stored as an amplitude because the canonical basis is
+geometry-free $G_a$. If the basis were instead the source-normal Laplace
+derivative, the corresponding multiplier would be the constant $-1$.
 
 ## Product Rule
 

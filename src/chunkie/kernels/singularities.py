@@ -69,6 +69,13 @@ class LaplaceBasis:
 
 @dataclass(frozen=True)
 class LaplaceSingularTerm:
+    """One smooth-amplitude multiple of a canonical Laplace singular basis.
+
+    ``coefficient`` is intentionally allowed to depend smoothly on source and
+    target geometry. Special quadrature treats that multiplier as part of the
+    smooth panel density while dispatching on the singular ``basis``.
+    """
+
     basis: LaplaceBasis
     coefficient: Coefficient = 1.0
     meaning: str = ""
