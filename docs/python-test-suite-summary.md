@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `108 passed` in 4.18 seconds.
+  `111 passed` in 5.14 seconds.
 
 ## Test Organization Target
 
@@ -53,6 +53,8 @@ meaningfully.
 - `tests/geometry/test_curves.py`: reusable curve callbacks for line segments,
   parabolas, sine graphs, starfish curves, Fourier-radius curves, and local
   migration aliases.
+- `tests/geometry/test_bernstein.py`: Bernstein reference ellipses, complex
+  straight-panel images, and complex point-cloud radius helpers.
 - `tests/geometry/test_near.py`: migrated near-geometry behavior for
   node-distance panel flags, padded rectangular panel flags, and meshgrid
   ordering for rectangular near queries, plus nearest-point projection to a

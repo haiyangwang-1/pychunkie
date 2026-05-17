@@ -6,6 +6,12 @@ from .arclength import (
     evaluate_arclength,
     resample_by_arclength,
 )
+from .bernstein import (
+    BernsteinPanelImage,
+    bernstein_ellipse,
+    bernstein_panel_image,
+    bernstein_radius,
+)
 from .chunker import Chunker
 from .chunkgraph import (
     BoundaryPart,
@@ -25,6 +31,7 @@ from .transforms import affine, reflect, rotate, scale, translate
 __all__ = [
     "BoundaryPart",
     "ArcLengthParameterization",
+    "BernsteinPanelImage",
     "ChunkGraph",
     "Chunker",
     "GraphEdge",
@@ -37,6 +44,9 @@ __all__ = [
     "RegionCycle",
     "SignedEdge",
     "arclength_parameterization",
+    "bernstein_ellipse",
+    "bernstein_panel_image",
+    "bernstein_radius",
     "chunker_from_curve",
     "chunker_from_polygon",
     "change_quadrature_order",

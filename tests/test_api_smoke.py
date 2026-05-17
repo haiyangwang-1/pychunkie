@@ -40,6 +40,9 @@ def test_geometry_rcip_and_system_exports_include_new_rewrite_helpers():
         "NearestPoint",
         "affine",
         "arclength_parameterization",
+        "bernstein_ellipse",
+        "bernstein_panel_image",
+        "bernstein_radius",
         "change_quadrature_order",
         "evaluate_arclength",
         "flagnear_rectangle",
@@ -55,7 +58,11 @@ def test_geometry_rcip_and_system_exports_include_new_rewrite_helpers():
         assert name in geometry.__all__
         assert hasattr(geometry, name)
 
-    for name in ("build_block_prolongation", "build_split_panel_prolongation", "schur_compress_block"):
+    for name in (
+        "build_block_prolongation",
+        "build_split_panel_prolongation",
+        "schur_compress_block",
+    ):
         assert name in rcip.__all__
         assert hasattr(rcip, name)
 

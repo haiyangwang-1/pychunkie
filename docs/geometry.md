@@ -43,7 +43,8 @@ Current implementation status:
   axis-aligned rectangle flags, including a grid wrapper that preserves
   `np.meshgrid` row-major ordering. `nearest_point` projects targets to the
   nearest Legendre-panel location using Newton iteration in panel reference
-  coordinates.
+  coordinates. Bernstein helpers build reference ellipses and complex panel
+  images for future analytic-continuation close-panel tests.
 - Circle, ellipse, curve, and polygon constructors are active first-pass
   implementations. Curve constructors accept full `(positions, derivatives,
   second_derivatives)` callbacks and position-only callbacks, with finite
