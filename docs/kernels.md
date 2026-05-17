@@ -56,5 +56,7 @@ Current implementation status:
   scalar/matrix coefficient cancellation.
 - Biharmonic metadata is active for value, gradient, first normal derivatives,
   and Hessian selectors using $B=-(\rho^2/4)G$ product-rule terms.
-- Stokes and elasticity metadata should be introduced only when the
-  corresponding smooth-remainder tests are added.
+- Stokes velocity single- and double-layer metadata is active for `s` and `d`,
+  using the Stokeslet split through `G` and `B_ij`.
+- Elasticity metadata should be introduced only when the corresponding
+  smooth-remainder tests are added.
