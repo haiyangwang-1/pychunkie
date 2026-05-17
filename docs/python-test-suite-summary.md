@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-16,
-  `23 passed` in 1.57 seconds.
+  `24 passed` in 1.04 seconds.
 
 ## Test Organization Target
 
@@ -44,7 +44,9 @@ meaningfully.
 - `tests/kernels/test_elasticity_singularity.py`: elasticity single-displacement
   exact Laplace-basis singular split.
 - `tests/quadrature/test_panel.py`: dense panel weighting at the quadrature
-  boundary and component-major dense operator matrix materialization.
+  boundary, component-major dense operator matrix materialization, and
+  adaptive close-panel integration against an analytic straight-panel
+  logarithmic integral.
 - `tests/system/test_density.py`: component-major over panel-major density
   vector adapters.
 - `tests/system/test_laplace_exterior_dirichlet.py`: dense exterior Laplace

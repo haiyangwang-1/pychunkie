@@ -1,8 +1,9 @@
 import numpy as np
 
-from chunkie.geometry import circle
+from chunkie.geometry import chunker_from_polygon, circle
 from chunkie.kernels import kernel
 from chunkie.quadrature import (
+    adaptive_panel_matrix,
     apply_panel_potential,
     dense_panel_matrix,
     dense_panel_operator_matrix,
@@ -39,3 +40,25 @@ def test_dense_panel_operator_matrix_uses_component_major_solver_layout():
 
     assert matrix.shape == (2 * target.shape[1], 2 * boundary.point_count)
     np.testing.assert_allclose(applied.reshape(2, target.shape[1]), field)
+
+
+def test_adaptive_panel_matrix_integrates_close_straight_panel_log():
+    boundary = chunker_from_polygon([(0, 0), (1, 0), (1, 1), (0, 1)], quadrature_order=8)
+    panel = boundary.panel(0)
+    target = np.array([[0.5], [1.0e-4]])
+    laplace_s = kernel("laplace", selector="s")
+
+    matrix = adaptive_panel_matrix(panel, target, laplace_s, tolerance=1.0e-11)
+    value = np.sum(matrix[0, 0, 0])
+
+    half_length = 0.5
+    height = target[1, 0]
+    exact_log_integral = (
+        2.0 * half_length * np.log(half_length**2 + height**2)
+        - 4.0 * half_length
+        + 4.0 * height * np.arctan(half_length / height)
+    )
+    exact = -exact_log_integral / (4.0 * np.pi)
+
+    assert matrix.shape == (1, 1, 1, panel.nodes.size)
+    np.testing.assert_allclose(value, exact, rtol=2.0e-10, atol=2.0e-12)
