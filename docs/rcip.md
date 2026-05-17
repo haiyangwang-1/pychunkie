@@ -9,6 +9,10 @@ Current implementation status:
   corner vertex.
 - `build_prolongation` builds barycentric interpolation matrices between local
   node sets.
+- `build_split_panel_prolongation` builds the two-half-panel interpolation and
+  weighted transfer matrices used when RCIP recursively refines a corner panel.
+- `build_block_prolongation` lifts scalar prolongation matrices into the local
+  edge/component block layout used by corner compression.
 - `interpolate_density` applies prolongation matrices to scalar or component
   density values.
 

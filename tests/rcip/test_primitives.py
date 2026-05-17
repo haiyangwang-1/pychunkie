@@ -2,8 +2,10 @@ import numpy as np
 from numpy.polynomial.legendre import leggauss
 
 from chunkie.rcip import (
+    build_block_prolongation,
     build_local_corner_geometry,
     build_prolongation,
+    build_split_panel_prolongation,
     interpolate_density,
 )
 
@@ -34,6 +36,28 @@ def test_prolongation_interpolates_polynomials_exactly():
     interpolated = prolongation @ values
 
     np.testing.assert_allclose(interpolated, 1.0 - 2.0 * target + 3.0 * target**4, atol=1.0e-13)
+
+
+def test_split_panel_prolongation_preserves_polynomial_integrals():
+    source, weights = leggauss(8)
+    target, target_weights, interpolation, weighted_transfer = build_split_panel_prolongation(source, weights)
+    values = source**5 - 0.2 * source**3 + 0.7
+    expected_target = target**5 - 0.2 * target**3 + 0.7
+
+    np.testing.assert_allclose(interpolation @ values, expected_target, atol=1.0e-14)
+    np.testing.assert_allclose(np.sum(target_weights * expected_target), weights @ values, atol=1.0e-14)
+    np.testing.assert_allclose(np.sum(weighted_transfer @ (weights * values)), weights @ values, atol=1.0e-14)
+
+
+def test_block_prolongation_lifts_edges_and_components():
+    source, weights = leggauss(4)
+    _, _, interpolation, weighted_transfer = build_split_panel_prolongation(source, weights)
+
+    block = build_block_prolongation(interpolation, edge_count=3, component_count=2)
+    weighted_block = build_block_prolongation(weighted_transfer, edge_count=3, component_count=2)
+
+    np.testing.assert_allclose(block, np.kron(np.eye(3), np.kron(interpolation, np.eye(2))))
+    np.testing.assert_allclose(weighted_block, np.kron(np.eye(3), np.kron(weighted_transfer, np.eye(2))))
 
 
 def test_interpolate_density_handles_component_rows():

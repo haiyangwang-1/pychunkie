@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `67 passed` in 2.36 seconds.
+  `69 passed` in 1.97 seconds.
 
 ## Test Organization Target
 
@@ -73,6 +73,7 @@ meaningfully.
   integration, barycentric weights, Bernstein ellipse points, Taylor stepping,
   and scalar/vector adaptive Gauss integration.
 - `tests/rcip/test_primitives.py`: dyadic local corner geometry, barycentric
+  prolongation, split-panel weighted transfer, edge/component block
   prolongation, and scalar/component density interpolation.
 - `tests/system/test_density.py`: component-major over panel-major density
   vector adapters.
