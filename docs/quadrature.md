@@ -38,6 +38,9 @@ absorbed into panel data before Helsing-Ojala or GGQ weights are applied.
 - `helsing_ojala_log_singular_matrix` consumes log-basis terms from
   `SingularityInfo`, including smooth target/source amplitudes such as the
   Helmholtz $J_0(k\rho)$ factor.
+- `setup_ggq` and `ggq_removable_rules` create generated GGQ-style neighbor
+  and self split rules with interpolation matrices. MATLAB table-backed parity
+  is still upcoming.
 
 Remaining Helsing-Ojala work includes normal-derivative and hypersingular
 `SingularityInfo` dispatch. GGQ parity is also a required rewrite milestone.

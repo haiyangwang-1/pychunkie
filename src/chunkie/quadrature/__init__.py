@@ -1,6 +1,9 @@
 """Local panel quadrature routines."""
 
 from .adaptive import adaptive_panel_matrix, build_adaptive_panel_matrix
+from .ggq import GGQRuleSet
+from .ggq import getremovablequad as ggq_removable_rules
+from .ggq import setup as setup_ggq
 from .helsing_ojala import (
     build_helsing_ojala_panel_matrix,
     helsing_ojala_log_singular_matrix,
@@ -21,8 +24,11 @@ __all__ = [
     "build_helsing_ojala_panel_matrix",
     "dense_panel_matrix",
     "dense_panel_operator_matrix",
+    "GGQRuleSet",
+    "ggq_removable_rules",
     "helsing_ojala_log_singular_matrix",
     "helsing_ojala_weights",
     "legendre_rule",
     "operator_matrix_from_weighted_kernel",
+    "setup_ggq",
 ]
