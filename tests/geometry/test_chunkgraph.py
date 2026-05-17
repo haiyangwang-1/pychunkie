@@ -79,6 +79,28 @@ def test_chunkgraph_boundary_part_selects_edge_subset_in_global_order():
     np.testing.assert_allclose(part.points.flat_weights, merged.flat_weights[part.point_indices])
 
 
+def test_chunkgraph_boundary_part_reverses_edge_orientation_tensors():
+    vertices = np.array(
+        [
+            [0.0, 1.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0, 1.0],
+        ],
+    )
+    edges = np.array([[0, 1, 2, 3], [1, 2, 3, 0]])
+    graph = ChunkGraph.from_vertices(vertices, edges, quadrature_order=5)
+    edge = graph.edge(1).chunker
+
+    part = graph.boundary_part([1], side="right", orientation=-1)
+
+    np.testing.assert_array_equal(part.orientation, [-1])
+    np.testing.assert_array_equal(part.point_indices, np.arange(5, 10)[::-1])
+    np.testing.assert_allclose(part.points.positions, edge.positions[:, ::-1, ::-1])
+    np.testing.assert_allclose(part.points.derivatives, -edge.derivatives[:, ::-1, ::-1])
+    np.testing.assert_allclose(part.points.second_derivatives, edge.second_derivatives[:, ::-1, ::-1])
+    np.testing.assert_allclose(part.points.normals, -edge.normals[:, ::-1, ::-1])
+    np.testing.assert_allclose(part.points.weights, edge.weights[::-1, ::-1])
+
+
 def test_chunkgraph_nested_region_classification_uses_oriented_hole_cycles():
     vertices = np.array(
         [

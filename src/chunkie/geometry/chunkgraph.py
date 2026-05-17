@@ -221,14 +221,11 @@ class ChunkGraph:
         signed_edges = tuple(edge for cycle in region.boundary_cycles for edge in cycle.edges)
         edge_ids = tuple(edge.edge_id for edge in signed_edges)
         offsets = self._edge_point_offsets()
+        orientation_array = np.asarray([edge.orientation for edge in signed_edges], dtype=np.int64)
         point_indices = np.concatenate(
             [
-                np.arange(
-                    offsets[edge_id],
-                    offsets[edge_id] + self.edge(edge_id).chunker.point_count,
-                    dtype=np.int64,
-                )
-                for edge_id in edge_ids
+                self._edge_point_indices(edge_id, edge_orientation, offsets)
+                for edge_id, edge_orientation in zip(edge_ids, orientation_array, strict=True)
             ]
         )
         return BoundaryPart(
@@ -236,8 +233,8 @@ class ChunkGraph:
             edges=edge_ids,
             point_indices=point_indices,
             side=side,
-            orientation=np.asarray([edge.orientation for edge in signed_edges], dtype=np.int64),
-            points=self._points_for_edges(edge_ids),
+            orientation=orientation_array,
+            points=self._points_for_edges(edge_ids, orientation_array),
         )
 
     def boundary_part(
@@ -252,17 +249,6 @@ class ChunkGraph:
         selected_edges = tuple(int(edge_id) for edge_id in np.asarray(edge_ids, dtype=np.int64).reshape(-1))
         if not selected_edges:
             raise ValueError("boundary_part requires at least one edge id")
-        offsets = self._edge_point_offsets()
-        point_indices = np.concatenate(
-            [
-                np.arange(
-                    offsets[edge_id],
-                    offsets[edge_id] + self.edge(edge_id).chunker.point_count,
-                    dtype=np.int64,
-                )
-                for edge_id in selected_edges
-            ]
-        )
         if orientation is None:
             orientation_array = np.asarray([self.edge(edge_id).orientation for edge_id in selected_edges], dtype=np.int64)
         else:
@@ -271,13 +257,22 @@ class ChunkGraph:
                 orientation_array = np.full(len(selected_edges), int(orientation_array), dtype=np.int64)
         if orientation_array.shape != (len(selected_edges),):
             raise ValueError("orientation must be scalar or have one entry per selected edge")
+        if np.any((orientation_array != 1) & (orientation_array != -1)):
+            raise ValueError("orientation entries must be +1 or -1")
+        offsets = self._edge_point_offsets()
+        point_indices = np.concatenate(
+            [
+                self._edge_point_indices(edge_id, edge_orientation, offsets)
+                for edge_id, edge_orientation in zip(selected_edges, orientation_array, strict=True)
+            ]
+        )
         return BoundaryPart(
             graph=self,
             edges=selected_edges,
             point_indices=point_indices,
             side=side,
             orientation=orientation_array,
-            points=self._points_for_edges(selected_edges),
+            points=self._points_for_edges(selected_edges, orientation_array),
         )
 
     def classify_points(self, points) -> NDArray[np.integer]:
@@ -297,19 +292,47 @@ class ChunkGraph:
             cursor += edge.chunker.point_count
         return offsets
 
-    def _points_for_edges(self, edge_ids: tuple[int, ...]) -> PointInfoView:
+    def _edge_point_indices(
+        self,
+        edge_id: int,
+        orientation: int,
+        offsets: dict[int, int],
+    ) -> NDArray[np.integer]:
+        if int(orientation) not in {-1, 1}:
+            raise ValueError("orientation entries must be +1 or -1")
+        edge = self.edge(edge_id)
+        start = offsets[edge_id]
+        indices = np.arange(start, start + edge.chunker.point_count, dtype=np.int64)
+        return indices if int(orientation) > 0 else indices[::-1]
+
+    def _points_for_edges(
+        self,
+        edge_ids: tuple[int, ...],
+        orientation: NDArray[np.integer] | None = None,
+    ) -> PointInfoView:
         if not edge_ids:
             raise ValueError("boundary part must contain at least one edge")
+        orientation_array = (
+            np.ones(len(edge_ids), dtype=np.int64) if orientation is None else np.asarray(orientation, dtype=np.int64)
+        )
+        if orientation_array.shape != (len(edge_ids),):
+            raise ValueError("orientation must have one entry per edge")
+        if np.any((orientation_array != 1) & (orientation_array != -1)):
+            raise ValueError("orientation entries must be +1 or -1")
         order = self.quadrature_order
         first = self.edge(edge_ids[0]).chunker
-        positions = np.concatenate([self.edge(edge_id).chunker.positions for edge_id in edge_ids], axis=2)
-        derivatives = np.concatenate([self.edge(edge_id).chunker.derivatives for edge_id in edge_ids], axis=2)
+        oriented = [
+            _oriented_edge_point_tensors(self.edge(edge_id).chunker, int(edge_orientation))
+            for edge_id, edge_orientation in zip(edge_ids, orientation_array, strict=True)
+        ]
+        positions = np.concatenate([item[0] for item in oriented], axis=2)
+        derivatives = np.concatenate([item[1] for item in oriented], axis=2)
         second_derivatives = np.concatenate(
-            [self.edge(edge_id).chunker.second_derivatives for edge_id in edge_ids],
+            [item[2] for item in oriented],
             axis=2,
         )
-        normals = np.concatenate([self.edge(edge_id).chunker.normals for edge_id in edge_ids], axis=2)
-        weights = np.concatenate([self.edge(edge_id).chunker.weights for edge_id in edge_ids], axis=1)
+        normals = np.concatenate([item[3] for item in oriented], axis=2)
+        weights = np.concatenate([item[4] for item in oriented], axis=1)
         return PointInfoView(
             positions=positions,
             derivatives=derivatives,
@@ -394,3 +417,34 @@ def _as_edge_array(edge_vertices) -> NDArray[np.integer]:
     if edge_array.shape[0] != 2:
         raise ValueError("edge_vertices must have shape (2, edge_count) or (edge_count, 2)")
     return edge_array
+
+
+def _oriented_edge_point_tensors(
+    chunker: Chunker,
+    orientation: int,
+) -> tuple[
+    NDArray[np.floating],
+    NDArray[np.floating],
+    NDArray[np.floating],
+    NDArray[np.floating],
+    NDArray[np.floating],
+]:
+    if orientation > 0:
+        return (
+            chunker.positions,
+            chunker.derivatives,
+            chunker.second_derivatives,
+            chunker.normals,
+            chunker.weights,
+        )
+    # A reversed boundary view uses the same Legendre reference interval but
+    # traverses the edge in the opposite direction. Positions and weights are
+    # reversed, first derivatives and right normals change sign by the chain
+    # rule, and second derivatives keep their sign.
+    return (
+        chunker.positions[:, ::-1, ::-1],
+        -chunker.derivatives[:, ::-1, ::-1],
+        chunker.second_derivatives[:, ::-1, ::-1],
+        -chunker.normals[:, ::-1, ::-1],
+        chunker.weights[::-1, ::-1],
+    )
