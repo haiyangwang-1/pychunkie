@@ -24,8 +24,8 @@ Current implementation status:
 
 - Density layout and system records are active.
 - Dense assembly supports multiple unknown density blocks and multiple boundary
-  equations for `Chunker` trace terms, with trace blocks materialized through
-  the component-major operator matrix layout.
+  equations for `Chunker` and `ChunkGraph` `BoundaryPart` trace terms, with
+  trace blocks materialized through the component-major operator matrix layout.
 - Right-hand sides may be scalar panel data, component panel data, or already
   flattened component-major vectors, and multi-equation right-hand sides are
   concatenated in equation order.

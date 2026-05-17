@@ -38,6 +38,7 @@ Current implementation status:
   differences used only at that adapter boundary.
 - `ChunkGraph.from_vertices` builds multi-edge graphs from vertices and
   directed edge indices. `ChunkGraph` records, merged point views, edge point
-  views, region boundary parts, and single-cycle region classification are
-  active. Multi-edge refinement, orientation-reversed boundary views, and full
-  multi-region system integration remain required upcoming work.
+  views, region boundary parts with selected `pointinfo`, and single-cycle
+  region classification are active. Multi-edge refinement,
+  orientation-reversed boundary views, and full multi-region system integration
+  remain required upcoming work.

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import numpy as np
 
-from chunkie.geometry import Chunker
 from chunkie.quadrature import dense_panel_operator_matrix
 
 from .config import SystemConfig
@@ -130,8 +129,8 @@ def identity_system_matrix(size: int, *, config: SystemConfig | None = None) -> 
 def _trace_matrix(trace: BoundaryTrace, unknown) -> np.ndarray:
     source = trace.layer.source
     target = trace.target
-    if not isinstance(source, Chunker) or not isinstance(target, Chunker):
-        raise NotImplementedError("dense bootstrap assembly currently supports Chunker sources and targets")
+    if not hasattr(source, "pointinfo") or not hasattr(target, "pointinfo"):
+        raise NotImplementedError("dense bootstrap assembly requires source and target pointinfo views")
     if trace.layer.kernel.input_dim != unknown.component_count:
         raise ValueError("kernel input dimension must match density component count")
 
@@ -140,7 +139,12 @@ def _trace_matrix(trace: BoundaryTrace, unknown) -> np.ndarray:
     # Smooth closed-curve double-layer self blocks have a finite diagonal limit.
     # We insert the local limit here so the dense reference path is usable before
     # special quadrature owns same-panel correction.
-    if source is target and trace.layer.kernel.family == "laplace" and trace.layer.kernel.selector == "d":
+    if (
+        source is target
+        and hasattr(source, "signed_curvature")
+        and trace.layer.kernel.family == "laplace"
+        and trace.layer.kernel.selector == "d"
+    ):
         diagonal = (-source.signed_curvature / (4.0 * np.pi)).T.reshape(-1)
         weights = source.pointinfo.flat_weights
         np.fill_diagonal(block, diagonal * weights)

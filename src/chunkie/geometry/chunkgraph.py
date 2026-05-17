@@ -60,6 +60,22 @@ class BoundaryPart:
     orientation: NDArray[np.integer]
     points: PointInfoView
 
+    @property
+    def pointinfo(self) -> PointInfoView:
+        return self.points
+
+    @property
+    def point_count(self) -> int:
+        return self.points.point_map.point_count
+
+    @property
+    def panel_count(self) -> int:
+        return int(self.points.positions.shape[2])
+
+    @property
+    def quadrature_order(self) -> int:
+        return int(self.points.positions.shape[1])
+
 
 @dataclass
 class ChunkGraph:
@@ -221,7 +237,7 @@ class ChunkGraph:
             point_indices=point_indices,
             side=side,
             orientation=np.asarray([edge.orientation for edge in signed_edges], dtype=np.int64),
-            points=self.merged_points(),
+            points=self._points_for_edges(edge_ids),
         )
 
     def classify_points(self, points) -> NDArray[np.integer]:
@@ -240,6 +256,30 @@ class ChunkGraph:
             offsets[edge.id] = cursor
             cursor += edge.chunker.point_count
         return offsets
+
+    def _points_for_edges(self, edge_ids: tuple[int, ...]) -> PointInfoView:
+        if not edge_ids:
+            raise ValueError("boundary part must contain at least one edge")
+        order = self.quadrature_order
+        first = self.edge(edge_ids[0]).chunker
+        positions = np.concatenate([self.edge(edge_id).chunker.positions for edge_id in edge_ids], axis=2)
+        derivatives = np.concatenate([self.edge(edge_id).chunker.derivatives for edge_id in edge_ids], axis=2)
+        second_derivatives = np.concatenate(
+            [self.edge(edge_id).chunker.second_derivatives for edge_id in edge_ids],
+            axis=2,
+        )
+        normals = np.concatenate([self.edge(edge_id).chunker.normals for edge_id in edge_ids], axis=2)
+        weights = np.concatenate([self.edge(edge_id).chunker.weights for edge_id in edge_ids], axis=1)
+        return PointInfoView(
+            positions=positions,
+            derivatives=derivatives,
+            second_derivatives=second_derivatives,
+            normals=normals,
+            weights=weights,
+            nodes=first.nodes,
+            panel_ids=np.arange(positions.shape[2], dtype=np.int64),
+            point_map=first.point_map.__class__(order, positions.shape[2]),
+        )
 
 
 def _point_in_region(graph: ChunkGraph, region: GraphRegion, targets: NDArray[np.floating]) -> NDArray[np.bool_]:
