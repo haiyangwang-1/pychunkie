@@ -11,7 +11,7 @@ from .chunkgraph import (
     SignedEdge,
 )
 from .constructors import chunker_from_curve, chunker_from_polygon, circle, ellipse
-from .near import flagnear
+from .near import flagnear, flagnear_rectangle, flagnear_rectangle_grid
 from .points import PanelView, PointInfoView, PointMap
 from .transforms import affine, reflect, rotate, scale, translate
 
@@ -32,6 +32,8 @@ __all__ = [
     "circle",
     "ellipse",
     "flagnear",
+    "flagnear_rectangle",
+    "flagnear_rectangle_grid",
     "affine",
     "reflect",
     "rotate",

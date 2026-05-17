@@ -27,6 +27,9 @@ Current implementation status:
 - Translation, uniform scaling, affine transforms, rotations, and reflections
   are active. Transforms recompute normals and quadrature weights from the
   transformed tangent instead of carrying stale geometric metadata.
+- Near-panel helpers include direct node-distance flags and padded
+  axis-aligned rectangle flags, including a grid wrapper that preserves
+  `np.meshgrid` row-major ordering.
 - Circle, ellipse, curve, and polygon constructors are active first-pass
   implementations. Curve constructors accept full `(positions, derivatives,
   second_derivatives)` callbacks and position-only callbacks, with finite
