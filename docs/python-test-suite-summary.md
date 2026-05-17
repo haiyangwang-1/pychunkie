@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `105 passed` in 3.82 seconds.
+  `108 passed` in 4.18 seconds.
 
 ## Test Organization Target
 
@@ -50,6 +50,9 @@ meaningfully.
   behavior for closed analytic curves, open curves with free ends, and
   position-only callbacks differentiated into panel derivatives, plus adaptive
   splitting for an unresolved wavy open curve.
+- `tests/geometry/test_curves.py`: reusable curve callbacks for line segments,
+  parabolas, sine graphs, starfish curves, Fourier-radius curves, and local
+  migration aliases.
 - `tests/geometry/test_near.py`: migrated near-geometry behavior for
   node-distance panel flags, padded rectangular panel flags, and meshgrid
   ordering for rectangular near queries, plus nearest-point projection to a

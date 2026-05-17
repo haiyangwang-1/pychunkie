@@ -24,6 +24,9 @@ Current implementation status:
 - Basic `Chunker` storage and point views are active.
 - `Chunker` exposes panel lengths, total length, signed area, arclength
   density, unit tangents, and signed curvature using the panel-major tensors.
+- `geometry.curves` provides reusable line-segment, parabola, sine-graph,
+  starfish, and Fourier-radius callbacks with first and second parameter
+  derivatives for constructor tests and examples.
 - `arclength_parameterization`, `evaluate_arclength`, and
   `resample_by_arclength` are active for evaluating a discretized curve by
   physical arclength and rebuilding panels with constant arclength speed.
