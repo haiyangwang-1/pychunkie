@@ -54,5 +54,7 @@ Current implementation status:
   from `J0(k rho) * G`.
 - Kernel algebra scales singular expansions and canonicalizes exact
   scalar/matrix coefficient cancellation.
-- Stokes, biharmonic, and elasticity metadata should be introduced only when
-  the corresponding smooth-remainder tests are added.
+- Biharmonic metadata is active for value, gradient, first normal derivatives,
+  and Hessian selectors using $B=-(\rho^2/4)G$ product-rule terms.
+- Stokes and elasticity metadata should be introduced only when the
+  corresponding smooth-remainder tests are added.

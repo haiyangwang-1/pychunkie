@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-16,
-  `17 passed` in 1.21 seconds.
+  `19 passed` in 1.49 seconds.
 
 ## Test Organization Target
 
@@ -36,6 +36,9 @@ meaningfully.
   derivative, normal-derivative, and hypersingular selectors.
 - `tests/kernels/test_kernel_algebra.py`: singular metadata propagation for
   scaling, sums, exact cancellation, and callable Helmholtz coefficients.
+- `tests/kernels/test_biharmonic_singularity.py`: biharmonic value, gradient,
+  first normal derivative, and Hessian singular metadata against exact
+  Laplace-basis product-rule expansions.
 - `tests/quadrature/test_panel.py`: dense panel weighting at the quadrature
   boundary.
 - `tests/system/test_density.py`: component-major over panel-major density
