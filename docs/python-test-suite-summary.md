@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `66 passed` in 1.91 seconds.
+  `67 passed` in 2.36 seconds.
 
 ## Test Organization Target
 
@@ -38,7 +38,8 @@ meaningfully.
   position-only callbacks differentiated into panel derivatives.
 - `tests/geometry/test_near.py`: migrated near-geometry behavior for
   node-distance panel flags, padded rectangular panel flags, and meshgrid
-  ordering for rectangular near queries.
+  ordering for rectangular near queries, plus nearest-point projection to a
+  panel reference coordinate.
 - `tests/kernels/test_laplace.py`: Laplace tensor output and first
   singularity metadata checks.
 - `tests/kernels/test_helmholtz_singularity.py`: Helmholtz `J0(k*rho) * G`

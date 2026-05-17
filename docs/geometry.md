@@ -29,7 +29,9 @@ Current implementation status:
   transformed tangent instead of carrying stale geometric metadata.
 - Near-panel helpers include direct node-distance flags and padded
   axis-aligned rectangle flags, including a grid wrapper that preserves
-  `np.meshgrid` row-major ordering.
+  `np.meshgrid` row-major ordering. `nearest_point` projects targets to the
+  nearest Legendre-panel location using Newton iteration in panel reference
+  coordinates.
 - Circle, ellipse, curve, and polygon constructors are active first-pass
   implementations. Curve constructors accept full `(positions, derivatives,
   second_derivatives)` callbacks and position-only callbacks, with finite
