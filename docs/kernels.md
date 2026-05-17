@@ -44,5 +44,10 @@ target:
   selectors should be produced by product-rule helpers rather than ad hoc
   selector formulas.
 
-Stokes, biharmonic, and elasticity metadata should be introduced only when the
-corresponding smooth-remainder tests are added.
+Current implementation status:
+
+- Laplace metadata is active for `s`, `sg`, `sp`, `d`, `dg`, and `dp`.
+- Helmholtz metadata is active for the same selectors, using product-rule terms
+  from `J0(k rho) * G`.
+- Stokes, biharmonic, and elasticity metadata should be introduced only when
+  the corresponding smooth-remainder tests are added.

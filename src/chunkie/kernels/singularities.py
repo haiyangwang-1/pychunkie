@@ -97,7 +97,9 @@ class LaplaceSingularExpansion:
     def evaluate(self, source: Any, target: Any) -> NDArray[np.generic]:
         source_positions = _flat_positions(source)
         target_positions = _flat_positions(target)
-        dtype = complex if any(np.iscomplexobj(term.coefficient) for term in self.terms) else float
+        dtype = complex if any(
+            callable(term.coefficient) or np.iscomplexobj(term.coefficient) for term in self.terms
+        ) else float
         values = np.zeros(
             (self.output_dim, self.input_dim, target_positions.shape[1], source_positions.shape[1]),
             dtype=dtype,

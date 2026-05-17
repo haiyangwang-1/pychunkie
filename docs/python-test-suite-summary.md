@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-16,
-  `11 passed` in 0.80 seconds.
+  `13 passed` in 0.96 seconds.
 
 ## Test Organization Target
 
@@ -31,6 +31,9 @@ meaningfully.
   point maps, polygon construction, and near-panel flags.
 - `tests/kernels/test_laplace.py`: Laplace tensor output and first
   singularity metadata checks.
+- `tests/kernels/test_helmholtz_singularity.py`: Helmholtz `J0(k*rho) * G`
+  singular splitting and finite smooth-remainder checks for scalar,
+  derivative, normal-derivative, and hypersingular selectors.
 - `tests/quadrature/test_panel.py`: dense panel weighting at the quadrature
   boundary.
 - `tests/system/test_density.py`: component-major over panel-major density
