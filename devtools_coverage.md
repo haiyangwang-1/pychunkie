@@ -12,8 +12,8 @@ parity tests, ranked port status, or suggested next ports.
 - The old Python-side devtools snapshot generator is archived in
   `docs_old/scripts/`; it depends on removed public APIs.
 - No active rewrite devtools parity tests have been migrated yet.
-- Current active verification is `uv run pytest -q`, `13 passed` in
-  0.96 seconds, on 2026-05-16.
+- Current active verification is `uv run pytest -q`, `17 passed` in
+  1.21 seconds, on 2026-05-16.
 - GGQ, RCIP, `ChunkGraph`, FMM, and FLAM parity remain required milestones.
 
 ## Rewrite Policy

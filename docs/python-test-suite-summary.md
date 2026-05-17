@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-16,
-  `13 passed` in 0.96 seconds.
+  `17 passed` in 1.21 seconds.
 
 ## Test Organization Target
 
@@ -34,6 +34,8 @@ meaningfully.
 - `tests/kernels/test_helmholtz_singularity.py`: Helmholtz `J0(k*rho) * G`
   singular splitting and finite smooth-remainder checks for scalar,
   derivative, normal-derivative, and hypersingular selectors.
+- `tests/kernels/test_kernel_algebra.py`: singular metadata propagation for
+  scaling, sums, exact cancellation, and callable Helmholtz coefficients.
 - `tests/quadrature/test_panel.py`: dense panel weighting at the quadrature
   boundary.
 - `tests/system/test_density.py`: component-major over panel-major density

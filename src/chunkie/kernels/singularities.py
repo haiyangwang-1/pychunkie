@@ -87,6 +87,16 @@ class LaplaceSingularTerm:
 
         return coefficient_array * basis_values[None, None, :, :]
 
+    def scaled(self, factor: complex) -> LaplaceSingularTerm:
+        if callable(self.coefficient):
+            original = self.coefficient
+
+            def coefficient(source: Any, target: Any) -> NDArray[np.generic]:
+                return factor * original(source, target)
+
+            return LaplaceSingularTerm(self.basis, coefficient, self.meaning)
+        return LaplaceSingularTerm(self.basis, factor * self.coefficient, self.meaning)
+
 
 @dataclass(frozen=True)
 class LaplaceSingularExpansion:
@@ -107,6 +117,45 @@ class LaplaceSingularExpansion:
         for term in self.terms:
             values = values + term.evaluate(source, target, output_dim=self.output_dim, input_dim=self.input_dim)
         return values
+
+    def scaled(self, factor: complex) -> LaplaceSingularExpansion:
+        return LaplaceSingularExpansion(
+            input_dim=self.input_dim,
+            output_dim=self.output_dim,
+            terms=tuple(term.scaled(factor) for term in self.terms),
+        ).canonicalized()
+
+    def combined(self, other: LaplaceSingularExpansion) -> LaplaceSingularExpansion:
+        if self.input_dim != other.input_dim or self.output_dim != other.output_dim:
+            raise ValueError("singular expansions must have matching input/output dimensions")
+        return LaplaceSingularExpansion(
+            input_dim=self.input_dim,
+            output_dim=self.output_dim,
+            terms=self.terms + other.terms,
+        ).canonicalized()
+
+    def canonicalized(self) -> LaplaceSingularExpansion:
+        callable_terms: list[LaplaceSingularTerm] = []
+        buckets: dict[tuple[int, ...], NDArray[np.generic]] = {}
+
+        for term in self.terms:
+            if callable(term.coefficient):
+                callable_terms.append(term)
+                continue
+            key = term.basis.derivative
+            coefficient = np.asarray(term.coefficient)
+            buckets[key] = coefficient if key not in buckets else buckets[key] + coefficient
+
+        terms: list[LaplaceSingularTerm] = []
+        for derivative, coefficient in buckets.items():
+            if not np.all(coefficient == 0):
+                terms.append(LaplaceSingularTerm(LaplaceBasis(derivative), coefficient))
+        terms.extend(callable_terms)
+        return LaplaceSingularExpansion(
+            input_dim=self.input_dim,
+            output_dim=self.output_dim,
+            terms=tuple(terms),
+        )
 
     @property
     def legacy_strength(self) -> Literal["smooth", "log", "pv", "hs", "mixed"]:

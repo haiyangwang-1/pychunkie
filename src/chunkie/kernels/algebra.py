@@ -5,22 +5,13 @@ from __future__ import annotations
 from dataclasses import replace
 
 from .base import Kernel
-from .singularities import LaplaceSingularExpansion, LaplaceSingularTerm, SingularityInfo
+from .singularities import SingularityInfo
 
 
 def scale(kernel: Kernel, factor: complex) -> Kernel:
-    terms = tuple(
-        LaplaceSingularTerm(term.basis, factor * term.coefficient, term.meaning)
-        for term in kernel.singularity.expansion.terms
-        if not callable(term.coefficient)
-    )
     singularity = replace(
         kernel.singularity,
-        expansion=LaplaceSingularExpansion(
-            input_dim=kernel.input_dim,
-            output_dim=kernel.output_dim,
-            terms=terms if len(terms) == len(kernel.singularity.expansion.terms) else kernel.singularity.expansion.terms,
-        ),
+        expansion=kernel.singularity.expansion.scaled(factor),
         notes=(kernel.singularity.notes + f" scaled by {factor!r}").strip(),
     )
 
@@ -33,20 +24,23 @@ def scale(kernel: Kernel, factor: complex) -> Kernel:
 def add(left: Kernel, right: Kernel) -> Kernel:
     if left.input_dim != right.input_dim or left.output_dim != right.output_dim:
         raise ValueError("kernels must have matching input/output dimensions")
-    expansion = LaplaceSingularExpansion(
-        input_dim=left.input_dim,
-        output_dim=left.output_dim,
-        terms=left.singularity.expansion.terms + right.singularity.expansion.terms,
-    )
+    expansion = left.singularity.expansion.combined(right.singularity.expansion)
+    strength = expansion.legacy_strength
     singularity = SingularityInfo(
         family=f"{left.family}+{right.family}",
         selector=f"{left.selector}+{right.selector}",
         input_dim=left.input_dim,
         output_dim=left.output_dim,
         expansion=expansion,
-        boundary_limit="supersingular" if expansion.legacy_strength == "hs" else "pv",
-        remainder_regular="unknown",
-        notes="Algebraic singularity combination; cancellation canonicalization is upcoming work.",
+        boundary_limit=_boundary_limit(strength),
+        remainder_regular=(
+            "smooth"
+            if strength == "smooth"
+            and left.singularity.remainder_regular == "smooth"
+            and right.singularity.remainder_regular == "smooth"
+            else "unknown"
+        ),
+        notes="Algebraic singularity combination with exact scalar/matrix coefficient canonicalization.",
     )
 
     def evaluator(source, target):
@@ -61,3 +55,13 @@ def add(left: Kernel, right: Kernel) -> Kernel:
         singularity=singularity,
         evaluator=evaluator,
     )
+
+
+def _boundary_limit(strength: str):
+    if strength == "smooth":
+        return "smooth"
+    if strength == "log":
+        return "removable"
+    if strength == "pv":
+        return "pv"
+    return "hs"

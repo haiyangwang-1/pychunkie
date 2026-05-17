@@ -50,6 +50,11 @@ class Kernel:
 
         return add(self, other)
 
+    def __sub__(self, other: Kernel) -> Kernel:
+        from .algebra import add
+
+        return add(self, -other)
+
 
 def flat_positions(points: Any) -> NDArray[np.floating]:
     if hasattr(points, "flat_positions"):
