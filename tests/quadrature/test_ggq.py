@@ -6,7 +6,12 @@ from scipy.io import loadmat
 
 from chunkie.geometry import chunker_from_polygon
 from chunkie.kernels import kernel
-from chunkie.quadrature import build_ggq_self_panel_matrix, ggq_removable_rules, setup_ggq
+from chunkie.quadrature import (
+    build_ggq_panel_matrix,
+    build_ggq_self_panel_matrix,
+    ggq_removable_rules,
+    setup_ggq,
+)
 
 
 def test_generated_ggq_self_rules_split_around_each_legendre_node():
@@ -81,3 +86,21 @@ def test_generated_ggq_self_panel_matrix_matches_straight_segment_log_integral()
 
     assert matrix.shape == (1, 1, panel.nodes.size, panel.nodes.size)
     np.testing.assert_allclose(values, exact, rtol=3.0e-6, atol=5.0e-7)
+
+
+def test_build_ggq_panel_matrix_dispatches_self_and_neighbor_rules():
+    boundary = chunker_from_polygon([(0, 0), (1, 0), (1, 1), (0, 1)], quadrature_order=8)
+    panel = boundary.panel(0)
+    laplace_s = kernel("laplace", selector="s")
+    target = np.array([[0.37], [0.025]])
+    rules = setup_ggq(8, nfac_self=32, nfac_near=16)
+
+    self_matrix = build_ggq_panel_matrix(panel, None, laplace_s, rules=rules, self_panel=True)
+    direct_self = build_ggq_self_panel_matrix(panel, laplace_s, rules=rules)
+    near_matrix = build_ggq_panel_matrix(panel, target, laplace_s, rules=rules)
+
+    expected_near = build_ggq_panel_matrix(panel, target, laplace_s, rules=setup_ggq(8, nfac_near=32))
+
+    np.testing.assert_allclose(self_matrix, direct_self)
+    assert near_matrix.shape == (1, 1, 1, panel.nodes.size)
+    np.testing.assert_allclose(near_matrix, expected_near, rtol=1.0e-8, atol=1.0e-8)

@@ -3,6 +3,7 @@
 from .adaptive import adaptive_panel_matrix, build_adaptive_panel_matrix
 from .ggq import (
     GGQRuleSet,
+    build_ggq_panel_matrix,
     build_ggq_self_panel_matrix,
 )
 from .ggq import (
@@ -29,6 +30,7 @@ __all__ = [
     "adaptive_panel_matrix",
     "apply_panel_potential",
     "build_adaptive_panel_matrix",
+    "build_ggq_panel_matrix",
     "build_ggq_self_panel_matrix",
     "build_helsing_ojala_panel_matrix",
     "dense_panel_matrix",

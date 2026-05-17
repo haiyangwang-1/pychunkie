@@ -76,8 +76,32 @@ def getremovablequad(
     return nodes_by_source, weights_by_source
 
 
-def build_ggq_panel_matrix(*args, **kwargs):
-    raise NotImplementedError("GGQ panel matrix assembly is a required rewrite milestone")
+def build_ggq_panel_matrix(
+    panel: PanelView,
+    target,
+    kernel: Kernel,
+    *,
+    rules: GGQRuleSet | None = None,
+    self_panel: bool = False,
+) -> NDArray[np.generic]:
+    """Build a generated GGQ-style panel matrix for self or near targets."""
+
+    active_rules = setup(panel.nodes.size) if rules is None else rules
+    if self_panel:
+        return build_ggq_self_panel_matrix(panel, kernel, rules=active_rules)
+    source = _interpolated_source(
+        panel,
+        active_rules.neighbor_nodes,
+        active_rules.neighbor_weights,
+        active_rules.neighbor_interpolator,
+    )
+    kernel_values = kernel(source, target)
+    return np.einsum(
+        "oitq,qk,q->oitk",
+        kernel_values,
+        active_rules.neighbor_interpolator,
+        source.flat_weights,
+    )
 
 
 def build_ggq_self_panel_matrix(

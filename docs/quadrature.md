@@ -49,6 +49,8 @@ absorbed into panel data before Helsing-Ojala or GGQ weights are applied.
   and self split rules with interpolation matrices. Removable self-rule parity
   is checked against the archived MATLAB fixture in `tests/golden/quadggq.mat`;
   broader MATLAB table-backed parity is still upcoming.
+- `build_ggq_panel_matrix` uses generated neighbor rules for near targets and
+  delegates self-panel requests to `build_ggq_self_panel_matrix`.
 - `build_ggq_self_panel_matrix` uses generated self split rules to build a
   Laplace single-layer self-panel matrix on the original source nodes.
 
