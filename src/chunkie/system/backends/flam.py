@@ -25,6 +25,11 @@ class FLAMFactor:
 
         return pyflam.rskelf_sv(self.factor, rhs)
 
+    def logdet(self) -> complex:
+        import pyflam
+
+        return complex(pyflam.rskelf_logdet(self.factor))
+
 
 def factor_system(
     matrix,

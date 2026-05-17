@@ -18,10 +18,10 @@ Current implementation status:
   path through `SystemConfig(evaluation_method="fmm")`; `system.fmm_matvec`
   uses the same backend for scalar off-boundary Laplace trace matvecs.
 - `system.backends.flam.factor_system` builds a `pyflam.rskelf` factor from a
-  dense reference matrix and exposes apply/solve comparisons against dense
-  linear algebra. `SystemConfig(solve_method="flam")` can use this path for
-  scalar one-unknown dense-reference systems. Callback-based assembly remains
-  upcoming.
+  dense reference matrix and exposes apply, solve, and log-determinant
+  comparisons against dense linear algebra, including complex multiple-RHS
+  inputs. `SystemConfig(solve_method="flam")` can use this path for scalar
+  one-unknown dense-reference systems. Callback-based assembly remains upcoming.
 - `docs/structured-rskelf-transmission.md` defines the structured RSKELF target:
   pyFLAM should consume row/column density metadata and per-block proxy samples
   instead of receiving an already-flattened transmission matrix.

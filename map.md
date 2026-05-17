@@ -12,7 +12,7 @@ implemented behavior, known limitations, or verification snapshots change.
 - Previous tests archived in `tests_old/`.
 - Previous docs and status notes archived in `docs_old/`.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `102 passed` in 4.31 seconds; `uv run ruff check .` passes; `uv run mypy`
+  `103 passed` in 4.35 seconds; `uv run ruff check .` passes; `uv run mypy`
   passes over `src/chunkie`.
 
 ## Source Tree
@@ -24,7 +24,7 @@ implemented behavior, known limitations, or verification snapshots change.
 | `chunkie.quadrature` | in progress | Legendre polynomial/transform/interpolation/integration utilities, dense panel helpers, component-major dense operator materialization, adaptive source-panel fallback, Helsing-Ojala log/Cauchy/derivative product weights, generated GGQ-style split rules/panel matrices, fixture-backed GGQ removable-rule parity, log/PV/HS `SingularityInfo` smooth-amplitude dispatch, and Helmholtz single-layer HO panel correction are active; broader MATLAB GGQ table parity remains a required milestone. |
 | `chunkie.rcip` | in progress | Dyadic local corner geometry, barycentric and split-panel prolongation matrices, edge/component block prolongation, dense Schur compression updates, corner state records, and density interpolation are active. Recursive Schur drivers remain required upcoming work. |
 | `chunkie.system` | in progress | Density layout, dense multi-unknown/multi-equation `Chunker` and `BoundaryPart` trace assembly, explicit dense constraint rows, dense multi-density solve reconstruction, dense/FMM evaluation, dense-reference matrix-free and scalar Laplace FMM matvecs, automatic adaptive/Helsing-Ojala/GGQ panel replacement correction selection, graph-corner RCIP state diagnostics, and `LaplaceExteriorDirichletSystem` are active. Trace blocks use the quadrature operator-matrix adapter. FLAM solve remains scalar one-unknown only. |
-| `chunkie.system.backends` | in progress | FMM2D evaluates scalar Laplace single- and double-layer potentials and drives scalar off-boundary system matvecs against dense references. FLAM factors dense reference matrices with `pyflam.rskelf` and tests apply/solve against dense linear algebra. `docs/structured-rskelf-transmission.md` records the structured RSKELF target for block transmission systems. |
+| `chunkie.system.backends` | in progress | FMM2D evaluates scalar Laplace single- and double-layer potentials and drives scalar off-boundary system matvecs against dense references. FLAM factors dense reference matrices with `pyflam.rskelf` and tests apply/solve/logdet, including complex multiple-RHS cases, against dense linear algebra. `docs/structured-rskelf-transmission.md` records the structured RSKELF target for block transmission systems. |
 
 ## Public API Target
 
