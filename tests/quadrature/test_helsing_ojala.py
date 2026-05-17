@@ -59,6 +59,23 @@ def test_helsing_ojala_panel_matrix_integrates_close_laplace_single_layer():
     np.testing.assert_allclose(value, exact, rtol=1.0e-12, atol=1.0e-12)
 
 
+def test_helsing_ojala_panel_matrix_integrates_close_laplace_double_layer():
+    boundary = chunker_from_polygon([(0, 0), (1, 0), (1, 1), (0, 1)], quadrature_order=12)
+    panel = boundary.panel(0)
+    target = np.array([[0.5], [1.0e-4]])
+    laplace_d = kernel("laplace", selector="d")
+
+    matrix = build_helsing_ojala_panel_matrix(panel, target, laplace_d, side="i")
+    value = np.sum(matrix[0, 0, 0])
+
+    half_length = 0.5
+    height = target[1, 0]
+    exact = -np.arctan(half_length / height) / np.pi
+
+    assert matrix.shape == (1, 1, 1, panel.nodes.size)
+    np.testing.assert_allclose(value, exact, rtol=1.0e-12, atol=1.0e-12)
+
+
 def test_helsing_ojala_log_singular_matrix_consumes_smooth_amplitudes():
     boundary = chunker_from_polygon([(0, 0), (1, 0), (1, 1), (0, 1)], quadrature_order=10)
     panel = boundary.panel(0)

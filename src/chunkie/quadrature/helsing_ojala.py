@@ -16,22 +16,22 @@ def build_helsing_ojala_panel_matrix(
     *,
     side: str,
 ) -> NDArray[np.generic]:
-    """Build the first Helsing-Ojala panel block for Laplace single layer.
+    """Build the first Helsing-Ojala panel block for Laplace layer kernels.
 
     This is deliberately narrow: it establishes the local panel-matrix contract
-    and the log-product weights. Other Laplace-basis terms will land as separate
-    tested slices before global correction insertion uses this path.
+    and the log/Cauchy product weights. Other Laplace-basis terms will land as
+    separate tested slices before global correction insertion uses this path.
     """
 
-    if kernel.family != "laplace" or kernel.selector != "s":
-        raise NotImplementedError("Helsing-Ojala bootstrap currently supports Laplace single layer")
+    if kernel.family != "laplace" or kernel.selector not in {"s", "d"}:
+        raise NotImplementedError("Helsing-Ojala bootstrap currently supports Laplace single and double layers")
 
     source = _panel_complex_points(panel)
     source_normal = _panel_complex_normals(panel)
     source_wxp = _panel_complex_speed_weights(panel)
     start, end = _panel_endpoints(panel)
     target_points = _target_complex_points(target)
-    weights = helsing_ojala_weights(
+    special = helsing_ojala_weights(
         target_points,
         source,
         source_normal,
@@ -39,8 +39,9 @@ def build_helsing_ojala_panel_matrix(
         start,
         end,
         side,
-        nout=1,
-    )[0]
+        nout=2 if kernel.selector == "d" else 1,
+    )
+    weights = special[0] if kernel.selector == "s" else np.real(special[1])
     return weights[None, None, :, :]
 
 

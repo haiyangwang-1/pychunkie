@@ -12,8 +12,8 @@ parity tests, ranked port status, or suggested next ports.
 - The old Python-side devtools snapshot generator is archived in
   `docs_old/scripts/`; it depends on removed public APIs.
 - No active rewrite devtools parity tests have been migrated yet.
-- Current active verification is `uv run pytest -q`, `27 passed` in
-  1.96 seconds, on 2026-05-16.
+- Current active verification is `uv run pytest -q`, `28 passed` in
+  1.43 seconds, on 2026-05-16.
 - GGQ, RCIP, `ChunkGraph`, FMM, and FLAM parity remain required milestones.
   Helsing-Ojala has an active local log-product baseline but does not yet have
   MATLAB fixture parity in the rewrite tree.

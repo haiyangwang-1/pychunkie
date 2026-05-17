@@ -32,9 +32,9 @@ absorbed into panel data before Helsing-Ojala or GGQ weights are applied.
   layer.
 - `helsing_ojala_weights` exposes the local log, Cauchy, and derivative
   product weights on one complex source panel.
-- `build_helsing_ojala_panel_matrix` currently supports the Laplace
-  single-layer log basis and returns a local matrix on the original panel
-  density nodes.
+- `build_helsing_ojala_panel_matrix` currently supports Laplace single-layer
+  log weights and Laplace double-layer Cauchy weights, returning local matrices
+  on the original panel density nodes.
 - `helsing_ojala_log_singular_matrix` consumes log-basis terms from
   `SingularityInfo`, including smooth target/source amplitudes such as the
   Helmholtz $J_0(k\rho)$ factor.
