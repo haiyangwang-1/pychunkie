@@ -24,5 +24,7 @@ Current implementation status:
 - Basic `Chunker` storage and point views are active.
 - Circle, ellipse, curve, and polygon constructors are active first-pass
   implementations.
-- `ChunkGraph` records are scaffolded; multi-region workflows are required
-  upcoming work, not deferred.
+- `ChunkGraph` records, merged point views, edge point views, region boundary
+  parts, and single-cycle region classification are active. Multi-edge
+  refinement, orientation-reversed boundary views, and full multi-region
+  system integration remain required upcoming work.

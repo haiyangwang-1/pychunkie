@@ -92,11 +92,140 @@ class ChunkGraph:
     def point_count(self) -> int:
         return sum(edge.chunker.point_count for edge in self.edges)
 
+    @property
+    def panel_count(self) -> int:
+        return sum(edge.chunker.panel_count for edge in self.edges)
+
+    @property
+    def quadrature_order(self) -> int:
+        if not self.edges:
+            raise ValueError("empty ChunkGraph has no quadrature order")
+        order = self.edges[0].chunker.quadrature_order
+        if any(edge.chunker.quadrature_order != order for edge in self.edges):
+            raise ValueError("merged ChunkGraph point views require a common quadrature order")
+        return order
+
+    @property
+    def pointinfo(self) -> PointInfoView:
+        return self.merged_points()
+
     def edge(self, edge_id: int) -> GraphEdge:
         return self.edges[edge_id]
+
+    def edge_points(self, edge_id: int) -> PointInfoView:
+        return self.edge(edge_id).chunker.pointinfo
 
     def region(self, region_id: int) -> GraphRegion:
         for region in self.regions:
             if region.id == region_id:
                 return region
         raise KeyError(region_id)
+
+    def merged_points(self) -> PointInfoView:
+        if not self.edges:
+            raise ValueError("empty ChunkGraph has no points")
+        order = self.quadrature_order
+        first = self.edges[0].chunker
+        nodes = first.nodes
+        positions = np.concatenate([edge.chunker.positions for edge in self.edges], axis=2)
+        derivatives = np.concatenate([edge.chunker.derivatives for edge in self.edges], axis=2)
+        second_derivatives = np.concatenate([edge.chunker.second_derivatives for edge in self.edges], axis=2)
+        normals = np.concatenate([edge.chunker.normals for edge in self.edges], axis=2)
+        weights = np.concatenate([edge.chunker.weights for edge in self.edges], axis=1)
+
+        # A merged graph view uses global panel-major ids. Edge-to-panel offsets
+        # are tracked by ChunkGraph methods, not by PointInfoView itself.
+        return PointInfoView(
+            positions=positions,
+            derivatives=derivatives,
+            second_derivatives=second_derivatives,
+            normals=normals,
+            weights=weights,
+            nodes=nodes,
+            panel_ids=np.arange(positions.shape[2], dtype=np.int64),
+            point_map=first.point_map.__class__(order, positions.shape[2]),
+        )
+
+    def boundary(
+        self,
+        region_id: int,
+        *,
+        side: Literal["left", "right", "interior", "exterior"] | int | None = "interior",
+    ) -> BoundaryPart:
+        region = self.region(region_id)
+        signed_edges = tuple(edge for cycle in region.boundary_cycles for edge in cycle.edges)
+        edge_ids = tuple(edge.edge_id for edge in signed_edges)
+        offsets = self._edge_point_offsets()
+        point_indices = np.concatenate(
+            [
+                np.arange(
+                    offsets[edge_id],
+                    offsets[edge_id] + self.edge(edge_id).chunker.point_count,
+                    dtype=np.int64,
+                )
+                for edge_id in edge_ids
+            ]
+        )
+        return BoundaryPart(
+            graph=self,
+            edges=edge_ids,
+            point_indices=point_indices,
+            side=side,
+            orientation=np.asarray([edge.orientation for edge in signed_edges], dtype=np.int64),
+            points=self.merged_points(),
+        )
+
+    def classify_points(self, points) -> NDArray[np.integer]:
+        targets = np.asarray(points, dtype=float).reshape(2, -1)
+        labels = np.zeros(targets.shape[1], dtype=np.int64)
+        for region in self.regions:
+            if not region.bounded:
+                continue
+            labels[:] = np.where(_point_in_region(self, region, targets), region.id, labels)
+        return labels
+
+    def _edge_point_offsets(self) -> dict[int, int]:
+        offsets: dict[int, int] = {}
+        cursor = 0
+        for edge in self.edges:
+            offsets[edge.id] = cursor
+            cursor += edge.chunker.point_count
+        return offsets
+
+
+def _point_in_region(graph: ChunkGraph, region: GraphRegion, targets: NDArray[np.floating]) -> NDArray[np.bool_]:
+    inside = np.zeros(targets.shape[1], dtype=bool)
+    for cycle in region.boundary_cycles:
+        inside |= _point_in_cycle(graph, cycle, targets)
+    return inside
+
+
+def _point_in_cycle(graph: ChunkGraph, cycle: RegionCycle, targets: NDArray[np.floating]) -> NDArray[np.bool_]:
+    vertices = _cycle_vertices(graph, cycle)
+    x = targets[0]
+    y = targets[1]
+    inside = np.zeros(targets.shape[1], dtype=bool)
+    x0 = vertices[0]
+    y0 = vertices[1]
+    xj = x0[-1]
+    yj = y0[-1]
+    for xi, yi in zip(x0, y0, strict=True):
+        crosses = (yi > y) != (yj > y)
+        x_intersect = (xj - xi) * (y - yi) / (yj - yi + np.finfo(float).eps) + xi
+        inside ^= crosses & (x < x_intersect)
+        xj = xi
+        yj = yi
+    return inside
+
+
+def _cycle_vertices(graph: ChunkGraph, cycle: RegionCycle) -> NDArray[np.floating]:
+    parts: list[NDArray[np.floating]] = []
+    for signed_edge in cycle.edges:
+        edge = graph.edge(signed_edge.edge_id)
+        starts = edge.chunker.positions[:, 0, :]
+        if signed_edge.orientation < 0:
+            starts = starts[:, ::-1]
+        parts.append(starts)
+    if not parts:
+        return np.zeros((2, 0))
+    return np.concatenate(parts, axis=1)

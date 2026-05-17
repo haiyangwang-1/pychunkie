@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-16,
-  `32 passed` in 1.39 seconds.
+  `34 passed` in 1.49 seconds.
 
 ## Test Organization Target
 
@@ -28,7 +28,8 @@ meaningfully.
 - `tests/test_api_smoke.py`: top-level rewrite API and removal of old operator
   names from the active facade.
 - `tests/geometry/test_chunker.py`: panel-major `Chunker` storage, normals,
-  point maps, polygon construction, and near-panel flags.
+  point maps, polygon construction, near-panel flags, `ChunkGraph` merged
+  point views, boundary parts, and single-boundary region classification.
 - `tests/kernels/test_laplace.py`: Laplace tensor output and first
   singularity metadata checks.
 - `tests/kernels/test_helmholtz_singularity.py`: Helmholtz `J0(k*rho) * G`

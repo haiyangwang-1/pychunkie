@@ -1,6 +1,6 @@
 import numpy as np
 
-from chunkie.geometry import chunker_from_polygon, circle, ellipse, flagnear
+from chunkie.geometry import ChunkGraph, chunker_from_polygon, circle, ellipse, flagnear
 
 
 def test_circle_uses_panel_major_storage_and_exterior_normals():
@@ -32,3 +32,24 @@ def test_polygon_constructor_and_near_flags_are_active():
     assert boundary.panel_count == 4
     assert flags.shape == (1, 4)
     assert np.any(flags)
+
+
+def test_chunkgraph_exposes_merged_points_and_boundary_parts():
+    boundary = circle(quadrature_order=6, panel_count=5)
+    graph = ChunkGraph.from_chunker(boundary)
+    part = graph.boundary(1)
+
+    assert graph.point_count == boundary.point_count
+    np.testing.assert_allclose(graph.pointinfo.flat_positions, boundary.pointinfo.flat_positions)
+    assert part.edges == (0,)
+    assert part.point_indices.size == boundary.point_count
+    assert part.side == "interior"
+
+
+def test_chunkgraph_classifies_single_closed_boundary_regions():
+    graph = ChunkGraph.from_chunker(circle(quadrature_order=8, panel_count=24))
+    points = np.array([[0.0, 2.0], [0.0, 0.0]])
+
+    regions = graph.classify_points(points)
+
+    np.testing.assert_array_equal(regions, np.array([1, 0]))
