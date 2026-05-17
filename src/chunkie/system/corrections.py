@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
-from chunkie.geometry import Chunker
+from chunkie.geometry import Chunker, flagnear
 from chunkie.kernels import Kernel
 from chunkie.quadrature import (
     adaptive_panel_matrix,
@@ -30,8 +30,73 @@ class PanelCorrection:
         matrix[np.ix_(self.rows, self.columns)] = self.values
 
 
-def build_corrections(*args, **kwargs):
-    raise NotImplementedError("Automatic correction selection is a required rewrite milestone")
+def build_corrections(
+    source: Chunker,
+    target: Chunker,
+    kernel: Kernel,
+    *,
+    method: str = "auto",
+    side: str | None = None,
+    near_factor: float = 1.0,
+    tolerance: float = 1.0e-12,
+    include_self: bool = True,
+    include_near: bool = True,
+) -> tuple[PanelCorrection, ...]:
+    """Select dense local replacement blocks for self and near panel pairs."""
+
+    if not isinstance(source, Chunker) or not isinstance(target, Chunker):
+        raise NotImplementedError("automatic corrections currently support Chunker source and target geometry")
+
+    target_points = target.pointinfo.flat_positions
+    near_flags = flagnear(source, target_points, near_factor=near_factor)
+    corrections: list[PanelCorrection] = []
+    for source_panel_id in range(source.panel_count):
+        target_ids = np.flatnonzero(near_flags[:, source_panel_id])
+        self_ids = (
+            source.point_map.to_point_id(source_panel_id, np.arange(source.quadrature_order, dtype=np.int64))
+            if source is target
+            else np.array([], dtype=np.int64)
+        )
+        if include_self and self_ids.size:
+            corrections.append(
+                build_panel_correction(
+                    source,
+                    target,
+                    kernel,
+                    source_panel_id=source_panel_id,
+                    target_point_ids=self_ids,
+                    method=_select_correction_method(kernel, requested=method, self_block=True, side=side),
+                    side=side,
+                    tolerance=tolerance,
+                )
+            )
+        if include_near and target_ids.size:
+            near_ids = np.setdiff1d(target_ids, self_ids, assume_unique=False)
+            if near_ids.size:
+                corrections.append(
+                    build_panel_correction(
+                        source,
+                        target,
+                        kernel,
+                        source_panel_id=source_panel_id,
+                        target_point_ids=near_ids,
+                        method=_select_correction_method(kernel, requested=method, self_block=False, side=side),
+                        side=side,
+                        tolerance=tolerance,
+                    )
+                )
+    return tuple(corrections)
+
+
+def _select_correction_method(kernel: Kernel, *, requested: str, self_block: bool, side: str | None) -> str:
+    method = requested.lower()
+    if method != "auto":
+        return method
+    if self_block and kernel.family == "laplace" and kernel.selector == "s":
+        return "ggq"
+    if side is not None and kernel.singularity.expansion.terms:
+        return "helsing_ojala"
+    return "adaptive"
 
 
 def build_panel_correction(

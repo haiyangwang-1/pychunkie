@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `93 passed` in 4.54 seconds.
+  `94 passed` in 4.11 seconds.
 
 ## Test Organization Target
 
@@ -97,8 +97,8 @@ meaningfully.
   multiple unknown density spaces and multiple boundary equations, including
   jump insertion and multi-density solve reconstruction.
 - `tests/system/test_corrections.py`: component-major dense panel replacement
-  insertion for adaptive local quadrature blocks and generated GGQ Laplace
-  self-panel replacement.
+  insertion for adaptive local quadrature blocks, generated GGQ Laplace
+  self-panel replacement, and automatic self-panel correction selection.
 - `tests/system/test_laplace_exterior_dirichlet.py`: dense exterior Laplace
   double-layer solve, FLAM solve field comparison, plus dense and FMM
   off-boundary evaluation for the unit-circle cosine mode.

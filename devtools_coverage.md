@@ -14,8 +14,8 @@ parity tests, ranked port status, or suggested next ports.
 - Active rewrite devtools parity starts with `tests/golden/quadggq.mat` and
   `tests/quadrature/test_ggq.py`, covering generated removable-rule parity
   against archived MATLAB fixture data.
-- Current active verification is `uv run pytest -q`, `93 passed` in
-  4.54 seconds, on 2026-05-17.
+- Current active verification is `uv run pytest -q`, `94 passed` in
+  4.11 seconds, on 2026-05-17.
 - Broader MATLAB table-backed GGQ parity, RCIP recursive-compression parity,
   and MATLAB-backed `ChunkGraph` parity remain required milestones.
   FMM has active dense-reference tests for scalar Laplace layer evaluation but

@@ -29,10 +29,11 @@ Current implementation status:
 - Right-hand sides may be scalar panel data, component panel data, or already
   flattened component-major vectors, and multi-equation right-hand sides are
   concatenated in equation order.
-- `PanelCorrection` and `build_panel_correction` provide the first dense
-  replacement-block insertion boundary for adaptive and Helsing-Ojala local
-  panel matrices. Generated GGQ self-panel replacement is active for Laplace
-  single-layer blocks.
+- `PanelCorrection`, `build_panel_correction`, and `build_corrections` provide
+  dense replacement-block insertion and first-pass automatic self/near panel
+  selection for adaptive, Helsing-Ojala, and GGQ local panel matrices.
+  Generated GGQ self-panel replacement is active for Laplace single-layer
+  blocks.
 - `build_rcip_state` discovers nonsmooth `ChunkGraph` vertices, builds dyadic
   local corner geometry plus split-panel prolongation blocks, and dense
   assembly records active RCIP state in `SystemMatrix.diagnostics` without

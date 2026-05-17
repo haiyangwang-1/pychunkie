@@ -1,7 +1,7 @@
 """Integral-equation system assembly, solve, and evaluation."""
 
 from .config import SystemConfig
-from .corrections import PanelCorrection, build_panel_correction
+from .corrections import PanelCorrection, build_corrections, build_panel_correction
 from .density import Density, DensityLayout, DensitySpace
 from .equation import BoundaryEquation, IntegralSystem
 from .laplace import LaplaceExteriorDirichletSystem
@@ -27,6 +27,7 @@ __all__ = [
     "SystemMatrix",
     "SystemSolution",
     "build_panel_correction",
+    "build_corrections",
     "build_rcip_state",
     "fmm_matvec",
 ]
