@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `80 passed` in 2.34 seconds.
+  `81 passed` in 2.70 seconds.
 
 ## Test Organization Target
 
@@ -25,8 +25,8 @@ meaningfully.
 
 ## Active Tests
 
-- `tests/test_api_smoke.py`: top-level rewrite API and removal of old operator
-  names from the active facade.
+- `tests/test_api_smoke.py`: top-level rewrite API, geometry/RCIP/system helper
+  exports, and removal of old operator names from the active facade.
 - `tests/geometry/test_chunker.py`: panel-major `Chunker` storage, normals,
   point maps, polygon construction, near-panel flags, `ChunkGraph` merged
   point views, boundary parts, and single-boundary region classification.
