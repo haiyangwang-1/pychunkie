@@ -40,6 +40,7 @@ def test_geometry_rcip_and_system_exports_include_new_rewrite_helpers():
         "NearestPoint",
         "affine",
         "arclength_parameterization",
+        "change_quadrature_order",
         "evaluate_arclength",
         "flagnear_rectangle",
         "flagnear_rectangle_grid",

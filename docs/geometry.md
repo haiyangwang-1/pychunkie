@@ -27,6 +27,9 @@ Current implementation status:
 - `arclength_parameterization`, `evaluate_arclength`, and
   `resample_by_arclength` are active for evaluating a discretized curve by
   physical arclength and rebuilding panels with constant arclength speed.
+- `change_quadrature_order` interpolates panel geometry, and optional data with
+  trailing `(quadrature_order, panel_count)` axes, to a new Legendre order
+  without changing panel topology.
 - `refine` uniformly splits panels by powers of two, preserving panel-major
   storage while rescaling first and second derivatives by the child reference
   coordinate map.

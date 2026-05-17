@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `103 passed` in 4.35 seconds.
+  `104 passed` in 4.20 seconds.
 
 ## Test Organization Target
 
@@ -43,7 +43,8 @@ meaningfully.
   resampling behavior for circle node evaluation, arclength derivatives, and
   constant-speed panels.
 - `tests/geometry/test_refine.py`: migrated split-panel refinement behavior
-  for analytic circle panels and open line adjacency/weights.
+  for analytic circle panels and open line adjacency/weights, plus
+  quadrature-order interpolation for geometry and panel-major data.
 - `tests/geometry/test_curve_constructors.py`: migrated curve-constructor
   behavior for closed analytic curves, open curves with free ends, and
   position-only callbacks differentiated into panel derivatives, plus adaptive
