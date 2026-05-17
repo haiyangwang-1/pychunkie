@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `79 passed` in 2.28 seconds.
+  `80 passed` in 2.34 seconds.
 
 ## Test Organization Target
 
@@ -70,8 +70,9 @@ meaningfully.
   matrix, Helmholtz log-basis smooth-amplitude dispatch, and Helmholtz
   single-layer close-panel correction against the adaptive reference path.
 - `tests/quadrature/test_ggq.py`: generated GGQ-style self split rules,
-  interpolation matrices, and a Laplace single-layer self-panel matrix against
-  an analytic straight-segment logarithmic integral.
+  interpolation matrices, archived MATLAB removable-rule fixture parity, and a
+  Laplace single-layer self-panel matrix against an analytic straight-segment
+  logarithmic integral.
 - `tests/quadrature/test_legendre.py`: migrated Legendre utility behavior for
   coefficient/value transforms, polynomial derivatives, interpolation,
   integration, barycentric weights, Bernstein ellipse points, Taylor stepping,

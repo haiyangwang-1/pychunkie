@@ -1,5 +1,8 @@
+from pathlib import Path
+
 import numpy as np
 from numpy.polynomial.legendre import leggauss
+from scipy.io import loadmat
 
 from chunkie.geometry import chunker_from_polygon
 from chunkie.kernels import kernel
@@ -40,6 +43,28 @@ def test_ggq_setup_builds_interpolators_for_neighbor_and_self_rules():
             interpolator @ polynomial_values,
             1.0 + nodes - 2.0 * nodes**3,
             atol=1.0e-13,
+        )
+
+
+def test_generated_removable_rules_match_archived_matlab_fixture():
+    fixture = loadmat(Path(__file__).parents[1] / "golden" / "quadggq.mat", squeeze_me=True, struct_as_record=False)[
+        "quadggq"
+    ]
+    nodes_by_source, weights_by_source = ggq_removable_rules(8, nfac=1)
+    setup_rules = setup_ggq(8, nfac_self=1)
+
+    for index, (nodes, weights) in enumerate(zip(nodes_by_source, weights_by_source, strict=True)):
+        np.testing.assert_allclose(nodes, np.asarray(fixture.removable_xs0[index]).reshape(-1), atol=1.0e-15)
+        np.testing.assert_allclose(weights, np.asarray(fixture.removable_wts0[index]).reshape(-1), atol=1.0e-15)
+        np.testing.assert_allclose(
+            setup_rules.self_nodes[index],
+            np.asarray(fixture.setup_removable_xs0[index]).reshape(-1),
+            atol=1.0e-15,
+        )
+        np.testing.assert_allclose(
+            setup_rules.self_weights[index],
+            np.asarray(fixture.setup_removable_wts0[index]).reshape(-1),
+            atol=1.0e-15,
         )
 
 

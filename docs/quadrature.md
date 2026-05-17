@@ -44,8 +44,9 @@ absorbed into panel data before Helsing-Ojala or GGQ weights are applied.
   `SingularityInfo`, including smooth target/source amplitudes such as the
   Helmholtz $J_0(k\rho)$ factor.
 - `setup_ggq` and `ggq_removable_rules` create generated GGQ-style neighbor
-  and self split rules with interpolation matrices. MATLAB table-backed parity
-  is still upcoming.
+  and self split rules with interpolation matrices. Removable self-rule parity
+  is checked against the archived MATLAB fixture in `tests/golden/quadggq.mat`;
+  broader MATLAB table-backed parity is still upcoming.
 - `build_ggq_self_panel_matrix` uses generated self split rules to build a
   Laplace single-layer self-panel matrix on the original source nodes.
 
