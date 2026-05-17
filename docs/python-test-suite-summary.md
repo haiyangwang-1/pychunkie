@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `127 passed` in 10.21 seconds.
+  `138 passed` in 16.59 seconds.
 
 ## Test Organization Target
 
@@ -127,6 +127,11 @@ meaningfully.
 - `tests/examples/test_nonsmooth_laplace_examples.py`: executable square-corner
   Laplace interior/exterior Dirichlet and Neumann examples, including RCIP
   corner-state discovery and generated solution/error figure outputs.
+- `tests/examples/test_accelerated_examples.py`: executable accelerated FMM and
+  FLAM examples through the rewrite backend APIs, including the current
+  unsupported biharmonic FMM status check.
+- `tests/examples/test_chunkgraph_examples.py`: executable square-annulus
+  `ChunkGraph` region-classification and annular Dirichlet examples.
 - `tests/system/test_fmm_matvec.py`: scalar Laplace FMM system matvec for
   off-boundary trace equations compared against dense assembly.
 - `tests/system/test_matrix_free_matvec.py`: dense-reference matrix-free trace
@@ -134,8 +139,9 @@ meaningfully.
 - `tests/system/test_rcip_integration.py`: system-level RCIP corner-state
   discovery for `ChunkGraph` geometry and dense assembly diagnostics that leave
   the reference matrix unchanged.
-- `tests/backends/test_fmm2d.py`: FMM2D Laplace single- and double-layer
-  evaluation against dense panel quadrature at off-boundary targets.
+- `tests/backends/test_fmm2d.py`: FMM2D Laplace and Helmholtz single- and
+  double-layer evaluation plus Stokes single-layer velocity against dense panel
+  quadrature at off-boundary targets.
 - `tests/backends/test_flam.py`: FLAM recursive-skeletonization apply, solve,
   and log-determinant behavior compared against dense reference matrices for
   real and complex multiple-RHS cases.

@@ -15,8 +15,10 @@ implemented behavior, known limitations, or verification snapshots change.
   solution/error figures for interior/exterior Dirichlet and Neumann cases.
 - Nonsmooth square Laplace examples use `ChunkGraph` boundary systems and
   generate solution/error figures for the same four boundary-value cases.
+- Accelerated and `ChunkGraph` examples use the rewrite APIs; active examples
+  no longer depend on removed `chunkermat`/`chunkerkerneval` facade names.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `127 passed` in 10.21 seconds; `uv run ruff check .` passes; `uv run mypy`
+  `138 passed` in 16.59 seconds; `uv run ruff check .` passes; `uv run mypy`
   passes over `src/chunkie`.
 
 ## Source Tree
@@ -28,7 +30,7 @@ implemented behavior, known limitations, or verification snapshots change.
 | `chunkie.quadrature` | in progress | Legendre polynomial/transform/interpolation/integration utilities, dense panel helpers, component-major dense operator materialization, adaptive source-panel fallback, Helsing-Ojala log/Cauchy/derivative product weights, generated GGQ-style split rules/panel matrices, fixture-backed GGQ removable-rule parity, log/PV/HS `SingularityInfo` smooth-amplitude dispatch, and Helmholtz single-layer HO panel correction are active; broader MATLAB GGQ table parity remains a required milestone. |
 | `chunkie.rcip` | in progress | Dyadic local corner geometry with pointinfo-compatible derivatives/normals/weights, barycentric and split-panel prolongation matrices, edge/component block prolongation, dense single-level and recursive Schur compression updates, corner state records, and density interpolation are active. Local corner operator assembly remains required upcoming work. |
 | `chunkie.system` | in progress | Density layout, dense multi-unknown/multi-equation `Chunker` and `BoundaryPart` trace assembly, explicit dense constraint rows, finite dense self diagonals for Laplace double-layer and adjoint double-layer traces, dense/direct/GMRES/FLAM solve reconstruction for scalar unknown blocks, dense/FMM evaluation, dense-reference matrix-free and scalar Laplace FMM matvecs, automatic adaptive/Helsing-Ojala/GGQ panel replacement correction selection, graph-corner RCIP state diagnostics, and `LaplaceExteriorDirichletSystem` are active. Trace blocks use the quadrature operator-matrix adapter. |
-| `chunkie.system.backends` | in progress | FMM2D evaluates scalar Laplace single- and double-layer potentials and drives scalar off-boundary system matvecs against dense references. FLAM factors dense reference matrices with `pyflam.rskelf` and tests apply/solve/logdet, including complex multiple-RHS and multi-scalar-density solve cases, against dense linear algebra. `docs/structured-rskelf-transmission.md` records the structured RSKELF target for block transmission systems. |
+| `chunkie.system.backends` | in progress | FMM2D evaluates scalar Laplace and Helmholtz single-/double-layer potentials plus Stokes single-layer velocity, and drives scalar off-boundary Laplace system matvecs against dense references. FLAM factors dense reference matrices with `pyflam.rskelf` and tests apply/solve/logdet, including complex multiple-RHS and multi-scalar-density solve cases, against dense linear algebra. `docs/structured-rskelf-transmission.md` records the structured RSKELF target for block transmission systems. |
 
 ## Public API Target
 

@@ -1,30 +1,40 @@
-"""FLAM matrix application and solve for a shifted Laplace operator."""
+"""FLAM matrix application and solve for a Laplace boundary system."""
 
 import numpy as np
 
-from chunkie import chunkerfunc, chunkermat, ellipse, kernel
+from chunkie.geometry import circle
+from chunkie.system import LaplaceExteriorDirichletSystem
+from chunkie.system.backends.flam import factor_system
 
-boundary = chunkerfunc(ellipse, min_chunks=6, tol=1e-8, order=8)[0]
-lap_s = kernel("lap", "s")
-rhs = np.cos(np.arange(boundary.npt))
 
-dense_shifted = chunkermat(boundary, lap_s) + np.eye(boundary.npt)
-flam = chunkermat(
-    boundary,
-    lap_s,
-    acceleration="flam",
-    dval=1.0,
-    flam_occupancy=8,
-    rank_or_tol=1e-9,
-    proxy=False,
-)
+def main() -> None:
+    boundary = circle(quadrature_order=8, panel_count=12)
+    system = LaplaceExteriorDirichletSystem(boundary, boundary.positions[0])
+    matrix = system.assemble()
+    # BoundaryEquation accepts panel-major data; FLAM sees the flattened
+    # component-major solver vector used by dense assembly.
+    rhs = boundary.positions[0].T.reshape(-1)
+    # FLAM currently factors a dense reference matrix. Callback assembly will
+    # replace this boundary while preserving the apply/solve contract below.
+    flam = factor_system(
+        matrix,
+        boundary.pointinfo.flat_positions,
+        occupancy=16,
+        tolerance=1.0e-10,
+    )
 
-applied = flam @ rhs
-solved = flam.solve(rhs)
-matvec_error = np.linalg.norm(applied - dense_shifted @ rhs) / max(
-    np.linalg.norm(dense_shifted @ rhs), 1.0
-)
-solve_error = np.linalg.norm(dense_shifted @ solved - rhs) / max(np.linalg.norm(rhs), 1.0)
+    dense = matrix.to_dense()
+    applied = flam.apply(rhs)
+    solved = flam.solve(rhs)
+    matvec_error = np.linalg.norm(applied - dense @ rhs) / max(
+        np.linalg.norm(dense @ rhs),
+        1.0,
+    )
+    solve_error = np.linalg.norm(dense @ solved - rhs) / max(np.linalg.norm(rhs), 1.0)
 
-print(f"FLAM shifted Laplace matvec relative error: {matvec_error:.3e}")
-print(f"FLAM shifted Laplace solve residual: {solve_error:.3e}")
+    print(f"FLAM Laplace system matvec relative error: {matvec_error:.3e}")
+    print(f"FLAM Laplace system solve residual: {solve_error:.3e}")
+
+
+if __name__ == "__main__":
+    main()

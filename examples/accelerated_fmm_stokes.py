@@ -1,17 +1,21 @@
 """FMM target evaluation for a Stokes single-layer velocity."""
 
-import numpy as np
-from _accelerated_common import TARGETS, boundary_nodes, component_vector, make_circle, relerr
+from _accelerated_common import TARGETS, make_circle, relerr, stokes_density
 
-from chunkie import chunkerkerneval, kernel
+from chunkie.kernels import kernel
+from chunkie.quadrature import apply_panel_potential
+from chunkie.system.backends.fmm2d import apply_fmm
 
-boundary = make_circle()
-nodes = boundary_nodes(boundary)
-density = component_vector(np.vstack((np.cos(nodes[0]), np.sin(nodes[1]))))
-stok_s = kernel("stok", "s", 1.0)
 
-direct = component_vector(chunkerkerneval(boundary, stok_s, density, TARGETS))
-fmm = chunkerkerneval(boundary, stok_s, density, TARGETS, acceleration="fmm", tol=1e-11)
-error = relerr(component_vector(fmm), direct)
+def main() -> None:
+    boundary = make_circle()
+    density = stokes_density(boundary)
+    stokes_s = kernel("stokes", selector="s", viscosity=1.0)
 
-print(f"Stokes velocity FMM relative error: {error:.3e}")
+    direct = apply_panel_potential(boundary.pointinfo, TARGETS, stokes_s, density)
+    fmm = apply_fmm(boundary.pointinfo, TARGETS, stokes_s, density, eps=1.0e-11)
+    print(f"Stokes single layer FMM relative error: {relerr(fmm, direct):.3e}")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,17 +1,21 @@
 """FMM target evaluation for a Laplace single-layer potential."""
 
-import numpy as np
-from _accelerated_common import TARGETS, boundary_nodes, make_circle, relerr
+from _accelerated_common import TARGETS, make_circle, relerr, scalar_density
 
-from chunkie import chunkerkerneval, kernel
+from chunkie.kernels import kernel
+from chunkie.quadrature import apply_panel_potential
+from chunkie.system.backends.fmm2d import apply_fmm
 
-boundary = make_circle()
-nodes = boundary_nodes(boundary)
-density = np.cos(nodes[0])
-lap_s = kernel("lap", "s")
 
-direct = chunkerkerneval(boundary, lap_s, density, TARGETS).reshape(-1)
-fmm = chunkerkerneval(boundary, lap_s, density, TARGETS, acceleration="fmm", tol=1e-11).reshape(-1)
-error = relerr(fmm, direct)
+def main() -> None:
+    boundary = make_circle()
+    density = scalar_density(boundary)
+    laplace_s = kernel("laplace", selector="s")
 
-print(f"Laplace single layer FMM relative error: {error:.3e}")
+    direct = apply_panel_potential(boundary.pointinfo, TARGETS, laplace_s, density)
+    fmm = apply_fmm(boundary.pointinfo, TARGETS, laplace_s, density, eps=1.0e-11)
+    print(f"Laplace single layer FMM relative error: {relerr(fmm, direct):.3e}")
+
+
+if __name__ == "__main__":
+    main()

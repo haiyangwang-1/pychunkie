@@ -1,61 +1,35 @@
-"""FMM target evaluation for several physics kernels.
-
-Run from the repository root:
-
-    uv run python examples/accelerated_fmm_kernels.py
-
-Each check compares accelerated target evaluation against the direct dense
-target-evaluation path.
-"""
+"""FMM target evaluation for supported physics kernels."""
 
 from __future__ import annotations
 
-import numpy as np
-from _accelerated_common import TARGETS, boundary_nodes, component_vector, make_circle, relerr
+from _accelerated_common import TARGETS, make_circle, relerr, scalar_density, stokes_density
 
-from chunkie import chunkerkerneval, kernel
+from chunkie.kernels import Kernel, kernel
+from chunkie.quadrature import apply_panel_potential
+from chunkie.system.backends.fmm2d import apply_fmm
 
 
-def compare_scalar_kernel(boundary, label: str, kernel_obj, density: np.ndarray) -> None:
-    direct = chunkerkerneval(boundary, kernel_obj, density, TARGETS).reshape(-1)
-    fmm = chunkerkerneval(
-        boundary,
-        kernel_obj,
-        density,
-        TARGETS,
-        acceleration="fmm",
-        tol=1e-11,
-    ).reshape(-1)
+def compare_kernel(label: str, kernel_obj: Kernel, density) -> None:
+    boundary = make_circle()
+    direct = apply_panel_potential(boundary.pointinfo, TARGETS, kernel_obj, density(boundary))
+    fmm = apply_fmm(boundary.pointinfo, TARGETS, kernel_obj, density(boundary), eps=1.0e-11)
     print(f"{label} FMM relative error: {relerr(fmm, direct):.3e}")
 
 
 def main() -> None:
-    boundary = make_circle()
-    nodes = boundary_nodes(boundary)
-    scalar_density = np.cos(nodes[0])
-
-    compare_scalar_kernel(boundary, "Laplace single layer", kernel("lap", "s"), scalar_density)
-    compare_scalar_kernel(
-        boundary, "Helmholtz single layer", kernel("helm", "s", 1.4 + 0.1j), scalar_density
+    compare_kernel("Laplace single layer", kernel("laplace", selector="s"), scalar_density)
+    compare_kernel("Laplace double layer", kernel("laplace", selector="d"), scalar_density)
+    compare_kernel(
+        "Helmholtz single layer",
+        kernel("helmholtz", selector="s", wavenumber=1.4 + 0.1j),
+        scalar_density,
     )
-    compare_scalar_kernel(
-        boundary, "Biharmonic single layer", kernel("biharm", "s"), scalar_density
+    compare_kernel(
+        "Helmholtz double layer",
+        kernel("helmholtz", selector="d", wavenumber=1.4 + 0.1j),
+        scalar_density,
     )
-
-    stokes_density = component_vector(np.vstack((np.cos(nodes[0]), np.sin(nodes[1]))))
-    stokes = kernel("stok", "s", 1.0)
-    stokes_direct = component_vector(chunkerkerneval(boundary, stokes, stokes_density, TARGETS))
-    stokes_fmm = chunkerkerneval(
-        boundary,
-        stokes,
-        stokes_density,
-        TARGETS,
-        acceleration="fmm",
-        tol=1e-11,
-    )
-    print(
-        f"Stokes velocity FMM relative error: {relerr(component_vector(stokes_fmm), stokes_direct):.3e}"
-    )
+    compare_kernel("Stokes single layer", kernel("stokes", selector="s"), stokes_density)
 
 
 if __name__ == "__main__":

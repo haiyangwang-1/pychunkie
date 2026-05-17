@@ -1,19 +1,24 @@
-"""FMM target evaluation for a biharmonic single-layer potential."""
+"""Biharmonic dense reference and current FMM support check."""
 
-import numpy as np
-from _accelerated_common import TARGETS, boundary_nodes, make_circle, relerr
+from _accelerated_common import TARGETS, make_circle, scalar_density
 
-from chunkie import chunkerkerneval, kernel
+from chunkie.kernels import kernel
+from chunkie.quadrature import apply_panel_potential
+from chunkie.system.backends.fmm2d import apply_fmm
 
-boundary = make_circle()
-nodes = boundary_nodes(boundary)
-density = np.cos(nodes[0])
-biharm_s = kernel("biharm", "s")
 
-direct = chunkerkerneval(boundary, biharm_s, density, TARGETS).reshape(-1)
-fmm = chunkerkerneval(boundary, biharm_s, density, TARGETS, acceleration="fmm", tol=1e-11).reshape(
-    -1
-)
-error = relerr(fmm, direct)
+def main() -> None:
+    boundary = make_circle()
+    density = scalar_density(boundary)
+    biharmonic_s = kernel("biharmonic", selector="s")
+    direct = apply_panel_potential(boundary.pointinfo, TARGETS, biharmonic_s, density)
 
-print(f"Biharmonic single layer FMM relative error: {error:.3e}")
+    print(f"Biharmonic dense single layer values: {direct.reshape(-1)}")
+    try:
+        apply_fmm(boundary.pointinfo, TARGETS, biharmonic_s, density, eps=1.0e-11)
+    except NotImplementedError as exc:
+        print(f"Biharmonic FMM backend unavailable: {exc}")
+
+
+if __name__ == "__main__":
+    main()
