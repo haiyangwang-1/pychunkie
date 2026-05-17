@@ -43,6 +43,7 @@ def test_geometry_rcip_and_system_exports_include_new_rewrite_helpers():
         "flagnear_rectangle_grid",
         "nearest_point",
         "reflect",
+        "refine",
         "resample_by_arclength",
         "rotate",
         "scale",

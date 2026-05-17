@@ -19,6 +19,7 @@ from .chunkgraph import (
 from .constructors import chunker_from_curve, chunker_from_polygon, circle, ellipse
 from .near import NearestPoint, flagnear, flagnear_rectangle, flagnear_rectangle_grid, nearest_point
 from .points import PanelView, PointInfoView, PointMap
+from .refine import refine
 from .transforms import affine, reflect, rotate, scale, translate
 
 __all__ = [
@@ -48,6 +49,7 @@ __all__ = [
     "resample_by_arclength",
     "affine",
     "reflect",
+    "refine",
     "rotate",
     "scale",
     "translate",

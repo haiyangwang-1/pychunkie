@@ -27,6 +27,9 @@ Current implementation status:
 - `arclength_parameterization`, `evaluate_arclength`, and
   `resample_by_arclength` are active for evaluating a discretized curve by
   physical arclength and rebuilding panels with constant arclength speed.
+- `refine` uniformly splits panels by powers of two, preserving panel-major
+  storage while rescaling first and second derivatives by the child reference
+  coordinate map.
 - Translation, uniform scaling, affine transforms, rotations, and reflections
   are active. Transforms recompute normals and quadrature weights from the
   transformed tangent instead of carrying stale geometric metadata.
@@ -42,6 +45,6 @@ Current implementation status:
 - `ChunkGraph.from_vertices` builds multi-edge graphs from vertices and
   directed edge indices. `ChunkGraph` records, merged point views, edge point
   views, region boundary parts with selected `pointinfo`, and single-cycle
-  region classification are active. Multi-edge refinement,
-  orientation-reversed boundary views, and full multi-region system integration
-  remain required upcoming work.
+  region classification are active. Adaptive refinement, orientation-reversed
+  boundary views, and full multi-region system integration remain required
+  upcoming work.
