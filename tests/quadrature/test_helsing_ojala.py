@@ -5,6 +5,7 @@ from scipy.special import jv
 from chunkie.geometry import chunker_from_polygon
 from chunkie.kernels import kernel
 from chunkie.quadrature import (
+    adaptive_panel_matrix,
     build_helsing_ojala_panel_matrix,
     helsing_ojala_log_singular_matrix,
     helsing_ojala_weights,
@@ -93,3 +94,18 @@ def test_helsing_ojala_log_singular_matrix_consumes_smooth_amplitudes():
 
     assert singular.shape == (1, 1, 1, panel.nodes.size)
     np.testing.assert_allclose(singular, expected, rtol=1.0e-13, atol=1.0e-13)
+
+
+def test_helsing_ojala_panel_matrix_integrates_close_helmholtz_single_layer():
+    boundary = chunker_from_polygon([(0, 0), (1, 0), (1, 1), (0, 1)], quadrature_order=24)
+    panel = boundary.panel(0)
+    target = np.array([[0.5], [2.0e-3]])
+    helmholtz_s = kernel("helmholtz", selector="s", wavenumber=1.7 + 0.2j)
+
+    matrix = build_helsing_ojala_panel_matrix(panel, target, helmholtz_s, side="i")
+    value = np.sum(matrix[0, 0, 0])
+
+    expected = np.sum(adaptive_panel_matrix(panel, target, helmholtz_s, tolerance=1.0e-12)[0, 0, 0])
+
+    assert matrix.shape == (1, 1, 1, panel.nodes.size)
+    np.testing.assert_allclose(value, expected, rtol=2.0e-12, atol=2.0e-12)

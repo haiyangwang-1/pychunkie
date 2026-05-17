@@ -24,7 +24,7 @@ def build_helsing_ojala_panel_matrix(
     """
 
     if kernel.family != "laplace" or kernel.selector not in {"s", "d"}:
-        raise NotImplementedError("Helsing-Ojala bootstrap currently supports Laplace single and double layers")
+        return _log_singular_panel_matrix(panel, target, kernel, side=side)
 
     source = _panel_complex_points(panel)
     source_normal = _panel_complex_normals(panel)
@@ -43,6 +43,24 @@ def build_helsing_ojala_panel_matrix(
     )
     weights = special[0] if kernel.selector == "s" else np.real(special[1])
     return weights[None, None, :, :]
+
+
+def _log_singular_panel_matrix(
+    panel: PanelView,
+    target,
+    kernel: Kernel,
+    *,
+    side: str,
+) -> NDArray[np.generic]:
+    if any(term.basis.derivative for term in kernel.singularity.expansion.terms):
+        raise NotImplementedError("Helsing-Ojala panel matrix does not yet dispatch derivative bases")
+    singular_special = helsing_ojala_log_singular_matrix(panel, target, kernel, side=side)
+    dense_values = kernel(panel, target) * panel.weights[None, None, None, :]
+    singular_dense = kernel.singularity.expansion.evaluate(panel, target) * panel.weights[None, None, None, :]
+    # The singular amplitudes may be target/source dependent. Helsing-Ojala
+    # handles that declared singular part, while the finite remainder stays on
+    # ordinary Gauss weights in the original panel basis.
+    return singular_special + dense_values - singular_dense
 
 
 def helsing_ojala_log_singular_matrix(
