@@ -14,13 +14,13 @@ parity tests, ranked port status, or suggested next ports.
 - Active rewrite devtools parity starts with `tests/golden/quadggq.mat` and
   `tests/quadrature/test_ggq.py`, covering generated removable-rule parity
   against archived MATLAB fixture data.
-- Current active verification is `uv run pytest -q`, `139 passed` in
-  17.32 seconds, on 2026-05-17.
+- Current active verification is `uv run pytest -q`, `141 passed` in
+  18.50 seconds, on 2026-05-17.
 - Broader MATLAB table-backed GGQ parity, RCIP recursive-compression parity,
   and MATLAB-backed `ChunkGraph` parity remain required milestones.
   FMM has active dense-reference tests for scalar Laplace/Helmholtz layer
-  evaluation and Stokes single-layer velocity, but does not yet have MATLAB
-  fixture parity in the rewrite tree.
+  evaluation, gradients, target-normal derivatives, and Stokes single-layer
+  velocity, but does not yet have MATLAB fixture parity in the rewrite tree.
   FLAM has active dense-reference apply/solve/logdet tests but does not yet
   have callback or MATLAB fixture parity in the rewrite tree.
   Helsing-Ojala has active local log, Cauchy, and derivative-product baselines

@@ -12,7 +12,7 @@ meaningfully.
   `docs_old/docs/python-test-suite-summary.md`.
 - Active tests currently cover the rewrite bootstrap and first low-level APIs.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `139 passed` in 17.32 seconds.
+  `141 passed` in 18.50 seconds.
 
 ## Test Organization Target
 
@@ -141,8 +141,8 @@ meaningfully.
   the reference matrix unchanged, plus finite local trace operators attached to
   RCIP corner state.
 - `tests/backends/test_fmm2d.py`: FMM2D Laplace and Helmholtz single- and
-  double-layer evaluation plus Stokes single-layer velocity against dense panel
-  quadrature at off-boundary targets.
+  double-layer evaluation, gradients, target-normal derivatives, plus Stokes
+  single-layer velocity against dense panel quadrature at off-boundary targets.
 - `tests/backends/test_flam.py`: FLAM recursive-skeletonization apply, solve,
   and log-determinant behavior compared against dense reference matrices for
   real and complex multiple-RHS cases.

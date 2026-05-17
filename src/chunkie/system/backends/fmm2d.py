@@ -33,17 +33,19 @@ def apply_fmm(
     source_positions = _flat_positions(source)
     target_positions = _flat_positions(target)
 
-    if kernel.family == "laplace" and kernel.selector in {"s", "d"}:
+    if kernel.family == "laplace" and kernel.selector in {"s", "d", "sg", "dg", "sp", "dp"}:
         if kernel.input_dim != 1 or kernel.output_dim != 1:
-            raise NotImplementedError("FMM backend currently supports scalar Laplace kernels")
+            if kernel.selector not in {"sg", "dg"} or kernel.output_dim != 2:
+                raise NotImplementedError("FMM backend currently supports scalar Laplace kernels")
         weighted_density = _flat_scalar_density(density, source) * _flat_weights(source)
-        if kernel.selector == "s":
+        needs_gradient = kernel.selector in {"sg", "dg", "sp", "dp"}
+        if kernel.selector in {"s", "sg", "sp"}:
             result = fmm2dpy.lfmm2d(
                 eps=float(eps),
                 sources=source_positions,
                 charges=weighted_density,
                 targets=target_positions,
-                pgt=1,
+                pgt=2 if needs_gradient else 1,
             )
         else:
             result = fmm2dpy.lfmm2d(
@@ -52,31 +54,34 @@ def apply_fmm(
                 dipstr=weighted_density,
                 dipvec=_flat_normals(source),
                 targets=target_positions,
-                pgt=1,
+                pgt=2 if needs_gradient else 1,
             )
         # FMM2D's Laplace convention returns log(r); chunkie kernels use
         # -log(r)/(2*pi), so the scale is shared by charges and dipoles.
-        values = -np.asarray(result.pottarg).reshape(1, -1) / (2.0 * np.pi)
+        scale = -1.0 / (2.0 * np.pi)
+        values = _select_potential_or_gradient(kernel.selector, result, target, scale=scale)
         return np.real_if_close(values)
 
-    if kernel.family == "helmholtz" and kernel.selector in {"s", "d"}:
+    if kernel.family == "helmholtz" and kernel.selector in {"s", "d", "sg", "dg", "sp", "dp"}:
         if kernel.input_dim != 1 or kernel.output_dim != 1:
-            raise NotImplementedError("FMM backend currently supports scalar Helmholtz kernels")
+            if kernel.selector not in {"sg", "dg"} or kernel.output_dim != 2:
+                raise NotImplementedError("FMM backend currently supports scalar Helmholtz kernels")
         weighted_density = _flat_scalar_density(density, source) * _flat_weights(source)
+        needs_gradient = kernel.selector in {"sg", "dg", "sp", "dp"}
         kwargs = {
             "eps": float(eps),
             "zk": complex(kernel.params["wavenumber"]),
             "sources": source_positions,
             "targets": target_positions,
-            "pgt": 1,
+            "pgt": 2 if needs_gradient else 1,
         }
-        if kernel.selector == "s":
+        if kernel.selector in {"s", "sg", "sp"}:
             kwargs["charges"] = weighted_density
         else:
             kwargs["dipstr"] = weighted_density
             kwargs["dipvec"] = _flat_normals(source)
         result = fmm2dpy.hfmm2d(**kwargs)
-        return np.asarray(result.pottarg).reshape(1, -1)
+        return _select_potential_or_gradient(kernel.selector, result, target, scale=1.0)
 
     if kernel.family == "stokes" and kernel.selector == "s":
         if kernel.input_dim != 2 or kernel.output_dim != 2:
@@ -98,7 +103,7 @@ def apply_fmm(
         return np.asarray(result.pottarg)[0]
 
     raise NotImplementedError(
-        "FMM backend currently supports Laplace/Helmholtz single and double layers "
+        "FMM backend currently supports Laplace/Helmholtz layer potentials and gradients "
         "and Stokes single-layer velocity"
     )
 
@@ -139,6 +144,18 @@ def _flat_component_density(
     if flat.shape != (component_count, point_count):
         raise ValueError("FMM component density size does not match source point count")
     return flat
+
+
+def _select_potential_or_gradient(selector: str, result: Any, target: Any, *, scale: complex):
+    if selector in {"s", "d"}:
+        return scale * np.asarray(result.pottarg).reshape(1, -1)
+    gradient = scale * np.asarray(result.gradtarg)
+    if selector in {"sg", "dg"}:
+        return gradient
+    if selector in {"sp", "dp"}:
+        target_normals = _flat_normals(target)
+        return np.einsum("rt,rt->t", gradient, target_normals)[None, :]
+    raise ValueError(f"unsupported FMM selector {selector!r}")
 
 
 def _flat_positions(points: Any) -> NDArray[np.floating]:
