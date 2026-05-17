@@ -25,9 +25,17 @@ def test_local_corner_geometry_uses_dyadic_ray_panels():
     radii = np.linalg.norm(local.positions, axis=0)
 
     assert local.positions.shape == (2, 4, 6)
+    assert local.derivatives.shape == local.positions.shape
+    assert local.normals.shape == local.positions.shape
     np.testing.assert_allclose(local.panel_scales[:3], np.array([0.5, 0.25, 0.125]))
+    np.testing.assert_allclose(local.derivatives[:, :, 0], np.repeat([[0.25], [0.0]], 4, axis=1))
+    np.testing.assert_allclose(local.normals[:, :, 0], np.repeat([[0.0], [-1.0]], 4, axis=1))
     np.testing.assert_allclose(np.min(radii[:, 0]), 0.5 * (1.0 + local.nodes[0]) / 2.0 + 0.5)
     np.testing.assert_allclose(np.sum(local.weights), 2.0 * (1.0 - 2.0**-3))
+    np.testing.assert_allclose(
+        local.pointinfo.flat_positions, local.positions.swapaxes(1, 2).reshape(2, -1)
+    )
+    np.testing.assert_allclose(local.pointinfo.flat_weights, local.weights.T.reshape(-1))
 
 
 def test_prolongation_interpolates_polynomials_exactly():

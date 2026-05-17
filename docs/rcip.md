@@ -6,7 +6,8 @@ reconstruction tools needed by nonsmooth systems.
 Current implementation status:
 
 - `build_local_corner_geometry` creates dyadically refined ray panels around a
-  corner vertex.
+  corner vertex, including derivative, right-normal, quadrature-weight, and
+  `pointinfo` views compatible with the rest of the panel-major adapters.
 - `build_prolongation` builds barycentric interpolation matrices between local
   node sets.
 - `build_split_panel_prolongation` builds the two-half-panel interpolation and
