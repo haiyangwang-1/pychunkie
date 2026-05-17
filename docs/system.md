@@ -42,7 +42,9 @@ Current implementation status:
   changing the dense reference matrix.
 - `LaplaceExteriorDirichletSystem` solves the unit-circle cosine mode and
   evaluates the exterior field at an off-boundary target.
-- Dense solves reconstruct one `Density` object per unknown block.
+- Dense and GMRES solves reconstruct one `Density` object per unknown block.
+  The first GMRES path uses SciPy's `LinearOperator` over the dense reference
+  matrix and records solver diagnostics on `SystemSolution`.
 - `SystemConfig(solve_method="flam")` routes scalar one-unknown dense-reference solves
   through the FLAM backend before reconstructing the density object.
 - Field evaluation honors `SystemConfig.evaluation_method="fmm"` for supported

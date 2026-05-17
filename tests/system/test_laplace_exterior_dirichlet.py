@@ -45,5 +45,25 @@ def test_laplace_exterior_dirichlet_flam_solve_matches_dense():
         )
     )
 
-    np.testing.assert_allclose(flam.evaluate(targets).values, dense.evaluate(targets).values, atol=1.0e-10)
+    np.testing.assert_allclose(
+        flam.evaluate(targets).values, dense.evaluate(targets).values, atol=1.0e-10
+    )
     assert np.linalg.norm(flam.residual) < 1.0e-8
+
+
+def test_laplace_exterior_dirichlet_gmres_solve_matches_dense():
+    boundary = circle(quadrature_order=8, panel_count=12)
+    system = LaplaceExteriorDirichletSystem(boundary, boundary.positions[0])
+    targets = np.array([[2.0, -1.8], [0.0, 0.3]])
+
+    dense = system.solve()
+    gmres = system.solve(
+        config=SystemConfig(solve_method="gmres", tolerance=1.0e-12, max_iterations=80)
+    )
+
+    assert gmres.diagnostics["backend"] == "scipy.sparse.linalg.gmres"
+    assert gmres.diagnostics["gmres_info"] == 0
+    assert np.linalg.norm(gmres.residual) < 1.0e-9
+    np.testing.assert_allclose(
+        gmres.evaluate(targets).values, dense.evaluate(targets).values, atol=1.0e-10
+    )
