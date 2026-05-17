@@ -1,6 +1,6 @@
 import numpy as np
 
-from chunkie.geometry import ChunkGraph
+from chunkie.geometry import ChunkGraph, GraphRegion, RegionCycle, SignedEdge
 
 
 def test_chunkgraph_from_vertices_builds_directed_square_edges():
@@ -55,3 +55,58 @@ def test_chunkgraph_multi_edge_boundary_and_region_classification():
     np.testing.assert_array_equal(boundary.orientation, [1, 1, 1, 1])
     np.testing.assert_allclose(graph.pointinfo.flat_positions[:, boundary.point_indices], boundary.points.flat_positions)
     np.testing.assert_array_equal(regions, [1, 0, 0])
+
+
+def test_chunkgraph_boundary_part_selects_edge_subset_in_global_order():
+    vertices = np.array(
+        [
+            [0.0, 1.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0, 1.0],
+        ],
+    )
+    edges = np.array([[0, 1, 2, 3], [1, 2, 3, 0]])
+    graph = ChunkGraph.from_vertices(vertices, edges, quadrature_order=5)
+
+    part = graph.boundary_part([1, 2], side="left")
+    merged = graph.pointinfo
+
+    assert part.edges == (1, 2)
+    assert part.side == "left"
+    np.testing.assert_array_equal(part.orientation, [1, 1])
+    np.testing.assert_array_equal(part.point_indices, np.arange(5, 15))
+    np.testing.assert_allclose(part.points.flat_positions, merged.flat_positions[:, part.point_indices])
+    np.testing.assert_allclose(part.points.flat_normals, merged.flat_normals[:, part.point_indices])
+    np.testing.assert_allclose(part.points.flat_weights, merged.flat_weights[part.point_indices])
+
+
+def test_chunkgraph_nested_region_classification_uses_oriented_hole_cycles():
+    vertices = np.array(
+        [
+            [0.0, 3.0, 3.0, 0.0, 1.0, 2.0, 2.0, 1.0],
+            [0.0, 0.0, 3.0, 3.0, 1.0, 1.0, 2.0, 2.0],
+        ],
+    )
+    edges = np.array(
+        [
+            [0, 1, 2, 3, 4, 5, 6, 7],
+            [1, 2, 3, 0, 5, 6, 7, 4],
+        ],
+    )
+    graph = ChunkGraph.from_vertices(vertices, edges, quadrature_order=4)
+    outer = RegionCycle(tuple(SignedEdge(edge_id, 1) for edge_id in range(4)))
+    inner_ccw = RegionCycle(tuple(SignedEdge(edge_id, 1) for edge_id in range(4, 8)))
+    inner_cw = RegionCycle(tuple(SignedEdge(edge_id, -1) for edge_id in range(4, 8)))
+    graph.regions = [
+        GraphRegion(0, (), bounded=False, label="exterior"),
+        GraphRegion(1, (outer, inner_cw), bounded=True, label="annulus"),
+        GraphRegion(2, (inner_ccw,), bounded=True, label="hole"),
+    ]
+
+    points = np.array(
+        [
+            [0.5, 1.5, 3.5],
+            [0.5, 1.5, 1.5],
+        ],
+    )
+
+    np.testing.assert_array_equal(graph.classify_points(points), [1, 2, 0])

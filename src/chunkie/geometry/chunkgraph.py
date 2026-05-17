@@ -240,6 +240,46 @@ class ChunkGraph:
             points=self._points_for_edges(edge_ids),
         )
 
+    def boundary_part(
+        self,
+        edge_ids,
+        *,
+        side: Literal["left", "right", "interior", "exterior"] | int | None = None,
+        orientation: int | NDArray[np.integer] | None = None,
+    ) -> BoundaryPart:
+        """Return a `BoundaryPart` view over selected graph edges."""
+
+        selected_edges = tuple(int(edge_id) for edge_id in np.asarray(edge_ids, dtype=np.int64).reshape(-1))
+        if not selected_edges:
+            raise ValueError("boundary_part requires at least one edge id")
+        offsets = self._edge_point_offsets()
+        point_indices = np.concatenate(
+            [
+                np.arange(
+                    offsets[edge_id],
+                    offsets[edge_id] + self.edge(edge_id).chunker.point_count,
+                    dtype=np.int64,
+                )
+                for edge_id in selected_edges
+            ]
+        )
+        if orientation is None:
+            orientation_array = np.asarray([self.edge(edge_id).orientation for edge_id in selected_edges], dtype=np.int64)
+        else:
+            orientation_array = np.asarray(orientation, dtype=np.int64)
+            if orientation_array.ndim == 0:
+                orientation_array = np.full(len(selected_edges), int(orientation_array), dtype=np.int64)
+        if orientation_array.shape != (len(selected_edges),):
+            raise ValueError("orientation must be scalar or have one entry per selected edge")
+        return BoundaryPart(
+            graph=self,
+            edges=selected_edges,
+            point_indices=point_indices,
+            side=side,
+            orientation=orientation_array,
+            points=self._points_for_edges(selected_edges),
+        )
+
     def classify_points(self, points) -> NDArray[np.integer]:
         targets = np.asarray(points, dtype=float).reshape(2, -1)
         labels = np.zeros(targets.shape[1], dtype=np.int64)
@@ -283,10 +323,11 @@ class ChunkGraph:
 
 
 def _point_in_region(graph: ChunkGraph, region: GraphRegion, targets: NDArray[np.floating]) -> NDArray[np.bool_]:
-    inside = np.zeros(targets.shape[1], dtype=bool)
+    winding = np.zeros(targets.shape[1], dtype=np.int64)
     for cycle in region.boundary_cycles:
-        inside |= _point_in_cycle(graph, cycle, targets)
-    return inside
+        sign = 1 if _cycle_signed_area(graph, cycle) >= 0.0 else -1
+        winding += sign * _point_in_cycle(graph, cycle, targets).astype(np.int64)
+    return winding != 0
 
 
 def _point_in_cycle(graph: ChunkGraph, cycle: RegionCycle, targets: NDArray[np.floating]) -> NDArray[np.bool_]:
@@ -311,13 +352,26 @@ def _cycle_vertices(graph: ChunkGraph, cycle: RegionCycle) -> NDArray[np.floatin
     parts: list[NDArray[np.floating]] = []
     for signed_edge in cycle.edges:
         edge = graph.edge(signed_edge.edge_id)
-        starts = edge.chunker.positions[:, 0, :]
-        if signed_edge.orientation < 0:
-            starts = starts[:, ::-1]
-        parts.append(starts)
+        if edge.start_vertex == edge.end_vertex and edge.chunker.closed:
+            starts = edge.chunker.positions[:, 0, :]
+            if signed_edge.orientation < 0:
+                starts = starts[:, ::-1]
+            parts.append(starts)
+        else:
+            vertex_id = edge.start_vertex if signed_edge.orientation > 0 else edge.end_vertex
+            parts.append(graph.vertices[vertex_id].position.reshape(2, 1))
     if not parts:
         return np.zeros((2, 0))
     return np.concatenate(parts, axis=1)
+
+
+def _cycle_signed_area(graph: ChunkGraph, cycle: RegionCycle) -> float:
+    vertices = _cycle_vertices(graph, cycle)
+    if vertices.shape[1] < 3:
+        return 0.0
+    x = vertices[0]
+    y = vertices[1]
+    return float(0.5 * np.sum(x * np.roll(y, -1) - y * np.roll(x, -1)))
 
 
 def _as_vertex_array(vertices) -> NDArray[np.floating]:
