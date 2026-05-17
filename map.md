@@ -12,7 +12,7 @@ implemented behavior, known limitations, or verification snapshots change.
 - Previous tests archived in `tests_old/`.
 - Previous docs and status notes archived in `docs_old/`.
 - Verification snapshot: `uv run pytest -q` on 2026-05-17,
-  `97 passed` in 4.47 seconds; `uv run ruff check .` passes; `uv run mypy`
+  `101 passed` in 4.46 seconds; `uv run ruff check .` passes; `uv run mypy`
   passes over `src/chunkie`.
 
 ## Source Tree
