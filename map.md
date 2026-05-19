@@ -48,7 +48,9 @@ unless a compatibility boundary needs them.
   - `uv run mypy src/chunkie`: passes.
   - `uv run pytest --collect-only -q`: 143 tests collected.
   - `uv run pytest -q -k "not test_flam_solve_reconstructs_multiple_scalar_density_vectors"`:
-    `142 passed, 1 deselected` in 18.34 seconds.
+    `142 passed, 1 deselected` in 26.95 seconds.
+  - `uv run pytest tests/system/test_multi_density_assembly.py::test_flam_solve_reconstructs_multiple_scalar_density_vectors -q`:
+    `1 passed` in 0.67 seconds.
   - Full `uv run pytest -q` currently reaches the FLAM multi-density test and
     then hits a native Windows access violation inside `pyflam.rskelf`/SciPy QR.
     That test passes in isolation, so the issue is treated as FLAM-backend
@@ -65,8 +67,8 @@ unless a compatibility boundary needs them.
 | `chunkie.geometry` | ✅ 🧪 in progress | Panel-major `Chunker`, point maps, pointinfo views, endpoint/centroid/bounds diagnostics, reusable curve callbacks, basic/adaptive constructors, metrics, arclength parameterization/resampling, Bernstein reference ellipses/panel images, quadrature-order interpolation, uniform split-panel refinement, affine/rotate/reflect transforms, near-panel node-distance flags, rectangle flags, nearest-point projection, orientation-aware selected-edge `BoundaryPart` views with curvature diagnostics, and operational single- and multi-edge `ChunkGraph` records/views/nested classification are active. |
 | `chunkie.kernels` | ✅ 🧪 in progress | Kernel object, Laplace/Helmholtz/biharmonic/Stokes/elasticity formulas, registry, algebra, and singularity metadata foundation are active. Laplace metadata uses `G`, `G_a`, and `G_ab`; smooth amplitudes are allowed on those bases for special-quadrature consumption; Helmholtz metadata differentiates `J0(k*rho) * G`; biharmonic metadata uses `B=-(rho^2/4)G`; Stokes velocity metadata covers `s` and `d`; elasticity single-displacement metadata covers `s`; algebra scales and cancels exact scalar/matrix singular terms. |
 | `chunkie.quadrature` | ✅ 🧪 🎯 in progress | Legendre utilities, dense panel helpers, component-major dense operator materialization, adaptive source-panel fallback, adaptive close-panel replacement for field evaluation, Helsing-Ojala log/Cauchy/derivative product weights, generated GGQ-style split rules/panel matrices, fixture-backed GGQ removable-rule parity, log/PV/HS `SingularityInfo` smooth-amplitude dispatch, and Helmholtz single-layer HO panel correction are active; broader MATLAB GGQ table parity remains a required milestone. |
-| `chunkie.rcip` | ✅ 🧪 in progress | Dyadic local corner geometry with pointinfo-compatible derivatives/normals/weights, barycentric and split-panel prolongation matrices, edge/component block prolongation, dense local trace-operator records, dense single-level and recursive Schur compression updates, corner state records, and density interpolation are active. System-level insertion and reconstructed-density evaluation remain upcoming. |
-| `chunkie.system` | ✅ 🧪 in progress | Density layout, dense multi-unknown/multi-equation `Chunker` and `BoundaryPart` trace assembly, explicit dense constraint rows, finite dense self diagonals for Laplace double-layer and adjoint double-layer traces, dense/direct/GMRES solve reconstruction, dense evaluation with adaptive close-panel replacement, FMM evaluation, dense-reference matrix-free and scalar Laplace FMM matvecs, automatic adaptive/Helsing-Ojala/GGQ panel replacement selection, graph-corner RCIP state diagnostics with local trace operators, and `LaplaceExteriorDirichletSystem` are active. |
+| `chunkie.rcip` | ✅ 🧪 in progress | Dyadic local corner geometry with pointinfo-compatible derivatives/normals/weights, barycentric and split-panel prolongation matrices, edge/component block prolongation, dense local trace-operator records, dense single-level and recursive Schur compression updates, corner state records, saved recursion records, and density interpolation are active. |
+| `chunkie.system` | ✅ 🧪 in progress | Density layout, dense multi-unknown/multi-equation `Chunker` and `BoundaryPart` trace assembly, explicit dense constraint rows, finite dense self diagonals for Laplace double-layer and adjoint double-layer traces, dense/direct/GMRES solve reconstruction, dense evaluation with adaptive close-panel replacement, FMM evaluation, dense-reference matrix-free and scalar Laplace FMM matvecs, automatic adaptive/Helsing-Ojala/GGQ panel replacement selection, old-style RCIP star-block insertion/evaluation for eligible scalar second-kind graph systems, graph-corner RCIP diagnostics with local trace operators, and `LaplaceExteriorDirichletSystem` are active. |
 | `chunkie.system.backends` | ✅ 🧪 / 💤 FLAM | FMM2D evaluates scalar Laplace and Helmholtz single-/double-layer potentials, gradients, and target-normal derivatives plus Stokes single-layer velocity, and drives scalar off-boundary Laplace system matvecs against dense references. The current pyFLAM dense-reference adapter has apply/solve/logdet tests but is deferred pending the upcoming FLAM package upgrade. |
 
 ## Current Python Source Index
@@ -114,7 +116,7 @@ unless a compatibility boundary needs them.
 | `src/chunkie/system/solution.py` | `SystemSolution` | Reconstructed density plus evaluation object. |
 | `src/chunkie/system/evaluation.py` | `FieldResult`, `evaluate_solution` | MATLAB `chunkerkerneval`/`chunkerkernevalmat` field evaluation workflows. |
 | `src/chunkie/system/matvec.py` | `SystemOperator`, `matrix_free_matvec`, `fmm_matvec` | Matrix-free and FMM-backed application paths. |
-| `src/chunkie/system/nonsmooth.py` | `build_rcip_state`, `apply_rcip_to_matrix`, `evaluate_rcip_layer` plus RCIP internals | MATLAB nonsmooth/RCIP system insertion target; currently diagnostic and local-operator heavy. |
+| `src/chunkie/system/nonsmooth.py` | `build_rcip_state`, `apply_rcip_to_matrix`, `evaluate_rcip_layer` plus RCIP internals | MATLAB nonsmooth/RCIP system insertion for scalar second-kind graph systems, including old-style star-block replacement and coarse-plus-local field evaluation. |
 | `src/chunkie/system/laplace.py` | `LaplaceExteriorDirichletSystem` | First high-level BIE convenience system. |
 | `src/chunkie/system/config.py` | `SystemConfig` | Python solver/evaluation/correction policy object. |
 | `src/chunkie/system/block.py` | `BlockLayout` | Dense block metadata. |
@@ -313,8 +315,8 @@ listed as support/deferred groups rather than expanded file-by-file.
 | `Pbcinit.m` | `build_block_prolongation`, `block_interpolation` | ✅ 🧪 | Edge/component block prolongation active. |
 | `setup.m` | `rcip.algebra.setup` | ✅ 🧪 | Dense local setup algebra active. |
 | `SchurBana.m` | `schur_banachiewicz`, `schur_compress_block` | ✅ 🧪 | Dense Schur update active. |
-| `Rcompchunk.m` | `recursive_schur_compress`, `build_rcip_state` | 🟡 🧪 | Recursive compression records active; system insertion incomplete. |
-| `rhohatInterp.m` | `interpolate_density`, target reconstructed-density path | 🟡 🧪 | Primitive active; full solved-density reconstruction upcoming. |
+| `Rcompchunk.m` | `recursive_schur_compress`, `build_rcip_state`, `apply_rcip_to_matrix` | 🟡 🧪 | Recursive compression records and scalar second-kind system insertion are active for graph examples; broader vector/multi-density parity remains upcoming. |
+| `rhohatInterp.m` | `interpolate_density`, `evaluate_rcip_layer` | 🟡 🧪 | Scalar solved-density reconstruction is active for RCIP field evaluation; broader public reconstruction APIs remain upcoming. |
 | `shiftedlegbasismats.m` | `split_panel_interpolation`, Legendre utilities | 🟡 🧪 | Covered as interpolation/prolongation internals. |
 
 ### MATLAB Smoother and Special Packages
@@ -380,8 +382,8 @@ These are required rewrite work, not optional deferrals:
 
 - Broader Helsing-Ojala panel quadrature and global correction insertion.
 - Broader GGQ fixture-backed parity beyond the current removable-rule fixture.
-- RCIP reconstructed-density interpolation, local recursive compression from
-  attached trace operators, and system-level insertion/evaluation.
+- Broader RCIP parity for vector/multi-density systems, curved graph edges, and
+  accelerated/matrix-free insertion.
 - `ChunkGraph` adaptive refinement, graph transforms, and broader multi-region
   systems.
 - Structured transmission-system assembly for multiple boundaries and

@@ -24,9 +24,13 @@ Current implementation status:
 - `build_rcip_state` attaches finite dense local trace operators for graph
   corner systems when a boundary trace is available, including the one-sided
   jump in the local refined-panel ordering.
+- `chunkie.system.nonsmooth` uses the old RCIP setup, Schur/Banachiewicz
+  update, star-block insertion, saved density reconstruction, and
+  coarse-plus-local field evaluation for eligible scalar second-kind
+  `ChunkGraph` systems.
 
 Required upcoming work:
 
-- interpolation of reconstructed corner densities,
-- recursive local compression from the attached operators,
-- and system-level insertion/evaluation through `chunkie.system.nonsmooth`.
+- vector and multi-density RCIP systems,
+- broader curved-edge parity beyond the current graph examples,
+- and optimized matrix-free/accelerated RCIP paths.

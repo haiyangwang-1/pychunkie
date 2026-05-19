@@ -41,21 +41,21 @@ Current implementation status:
   Generated GGQ self-panel replacement is active for Laplace single-layer
   blocks.
 - `build_rcip_state` discovers nonsmooth `ChunkGraph` vertices, builds dyadic
-  local corner geometry plus split-panel prolongation blocks, and dense
-  assembly records active RCIP state in `SystemMatrix.diagnostics` without
-  changing the dense reference matrix. When a trace term is present, the state
-  includes the finite dense local trace operator and one-sided jump for each
-  corner.
+  local corner geometry plus split-panel prolongation blocks, and records RCIP
+  state in `SystemMatrix.diagnostics`. Eligible scalar second-kind graph
+  systems use the old RCIP star-block replacement during dense assembly, and
+  field evaluation uses the old coarse-density plus reconstructed local-corner
+  contribution split.
 - `LaplaceExteriorDirichletSystem` solves the unit-circle cosine mode and
   evaluates the exterior field at an off-boundary target.
 - The smooth Laplace examples are standalone scripts that build the same
   system records directly for interior/exterior Dirichlet and Neumann circle
   problems, then write solution and `log10(abs(error))` field figures.
 - The nonsmooth square examples are standalone scripts that build `ChunkGraph`
-  boundary systems for the same four Laplace cases, record RCIP corner state,
-  and write matching solution/error figures. Their field plots use dense
-  evaluation with adaptive close-panel replacement so targets close to a side
-  do not use ordinary panel Gauss alone.
+  boundary systems for the same four Laplace cases, use the same RCIP solve and
+  evaluation behavior as the old examples, and write matching solution/error
+  figures. Their field plots use dense evaluation with adaptive close-panel
+  replacement so targets close to a side do not use ordinary panel Gauss alone.
 - Dense and GMRES solves reconstruct one `Density` object per unknown block.
   The first GMRES path uses SciPy's `LinearOperator` over the dense reference
   matrix and records solver diagnostics on `SystemSolution`.
@@ -73,8 +73,7 @@ Current implementation status:
   point-view kernel contractions without materializing the global dense matrix.
 - `fmm_matvec` applies supported scalar Laplace trace terms with FMM2D for
   off-boundary systems and compares against dense assembly.
-- Recursive RCIP operator compression, nonsmooth correction insertion into the
-  solved density and field-evaluation paths, and broader accelerated matvecs
-  remain required upcoming work.
+- Broader accelerated matvecs, vector/multi-density RCIP, and non-straight
+  graph-edge RCIP parity remain required upcoming work.
 - `docs/structured-rskelf-transmission.md` records the transmission-system and
   structured RSKELF design target for multiple boundaries and densities.
