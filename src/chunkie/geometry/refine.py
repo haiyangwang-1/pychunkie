@@ -22,47 +22,6 @@ class _PanelInterval:
     right: float
 
 
-def change_quadrature_order(
-    chunker: Chunker,
-    quadrature_order: int,
-    values: NDArray[np.generic] | None = None,
-):
-    """Interpolate geometry, and optional panel data, to a new panel order."""
-
-    new_nodes, new_legendre_weights = legendre_rule(int(quadrature_order))
-    interpolation = interpolation_matrix(chunker._legendre_nodes, new_nodes)
-    positions = np.einsum("ql,RlS->RqS", interpolation, chunker.positions)
-    derivatives = np.einsum("ql,RlS->RqS", interpolation, chunker.derivatives)
-    second_derivatives = np.einsum("ql,RlS->RqS", interpolation, chunker.second_derivatives)
-    weights = new_legendre_weights[:, None] * np.linalg.norm(derivatives, axis=0)
-    metadata = dict(chunker.metadata)
-    metadata["quadrature_order_changed_from"] = chunker.quadrature_order
-    updated = Chunker(
-        positions=positions,
-        derivatives=derivatives,
-        second_derivatives=second_derivatives,
-        normals=right_normals(derivatives),
-        weights=weights,
-        _legendre_nodes=new_nodes,
-        _legendre_weights=new_legendre_weights,
-        adjacency=chunker.adjacency.copy(),
-        closed=chunker.closed,
-        orientation=chunker.orientation,
-        vertices=chunker.vertices,
-        metadata=metadata,
-    )
-    if values is None:
-        return updated
-
-    data = np.asarray(values)
-    if data.shape[-2:] != (chunker.quadrature_order, chunker.panel_count):
-        raise ValueError("values must end with shape (old_quadrature_order, panel_count)")
-    # Optional panel data follows the same node axis as geometry; leading axes
-    # are preserved so scalar and component densities use one adapter.
-    interpolated_values = np.einsum("ql,...lS->...qS", interpolation, data)
-    return updated, interpolated_values
-
-
 def refine(
     chunker: Chunker,
     *,

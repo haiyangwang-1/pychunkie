@@ -41,7 +41,6 @@ def test_geometry_rcip_and_system_exports_include_new_rewrite_helpers():
         "bernstein_ellipse",
         "bernstein_panel_image",
         "bernstein_radius",
-        "change_quadrature_order",
         "flagnear_rectangle",
         "flagnear_rectangle_grid",
         "nearest_point",

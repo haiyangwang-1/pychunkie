@@ -19,7 +19,7 @@ from .chunkgraph import (
 from .constructors import chunker_from_curve, chunker_from_polygon, circle, ellipse
 from .near import NearestPoint, flagnear, flagnear_rectangle, flagnear_rectangle_grid, nearest_point
 from .points import PanelView, PointInfoView
-from .refine import change_quadrature_order, refine
+from .refine import refine
 from .transforms import affine, reflect, rotate, scale, translate
 
 __all__ = [
@@ -40,7 +40,6 @@ __all__ = [
     "bernstein_radius",
     "chunker_from_curve",
     "chunker_from_polygon",
-    "change_quadrature_order",
     "circle",
     "ellipse",
     "flagnear",

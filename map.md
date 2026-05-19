@@ -44,10 +44,10 @@ unless a compatibility boundary needs them.
   APIs; active examples no longer depend on removed `chunkermat`/
   `chunkerkerneval` facade names or private example helpers.
 - Verification during this map update:
-  - Focused `uv run ruff check ...`: passes for the touched geometry,
-    quadrature, RCIP, and test files.
-  - `uv run pytest --collect-only -q`: 142 tests collected.
-  - `uv run pytest -q`: `142 passed, 2 skipped` in 34.57 seconds.
+  - Focused `uv run ruff check ...`: passes for the touched geometry and test
+    files.
+  - `uv run pytest --collect-only -q`: 141 tests collected.
+  - `uv run pytest -q`: `141 passed, 2 skipped` in 26.14 seconds.
 - FLAM strategy: defer new FLAM parity and integration work until the upgraded
   FLAM package is ready. The existing `src/chunkie/system/backends/flam.py`
   dense-reference adapter remains documented as temporary coverage, not a
@@ -57,7 +57,7 @@ unless a compatibility boundary needs them.
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| `chunkie.geometry` | ✅ 🧪 in progress | Panel-major `Chunker` with private Gauss-Legendre nodes/weights, public physical quadrature weights, direct point-id arithmetic, pointinfo views, endpoint/bounds diagnostics, basic/adaptive constructors, metrics, Bernstein reference ellipses/panel images, quadrature-order interpolation, selected/max-length/level-restricted/oversampling panel refinement, affine/rotate/reflect transforms, near-panel node-distance flags, rectangle flags, nearest-point projection, orientation-aware selected-edge `BoundaryPart` views with curvature diagnostics, and operational single- and multi-edge `ChunkGraph` records/views/nested classification are active. Standalone curve callback helpers and arclength-resampling helpers are inactive to keep the geometry surface focused. |
+| `chunkie.geometry` | ✅ 🧪 in progress | Panel-major `Chunker` with private Gauss-Legendre nodes/weights, public physical quadrature weights, direct point-id arithmetic, pointinfo views, endpoint/bounds diagnostics, basic/adaptive constructors, metrics, Bernstein reference ellipses/panel images, selected/max-length/level-restricted/oversampling panel refinement, affine/rotate/reflect transforms, near-panel node-distance flags, rectangle flags, nearest-point projection, orientation-aware selected-edge `BoundaryPart` views with curvature diagnostics, and operational single- and multi-edge `ChunkGraph` records/views/nested classification are active. Standalone curve callback helpers, arclength-resampling helpers, and existing-geometry quadrature-order changes are inactive to keep the geometry surface focused. |
 | `chunkie.kernels` | ✅ 🧪 in progress | Kernel object, Laplace/Helmholtz/biharmonic/Stokes/elasticity formulas, registry, algebra, and singularity metadata foundation are active. Laplace metadata uses `G`, `G_a`, and `G_ab`; smooth amplitudes are allowed on those bases for special-quadrature consumption; Helmholtz metadata differentiates `J0(k*rho) * G`; biharmonic metadata uses `B=-(rho^2/4)G`; Stokes velocity metadata covers `s` and `d`; elasticity single-displacement metadata covers `s`; algebra scales and cancels exact scalar/matrix singular terms. |
 | `chunkie.quadrature` | ✅ 🧪 🎯 in progress | Legendre utilities, dense panel helpers, component-major dense operator materialization, adaptive source-panel fallback, adaptive close-panel replacement for field evaluation, Helsing-Ojala log/Cauchy/derivative product weights, generated GGQ-style split rules/panel matrices, fixture-backed GGQ removable-rule parity, log/PV/HS `SingularityInfo` smooth-amplitude dispatch, and Helmholtz single-layer HO panel correction are active; broader MATLAB GGQ table parity remains a required milestone. |
 | `chunkie.rcip` | ✅ 🧪 in progress | Dyadic local corner geometry with pointinfo-compatible derivatives/normals/weights, barycentric and split-panel prolongation matrices, edge/component block prolongation, dense local trace-operator records, dense single-level and recursive Schur compression updates, corner state records, saved recursion records, and density interpolation are active. |
@@ -72,7 +72,7 @@ unless a compatibility boundary needs them.
 | `src/chunkie/geometry/chunker.py` | `Chunker`, `right_normals` | MATLAB `@chunker` core geometry fields, private Legendre reference data, physical weights, metrics, normals, transforms, and pointinfo. |
 | `src/chunkie/geometry/chunkgraph.py` | `ChunkGraph`, `BoundaryPart`, `GraphVertex`, `GraphEdge`, `GraphRegion`, `RegionCycle`, `SignedEdge` | MATLAB `@chunkgraph`, `chunkgraphinit`, selected-edge boundary views, and region classification. |
 | `src/chunkie/geometry/constructors.py` | `circle`, `ellipse`, `chunker_from_curve`, `chunker_from_polygon` | MATLAB `chunkerfunc`, `chunkerfuncuni`, `chunkerpoly`, `ellipse`, and constructor-family behavior. |
-| `src/chunkie/geometry/refine.py` | `change_quadrature_order`, `refine` | MATLAB `@chunker/refine`, `@chunker/split`, and `@chunker/upsample` behavior at Python-first scope. |
+| `src/chunkie/geometry/refine.py` | `refine` | MATLAB `@chunker/refine` and `@chunker/split` behavior at Python-first scope. |
 | `src/chunkie/geometry/near.py` | `NearestPoint`, `flagnear`, `flagnear_rectangle`, `flagnear_rectangle_grid`, `nearest_point` | MATLAB near-panel and nearest-point helpers. |
 | `src/chunkie/geometry/bernstein.py` | `BernsteinPanelImage`, `bernstein_ellipse`, `bernstein_panel_image`, `bernstein_radius` | MATLAB `@chunker/ellipses`, `+lege/bernstein_ellipse`, and analytic-continuation diagnostics. |
 | `src/chunkie/geometry/points.py` | `PointInfoView`, `PanelView` | Pointinfo and panel/node adapter responsibilities. |
@@ -156,6 +156,7 @@ listed as support/deferred groups rather than expanded file-by-file.
 | `centroids.m` | target: future diagnostics | 🚧 | No active public centroid helper. |
 | `arclengthder.m`, `arclengthfun.m` | none | 🚫 | Standalone arclength parameterization/evaluation helpers are inactive. |
 | `arcresample.m` | none | 🚫 | Arclength resampling is inactive. |
+| `upsample.m` | none | 🚫 | Existing-geometry quadrature-order changes are not part of the clean API; construct geometry at the desired order, normally the default `quadrature_order=16`. |
 | `chunker.m` | `Chunker` | ✅ 🧪 | Panel-major storage with Python aliases; MATLAB storage layout is not preserved. |
 | `area.m` | `Chunker.area` | ✅ 🧪 | Signed area for closed curves. |
 | `arclengthdens.m` | `Chunker.arclength_density` | ✅ 🧪 | Active panel speed helper. |
@@ -179,7 +180,6 @@ listed as support/deferred groups rather than expanded file-by-file.
 | `split.m` | `refine` | 🟡 🧪 | Split behavior is available through `refine`; Python keeps panels in traversal order instead of MATLAB append-new-panel order. |
 | `tangents.m`, `taus.m` | `Chunker.tangents` | ✅ 🧪 | Unit tangents active. |
 | `tochunkgraph.m` | `ChunkGraph.from_chunker` | ✅ 🧪 | Single-boundary graph conversion active. |
-| `upsample.m` | `change_quadrature_order` | ✅ 🧪 | Geometry and panel-data interpolation active. |
 | `weights.m`, `whts.m` | `Chunker.weights`, pointinfo weights | ✅ 🧪 | Physical quadrature weights active. |
 | `checkadjinfo.m`, `sort.m`, `sortinfo.m` | target: geometry topology helpers | 🚧 | No public parity helper yet. |
 | `datares.m`, `makedatarows.m`, `cleardata` behavior | none | 🚧 | MATLAB data-row storage is not part of current public API. |

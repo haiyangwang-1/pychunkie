@@ -38,9 +38,6 @@ Current implementation status:
   density, unit tangents, and signed curvature using the panel-major tensors.
 - `Chunker` exposes panel endpoint positions, endpoint unit tangents, and
   coordinate bounds for diagnostics and graph/RCIP bookkeeping.
-- `change_quadrature_order` interpolates panel geometry, and optional data with
-  trailing `(quadrature_order, panel_count)` axes, to a new Legendre order
-  without changing panel topology.
 - `refine` supports selected panel splits, maximum panel length enforcement,
   adjacent-panel level restriction, repeated oversampling, and arclength or
   parameter-space split points while preserving panel-major storage.
@@ -54,11 +51,13 @@ Current implementation status:
   coordinates. Bernstein helpers build reference ellipses and complex panel
   images for future analytic-continuation close-panel tests.
 - Circle, ellipse, curve, and polygon constructors are active first-pass
-  implementations. Curve constructors accept full `(positions, derivatives,
-  second_derivatives)` callbacks and position-only callbacks, with finite
-  differences used only at that adapter boundary. `chunker_from_curve` now
-  adaptively splits unresolved parameter intervals with a high-vs-low Gauss
-  arclength estimate and records accepted intervals in metadata.
+  implementations and default to `quadrature_order=16`. Existing chunkers are
+  not upsampled to a different quadrature order. Curve constructors accept full
+  `(positions, derivatives, second_derivatives)` callbacks and position-only
+  callbacks, with finite differences used only at that adapter boundary.
+  `chunker_from_curve` now adaptively splits unresolved parameter intervals
+  with a high-vs-low Gauss arclength estimate and records accepted intervals in
+  metadata.
 - `ChunkGraph.from_vertices` builds multi-edge graphs from vertices and
   directed edge indices. `ChunkGraph` records, merged point views, edge point
   views, region boundary parts, selected-edge `BoundaryPart` views, and
