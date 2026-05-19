@@ -20,12 +20,40 @@ class RCIPCornerState:
     weighted_prolongation: NDArray[np.floating]
     compressed_inverse: NDArray[np.generic]
     local_operator: NDArray[np.generic] | None = None
+    star_indices: NDArray[np.integer] | None = None
+    saved: RCIPSaved | None = None
 
 
 @dataclass(frozen=True)
 class RCIPState:
     corners: tuple[RCIPCornerState, ...] = ()
     metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class RCIPSaved:
+    """Saved old-style RCIP recursion data for field evaluation."""
+
+    quadrature_order: int
+    dimension: int
+    edge_count: int
+    prolongation: NDArray[np.floating]
+    weighted_prolongation: NDArray[np.floating]
+    star_l: NDArray[np.integer]
+    circ_l: NDArray[np.integer]
+    star_s: NDArray[np.integer]
+    circ_s: NDArray[np.integer]
+    ilist: NDArray[np.integer]
+    star_l_scalar: NDArray[np.integer]
+    circ_l_scalar: NDArray[np.integer]
+    subdivisions: int
+    saved_depth: int
+    inverses: tuple[NDArray[np.generic], ...]
+    local_blocks: tuple[NDArray[np.generic], ...]
+    local_geometries: tuple[object, ...]
+    star_indices: NDArray[np.integer]
+    center: NDArray[np.floating]
+    starts_at_corner: NDArray[np.bool_]
 
 
 @dataclass(frozen=True)

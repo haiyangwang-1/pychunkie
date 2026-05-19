@@ -128,10 +128,8 @@ clear owner and update trigger, or it should be deleted when it becomes
 obsolete. Markdown files inside `external/` are upstream/reference material and
 are updated only through the corresponding vendored checkout or submodule.
 
-Before committing code, tests, fixtures, or docs, review whether the living docs
-need an update. In particular, follow the status-document rules in `AGENTS.md`
-for `map.md`, `devtools_coverage.md`, and
-`docs/python-test-suite-summary.md`.
+Before committing code, tests, fixtures, or docs, review whether `map.md` needs
+an update. In particular, follow the status-document rules in `AGENTS.md`.
 
 Keep commits small and logically complete. A behavior change should include the
 relevant implementation, tests, fixture updates, and living-doc updates in the

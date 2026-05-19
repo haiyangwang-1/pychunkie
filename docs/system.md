@@ -48,12 +48,14 @@ Current implementation status:
   corner.
 - `LaplaceExteriorDirichletSystem` solves the unit-circle cosine mode and
   evaluates the exterior field at an off-boundary target.
-- The smooth Laplace examples build the same system records directly for
-  interior/exterior Dirichlet and Neumann circle problems, then write solution
-  and `log10(abs(error))` field figures.
-- The nonsmooth square examples build `ChunkGraph` boundary systems for the
-  same four Laplace cases, record RCIP corner state, and write matching
-  solution/error figures.
+- The smooth Laplace examples are standalone scripts that build the same
+  system records directly for interior/exterior Dirichlet and Neumann circle
+  problems, then write solution and `log10(abs(error))` field figures.
+- The nonsmooth square examples are standalone scripts that build `ChunkGraph`
+  boundary systems for the same four Laplace cases, record RCIP corner state,
+  and write matching solution/error figures. Their field plots use dense
+  evaluation with adaptive close-panel replacement so targets close to a side
+  do not use ordinary panel Gauss alone.
 - Dense and GMRES solves reconstruct one `Density` object per unknown block.
   The first GMRES path uses SciPy's `LinearOperator` over the dense reference
   matrix and records solver diagnostics on `SystemSolution`.
@@ -61,13 +63,18 @@ Current implementation status:
   through the FLAM backend before reconstructing density objects. Multiple
   scalar unknown blocks are supported by adding a backend-only block coordinate
   so repeated geometry points remain distinct for pyFLAM.
+- Dense field evaluation honors `SystemConfig.close_correction` by replacing
+  close source-panel contributions with adaptive local panel matrices.
 - Field evaluation honors `SystemConfig.evaluation_method="fmm"` for supported
-  Laplace layer potentials and compares against dense evaluation.
+  Laplace layer potentials and compares against dense evaluation. FMM
+  evaluation remains an off-boundary backend path and does not apply adaptive
+  close-panel replacement.
 - `matrix_free_matvec` and `SystemOperator` apply trace terms directly through
   point-view kernel contractions without materializing the global dense matrix.
 - `fmm_matvec` applies supported scalar Laplace trace terms with FMM2D for
   off-boundary systems and compares against dense assembly.
-- Recursive RCIP operator compression, nonsmooth correction insertion, and broader
-  accelerated matvecs remain required upcoming work.
+- Recursive RCIP operator compression, nonsmooth correction insertion into the
+  solved density and field-evaluation paths, and broader accelerated matvecs
+  remain required upcoming work.
 - `docs/structured-rskelf-transmission.md` records the transmission-system and
   structured RSKELF design target for multiple boundaries and densities.

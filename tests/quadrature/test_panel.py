@@ -83,3 +83,34 @@ def test_adaptive_panel_matrix_integrates_close_straight_panel_log():
 
     assert matrix.shape == (1, 1, 1, panel.nodes.size)
     np.testing.assert_allclose(value, exact, rtol=2.0e-10, atol=2.0e-12)
+
+
+def test_apply_panel_potential_replaces_close_panel_contribution():
+    boundary = chunker_from_polygon([(0, 0), (1, 0), (1, 1), (0, 1)], quadrature_order=8)
+    target = np.array([[0.5], [1.0e-4]])
+    laplace_s = kernel("laplace", selector="s")
+    density = np.zeros((1, boundary.quadrature_order, boundary.panel_count))
+    density[0, :, 0] = 1.0
+
+    direct = apply_panel_potential(boundary.pointinfo, target, laplace_s, density)
+    corrected = apply_panel_potential(
+        boundary.pointinfo,
+        target,
+        laplace_s,
+        density,
+        close_correction=True,
+        near_factor=0.25,
+        tolerance=1.0e-11,
+    )
+
+    half_length = 0.5
+    height = target[1, 0]
+    exact_log_integral = (
+        2.0 * half_length * np.log(half_length**2 + height**2)
+        - 4.0 * half_length
+        + 4.0 * height * np.arctan(half_length / height)
+    )
+    exact = -exact_log_integral / (4.0 * np.pi)
+
+    assert abs(corrected[0, 0] - exact) < abs(direct[0, 0] - exact)
+    np.testing.assert_allclose(corrected[0, 0], exact, rtol=2.0e-10, atol=2.0e-12)

@@ -2,6 +2,7 @@
 
 from .compression import (
     RCIPCornerState,
+    RCIPSaved,
     RCIPSchurLevel,
     RCIPState,
     RecursiveCompressionResult,
@@ -19,6 +20,7 @@ from .prolongation import (
 __all__ = [
     "LocalCornerGeometry",
     "RCIPCornerState",
+    "RCIPSaved",
     "RCIPSchurLevel",
     "RCIPState",
     "RecursiveCompressionResult",

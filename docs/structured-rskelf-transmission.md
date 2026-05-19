@@ -1,4 +1,4 @@
-# Structured RSKELF for Transmission Systems
+# Structured RSKELF for Multi-Material Junction Systems
 
 Status: research/design note. This file records the formulation that should
 drive the pyFLAM/RSKELF integration for multi-boundary systems with more than
@@ -6,241 +6,442 @@ one density per boundary. It is not an implemented fast-direct backend.
 
 ## Literature Anchors
 
-The most relevant examples are transmission formulations with two interface
-densities and different Helmholtz wavenumbers in adjacent regions.
+The operator-block formulation in this note is based on:
 
-- Borges, Rachh, and Greengard, "On the robustness of inverse scattering for
-  penetrable, homogeneous objects with complicated boundary", arXiv:2210.11607.
-  Section 2.1 uses the two-density Helmholtz transmission representation
-  already mirrored by legacy pychunkie `helmdiff` transmission kernels:
-  <https://arxiv.org/abs/2210.11607>.
-- Boubendir, Bruno, Levadoux, and Turc, "Regularized combined field integral
-  equations for acoustic transmission problems", arXiv:1312.6598. This gives a
-  combined-source formulation and makes the two Cauchy-data rows explicit:
-  <https://arxiv.org/abs/1312.6598>.
 - Greengard and Lee, "Stable and accurate integral equation methods for
   scattering problems with multiple material interfaces in two dimensions",
-  Journal of Computational Physics 231 (2012), 2389-2395. This is the important
-  multiple-interface/triple-junction reference: it uses global charge/dipole
-  densities on the whole interface so only difference kernels appear at
-  junctions: <https://doi.org/10.1016/j.jcp.2011.11.034>.
-- Greengard, Ho, and Lee, "A fast direct solver for scattering from periodic
-  structures with multiple material interfaces in two dimensions", Journal of
-  Computational Physics 258 (2014), 738-751. This is the fast-direct companion
-  for fixed multi-material geometries: <https://doi.org/10.1016/j.jcp.2013.11.011>.
+  Journal of Computational Physics 231 (2012), 2389-2395:
+  <http://math.ewha.ac.kr/~jylee/Paper/junction-jcp12.pdf>.
+
+The fast-direct compression target is recursive skeletonization:
+
 - Ho and Greengard, "A fast direct solver for structured linear systems by
   recursive skeletonization", SIAM Journal on Scientific Computing 34 (2012),
-  A2507-A2532. This is the base RSKELF algorithm:
-  <https://doi.org/10.1137/120866683>.
+  A2507-A2532: <https://doi.org/10.1137/120866683>.
 
-## Two-Region Transmission Model
+The key modeling decision is to follow Greengard-Lee equation (9), not a local
+two-region representation. Equation (9) uses two global densities on the whole
+material interface. The derived equation (13) is the well-conditioned block BIE
+that avoids the unmatched hypersingular junction terms which break the local
+Muller/Rokhlin representation near triple junctions.
 
-Let an interior penetrable region have wavenumber `k_i`; let the exterior have
-wavenumber `k_e`. The exterior total field is `u_inc + u_e`, while the interior
-field is `u_i`. In the equal-density case used in Borges-Rachh-Greengard, the
-boundary value problem is
+## Physical Model
 
-```text
-(Delta + k_i^2) u_i = 0                 in Omega_i
-(Delta + k_e^2) u_e = 0                 in Omega_e
-u_inc + u_e - u_i = 0                   on Gamma
-d_n u_inc + d_n u_e - d_n u_i = 0       on Gamma
-u_e satisfies the Sommerfeld radiation condition.
-```
+Let the plane be partitioned into regions
 
-With single- and double-layer potentials
+$$
+\Omega_0, \Omega_1, \ldots, \Omega_M,
+$$
 
-```text
-S_k[mu](x) = integral_Gamma G_k(x,y) mu(y) ds_y
-D_k[sigma](x) = integral_Gamma d_{n_y} G_k(x,y) sigma(y) ds_y,
-```
+where $\Omega_0$ is the exterior region. Each region has constant Helmholtz
+wavenumber $k_r$ and material coefficient $c_r$. The total field satisfies
 
-the scattered and interior fields are represented by the same two densities:
+$$
+(\Delta + k_r^2)U^{tot}_r = 0
+\qquad \text{in } \Omega_r.
+$$
 
-```text
-u_e = D_{k_e}[sigma] - S_{k_e}[mu]
-u_i = D_{k_i}[sigma] - S_{k_i}[mu].
-```
+The total field is decomposed as
 
-Taking Dirichlet and Neumann traces gives the second-kind block system
+$$
+U^{tot} = U^{in} + U,
+$$
 
-```text
-[ I + D_{k_e} - D_{k_i}        S_{k_i} - S_{k_e}      ] [sigma] = [-u_inc]
-[ D'_{k_e} - D'_{k_i}          I + S'_{k_i} - S'_{k_e}] [mu   ]   [-d_n u_inc].
-```
+where $U^{in}$ is known and $U$ is the unknown scattered field. Across each
+material interface, Greengard-Lee use the jump conditions
 
-This is the minimal clean example for pychunkie:
+$$
+\left[U^{tot}\right] = 0,
+\qquad
+\left[\frac{1}{c}\frac{\partial U^{tot}}{\partial n}\right] = 0.
+$$
 
-- one boundary curve;
-- two density spaces, `sigma` and `mu`;
-- two equation rows, Dirichlet and Neumann;
-- four operator blocks;
-- each block is a kernel expression involving one or more Helmholtz kernels;
-- the diagonal identity/jump terms belong to the trace/equation layer, not the
-  kernel object.
+Equivalently, the scattered field satisfies
 
-For a material ratio, the Neumann row changes by the normal-flux coefficients.
-Using the Boubendir-Bruno-Levadoux-Turc convention,
+$$
+\left[U\right] = -\left[U^{in}\right],
+\qquad
+\left[\frac{1}{c}\frac{\partial U}{\partial n}\right]
+=
+-\left[\frac{1}{c}\frac{\partial U^{in}}{\partial n}\right].
+$$
 
-```text
-gamma_D^1 u^1 + gamma_D^1 u_inc = gamma_D^2 u^2
-gamma_N^1 u^1 + gamma_N^1 u_inc = nu gamma_N^2 u^2,
-```
+For an oriented interface edge $\Gamma_e$, let the normal point from region
+$r_-(e)$ to region $r_+(e)$. On that edge,
 
-so the same block layout remains, but the Neumann row coefficients are region
-dependent. That coefficient choice is formulation data and should be expressed
-as `BlockTerm` coefficients rather than hidden in Helmholtz kernels.
+$$
+[f]_e = f_{+}|_{\Gamma_e} - f_{-}|_{\Gamma_e},
+$$
 
-## Multiple Interfaces
+with $f_\pm$ denoting traces from $\Omega_{r_\pm(e)}$.
 
-Let `Omega_r` be regions with wavenumbers `k_r` and flux coefficients `c_r`.
-Let each oriented edge `Gamma_e` separate two regions `r_minus(e)` and
-`r_plus(e)`. Greengard-Lee's robust multi-material representation uses two
-global densities on the total interface
+The total interface is
 
-```text
-Gamma_all = union_e Gamma_e
-u_r(x) = S_{k_r}(Gamma_all, sigma)(x) + c_r D_{k_r}(Gamma_all, mu)(x).
-```
+$$
+\Gamma = \bigcup_e \Gamma_e.
+$$
 
-For a target point on an interface edge between `r_minus` and `r_plus`, the
-Dirichlet and flux rows compare the traces from those two regions. In schematic
-block form, every source edge contributes:
+## Layer Operators
 
-```text
-A_{e,rowD; f,sigma} = S_{k_plus}[Gamma_e, Gamma_f]
-                    - S_{k_minus}[Gamma_e, Gamma_f]
+For a curve $C$, Greengard-Lee define
 
-A_{e,rowD; f,mu}    = c_plus D_{k_plus}[Gamma_e, Gamma_f]
-                    - c_minus D_{k_minus}[Gamma_e, Gamma_f]
-                    + local jump identity if e == f
+$$
+S_k(C,\sigma;x)
+=
+\int_C G_k(|x-y|)\,\sigma(y)\,ds_y,
+$$
 
-A_{e,rowN; f,sigma} = c_plus^{-1} S'_{k_plus}[Gamma_e, Gamma_f]
-                    - c_minus^{-1} S'_{k_minus}[Gamma_e, Gamma_f]
-                    + local jump identity if e == f
+and
 
-A_{e,rowN; f,mu}    = D'_{k_plus}[Gamma_e, Gamma_f]
-                    - D'_{k_minus}[Gamma_e, Gamma_f].
-```
+$$
+D_k(C,\mu;x)
+=
+\int_C \frac{\partial G_k(|x-y|)}{\partial n_y}\,\mu(y)\,ds_y.
+$$
 
-The exact signs depend on the edge normal convention. In pychunkie this must be
-resolved through `ChunkGraph` side metadata: equations should specify the
-left/right region traces explicitly instead of relying on words such as
-"inside" or "outside".
+The normal derivatives are
 
-The important structural point is that each `(target edge, equation row,
-source edge, density)` pair is its own operator block. For vector or tensor
-kernels, each block also has output and input component axes:
+$$
+S'_k(C,\sigma;x)
+=
+\int_C \frac{\partial G_k(|x-y|)}{\partial n_x}\,\sigma(y)\,ds_y,
+$$
 
-```text
-A[row_space, col_space][o, i, target_point, source_point].
-```
+and
 
-Flattening this matrix too early destroys the information needed by RSKELF to
-sample the correct kernel and proxy surface.
+$$
+D'_k(C,\mu;x)
+=
+\int_C
+\frac{\partial^2 G_k(|x-y|)}{\partial n_x\,\partial n_y}
+\,\mu(y)\,ds_y.
+$$
+
+Here
+
+$$
+G_k(r) = \frac{i}{4}H_0^{(1)}(kr)
+$$
+
+is the outgoing two-dimensional Helmholtz Green function. The operator $S'_k$
+is interpreted in principal value sense; $D'_k$ is hypersingular and interpreted
+as a finite-part operator.
+
+## Equation (9): Global Representation
+
+Greengard-Lee equation (9) represents the scattered field in every region
+$\Omega_r$ using the same two global densities $\sigma$ and $\mu$ on the total
+interface $\Gamma$:
+
+$$
+U_r(x)
+=
+S_{k_r}(\Gamma,\sigma;x)
++ c_r D_{k_r}(\Gamma,\mu;x),
+\qquad x \in \Omega_r.
+$$
+
+The important point is that the source curve is the total interface $\Gamma$,
+not only the boundary of $\Omega_r$. Thus every density value participates in
+the representation of every region. This is the feature that removes unmatched
+hypersingular terms at material junctions.
+
+## Derived BIE: Equation (13)
+
+Let $x \in \Gamma_e$ and write
+
+$$
+r_+ = r_+(e), \qquad r_- = r_-(e),
+$$
+
+with
+
+$$
+k_\pm = k_{r_\pm},
+\qquad
+c_\pm = c_{r_\pm}.
+$$
+
+Taking traces of equation (9) in the jump conditions gives the Dirichlet row
+
+$$
+\frac{c_+ + c_-}{2}\,\mu(x)
++ S_{k_+}(\Gamma,\sigma;x)
+- S_{k_-}(\Gamma,\sigma;x)
++ c_+D_{k_+}(\Gamma,\mu;x)
+- c_-D_{k_-}(\Gamma,\mu;x)
+=
+-[U^{in}]_e(x),
+$$
+
+and the flux row
+
+$$
+-\left(\frac{1}{2c_+}+\frac{1}{2c_-}\right)\sigma(x)
++ \frac{1}{c_+}S'_{k_+}(\Gamma,\sigma;x)
+- \frac{1}{c_-}S'_{k_-}(\Gamma,\sigma;x)
++ D'_{k_+}(\Gamma,\mu;x)
+- D'_{k_-}(\Gamma,\mu;x)
+=
+-\left[\frac{1}{c}\partial_n U^{in}\right]_e(x).
+$$
+
+This is the BIE formulation pychunkie should use as the canonical
+multi-material junction example. The unknowns are one global charge density
+$\sigma$ and one global dipole density $\mu$ over $\Gamma$.
+
+The stabilizing feature is visible in the last term of the flux row:
+
+$$
+D'_{k_+}(\Gamma,\mu;x) - D'_{k_-}(\Gamma,\mu;x).
+$$
+
+Even at a triple junction, the hypersingular contribution appears as a
+difference of global-interface kernels, not as separate unmatched local edge
+terms.
+
+## Operator Block Layout
+
+Discretize $\Gamma$ by edge views $\Gamma_f$. The row spaces are
+
+$$
+(e,D) \quad \text{and} \quad (e,N),
+$$
+
+where $D$ is the Dirichlet jump equation and $N$ is the scaled normal-flux jump
+equation on target edge $\Gamma_e$. The column spaces are
+
+$$
+(f,\sigma) \quad \text{and} \quad (f,\mu),
+$$
+
+where $f$ is the source edge.
+
+For each target edge $\Gamma_e$ and source edge $\Gamma_f$, equation (13)
+induces four operator blocks:
+
+$$
+\begin{aligned}
+A_{e,D;\,f,\sigma}
+&=
+S_{k_+}(\Gamma_f,\cdot;\Gamma_e)
+-
+S_{k_-}(\Gamma_f,\cdot;\Gamma_e), \\
+A_{e,D;\,f,\mu}
+&=
+c_+D_{k_+}(\Gamma_f,\cdot;\Gamma_e)
+-
+c_-D_{k_-}(\Gamma_f,\cdot;\Gamma_e)
++ \delta_{ef}\,\frac{c_+ + c_-}{2}I_e, \\
+A_{e,N;\,f,\sigma}
+&=
+\frac{1}{c_+}S'_{k_+}(\Gamma_f,\cdot;\Gamma_e)
+-
+\frac{1}{c_-}S'_{k_-}(\Gamma_f,\cdot;\Gamma_e)
+-
+\delta_{ef}\left(\frac{1}{2c_+}+\frac{1}{2c_-}\right)I_e, \\
+A_{e,N;\,f,\mu}
+&=
+D'_{k_+}(\Gamma_f,\cdot;\Gamma_e)
+-
+D'_{k_-}(\Gamma_f,\cdot;\Gamma_e).
+\end{aligned}
+$$
+
+Here $\delta_{ef}$ means the jump term is present only when the source and
+target edge views coincide, away from endpoint duplication. The signs assume the
+normal on $\Gamma_e$ points from $r_-(e)$ to $r_+(e)$.
+
+The discrete system has the block form
+
+$$
+\begin{bmatrix}
+A_{D,\sigma} & A_{D,\mu} \\
+A_{N,\sigma} & A_{N,\mu}
+\end{bmatrix}
+\begin{bmatrix}
+\sigma \\
+\mu
+\end{bmatrix}
+=
+\begin{bmatrix}
+-[U^{in}] \\
+-[(1/c)\partial_n U^{in}]
+\end{bmatrix}.
+$$
+
+For vector or tensor kernels, each scalar block above generalizes to
+
+$$
+A_{\alpha,\beta}^{o,i}(t,s),
+$$
+
+where $\alpha$ is a row space, $\beta$ is a column space, $o$ is the output
+component, $i$ is the input component, $t$ is the target point, and $s$ is the
+source point. For this scalar Helmholtz junction model, $o=i=1$.
 
 ## Structured Operator Terms
 
-The system layer should expose a structured operator as a sum of explicit terms:
+The system layer should expose the operator as a sum of explicit terms. Each
+term $\tau$ should carry the following metadata.
 
-```text
-BlockTerm:
-    row_space        equation row, target boundary part, output component count
-    col_space        density name, source boundary part, input component count
-    kernel_expr      scalar/vector kernel or algebraic kernel expression
-    coefficient      complex scalar or region/material coefficient
-    trace_side       left/right/plus/minus side for jump signs
-    locality         far-compressible, near-exact, jump, correction
-```
+| Field | Meaning |
+| --- | --- |
+| $\alpha_\tau$ | row space, such as $(e,D)$ or $(e,N)$ |
+| $\beta_\tau$ | column space, such as $(f,\sigma)$ or $(f,\mu)$ |
+| $K_\tau$ | one fused kernel expression from equation (13) |
+| $a_\tau$ | material coefficient, such as $c_+$, $-c_-$, $1/c_+$, or $-1/c_-$ |
+| $s_\tau$ | trace side and edge-normal convention |
+| $\ell_\tau$ | locality class: far-compressible, near-exact, jump, or correction |
 
-`kernel_expr` may be a fused expression such as
-`D'_{k_plus} - D'_{k_minus}`. That matters: the integral equation is often
-well-conditioned because singular pieces cancel in the block expression. The
-fast-direct backend should sample the fused expression, not sample two
-hypersingular terms as unrelated blocks and hope cancellation is recovered after
-flattening.
+The term contribution has the form
+
+$$
+A_\tau(t,s)
+=
+a_\tau K_\tau(x_t,x_s).
+$$
+
+For example, the far-compressible part of the flux-dipole block is the fused
+difference
+
+$$
+K_{\tau}(x_t,x_s)
+=
+D'_{k_+}(x_t,x_s) - D'_{k_-}(x_t,x_s).
+$$
+
+This fused expression is the unit of compression. The backend should not sample
+$D'_{k_+}$ and $D'_{k_-}$ as unrelated hypersingular operators and rely on
+flattened-matrix subtraction to recover the cancellation later.
 
 ## RSKELF Sampling Rule
 
-The geometric tree should be built over physical source points on the relevant
-interface geometry. Algebraic density/component axes remain metadata attached
-to those points.
+The geometric tree should be built over physical source points on the total
+interface $\Gamma$. Algebraic density axes remain metadata attached to those
+points.
 
-For a tree node `B` and a candidate column group `C_B`, the ID sample must be
-assembled by stacking every far-field row family that can see that column group:
+For a tree node $B$ and a candidate column group $C_B$, the ID sample must stack
+all far-field row families that can see that column group:
 
-```text
-Y_B(C_B) =
-    stack over far target clusters T
-    stack over boundary equations q
-    stack over output components o
-        A[q, C_B][o, :, T, B]
+$$
+Y_B(C_B)
+=
+\operatorname{stack}_{T,q,o}
+\left(
+A[q,C_B][o,:,T,B]
+\right),
+$$
 
-P_B(C_B) =
-    stack over far-compressible terms touching C_B
-    stack over proxy surfaces for the term's target region/kernel
-        proxy_kernel_expr(term, proxy_points, source_points_B)
-```
+where $T$ ranges over far target clusters, $q$ ranges over row equations
+$(e,D)$ and $(e,N)$, and $o$ ranges over output components.
+
+The proxy part should be assembled from the same fused block kernels:
+
+$$
+P_B(C_B)
+=
+\operatorname{stack}_{\tau}
+\left(
+K_{\tau}^{proxy}
+    (\Xi_B,\ x_s \in B)
+\right),
+$$
+
+where $\Xi_B$ is the proxy surface for node $B$ and $\tau$ ranges over
+far-compressible equation (13) terms touching $C_B$.
+
+For a charge column group, the proxy samples include the fused row kernels
+
+$$
+S_{k_+}^{proxy} - S_{k_-}^{proxy}
+\qquad \text{and} \qquad
+\frac{1}{c_+}(S'_{k_+})^{proxy}
+- \frac{1}{c_-}(S'_{k_-})^{proxy}.
+$$
+
+For a dipole column group, the proxy samples include
+
+$$
+c_+(D_{k_+})^{proxy}
+- c_-(D_{k_-})^{proxy}
+\qquad \text{and} \qquad
+(D'_{k_+})^{proxy}
+- (D'_{k_-})^{proxy}.
+$$
+
+Jump terms, same-panel special quadrature, adjacent-panel corrections, and RCIP
+corner corrections are not proxy terms. They remain in the near/local blocks.
 
 For nonsymmetric systems the reverse direction must also be sampled:
 
-```text
-Z_B(R_B) =
-    stack over far source clusters S
-    stack over density families p
-    stack over input components i
-        A[R_B, p][:, i, B, S]^*
-```
+$$
+Z_B(R_B)
+=
+\operatorname{stack}_{S,p,i}
+\left(
+A[R_B,p][:,i,B,S]^*
+\right),
+$$
 
-The ID for a source block is then built from `[Y_B; P_B]`, and in the
-nonsymmetric case from the corresponding incoming/outgoing samples. This is the
-behavior we need from pyFLAM: proxy sampling is per operator term/channel, not
-one scalar kernel reused for a flattened matrix.
+where $S$ ranges over far source clusters, $p$ ranges over density families
+$\sigma$ and $\mu$, and $i$ ranges over input components.
+
+The ID for a source block is then built from
+
+$$
+\begin{bmatrix}
+Y_B(C_B) \\
+P_B(C_B)
+\end{bmatrix},
+$$
+
+and in the nonsymmetric case from the corresponding incoming/outgoing samples.
+This is the behavior we need from pyFLAM: proxy sampling is per row equation,
+per density, and per fused equation (13) block, not one scalar kernel reused for
+a flattened matrix.
 
 ## Skeleton Grouping Policy
 
 There is not one universally correct grouping choice. The backend should make
 the grouping explicit and testable.
 
-```text
-dof
-    ID may select individual scalar DOFs. This is closest to a flat matrix and
-    can be efficient, but it loses physical grouping.
-
-point_family
-    ID selects all components of one density family at a source point. This is
-    the conservative first target for `sigma` and `mu` transmission systems.
-
-point_all_densities
-    ID selects all density families/components attached to a source point. This
-    is more expensive, but best preserves physical point grouping for strongly
-    coupled vector systems.
-```
+- `dof`: ID may select individual scalar DOFs. This is closest to a flat matrix
+  and can be efficient, but it loses physical grouping.
+- `point_family`: ID selects one density family at a source point, either
+  $\sigma$ or $\mu$. This is the conservative first target for equation (13).
+- `point_all_densities`: ID selects both $\sigma$ and $\mu$ attached to a source
+  point. This is more expensive, but best preserves physical point grouping for
+  strongly coupled systems.
 
 The first production target should be `point_family`, with tests comparing it
-against dense assembly for the two-density Helmholtz transmission system.
-`point_all_densities` should be kept available for vector PDEs and strongly
-coupled formulations.
+against dense assembly for the Greengard-Lee multi-material junction system.
+`point_all_densities` should remain available as a stability experiment.
 
 ## Near, Jump, and Correction Blocks
 
 RSKELF compression should only approximate far-field interactions. The backend
 must keep these contributions exact in the local blocks:
 
-- identity and jump terms;
-- same-panel singular blocks;
+- the identity/jump terms in equation (13);
+- same-panel singular and hypersingular blocks;
 - adjacent/near-panel quadrature corrections;
-- RCIP-compressed local corner blocks;
+- RCIP-compressed local corner or junction blocks;
 - sparse replacement blocks from special quadrature.
 
 The local block seen during elimination is therefore
 
-```text
-A_local = A_smooth_near + A_jump + A_special_corrections + Schur_updates.
-```
+$$
+A_{\mathrm{local}}
+= A_{\mathrm{smooth\ near}}
+  + A_{\mathrm{jump}}
+  + A_{\mathrm{special\ corrections}}
+  + A_{\mathrm{Schur\ updates}}.
+$$
 
 Proxy samples are for the complement of the near set. This is the clean way to
-respect both recursive skeletonization and pychunkie's quadrature model.
+respect both recursive skeletonization and the junction-stable structure of
+Greengard-Lee equation (13).
 
 ## Code Design Target
 
@@ -271,19 +472,20 @@ indices.
 
 ## Verification Plan
 
-1. Dense reference: assemble the two-density Helmholtz transmission system above
-   as a generic `IntegralSystem` and compare every block against a hand-built
-   dense matrix.
-2. Legacy parity: port compact fixtures from `tests_old/test_devtools_parity.py`
-   around the `chunkermat_l2scaleTest` transmission block.
-3. ChunkGraph reference: build a multi-edge `ChunkGraph` with different
-   wavenumbers and coefficients per region; compare dense apply against explicit
-   block sums.
+1. Dense reference: assemble Greengard-Lee equation (13) for a smooth
+   two-region interface and compare every block against a hand-built dense
+   matrix.
+2. Junction reference: assemble equation (13) on a multi-edge `ChunkGraph` with
+   a triple junction and verify that the operator uses global-interface
+   difference kernels, not local-region-boundary kernels.
+3. Legacy parity: port compact fixtures from `tests_old/test_devtools_parity.py`
+   around the Helmholtz transmission block, but reinterpret the target operator
+   in the global equation (9)/(13) language.
 4. Proxy instrumentation: run structured pyFLAM on a tiny system and assert that
-   each expected `(equation row, density, selector, wavenumber, output, input)`
-   channel is sampled.
+   each expected $(\text{row equation}, \text{density}, \text{selector},
+   \text{wavenumber}, \text{material coefficient})$ channel is sampled.
 5. Compression correctness: compare structured RSKELF apply/solve with dense
-   assembly on smooth single-interface and multi-interface systems.
+   assembly on smooth single-interface and multi-material junction systems.
 6. Stress correctness: add corners/triple-junction examples only after RCIP or
    the relevant local correction path is active, because far-field compression
    cannot fix an incorrect local discretization.

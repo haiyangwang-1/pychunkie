@@ -1,15 +1,18 @@
 """Biharmonic dense reference and current FMM support check."""
 
-from _accelerated_common import TARGETS, make_circle, scalar_density
+import numpy as np
 
+from chunkie.geometry import circle
 from chunkie.kernels import kernel
 from chunkie.quadrature import apply_panel_potential
 from chunkie.system.backends.fmm2d import apply_fmm
 
+TARGETS = np.array([[0.1, 1.5, -0.7], [0.2, 0.3, 1.4]])
+
 
 def main() -> None:
-    boundary = make_circle()
-    density = scalar_density(boundary)
+    boundary = circle(quadrature_order=12, panel_count=20)
+    density = np.cos(boundary.positions[0])[None, :, :]
     biharmonic_s = kernel("biharmonic", selector="s")
     direct = apply_panel_potential(boundary.pointinfo, TARGETS, biharmonic_s, density)
 

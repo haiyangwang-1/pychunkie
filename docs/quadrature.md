@@ -19,6 +19,11 @@ Current helpers:
   coefficient-space operations separate from solver-vector layouts.
 - `dense_panel_matrix` evaluates uncorrected weighted kernel tensors with shape
   `(output, input, target, source)`.
+- `apply_panel_potential` applies the same dense panel contraction for field
+  evaluation. When `close_correction=True`, it detects targets close to each
+  source panel, subtracts the ordinary Gauss contribution for those local
+  blocks, and replaces it with `adaptive_panel_matrix` values on the original
+  density nodes.
 - `dense_panel_operator_matrix` materializes those tensors into the solver
   layout
 

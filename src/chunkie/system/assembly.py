@@ -81,9 +81,15 @@ def assemble_system_matrix(system, *, config: SystemConfig) -> SystemMatrix:
         "constraints": tuple(constraint.name for constraint in system.constraints),
     }
     if config.use_rcip:
-        from .nonsmooth import build_rcip_state
+        from .nonsmooth import apply_rcip_to_matrix
 
-        rcip_state = build_rcip_state(system, config=config)
+        matrix, rcip_state = apply_rcip_to_matrix(
+            system,
+            matrix,
+            row_slices=row_slices,
+            column_slices=column_slices,
+            config=config,
+        )
         if rcip_state.metadata.get("active"):
             diagnostics["rcip"] = rcip_state
 

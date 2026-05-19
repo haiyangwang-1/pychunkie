@@ -2,15 +2,30 @@
 
 from __future__ import annotations
 
-from _accelerated_common import TARGETS, make_circle, relerr, scalar_density, stokes_density
+import numpy as np
 
+from chunkie.geometry import circle
 from chunkie.kernels import Kernel, kernel
 from chunkie.quadrature import apply_panel_potential
 from chunkie.system.backends.fmm2d import apply_fmm
 
+TARGETS = np.array([[0.1, 1.5, -0.7], [0.2, 0.3, 1.4]])
+
+
+def scalar_density(boundary):
+    return np.cos(boundary.positions[0])[None, :, :]
+
+
+def stokes_density(boundary):
+    return np.stack((np.cos(boundary.positions[0]), np.sin(boundary.positions[1])), axis=0)
+
+
+def relerr(actual, expected) -> float:
+    return float(np.linalg.norm(actual - expected) / max(np.linalg.norm(expected), 1.0))
+
 
 def compare_kernel(label: str, kernel_obj: Kernel, density) -> None:
-    boundary = make_circle()
+    boundary = circle(quadrature_order=12, panel_count=20)
     direct = apply_panel_potential(boundary.pointinfo, TARGETS, kernel_obj, density(boundary))
     fmm = apply_fmm(boundary.pointinfo, TARGETS, kernel_obj, density(boundary), eps=1.0e-11)
     print(f"{label} FMM relative error: {relerr(fmm, direct):.3e}")

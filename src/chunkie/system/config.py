@@ -19,6 +19,7 @@ class SystemConfig:
     prefer_helsing_ojala: bool = True
     use_rcip: bool = True
     rcip_subdivisions: int = 20
+    rcip_eval_depth: int | None = None
     fmm_tolerance: float = 1.0e-12
     flam_tolerance: float = 1.0e-12
     flam_occupancy: int = 200

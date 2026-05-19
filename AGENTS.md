@@ -4,20 +4,18 @@ Read `CONTRIBUTING.md` before making code, test, fixture, or documentation
 changes. It defines the repo's Python-first design philosophy, naming standard,
 tensor notation, testing expectations, tooling, and living-doc policy.
 
-This repo uses three living status documents to keep implementation, parity, and
+This repo uses one living status document to keep implementation, parity, and
 test coverage understandable across agent handoffs:
 
 - `map.md`
-- `devtools_coverage.md`
-- `docs/python-test-suite-summary.md`
 
-Before committing any code or test change, review whether each document needs an
-update. Update the relevant files in the same commit as the code change.
+Before committing any code or test change, review whether `map.md` needs an
+update. Update it in the same commit as the code change when relevant.
 
-Treat these files as part of the changed behavior. A feature, parity port, test
-addition, fixture refresh, or refactor is incomplete until the relevant living
-docs either reflect it or the commit/PR text explicitly says why no living-doc
-change was needed.
+Treat `map.md` as part of the changed behavior. A feature, parity port, test
+addition, fixture refresh, or refactor is incomplete until `map.md` either
+reflects it or the commit/PR text explicitly says why no living-doc change was
+needed.
 
 ## Commit Granularity
 
@@ -36,9 +34,9 @@ belong to the current change.
 All project-owned Markdown docs are living docs: keep them current when their
 subject changes, or delete them when they are obsolete. Markdown files under
 `external/` are upstream/reference material and should only change through the
-corresponding vendored checkout or submodule. The three status documents below
-have additional commit-gate rules because they summarize implementation,
-parity, and test coverage across handoffs.
+corresponding vendored checkout or submodule. `map.md` has additional
+commit-gate rules because it summarizes implementation, parity, and test
+coverage across handoffs.
 
 - Update `map.md` when public APIs, source-tree structure, implemented MATLAB
   parity, feature status, known limitations, or the verification snapshot
@@ -49,12 +47,6 @@ parity, and test coverage across handoffs.
   Python-tested plus MATLAB-parity-tested rows last. Treat private/internal
   helper status as metadata rather than its own maturity tier, and preserve
   relative order within the same tier when practical.
-- Update `devtools_coverage.md` when MATLAB devtools parity coverage changes,
-  including golden fixtures, MATLAB fixture generators, Python fixture
-  generators, parity tests, ranked port status, or suggested next ports.
-- Update `docs/python-test-suite-summary.md` when tests are added, removed,
-  renamed, parametrized, or when the behavior covered by existing tests changes
-  meaningfully.
 
 ## Commit Checklist
 
@@ -64,8 +56,8 @@ Before making a commit:
 2. Check `git diff --stat` and identify whether `src/`, `tests/`, `scripts/`,
    `tests/golden/`, or docs changed.
 3. Explicitly decide whether each living status document needs an update.
-4. If code or tests changed and none of the three status documents changed,
-   mention why in the commit message or PR summary.
+4. If code or tests changed and `map.md` did not change, mention why in the
+   commit message or PR summary.
 5. Keep living-doc edits factual: record what changed, what is covered, what is
    still deferred, and the exact test snapshot when it changes.
 
@@ -74,11 +66,9 @@ Before making a commit:
 Use this quick gate before every agent-authored commit:
 
 - If `src/` changed, check `map.md`.
-- If `tests/` changed, check `docs/python-test-suite-summary.md`.
-- If MATLAB parity scripts, golden data, or `tests/test_devtools_parity.py`
-  changed, check `devtools_coverage.md`.
+- If `tests/`, MATLAB parity scripts, or golden data changed, check `map.md`.
 - If pytest collection counts, pass/fail/xfail totals, or broad coverage claims
-  changed, update the affected snapshot text.
+  changed, update the `map.md` snapshot text.
 - If no living-doc update is needed, include a short note such as
   `Living docs: no update needed; change is internal-only` in the commit body or
   PR summary.
@@ -86,11 +76,9 @@ Use this quick gate before every agent-authored commit:
 ## Usual Mapping
 
 - Changes under `src/` usually require a `map.md` update.
-- Changes under `tests/` usually require a
-  `docs/python-test-suite-summary.md` update.
-- Changes under `tests/golden/`, `scripts/matlab/`,
-  `scripts/generate_devtools*`, or `tests/test_devtools_parity.py` usually
-  require a `devtools_coverage.md` update.
+- Changes under `tests/`, `tests/golden/`, `scripts/matlab/`,
+  `scripts/generate_devtools*`, or parity tests usually require a `map.md`
+  update.
 - Feature or parity commits that change the pytest result count should update
   the verification snapshot in `map.md`.
 
