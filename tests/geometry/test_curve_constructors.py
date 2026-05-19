@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from chunkie.geometry import chunker_from_curve
 
@@ -80,10 +81,61 @@ def test_chunker_from_curve_differentiates_position_only_callback():
         expected_derivatives = half_width * np.vstack((-np.sin(theta), np.cos(theta)))
         expected_second = -(half_width**2) * np.vstack((np.cos(theta), np.sin(theta)))
 
-        np.testing.assert_allclose(boundary.derivatives[:, :, panel_id], expected_derivatives, atol=2.0e-10)
-        np.testing.assert_allclose(boundary.second_derivatives[:, :, panel_id], expected_second, atol=5.0e-4)
+        np.testing.assert_allclose(
+            boundary.derivatives[:, :, panel_id], expected_derivatives, atol=1.0e-12
+        )
+        np.testing.assert_allclose(
+            boundary.second_derivatives[:, :, panel_id], expected_second, atol=1.0e-11
+        )
     np.testing.assert_allclose(np.linalg.norm(boundary.normals, axis=0), 1.0, atol=1.0e-12)
     np.testing.assert_allclose(np.sum(boundary.positions * boundary.normals, axis=0), 1.0, atol=1.0e-10)
+
+
+def test_chunker_from_curve_position_only_uses_panel_spectral_derivatives():
+    def polynomial(t):
+        t = np.asarray(t)
+        return np.vstack((t**4 - 0.25 * t, t**3 + 2.0 * t))
+
+    boundary = chunker_from_curve(
+        polynomial,
+        closed=False,
+        parameter_interval=(-1.0, 1.0),
+        quadrature_order=8,
+        min_panel_count=2,
+        max_panel_count=2,
+    )
+    breaks = np.linspace(-1.0, 1.0, 3)
+
+    assert boundary.metadata["parameter_interval"] == (-1.0, 1.0)
+    np.testing.assert_allclose(
+        boundary.metadata["parameter_intervals"],
+        np.array([[-1.0, 0.0], [0.0, 1.0]]),
+    )
+    for panel_id, (left, right) in enumerate(zip(breaks[:-1], breaks[1:], strict=True)):
+        half_width = 0.5 * (right - left)
+        t = 0.5 * (left + right) + half_width * boundary._legendre_nodes
+        expected_positions = polynomial(t)
+        expected_derivatives = half_width * np.vstack((4.0 * t**3 - 0.25, 3.0 * t**2 + 2.0))
+        expected_second = half_width**2 * np.vstack((12.0 * t**2, 6.0 * t))
+
+        np.testing.assert_allclose(
+            boundary.positions[:, :, panel_id], expected_positions, atol=1.0e-13
+        )
+        np.testing.assert_allclose(
+            boundary.derivatives[:, :, panel_id], expected_derivatives, atol=1.0e-12
+        )
+        np.testing.assert_allclose(
+            boundary.second_derivatives[:, :, panel_id], expected_second, atol=1.0e-11
+        )
+
+
+def test_chunker_from_curve_rejects_invalid_parameter_interval():
+    def line(t):
+        t = np.asarray(t)
+        return np.vstack((t, np.zeros_like(t)))
+
+    with pytest.raises(ValueError, match="start < stop"):
+        chunker_from_curve(line, closed=False, parameter_interval=(1.0, -1.0))
 
 
 def test_chunker_from_curve_adaptively_refines_unresolved_open_curve():

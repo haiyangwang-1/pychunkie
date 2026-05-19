@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from functools import cache
 from typing import Any
 
 import numpy as np
@@ -73,12 +74,32 @@ def chunker_from_curve(
     *,
     quadrature_order: int = 16,
     closed: bool = True,
+    parameter_interval: tuple[float, float] | None = None,
     tolerance: float = 1.0e-10,
     min_panel_count: int = 8,
     max_panel_count: int | None = None,
 ) -> Chunker:
-    start, stop = (0.0, 2.0 * np.pi) if closed else (0.0, 1.0)
-    panel_limit = max(int(min_panel_count), int(max_panel_count) if max_panel_count is not None else 4096)
+    """Build an adaptive chunker from a vectorized parameter curve.
+
+    ``curve`` receives a one-dimensional parameter array on ``parameter_interval``.
+    Full callbacks return ``(positions, derivatives, second_derivatives)`` with
+    shape ``(coordinate_dim, parameter_count)`` for each array, where derivatives
+    are taken with respect to the user parameter. Position-only callbacks return
+    ``positions`` with the same shape; the constructor computes first and second
+    panel-reference derivatives by Legendre spectral differentiation.
+    """
+
+    if parameter_interval is None:
+        start, stop = (0.0, 2.0 * np.pi) if closed else (0.0, 1.0)
+    else:
+        start, stop = (float(parameter_interval[0]), float(parameter_interval[1]))
+    if not np.isfinite(start) or not np.isfinite(stop):
+        raise ValueError("parameter_interval endpoints must be finite")
+    if stop <= start:
+        raise ValueError("parameter_interval must satisfy start < stop")
+    panel_limit = max(
+        int(min_panel_count), int(max_panel_count) if max_panel_count is not None else 4096
+    )
     breaks = _adaptive_parameter_breaks(
         curve,
         start=start,
@@ -97,6 +118,7 @@ def chunker_from_curve(
         metadata={
             "constructor": "chunker_from_curve",
             "tolerance": tolerance,
+            "parameter_interval": (start, stop),
             "parameter_intervals": np.vstack((breaks[:-1], breaks[1:])),
         },
     )
@@ -170,22 +192,28 @@ def _chunker_from_parameter_curve(
     else:
         breaks = np.asarray(breaks, dtype=float)
     panel_total = breaks.size - 1
-    first_positions, _, _ = _curve_outputs(curve, np.array([breaks[0]]))
+    first_positions = _curve_positions(curve, np.array([breaks[0]]))
     coordinate_dim = first_positions.shape[0]
 
     positions = np.empty((coordinate_dim, quadrature_order, panel_total), dtype=float)
     derivatives = np.empty_like(positions)
     second = np.empty_like(positions)
     weights = np.empty((quadrature_order, panel_total), dtype=float)
+    differentiation = _legendre_differentiation_matrix(quadrature_order)
 
     for panel_id in range(panel_total):
         half_width = 0.5 * (breaks[panel_id + 1] - breaks[panel_id])
         midpoint = 0.5 * (breaks[panel_id + 1] + breaks[panel_id])
         parameters = midpoint + half_width * legendre_nodes
-        r, d, d2 = _curve_outputs(curve, parameters)
+        r, d, d2 = _panel_curve_outputs(
+            curve,
+            parameters,
+            half_width=half_width,
+            differentiation=differentiation,
+        )
         positions[:, :, panel_id] = r
-        derivatives[:, :, panel_id] = d * half_width
-        second[:, :, panel_id] = d2 * half_width**2
+        derivatives[:, :, panel_id] = d
+        second[:, :, panel_id] = d2
         weights[:, panel_id] = legendre_weights * np.linalg.norm(
             derivatives[:, :, panel_id], axis=0
         )
@@ -206,20 +234,56 @@ def _chunker_from_parameter_curve(
     )
 
 
-def _curve_outputs(curve: Curve, parameters: NDArray[np.floating]):
+def _curve_positions(curve: Curve, parameters: NDArray[np.floating]) -> NDArray[np.floating]:
     output = curve(parameters)
     if isinstance(output, tuple) and len(output) >= 3:
-        return tuple(np.asarray(item, dtype=float).reshape(np.asarray(item).shape[0], -1) for item in output[:3])
+        output = output[0]
+    return _as_curve_component(output, "positions", parameters.size)
 
-    # Position-only callbacks are supported by finite differences so simple
-    # user curves can be introduced before adaptive construction is implemented.
-    h = 1.0e-6
-    r = np.asarray(output, dtype=float).reshape(np.asarray(output).shape[0], -1)
-    rp = np.asarray(curve(parameters + h), dtype=float).reshape(r.shape)
-    rm = np.asarray(curve(parameters - h), dtype=float).reshape(r.shape)
-    d = (rp - rm) / (2.0 * h)
-    d2 = (rp - 2.0 * r + rm) / h**2
-    return r, d, d2
+
+def _panel_curve_outputs(
+    curve: Curve,
+    parameters: NDArray[np.floating],
+    *,
+    half_width: float,
+    differentiation: NDArray[np.floating],
+) -> tuple[NDArray[np.floating], NDArray[np.floating], NDArray[np.floating]]:
+    output = curve(parameters)
+    if isinstance(output, tuple) and len(output) >= 3:
+        positions, derivatives, second_derivatives = (
+            _as_curve_component(item, name, parameters.size)
+            for item, name in zip(
+                output[:3],
+                ("positions", "derivatives", "second_derivatives"),
+                strict=True,
+            )
+        )
+        return positions, derivatives * half_width, second_derivatives * half_width**2
+
+    positions = _as_curve_component(output, "positions", parameters.size)
+    derivatives = (differentiation @ positions.T).T
+    second_derivatives = (differentiation @ derivatives.T).T
+    return positions, derivatives, second_derivatives
+
+
+def _as_curve_component(
+    values: Any,
+    name: str,
+    parameter_count: int,
+) -> NDArray[np.floating]:
+    array = np.asarray(values, dtype=float)
+    if array.ndim == 1 and parameter_count == 1:
+        array = array.reshape(-1, 1)
+    if array.ndim != 2 or array.shape[1] != parameter_count:
+        raise ValueError(f"curve {name} must have shape (coordinate_dim, parameter_count)")
+    return array
+
+
+@cache
+def _legendre_differentiation_matrix(quadrature_order: int) -> NDArray[np.floating]:
+    from chunkie.quadrature.legendre import dermat
+
+    return dermat(int(quadrature_order))
 
 
 def _adaptive_parameter_breaks(
@@ -277,8 +341,13 @@ def _interval_length(
     half_width = 0.5 * (right - left)
     midpoint = 0.5 * (right + left)
     parameters = midpoint + half_width * nodes
-    _, derivatives, _ = _curve_outputs(curve, parameters)
-    return float(abs(half_width) * np.sum(weights * np.linalg.norm(derivatives, axis=0)))
+    _, derivatives, _ = _panel_curve_outputs(
+        curve,
+        parameters,
+        half_width=half_width,
+        differentiation=_legendre_differentiation_matrix(nodes.size),
+    )
+    return float(np.sum(weights * np.linalg.norm(derivatives, axis=0)))
 
 
 def _adjacency(panel_count: int, closed: bool) -> NDArray[np.integer]:

@@ -54,7 +54,8 @@ Current implementation status:
   implementations and default to `quadrature_order=16`. Existing chunkers are
   not upsampled to a different quadrature order. Curve constructors accept full
   `(positions, derivatives, second_derivatives)` callbacks and position-only
-  callbacks, with finite differences used only at that adapter boundary.
+  callbacks, with position-only derivatives computed by panel Legendre
+  spectral differentiation.
   `chunker_from_curve` now adaptively splits unresolved parameter intervals
   with a high-vs-low Gauss arclength estimate and records accepted intervals in
   metadata.

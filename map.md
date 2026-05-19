@@ -44,10 +44,10 @@ unless a compatibility boundary needs them.
   APIs; active examples no longer depend on removed `chunkermat`/
   `chunkerkerneval` facade names or private example helpers.
 - Verification during this map update:
-  - Focused `uv run ruff check ...`: passes for the touched geometry and test
-    files.
-  - `uv run pytest --collect-only -q`: 141 tests collected.
-  - `uv run pytest -q`: `141 passed, 2 skipped` in 26.14 seconds.
+  - Focused `uv run ruff check ...`: passes for the touched constructor and
+    geometry test files.
+  - `uv run pytest --collect-only -q`: 143 tests collected.
+  - `uv run pytest -q`: `143 passed, 2 skipped` in 31.01 seconds.
 - FLAM strategy: defer new FLAM parity and integration work until the upgraded
   FLAM package is ready. The existing `src/chunkie/system/backends/flam.py`
   dense-reference adapter remains documented as temporary coverage, not a
@@ -129,7 +129,7 @@ listed as support/deferred groups rather than expanded file-by-file.
 | `checkcurveparam.m` | `src/chunkie/geometry/constructors.py` | 🟡 | Constructor validation is local and Python-first; no public checker. |
 | `chunkerfit.m` | target: `src/chunkie/geometry/constructors.py` | 🚧 | No active fitting API beyond curve/polygon constructors. |
 | `chunkerflam.m` | future FLAM package integration | 💤 | Deferred until the upgraded FLAM package is available. |
-| `chunkerfunc.m` | `chunker_from_curve` | ✅ 🧪 | Full callback and position-only callback constructors are active. |
+| `chunkerfunc.m` | `chunker_from_curve` | ✅ 🧪 | Full callback constructors, custom parameter intervals, and spectrally differentiated position-only callback constructors are active. |
 | `chunkerfuncuni.m`, `+chnk/funcuni.m` | `circle`, `ellipse`, `chunker_from_curve` | ✅ 🧪 | Uniform panel construction through Python constructors. |
 | `chunkerintegral.m` | target: `src/chunkie/system/evaluation.py` or quadrature helper | 🚧 | No public high-level integral helper yet; weights/densities exist. |
 | `chunkerinterior.m` | `ChunkGraph.classify_points`, `winding_number` | 🟡 🧪 | Region classification exists; MATLAB-style chunker-only helper is absent. |
