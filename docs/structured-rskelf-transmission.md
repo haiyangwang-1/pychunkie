@@ -3,6 +3,8 @@
 Status: research/design note. This file records the formulation that should
 drive the pyFLAM/RSKELF integration for multi-boundary systems with more than
 one density per boundary. It is not an implemented fast-direct backend.
+Scope: the canonical operator-block formulation follows Greengard-Lee equation
+(9) and the resulting equation (13) BIE for multi-material junctions.
 
 ## Literature Anchors
 
