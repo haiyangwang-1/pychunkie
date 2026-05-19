@@ -94,13 +94,23 @@ uv run pytest
 3. Install native build tools:
 
    ```bash
-   brew install gcc cmake git
+   brew install gcc cmake git libomp
    ```
 
-4. From the `pychunkie` repository root, install dependencies:
+4. From the `pychunkie` repository root, install dependencies. On MacBooks,
+   especially Apple Silicon machines, use AppleClang for the Python C extension,
+   Homebrew `gfortran` for the Fortran sources, and point CMake at Homebrew's
+   OpenMP runtime:
 
    ```bash
-   uv sync
+   env \
+     CC=/usr/bin/cc \
+     CXX=/usr/bin/c++ \
+     FC="$(brew --prefix gcc)/bin/gfortran" \
+     OpenMP_ROOT="$(brew --prefix libomp)" \
+     CPPFLAGS="-I$(brew --prefix libomp)/include" \
+     LDFLAGS="-L$(brew --prefix libomp)/lib" \
+     uv sync
    ```
 
 5. Verify the install:
@@ -110,17 +120,22 @@ uv run pytest
    uv run pytest
    ```
 
-If CMake cannot find Homebrew's GCC/GFortran automatically, point the compiler
-environment variables at the Homebrew tools before running `uv sync`:
+If the build log says CMake cannot find `OpenMP_C`, check that `libomp` is
+installed and rerun the `env ... uv sync` command above. Plain `uv sync` can
+select `/usr/bin/cc` without enough information to locate Homebrew's OpenMP
+headers and library.
+
+If you explicitly set `CC` and `CXX` to Homebrew GCC on current macOS, the build
+can fail while compiling NumPy/F2PY C wrappers with a missing `_bounds.h` SDK
+header. Prefer AppleClang for `CC`/`CXX` and Homebrew `gfortran` for `FC` unless
+you know your GCC and macOS SDK versions are compatible.
+
+If CMake cannot find Homebrew's `gfortran` automatically, point only the Fortran
+compiler at the Homebrew tool before running the MacBook command above:
 
 ```bash
-export CC="$(brew --prefix gcc)/bin/gcc-15"
-export CXX="$(brew --prefix gcc)/bin/g++-15"
 export FC="$(brew --prefix gcc)/bin/gfortran"
-uv sync
 ```
-
-Adjust `gcc-15` and `g++-15` if Homebrew installs a newer GCC major version.
 
 ## Windows
 
