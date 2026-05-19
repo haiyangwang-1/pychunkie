@@ -11,7 +11,7 @@ from chunkie.geometry import PanelView
 from chunkie.geometry.chunker import right_normals
 from chunkie.kernels import Kernel
 
-from .legendre import legendre_rule
+from .legendre import interpolation_matrix, legendre_rule
 
 
 @dataclass(frozen=True)
@@ -99,8 +99,12 @@ def _adaptive_interval(
     max_depth: int,
     depth: int,
 ) -> NDArray[np.generic]:
-    low = _panel_interval_matrix(panel, target, kernel, interval=interval, quadrature_order=low_order)
-    high = _panel_interval_matrix(panel, target, kernel, interval=interval, quadrature_order=high_order)
+    low = _panel_interval_matrix(
+        panel, target, kernel, interval=interval, quadrature_order=low_order
+    )
+    high = _panel_interval_matrix(
+        panel, target, kernel, interval=interval, quadrature_order=high_order
+    )
 
     # The absolute-plus-relative check prevents endless refinement for tiny
     # blocks while still forcing close-panel singular structure to subdivide.
@@ -149,14 +153,18 @@ def _panel_interval_matrix(
     half_width = 0.5 * (b - a)
     midpoint = 0.5 * (a + b)
     local_nodes = midpoint + half_width * nodes
-    interpolation = _lagrange_matrix(panel.nodes, local_nodes)
+    interpolation = interpolation_matrix(panel.nodes, local_nodes)
 
     positions = np.einsum("ql,rl->rq", interpolation, panel.positions)
     derivatives = np.einsum("ql,rl->rq", interpolation, panel.derivatives)
     second_derivatives = np.einsum("ql,rl->rq", interpolation, panel.second_derivatives)
     speed = np.linalg.norm(derivatives, axis=0)
     weights = half_width * reference_weights * speed
-    normals = right_normals(derivatives[:, :, None])[:, :, 0] if derivatives.shape[0] == 2 else panel.normals
+    normals = (
+        right_normals(derivatives[:, :, None])[:, :, 0]
+        if derivatives.shape[0] == 2
+        else panel.normals
+    )
 
     source = _SubpanelSourceView(
         positions=positions[:, :, None],
@@ -167,25 +175,3 @@ def _panel_interval_matrix(
     )
     values = kernel(source, target)
     return np.einsum("oitq,qk,q->oitk", values, interpolation, weights)
-
-
-def _lagrange_matrix(nodes: NDArray[np.floating], evaluation_nodes: NDArray[np.floating]) -> NDArray[np.floating]:
-    barycentric_weights = _barycentric_weights(nodes)
-    matrix = np.empty((evaluation_nodes.size, nodes.size), dtype=float)
-    for row, value in enumerate(evaluation_nodes):
-        difference = value - nodes
-        exact = np.where(np.abs(difference) <= 10.0 * np.finfo(float).eps)[0]
-        if exact.size:
-            matrix[row] = 0.0
-            matrix[row, exact[0]] = 1.0
-            continue
-        terms = barycentric_weights / difference
-        matrix[row] = terms / np.sum(terms)
-    return matrix
-
-
-def _barycentric_weights(nodes: NDArray[np.floating]) -> NDArray[np.floating]:
-    weights = np.ones(nodes.size, dtype=float)
-    for index, node in enumerate(nodes):
-        weights[index] = 1.0 / np.prod(node - np.delete(nodes, index))
-    return weights

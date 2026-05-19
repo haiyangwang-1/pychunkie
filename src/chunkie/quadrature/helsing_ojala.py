@@ -8,6 +8,8 @@ from numpy.typing import ArrayLike, NDArray
 from chunkie.geometry import PanelView
 from chunkie.kernels import Kernel
 
+from .legendre import interpolation_matrix
+
 
 def build_helsing_ojala_panel_matrix(
     panel: PanelView,
@@ -30,7 +32,9 @@ def _corrected_singular_panel_matrix(
 ) -> NDArray[np.generic]:
     singular_special = helsing_ojala_singular_matrix(panel, target, kernel, side=side)
     dense_values = kernel(panel, target) * panel.weights[None, None, None, :]
-    singular_dense = kernel.singularity.expansion.evaluate(panel, target) * panel.weights[None, None, None, :]
+    singular_dense = (
+        kernel.singularity.expansion.evaluate(panel, target) * panel.weights[None, None, None, :]
+    )
     # The singular amplitudes may be target/source dependent. Helsing-Ojala
     # handles that declared singular part, while the finite remainder stays on
     # ordinary Gauss weights in the original panel basis.
@@ -88,7 +92,9 @@ def helsing_ojala_singular_matrix(
         side,
         nout=min(max_derivative + 1, 4),
     )
-    out = np.zeros((kernel.output_dim, kernel.input_dim, target_points.size, source.size), dtype=complex)
+    out = np.zeros(
+        (kernel.output_dim, kernel.input_dim, target_points.size, source.size), dtype=complex
+    )
     for term in kernel.singularity.expansion.terms:
         basis_weights = _laplace_basis_product_weights(term.basis.derivative, special_weights)
         amplitude = term.coefficient_values(
@@ -123,7 +129,9 @@ def _laplace_basis_product_weights(
         if a == 1 and b == 1:
             return -np.imag(first_derivative)
         return np.real(first_derivative)
-    raise NotImplementedError("Helsing-Ojala dispatch supports Laplace bases through second derivatives")
+    raise NotImplementedError(
+        "Helsing-Ojala dispatch supports Laplace bases through second derivatives"
+    )
 
 
 def helsing_ojala_weights(
@@ -182,7 +190,9 @@ def helsing_ojala_weights(
     pvals[0] = np.log(gamma) + np.log((1.0 - target_scaled) / (gamma * (-1.0 - target_scaled)))
     if np.any(near):
         for index in range(source_count):
-            pvals[index + 1, near] = target_scaled[near] * pvals[index, near] + cauchy_moments[index]
+            pvals[index + 1, near] = (
+                target_scaled[near] * pvals[index, near] + cauchy_moments[index]
+            )
     if np.any(far):
         xfar = target_scaled[far]
         wxp_scaled = wxp_src / zscale
@@ -198,18 +208,26 @@ def helsing_ojala_weights(
 
     qvals = np.zeros((source_count, target_count), dtype=complex)
     qvals[0::2] = pvals[1::2] - np.log((1.0 - target_scaled) * (-1.0 - target_scaled))[None, :]
-    qvals[1::2] = pvals[2::2] - (
-        np.log(gamma) + np.log((1.0 - target_scaled) / (gamma * (-1.0 - target_scaled)))
-    )[None, :]
+    qvals[1::2] = (
+        pvals[2::2]
+        - (np.log(gamma) + np.log((1.0 - target_scaled) / (gamma * (-1.0 - target_scaled))))[
+            None, :
+        ]
+    )
     qvals *= (1.0 / np.arange(1, source_count + 1))[:, None]
 
     solve_q = np.linalg.solve(vander.T, qvals).T
     log_weights = np.real(solve_q * np.conj(1j * normal)[None, :] * zscale) / (
         2.0 * np.pi * abs(zscale)
     )
-    log_weights = log_weights * abs(zscale) - np.log(abs(zscale)) / (2.0 * np.pi) * np.abs(
-        wxp_src,
-    )[None, :]
+    log_weights = (
+        log_weights * abs(zscale)
+        - np.log(abs(zscale))
+        / (2.0 * np.pi)
+        * np.abs(
+            wxp_src,
+        )[None, :]
+    )
     out: list[NDArray[np.complexfloating]] = [log_weights.astype(complex)]
     if nout == 1:
         return tuple(out)
@@ -222,14 +240,23 @@ def helsing_ojala_weights(
     kidx = np.arange(source_count, dtype=float)[:, None]
     signs = (-1.0) ** np.arange(source_count, dtype=float)[:, None]
     rvals = -(1.0 / (1.0 - target_scaled)[None, :] + signs / (1.0 + target_scaled)[None, :])
-    rvals += kidx * np.vstack((np.zeros((1, target_count), dtype=complex), pvals[: source_count - 1]))
+    rvals += kidx * np.vstack(
+        (np.zeros((1, target_count), dtype=complex), pvals[: source_count - 1])
+    )
     first_derivative = np.linalg.solve(vander.T, rvals).T * (1j / (2.0 * np.pi * zscale))
     out.append(first_derivative)
     if nout == 3:
         return tuple(out)
 
-    svals = -(1.0 / (1.0 - target_scaled)[None, :] ** 2 - signs / (1.0 + target_scaled)[None, :] ** 2) / 2.0
-    svals += kidx * np.vstack((np.zeros((1, target_count), dtype=complex), rvals[: source_count - 1])) / 2.0
+    svals = (
+        -(1.0 / (1.0 - target_scaled)[None, :] ** 2 - signs / (1.0 + target_scaled)[None, :] ** 2)
+        / 2.0
+    )
+    svals += (
+        kidx
+        * np.vstack((np.zeros((1, target_count), dtype=complex), rvals[: source_count - 1]))
+        / 2.0
+    )
     second_derivative = np.linalg.solve(vander.T, svals).T * (1j / (2.0 * np.pi * zscale**2))
     out.append(second_derivative)
     return tuple(out)
@@ -251,7 +278,7 @@ def _panel_complex_speed_weights(panel: PanelView) -> NDArray[np.complexfloating
 
 
 def _panel_endpoints(panel: PanelView) -> tuple[complex, complex]:
-    interpolation = _lagrange_matrix(panel.nodes, np.array([-1.0, 1.0]))
+    interpolation = interpolation_matrix(panel.nodes, np.array([-1.0, 1.0]))
     endpoints = np.einsum("ql,rl->rq", interpolation, panel.positions)
     complex_endpoints = endpoints[0] + 1j * endpoints[1]
     return complex(complex_endpoints[0]), complex(complex_endpoints[1])
@@ -262,32 +289,14 @@ def _target_complex_points(target) -> NDArray[np.complexfloating]:
         points = np.asarray(target.flat_positions, dtype=float)
     elif hasattr(target, "positions"):
         positions = np.asarray(target.positions, dtype=float)
-        points = positions.swapaxes(1, 2).reshape(positions.shape[0], -1) if positions.ndim == 3 else positions
+        points = (
+            positions.swapaxes(1, 2).reshape(positions.shape[0], -1)
+            if positions.ndim == 3
+            else positions
+        )
     else:
         points = np.asarray(target, dtype=float)
     points = points.reshape(points.shape[0], -1)
     if points.shape[0] != 2:
         raise ValueError("Helsing-Ojala quadrature currently supports 2D targets")
     return points[0] + 1j * points[1]
-
-
-def _lagrange_matrix(nodes: NDArray[np.floating], evaluation_nodes: NDArray[np.floating]) -> NDArray[np.floating]:
-    barycentric_weights = _barycentric_weights(nodes)
-    matrix = np.empty((evaluation_nodes.size, nodes.size), dtype=float)
-    for row, value in enumerate(evaluation_nodes):
-        difference = value - nodes
-        exact = np.where(np.abs(difference) <= 10.0 * np.finfo(float).eps)[0]
-        if exact.size:
-            matrix[row] = 0.0
-            matrix[row, exact[0]] = 1.0
-            continue
-        terms = barycentric_weights / difference
-        matrix[row] = terms / np.sum(terms)
-    return matrix
-
-
-def _barycentric_weights(nodes: NDArray[np.floating]) -> NDArray[np.floating]:
-    weights = np.ones(nodes.size, dtype=float)
-    for index, node in enumerate(nodes):
-        weights[index] = 1.0 / np.prod(node - np.delete(nodes, index))
-    return weights

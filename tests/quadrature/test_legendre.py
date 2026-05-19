@@ -32,7 +32,9 @@ def test_legendre_derivative_matrix_differentiates_node_values():
     coefficients[4] = 1.0
 
     expected = value_transform[:, :-1] @ lege.derpol(coefficients[:, None]).ravel()
-    np.testing.assert_allclose(differentiation @ (value_transform @ coefficients), expected, atol=1.0e-12)
+    np.testing.assert_allclose(
+        differentiation @ (value_transform @ coefficients), expected, atol=1.0e-12
+    )
     np.testing.assert_allclose(differentiation @ np.ones(10), 0.0, atol=1.0e-12)
 
 
@@ -49,10 +51,34 @@ def test_legendre_interpolation_and_expansion_evaluation():
     np.testing.assert_allclose(lege.matrin(8, nodes)[0] @ node_values, node_values, atol=1.0e-12)
 
 
+def test_public_legendre_interpolation_matrix_uses_barycentric_weights():
+    nodes, *_ = lege.exps(8)
+    targets = np.array([-0.9, -0.25, 0.25, 0.9])
+    node_values = 1.0 + nodes - 2.0 * nodes**3
+
+    matrix = lege.interpolation_matrix(nodes, targets)
+    weights = lege.barycentric_weights(nodes)
+
+    assert matrix.shape == (targets.size, nodes.size)
+    assert weights.shape == nodes.shape
+    np.testing.assert_allclose(
+        matrix @ node_values,
+        1.0 + targets - 2.0 * targets**3,
+        atol=1.0e-13,
+    )
+    np.testing.assert_allclose(
+        lege.interpolation_matrix(nodes, nodes) @ node_values,
+        node_values,
+        atol=1.0e-13,
+    )
+
+
 def test_legendre_integration_matrix_integrates_from_left_endpoint():
     integrated_coefficients = lege.intpol(np.array([2.0]))
     values, _ = lege.pols(np.array([-1.0, 0.0, 1.0]), 1)
-    np.testing.assert_allclose(np.moveaxis(values, 0, -1) @ integrated_coefficients, [0.0, 2.0, 4.0])
+    np.testing.assert_allclose(
+        np.moveaxis(values, 0, -1) @ integrated_coefficients, [0.0, 2.0, 4.0]
+    )
 
     nodes, *_ = lege.exps(6)
     integration_matrix = lege.intmat(6)[0]
@@ -82,7 +108,9 @@ def test_legendre_barycentric_weights_interpolate_polynomials():
 def test_legendre_bernstein_polsum_taylor_and_adaptive_gauss():
     ellipse = lege.bernstein_ellipse(8, 2.0)
     theta = np.linspace(0.0, 2.0 * np.pi, 9)[:-1]
-    np.testing.assert_allclose(ellipse, 0.5 * (2.0 * np.exp(1j * theta) + 0.5 * np.exp(-1j * theta)))
+    np.testing.assert_allclose(
+        ellipse, 0.5 * (2.0 * np.exp(1j * theta) + 0.5 * np.exp(-1j * theta))
+    )
 
     points = np.array([-0.7, 0.0, 0.8])
     value, derivative, total = lege.polsum(points, 5)
@@ -94,7 +122,9 @@ def test_legendre_bernstein_polsum_taylor_and_adaptive_gauss():
 
     step = np.array([0.02, -0.03, 0.015])
     polynomial, polynomial_derivative = lege.pol(points, 6)
-    moved, moved_derivative = lege.tayl(polynomial, polynomial_derivative, points, step, degree=6, taylor_order=8)
+    moved, moved_derivative = lege.tayl(
+        polynomial, polynomial_derivative, points, step, degree=6, taylor_order=8
+    )
     expected_polynomial, expected_derivative = lege.pol(points + step, 6)
     np.testing.assert_allclose(moved, expected_polynomial, atol=1.0e-13)
     np.testing.assert_allclose(moved_derivative, expected_derivative, atol=1.0e-12)

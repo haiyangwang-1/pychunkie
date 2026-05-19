@@ -44,17 +44,10 @@ unless a compatibility boundary needs them.
   APIs; active examples no longer depend on removed `chunkermat`/
   `chunkerkerneval` facade names or private example helpers.
 - Verification during this map update:
-  - `uv run ruff check .`: passes.
-  - `uv run mypy src/chunkie`: passes.
-  - `uv run pytest --collect-only -q`: 143 tests collected.
-  - `uv run pytest -q -k "not test_flam_solve_reconstructs_multiple_scalar_density_vectors"`:
-    `142 passed, 1 deselected` in 26.95 seconds.
-  - `uv run pytest tests/system/test_multi_density_assembly.py::test_flam_solve_reconstructs_multiple_scalar_density_vectors -q`:
-    `1 passed` in 0.67 seconds.
-  - Full `uv run pytest -q` currently reaches the FLAM multi-density test and
-    then hits a native Windows access violation inside `pyflam.rskelf`/SciPy QR.
-    That test passes in isolation, so the issue is treated as FLAM-backend
-    order/stability debt rather than a Python assertion failure.
+  - Focused `uv run ruff check ...`: passes for the touched geometry,
+    quadrature, RCIP, and test files.
+  - `uv run pytest --collect-only -q`: 142 tests collected.
+  - `uv run pytest -q`: `142 passed, 2 skipped` in 34.57 seconds.
 - FLAM strategy: defer new FLAM parity and integration work until the upgraded
   FLAM package is ready. The existing `src/chunkie/system/backends/flam.py`
   dense-reference adapter remains documented as temporary coverage, not a
@@ -64,7 +57,7 @@ unless a compatibility boundary needs them.
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| `chunkie.geometry` | ✅ 🧪 in progress | Panel-major `Chunker` with private Gauss-Legendre nodes/weights, public physical quadrature weights, direct point-id arithmetic, pointinfo views, endpoint/bounds diagnostics, basic/adaptive constructors, metrics, Bernstein reference ellipses/panel images, quadrature-order interpolation, uniform split-panel refinement, affine/rotate/reflect transforms, near-panel node-distance flags, rectangle flags, nearest-point projection, orientation-aware selected-edge `BoundaryPart` views with curvature diagnostics, and operational single- and multi-edge `ChunkGraph` records/views/nested classification are active. Standalone curve callback helpers and arclength-resampling helpers are inactive to keep the geometry surface focused. |
+| `chunkie.geometry` | ✅ 🧪 in progress | Panel-major `Chunker` with private Gauss-Legendre nodes/weights, public physical quadrature weights, direct point-id arithmetic, pointinfo views, endpoint/bounds diagnostics, basic/adaptive constructors, metrics, Bernstein reference ellipses/panel images, quadrature-order interpolation, selected/max-length/level-restricted/oversampling panel refinement, affine/rotate/reflect transforms, near-panel node-distance flags, rectangle flags, nearest-point projection, orientation-aware selected-edge `BoundaryPart` views with curvature diagnostics, and operational single- and multi-edge `ChunkGraph` records/views/nested classification are active. Standalone curve callback helpers and arclength-resampling helpers are inactive to keep the geometry surface focused. |
 | `chunkie.kernels` | ✅ 🧪 in progress | Kernel object, Laplace/Helmholtz/biharmonic/Stokes/elasticity formulas, registry, algebra, and singularity metadata foundation are active. Laplace metadata uses `G`, `G_a`, and `G_ab`; smooth amplitudes are allowed on those bases for special-quadrature consumption; Helmholtz metadata differentiates `J0(k*rho) * G`; biharmonic metadata uses `B=-(rho^2/4)G`; Stokes velocity metadata covers `s` and `d`; elasticity single-displacement metadata covers `s`; algebra scales and cancels exact scalar/matrix singular terms. |
 | `chunkie.quadrature` | ✅ 🧪 🎯 in progress | Legendre utilities, dense panel helpers, component-major dense operator materialization, adaptive source-panel fallback, adaptive close-panel replacement for field evaluation, Helsing-Ojala log/Cauchy/derivative product weights, generated GGQ-style split rules/panel matrices, fixture-backed GGQ removable-rule parity, log/PV/HS `SingularityInfo` smooth-amplitude dispatch, and Helmholtz single-layer HO panel correction are active; broader MATLAB GGQ table parity remains a required milestone. |
 | `chunkie.rcip` | ✅ 🧪 in progress | Dyadic local corner geometry with pointinfo-compatible derivatives/normals/weights, barycentric and split-panel prolongation matrices, edge/component block prolongation, dense local trace-operator records, dense single-level and recursive Schur compression updates, corner state records, saved recursion records, and density interpolation are active. |
@@ -94,7 +87,7 @@ unless a compatibility boundary needs them.
 | `src/chunkie/kernels/elasticity.py` | `kernel`, `evaluate` | MATLAB `+chnk/+elast2d/kern.m` and `@kernel/elast2d.m`. |
 | `src/chunkie/kernels/algebra.py` | `scale`, `add` | MATLAB kernel algebra operators at Python-first scope. |
 | `src/chunkie/kernels/singularities.py` | `GeometryRequirements`, `LaplaceBasis`, `LaplaceSingularTerm`, `LaplaceSingularExpansion`, `SingularityInfo`, `matrix_coefficient` | Operational replacement for MATLAB string/selector singularity metadata. |
-| `src/chunkie/quadrature/legendre.py` | `legendre_rule`, `pol`, `pols`, `exps`, `rts`, `rts_stab`, `exev`, `derpol`, `dermat`, `intpol`, `intmat`, `matrin`, `barywts`, `bernstein_ellipse`, `polsum`, `tayl`, `adapgauss` | MATLAB `+lege` package. |
+| `src/chunkie/quadrature/legendre.py` | `legendre_rule`, `pol`, `pols`, `exps`, `rts`, `rts_stab`, `exev`, `derpol`, `dermat`, `intpol`, `intmat`, `matrin`, `barywts`, `barycentric_weights`, `interpolation_matrix`, `bernstein_ellipse`, `polsum`, `tayl`, `adapgauss` | MATLAB `+lege` package. |
 | `src/chunkie/quadrature/panel.py` | `dense_panel_matrix`, `dense_panel_operator_matrix`, `operator_matrix_from_weighted_kernel`, `apply_panel_potential` | MATLAB `+chnk/+quadnative`, `pquadwts`, panel-product quadrature, and close-panel field replacement. |
 | `src/chunkie/quadrature/adaptive.py` | `build_adaptive_panel_matrix`, `adaptive_panel_matrix` | MATLAB `+chnk/+quadadap/buildmat.m` and `+chnk/adapgausswts.m` style fallback. |
 | `src/chunkie/quadrature/helsing_ojala.py` | `build_helsing_ojala_panel_matrix`, `helsing_ojala_log_singular_matrix`, `helsing_ojala_singular_matrix`, `helsing_ojala_weights` | MATLAB special local log/PV/HS panel correction responsibilities, implemented with Python-first singularity metadata. |
@@ -181,13 +174,13 @@ listed as support/deferred groups rather than expanded file-by-file.
 | `nearest.m` | `nearest_point` | ✅ 🧪 | Newton projection to panel reference coordinate active. |
 | `normals.m` | `Chunker.normal_vectors`, `PointInfoView.flat_normals` | ✅ 🧪 | Right normals active. |
 | `reflect.m`, `rotate.m` | `reflected`, `rotated` | ✅ 🧪 | Geometry transforms recompute normals/weights. |
-| `refine.m` | `refine` | ✅ 🧪 | Uniform split-panel refinement active. |
+| `refine.m` | `refine` | ✅ 🧪 | Selected-panel splitting, maximum panel length, level restriction, repeated oversampling, and arclength/parameter split modes are active with ordered Python panel storage. |
 | `signed_curvature.m` | `Chunker.signed_curvature` | ✅ 🧪 | Active smooth-panel curvature. |
-| `split.m` | `refine` | 🟡 🧪 | Uniform splitting active; arbitrary MATLAB split modes are not. |
+| `split.m` | `refine` | 🟡 🧪 | Split behavior is available through `refine`; Python keeps panels in traversal order instead of MATLAB append-new-panel order. |
 | `tangents.m`, `taus.m` | `Chunker.tangents` | ✅ 🧪 | Unit tangents active. |
 | `tochunkgraph.m` | `ChunkGraph.from_chunker` | ✅ 🧪 | Single-boundary graph conversion active. |
 | `upsample.m` | `change_quadrature_order` | ✅ 🧪 | Geometry and panel-data interpolation active. |
-| `weights.m`, `whts.m` | `Chunker.quadrature_weights`, pointinfo weights | ✅ 🧪 | Quadrature weights active. |
+| `weights.m`, `whts.m` | `Chunker.weights`, pointinfo weights | ✅ 🧪 | Physical quadrature weights active. |
 | `checkadjinfo.m`, `sort.m`, `sortinfo.m` | target: geometry topology helpers | 🚧 | No public parity helper yet. |
 | `datares.m`, `makedatarows.m`, `cleardata` behavior | none | 🚧 | MATLAB data-row storage is not part of current public API. |
 | `merge.m` | target: public geometry merge helper | 🚧 | Private merge helpers exist for RCIP local assembly only. |
@@ -343,7 +336,7 @@ listed as support/deferred groups rather than expanded file-by-file.
 | `derpol.m`, `dermat.m` | `derpol`, `dermat` | ✅ 🧪 | Coefficient and nodal differentiation active. |
 | `intpol.m`, `intmat.m` | `intpol`, `intmat` | ✅ 🧪 | Polynomial integration utilities active. |
 | `matrin.m` | `matrin` | ✅ 🧪 | Interpolation matrix active. |
-| `barywts.m` | `barywts` | ✅ 🧪 | Barycentric weights active. |
+| `barywts.m` | `barywts`, `barycentric_weights` | ✅ 🧪 | Barycentric weights active. |
 | `bernstein_ellipse.m` | `bernstein_ellipse` | ✅ 🧪 | Bernstein ellipse points active. |
 | `polsum.m` | `polsum` | ✅ 🧪 | Legendre series summation active. |
 | `tayl.m` | `tayl` | ✅ 🧪 | Taylor stepping active. |

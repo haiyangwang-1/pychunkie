@@ -41,9 +41,9 @@ Current implementation status:
 - `change_quadrature_order` interpolates panel geometry, and optional data with
   trailing `(quadrature_order, panel_count)` axes, to a new Legendre order
   without changing panel topology.
-- `refine` uniformly splits panels by powers of two, preserving panel-major
-  storage while rescaling first and second derivatives by the child reference
-  coordinate map.
+- `refine` supports selected panel splits, maximum panel length enforcement,
+  adjacent-panel level restriction, repeated oversampling, and arclength or
+  parameter-space split points while preserving panel-major storage.
 - Translation, uniform scaling, affine transforms, rotations, and reflections
   are active. Transforms recompute normals and quadrature weights from the
   transformed tangent instead of carrying stale geometric metadata.

@@ -11,7 +11,7 @@ from chunkie.geometry import PanelView
 from chunkie.geometry.chunker import right_normals
 from chunkie.kernels import Kernel
 
-from .legendre import legendre_rule
+from .legendre import interpolation_matrix, legendre_rule
 
 
 @dataclass(frozen=True)
@@ -46,8 +46,8 @@ def setup(
         neighbor_weights=neighbor_weights,
         self_nodes=tuple(self_nodes),
         self_weights=tuple(self_weights),
-        neighbor_interpolator=_lagrange_matrix(base_nodes, neighbor_nodes),
-        self_interpolators=tuple(_lagrange_matrix(base_nodes, nodes) for nodes in self_nodes),
+        neighbor_interpolator=interpolation_matrix(base_nodes, neighbor_nodes),
+        self_interpolators=tuple(interpolation_matrix(base_nodes, nodes) for nodes in self_nodes),
         singularity=qtype,
     )
 
@@ -113,14 +113,21 @@ def build_ggq_self_panel_matrix(
     """Build a generated GGQ self-panel matrix for one source panel."""
 
     if kernel.family != "laplace" or kernel.selector != "s":
-        raise NotImplementedError("generated GGQ self-panel bootstrap currently supports Laplace single layer")
+        raise NotImplementedError(
+            "generated GGQ self-panel bootstrap currently supports Laplace single layer"
+        )
     active_rules = setup(panel.nodes.size) if rules is None else rules
     if active_rules.self_nodes.__len__() != panel.nodes.size:
         raise ValueError("GGQ rule set order must match panel order")
 
     values_by_target = []
     for target_index, (nodes, weights, interpolator) in enumerate(
-        zip(active_rules.self_nodes, active_rules.self_weights, active_rules.self_interpolators, strict=True)
+        zip(
+            active_rules.self_nodes,
+            active_rules.self_weights,
+            active_rules.self_interpolators,
+            strict=True,
+        )
     ):
         source = _interpolated_source(panel, nodes, weights, interpolator)
         target = panel.positions[:, target_index : target_index + 1]
@@ -128,28 +135,6 @@ def build_ggq_self_panel_matrix(
         block = np.einsum("oitq,qk,q->oitk", kernel_values, interpolator, source.flat_weights)
         values_by_target.append(block)
     return np.concatenate(values_by_target, axis=2)
-
-
-def _lagrange_matrix(nodes: NDArray[np.floating], evaluation_nodes: NDArray[np.floating]) -> NDArray[np.floating]:
-    barycentric_weights = _barycentric_weights(nodes)
-    matrix = np.empty((evaluation_nodes.size, nodes.size), dtype=float)
-    for row, value in enumerate(evaluation_nodes):
-        difference = value - nodes
-        exact = np.where(np.abs(difference) <= 10.0 * np.finfo(float).eps)[0]
-        if exact.size:
-            matrix[row] = 0.0
-            matrix[row, exact[0]] = 1.0
-            continue
-        terms = barycentric_weights / difference
-        matrix[row] = terms / np.sum(terms)
-    return matrix
-
-
-def _barycentric_weights(nodes: NDArray[np.floating]) -> NDArray[np.floating]:
-    weights = np.ones(nodes.size, dtype=float)
-    for index, node in enumerate(nodes):
-        weights[index] = 1.0 / np.prod(node - np.delete(nodes, index))
-    return weights
 
 
 @dataclass(frozen=True)
@@ -183,7 +168,11 @@ def _interpolated_source(
     derivatives = np.einsum("ql,rl->rq", interpolator, panel.derivatives)
     second_derivatives = np.einsum("ql,rl->rq", interpolator, panel.second_derivatives)
     speed = np.linalg.norm(derivatives, axis=0)
-    normals = right_normals(derivatives[:, :, None])[:, :, 0] if derivatives.shape[0] == 2 else panel.normals
+    normals = (
+        right_normals(derivatives[:, :, None])[:, :, 0]
+        if derivatives.shape[0] == 2
+        else panel.normals
+    )
     return _GGQSourceView(
         positions=positions[:, :, None],
         derivatives=derivatives[:, :, None],

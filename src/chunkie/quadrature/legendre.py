@@ -50,16 +50,18 @@ def pols(points: ArrayLike, max_degree: int) -> tuple[NDArray[np.floating], NDAr
         values[1] = flat
         derivatives[1] = 1.0
     for degree in range(1, max_degree):
-        values[degree + 1] = ((2 * degree + 1) * flat * values[degree] - degree * values[degree - 1]) / (
-            degree + 1
-        )
+        values[degree + 1] = (
+            (2 * degree + 1) * flat * values[degree] - degree * values[degree - 1]
+        ) / (degree + 1)
     for degree in range(2, max_degree + 1):
         derivatives[degree] = _legendre_derivative(flat, values[degree], values[degree - 1], degree)
     out_shape = (max_degree + 1,) + points_array.shape
     return values.reshape(out_shape), derivatives.reshape(out_shape)
 
 
-def exps(quadrature_order: int) -> tuple[NDArray[np.floating], NDArray[np.floating], NDArray[np.floating], NDArray[np.floating]]:
+def exps(
+    quadrature_order: int,
+) -> tuple[NDArray[np.floating], NDArray[np.floating], NDArray[np.floating], NDArray[np.floating]]:
     """Return Gaussian nodes, weights, and coefficient/value transforms."""
 
     if quadrature_order <= 0:
@@ -131,7 +133,10 @@ def intpol(coefficients: ArrayLike, const_option: str = "true") -> NDArray[np.ge
     """Return Legendre coefficients of the integral from the left endpoint."""
 
     coefficient_array = np.asarray(coefficients)
-    out = np.zeros((coefficient_array.shape[0] + 1,) + coefficient_array.shape[1:], dtype=coefficient_array.dtype)
+    out = np.zeros(
+        (coefficient_array.shape[0] + 1,) + coefficient_array.shape[1:],
+        dtype=coefficient_array.dtype,
+    )
     option = const_option.lower()
     if option == "true":
         constant_count = out.shape[0]
@@ -174,22 +179,66 @@ def matrin(
     quadrature_order: int,
     points: ArrayLike,
     coefficient_transform: ArrayLike | None = None,
-) -> tuple[NDArray[np.generic], NDArray[np.floating], NDArray[np.floating], NDArray[np.generic], NDArray[np.floating]]:
+) -> tuple[
+    NDArray[np.generic],
+    NDArray[np.floating],
+    NDArray[np.floating],
+    NDArray[np.generic],
+    NDArray[np.floating],
+]:
     """Return the interpolation matrix from Legendre nodes to ``points``."""
 
     nodes, weights, default_coefficient_transform, value_transform = exps(quadrature_order)
     coefficient_array = (
-        default_coefficient_transform if coefficient_transform is None else np.asarray(coefficient_transform)
+        default_coefficient_transform
+        if coefficient_transform is None
+        else np.asarray(coefficient_transform)
     )
     values, _ = pols(points, quadrature_order - 1)
     matrix = np.moveaxis(values, 0, -1) @ coefficient_array
     return matrix, nodes, weights, coefficient_array, value_transform
 
 
+def barycentric_weights(nodes: ArrayLike) -> NDArray[np.floating]:
+    """Return barycentric Lagrange weights for interpolation at ``nodes``."""
+
+    node_array = np.asarray(nodes, dtype=float).reshape(-1)
+    differences = node_array[:, None] - node_array[None, :]
+    np.fill_diagonal(differences, 1.0)
+    return 1.0 / np.prod(differences, axis=1)
+
+
+def interpolation_matrix(nodes: ArrayLike, targets: ArrayLike) -> NDArray[np.generic]:
+    """Return the barycentric interpolation matrix from ``nodes`` to ``targets``."""
+
+    node_array = np.asarray(nodes, dtype=float).reshape(-1)
+    raw_targets = np.asarray(targets).reshape(-1)
+    target_array = raw_targets.astype(np.result_type(raw_targets.dtype, float), copy=False)
+    weights = barycentric_weights(node_array)
+    matrix = np.empty(
+        (target_array.size, node_array.size), dtype=np.result_type(target_array.dtype, float)
+    )
+    for row, target in enumerate(target_array):
+        differences = target - node_array
+        exact = np.isclose(differences, 0.0, atol=1.0e-15, rtol=0.0)
+        if np.any(exact):
+            matrix[row] = 0.0
+            matrix[row, np.argmax(exact)] = 1.0
+            continue
+        scaled = weights / differences
+        matrix[row] = scaled / np.sum(scaled)
+    return matrix
+
+
+bary_weights = barycentric_weights
+
+
 def barywts(quadrature_order: int, points: ArrayLike | None = None) -> NDArray[np.floating]:
     """Return barycentric Lagrange weights normalized by the first node."""
 
-    nodes = legendre_rule(quadrature_order)[0] if points is None else np.asarray(points, dtype=float)
+    nodes = (
+        legendre_rule(quadrature_order)[0] if points is None else np.asarray(points, dtype=float)
+    )
     differences = nodes[:, None] - nodes[None, :]
     np.fill_diagonal(differences, 1.0)
     weights = np.prod(differences, axis=0)
@@ -208,7 +257,9 @@ def bernstein_ellipse(point_count: int, rho: float) -> NDArray[np.complexfloatin
     return 0.5 * (z + 1.0 / z)
 
 
-def polsum(points: ArrayLike, degree: int) -> tuple[NDArray[np.floating], NDArray[np.floating], NDArray[np.floating]]:
+def polsum(
+    points: ArrayLike, degree: int
+) -> tuple[NDArray[np.floating], NDArray[np.floating], NDArray[np.floating]]:
     """Return ``P_degree``, derivative, and the weighted recurrence sum."""
 
     values, derivatives = pols(points, degree)
@@ -321,8 +372,10 @@ def _legendre_derivative(
     # the closed-form derivative limit P_n'(+-1)= (+-1)^(n+1) n(n+1)/2.
     derivative = np.empty_like(points, dtype=float)
     endpoint = np.isclose(np.abs(points), 1.0)
-    derivative[~endpoint] = degree * (points[~endpoint] * current[~endpoint] - previous[~endpoint]) / (
-        points[~endpoint] ** 2 - 1.0
+    derivative[~endpoint] = (
+        degree
+        * (points[~endpoint] * current[~endpoint] - previous[~endpoint])
+        / (points[~endpoint] ** 2 - 1.0)
     )
     if np.any(endpoint):
         signs = np.where(points[endpoint] >= 0.0, 1.0, (-1.0) ** (degree + 1))

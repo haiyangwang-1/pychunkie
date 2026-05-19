@@ -139,12 +139,16 @@ class Chunker:
 
     @property
     def panel_endpoints(self) -> NDArray[np.floating]:
-        interpolation = _interpolation_matrix(self._legendre_nodes, np.array([-1.0, 1.0]))
+        from chunkie.quadrature.legendre import interpolation_matrix
+
+        interpolation = interpolation_matrix(self._legendre_nodes, np.array([-1.0, 1.0]))
         return np.einsum("es,RsS->ReS", interpolation, self.positions)
 
     @property
     def panel_endpoint_tangents(self) -> NDArray[np.floating]:
-        interpolation = _interpolation_matrix(self._legendre_nodes, np.array([-1.0, 1.0]))
+        from chunkie.quadrature.legendre import interpolation_matrix
+
+        interpolation = interpolation_matrix(self._legendre_nodes, np.array([-1.0, 1.0]))
         derivatives = np.einsum("es,RsS->ReS", interpolation, self.derivatives)
         # Endpoint tangents are unit vectors; derivative magnitudes near corners
         # belong to panel length/weights, not orientation diagnostics.
@@ -177,7 +181,7 @@ class Chunker:
         ddx, ddy = self.second_derivatives
         speed = np.linalg.norm(self.derivatives, axis=0)
         return (dx * ddy - dy * ddx) / speed**3
-    
+
     def panel(self, panel_id: int) -> PanelView:
         if not 0 <= panel_id < self.panel_count:
             raise IndexError("panel_id out of range")
@@ -192,7 +196,6 @@ class Chunker:
             nodes=self._legendre_nodes,
         )
 
-    
     ### AFFINE TRANSFORMS
     def affine(self, matrix: ArrayLike, *, offset: ArrayLike | None = None) -> Chunker:
         matrix_array = np.asarray(matrix, dtype=float)
@@ -299,26 +302,3 @@ def _transformed_orientation(
     if np.linalg.det(matrix) >= 0.0:
         return orientation
     return "cw" if orientation == "ccw" else "ccw"
-
-
-def _interpolation_matrix(
-    nodes: NDArray[np.floating], targets: NDArray[np.floating]
-) -> NDArray[np.floating]:
-    weights = _barycentric_weights(nodes)
-    matrix = np.empty((targets.size, nodes.size), dtype=float)
-    for row, target in enumerate(targets):
-        differences = target - nodes
-        exact = np.isclose(differences, 0.0, atol=1.0e-15, rtol=0.0)
-        if np.any(exact):
-            matrix[row] = 0.0
-            matrix[row, np.argmax(exact)] = 1.0
-            continue
-        scaled = weights / differences
-        matrix[row] = scaled / np.sum(scaled)
-    return matrix
-
-
-def _barycentric_weights(nodes: NDArray[np.floating]) -> NDArray[np.floating]:
-    differences = nodes[:, None] - nodes[None, :]
-    np.fill_diagonal(differences, 1.0)
-    return 1.0 / np.prod(differences, axis=1)

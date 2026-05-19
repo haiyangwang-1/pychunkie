@@ -9,6 +9,7 @@ from chunkie.geometry import PanelView, PointInfoView
 from chunkie.kernels import Kernel
 
 from .adaptive import adaptive_panel_matrix
+from .legendre import interpolation_matrix
 
 
 def dense_panel_matrix(source: PointInfoView, target, kernel: Kernel) -> NDArray[np.generic]:
@@ -168,7 +169,7 @@ def _panel_polyline_distances(
 
 def _panel_points_with_endpoints(source: PointInfoView, panel_id: int) -> NDArray[np.floating]:
     panel_points = source.positions[:, :, panel_id]
-    endpoints = _lagrange_matrix(source.nodes, np.array([-1.0, 1.0])) @ panel_points.T
+    endpoints = interpolation_matrix(source.nodes, np.array([-1.0, 1.0])) @ panel_points.T
     return np.column_stack((endpoints[0], panel_points, endpoints[1]))
 
 
@@ -208,27 +209,3 @@ class _SinglePanelSource:
 
 def _panel_source(source: PointInfoView, panel_id: int) -> _SinglePanelSource:
     return _SinglePanelSource(source, panel_id)
-
-
-def _lagrange_matrix(
-    nodes: NDArray[np.floating], evaluation_nodes: NDArray[np.floating]
-) -> NDArray[np.floating]:
-    barycentric_weights = _barycentric_weights(nodes)
-    matrix = np.empty((evaluation_nodes.size, nodes.size), dtype=float)
-    for row, value in enumerate(evaluation_nodes):
-        difference = value - nodes
-        exact = np.where(np.abs(difference) <= 10.0 * np.finfo(float).eps)[0]
-        if exact.size:
-            matrix[row] = 0.0
-            matrix[row, exact[0]] = 1.0
-            continue
-        terms = barycentric_weights / difference
-        matrix[row] = terms / np.sum(terms)
-    return matrix
-
-
-def _barycentric_weights(nodes: NDArray[np.floating]) -> NDArray[np.floating]:
-    weights = np.ones(nodes.size, dtype=float)
-    for index, node in enumerate(nodes):
-        weights[index] = 1.0 / np.prod(node - np.delete(nodes, index))
-    return weights

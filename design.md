@@ -387,7 +387,6 @@ Required behavior:
 - expose `point_count`, `panel_count`, `quadrature_order`, and
   `coordinate_dim`,
 - expose `pointinfo` views for all points and selected panels,
-- map between panel-major point ids and `(panel, local_node)` ids,
 - and support near-panel flagging through geometry helpers.
 
 Normal convention:

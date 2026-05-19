@@ -18,7 +18,7 @@ from .helsing_ojala import (
     helsing_ojala_singular_matrix,
     helsing_ojala_weights,
 )
-from .legendre import legendre_rule
+from .legendre import bary_weights, barycentric_weights, interpolation_matrix, legendre_rule
 from .panel import (
     apply_panel_potential,
     dense_panel_matrix,
@@ -36,10 +36,13 @@ __all__ = [
     "dense_panel_matrix",
     "dense_panel_operator_matrix",
     "GGQRuleSet",
+    "bary_weights",
+    "barycentric_weights",
     "ggq_removable_rules",
     "helsing_ojala_log_singular_matrix",
     "helsing_ojala_singular_matrix",
     "helsing_ojala_weights",
+    "interpolation_matrix",
     "legendre_rule",
     "operator_matrix_from_weighted_kernel",
     "setup_ggq",
