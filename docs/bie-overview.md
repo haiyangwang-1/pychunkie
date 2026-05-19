@@ -184,6 +184,8 @@ uv run python examples/accelerated_flam_laplace.py
 
 The demos print relative or absolute errors against manufactured solutions.
 The nonsmooth BVP demos solve on a coarse square chunkgraph with `depth=2`,
-`nsub=20`, default RCIP corner compression, and Helsing-Ojala product
-quadrature for close target evaluation, then write solution and log-error PNG
-files next to the script. Each script is self-contained and covers one case.
+default RCIP corner compression, and Helsing-Ojala product quadrature for close
+target evaluation, then write solution and log-error PNG files next to the
+script. Most use `nsub=20`; the interior Neumann square uses a deeper RCIP
+recursion and a rank-one density gauge to resolve the Neumann nullspace cleanly.
+Each script is self-contained and covers one case.

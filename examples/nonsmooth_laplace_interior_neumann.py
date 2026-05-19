@@ -11,7 +11,7 @@ from nonsmooth_laplace_rcip_common import square_graph
 
 
 depth = 2
-nsub = 20
+nsub = 100
 grid_size = 80
 
 cg = square_graph(depth=depth, k=12)
@@ -20,11 +20,16 @@ boundary = chnkr.r.reshape(2, chnkr.npt, order="F")
 normals = chnkr.n.reshape(2, chnkr.npt, order="F")
 lap_s = kernel("lap", "s")
 system_kernel = 2.0 * kernel("lap", "sp")
-mat = chunkermat(cg, system_kernel, {"nsub": nsub, "rcip_savedepth": nsub})
-system = np.eye(chnkr.npt, dtype=mat.dtype) + mat
+mat, rcip_context = chunkermat(
+    cg, system_kernel, {"nsub": nsub, "rcip_savedepth": nsub, "return_rcip": True}
+)
+bie_system = np.eye(chnkr.npt, dtype=mat.dtype) + mat
+weights = chnkr.wts.reshape(-1, order="F")
+# Fix the interior Neumann constant-density nullspace with w^T sigma = 0.
+system = bie_system + np.ones((chnkr.npt, 1), dtype=mat.dtype) @ weights[None, :]
 normal_data = 2.0 * normals[0]
 sigma = np.linalg.solve(system, normal_data)
-eval_opts = {"forceadap": True, "usepquad": True}
+eval_opts = {"forceadap": True, "usepquad": True, "rcip_context": rcip_context}
 
 targets = np.array([[0.0, 0.3, -0.2], [0.0, 0.2, 0.4]])
 values = chunkerkerneval(cg, lap_s, sigma, targets, eval_opts).reshape(-1)
@@ -71,9 +76,9 @@ fig.tight_layout()
 fig.savefig(__file__.replace(".py", "_error_log10.png"))
 plt.close(fig)
 
-net_charge = float(np.dot(chnkr.wts.reshape(-1, order="F"), sigma))
+net_charge = float(np.dot(weights, sigma))
 print(f"RCIP square: depth {depth}, nsub {nsub}, {chnkr.nch} chunks, {chnkr.npt} nodes")
-print(f"interior Neumann boundary residual: {np.max(np.abs(system @ sigma - normal_data)):.3e}")
+print(f"interior Neumann boundary residual: {np.max(np.abs(bie_system @ sigma - normal_data)):.3e}")
 print(f"interior Neumann target max error: {np.max(np.abs(values - targets[0])):.3e}")
 print(f"interior Neumann density net charge: {net_charge:.3e}")
 print(f"solution PNG: {__file__.replace('.py', '_solution.png')}")
