@@ -10,6 +10,17 @@ Canonical arrays:
 - `normals[R, s, S]`
 - `weights[s, S]`
 
+`Chunker` stores Gauss-Legendre reference nodes as `_legendre_nodes[s]` and
+reference weights as `_legendre_weights[s]`. The public `weights[s, S]` tensor
+contains physical quadrature weights:
+
+```text
+weights[s, S] = ||derivatives[:, s, S]|| * _legendre_weights[s]
+```
+
+For a smooth panel, `sum(weights[:, S])` is the Gauss-Legendre approximation to
+that panel's arclength.
+
 The canonical boundary point id is:
 
 ```text
@@ -21,18 +32,12 @@ boundary in two dimensions, the right normal points exterior.
 
 Current implementation status:
 
-- Basic `Chunker` storage and point views are active.
+- Basic `Chunker` storage and point views are active. Point ids use direct
+  panel-major arithmetic; there is no separate point-map object.
 - `Chunker` exposes panel lengths, total length, signed area, arclength
   density, unit tangents, and signed curvature using the panel-major tensors.
-- `Chunker` exposes panel endpoint positions, endpoint unit tangents, weighted
-  panel centroids, and coordinate bounds for diagnostics and graph/RCIP
-  bookkeeping.
-- `geometry.curves` provides reusable line-segment, parabola, sine-graph,
-  starfish, and Fourier-radius callbacks with first and second parameter
-  derivatives for constructor tests and examples.
-- `arclength_parameterization`, `evaluate_arclength`, and
-  `resample_by_arclength` are active for evaluating a discretized curve by
-  physical arclength and rebuilding panels with constant arclength speed.
+- `Chunker` exposes panel endpoint positions, endpoint unit tangents, and
+  coordinate bounds for diagnostics and graph/RCIP bookkeeping.
 - `change_quadrature_order` interpolates panel geometry, and optional data with
   trailing `(quadrature_order, panel_count)` axes, to a new Legendre order
   without changing panel topology.

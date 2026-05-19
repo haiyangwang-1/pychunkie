@@ -124,7 +124,7 @@ def _panel_legendre_data(chunker: Chunker, panel_id: int):
 def _nearest_reference_coordinate(chunker: Chunker, panel_id: int, target: NDArray[np.floating], data) -> float:
     panel_positions = chunker.positions[:, :, panel_id]
     nearest_node = int(np.argmin(np.linalg.norm(panel_positions - target[:, None], axis=0)))
-    reference_coordinate = float(chunker.nodes[nearest_node])
+    reference_coordinate = float(chunker._legendre_nodes[nearest_node])
     for _ in range(20):
         position, derivative, second = _evaluate_panel_data(data, reference_coordinate)
         residual = position - target

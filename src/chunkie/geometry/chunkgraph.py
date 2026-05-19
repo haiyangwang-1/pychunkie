@@ -66,7 +66,7 @@ class BoundaryPart:
 
     @property
     def point_count(self) -> int:
-        return self.points.point_map.point_count
+        return self.points.point_count
 
     @property
     def panel_count(self) -> int:
@@ -203,9 +203,8 @@ class ChunkGraph:
     def merged_points(self) -> PointInfoView:
         if not self.edges:
             raise ValueError("empty ChunkGraph has no points")
-        order = self.quadrature_order
         first = self.edges[0].chunker
-        nodes = first.nodes
+        nodes = first._legendre_nodes
         positions = np.concatenate([edge.chunker.positions for edge in self.edges], axis=2)
         derivatives = np.concatenate([edge.chunker.derivatives for edge in self.edges], axis=2)
         second_derivatives = np.concatenate([edge.chunker.second_derivatives for edge in self.edges], axis=2)
@@ -222,7 +221,6 @@ class ChunkGraph:
             weights=weights,
             nodes=nodes,
             panel_ids=np.arange(positions.shape[2], dtype=np.int64),
-            point_map=first.point_map.__class__(order, positions.shape[2]),
         )
 
     def boundary(
@@ -333,7 +331,6 @@ class ChunkGraph:
             raise ValueError("orientation must have one entry per edge")
         if np.any((orientation_array != 1) & (orientation_array != -1)):
             raise ValueError("orientation entries must be +1 or -1")
-        order = self.quadrature_order
         first = self.edge(edge_ids[0]).chunker
         oriented = [
             _oriented_edge_point_tensors(self.edge(edge_id).chunker, int(edge_orientation))
@@ -353,9 +350,8 @@ class ChunkGraph:
             second_derivatives=second_derivatives,
             normals=normals,
             weights=weights,
-            nodes=first.nodes,
+            nodes=first._legendre_nodes,
             panel_ids=np.arange(positions.shape[2], dtype=np.int64),
-            point_map=first.point_map.__class__(order, positions.shape[2]),
         )
 
 

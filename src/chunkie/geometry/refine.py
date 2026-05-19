@@ -8,7 +8,6 @@ import numpy as np
 from numpy.polynomial.legendre import leggauss
 from numpy.typing import NDArray
 
-from .arclength import _interpolation_matrix
 from .chunker import Chunker, right_normals
 from .constructors import _adjacency
 
@@ -20,12 +19,12 @@ def change_quadrature_order(
 ):
     """Interpolate geometry, and optional panel data, to a new panel order."""
 
-    new_nodes, new_reference_weights = leggauss(int(quadrature_order))
-    interpolation = _interpolation_matrix(chunker.nodes, new_nodes)
+    new_nodes, new_legendre_weights = leggauss(int(quadrature_order))
+    interpolation = _interpolation_matrix(chunker._legendre_nodes, new_nodes)
     positions = np.einsum("ql,RlS->RqS", interpolation, chunker.positions)
     derivatives = np.einsum("ql,RlS->RqS", interpolation, chunker.derivatives)
     second_derivatives = np.einsum("ql,RlS->RqS", interpolation, chunker.second_derivatives)
-    weights = new_reference_weights[:, None] * np.linalg.norm(derivatives, axis=0)
+    weights = new_legendre_weights[:, None] * np.linalg.norm(derivatives, axis=0)
     metadata = dict(chunker.metadata)
     metadata["quadrature_order_changed_from"] = chunker.quadrature_order
     updated = Chunker(
@@ -34,8 +33,8 @@ def change_quadrature_order(
         second_derivatives=second_derivatives,
         normals=right_normals(derivatives),
         weights=weights,
-        nodes=new_nodes,
-        reference_weights=new_reference_weights,
+        _legendre_nodes=new_nodes,
+        _legendre_weights=new_legendre_weights,
         adjacency=chunker.adjacency.copy(),
         closed=chunker.closed,
         orientation=chunker.orientation,
@@ -95,8 +94,8 @@ def refine(chunker: Chunker, *, levels: int = 1) -> Chunker:
         second_derivatives=second_derivatives,
         normals=right_normals(derivatives),
         weights=weights,
-        nodes=chunker.nodes,
-        reference_weights=chunker.reference_weights,
+        _legendre_nodes=chunker._legendre_nodes,
+        _legendre_weights=chunker._legendre_weights,
         adjacency=_adjacency(new_panel_count, chunker.closed),
         closed=chunker.closed,
         orientation=chunker.orientation,
@@ -118,8 +117,8 @@ def _fill_refined_child(
 ) -> None:
     center = 0.5 * (left + right)
     scale = 0.5 * (right - left)
-    parent_nodes = center + scale * chunker.nodes
-    interpolation = _interpolation_matrix(chunker.nodes, parent_nodes)
+    parent_nodes = center + scale * chunker._legendre_nodes
+    interpolation = _interpolation_matrix(chunker._legendre_nodes, parent_nodes)
 
     positions[:, :, out_panel] = np.einsum("qk,Rk->Rq", interpolation, chunker.positions[:, :, parent_panel])
     # Parent derivatives are with respect to the parent reference coordinate.
@@ -135,4 +134,29 @@ def _fill_refined_child(
         interpolation,
         chunker.second_derivatives[:, :, parent_panel],
     )
-    weights[:, out_panel] = chunker.reference_weights * np.linalg.norm(derivatives[:, :, out_panel], axis=0)
+    weights[:, out_panel] = chunker._legendre_weights * np.linalg.norm(
+        derivatives[:, :, out_panel], axis=0
+    )
+
+
+def _interpolation_matrix(
+    nodes: NDArray[np.floating], targets: NDArray[np.floating]
+) -> NDArray[np.floating]:
+    barycentric_weights = _barycentric_weights(nodes)
+    matrix = np.empty((targets.size, nodes.size), dtype=float)
+    for row, target in enumerate(targets):
+        differences = target - nodes
+        exact = np.isclose(differences, 0.0, atol=1.0e-15, rtol=0.0)
+        if np.any(exact):
+            matrix[row] = 0.0
+            matrix[row, np.argmax(exact)] = 1.0
+            continue
+        scaled = barycentric_weights / differences
+        matrix[row] = scaled / np.sum(scaled)
+    return matrix
+
+
+def _barycentric_weights(nodes: NDArray[np.floating]) -> NDArray[np.floating]:
+    differences = nodes[:, None] - nodes[None, :]
+    np.fill_diagonal(differences, 1.0)
+    return 1.0 / np.prod(differences, axis=1)

@@ -64,7 +64,7 @@ unless a compatibility boundary needs them.
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| `chunkie.geometry` | ✅ 🧪 in progress | Panel-major `Chunker`, point maps, pointinfo views, endpoint/centroid/bounds diagnostics, reusable curve callbacks, basic/adaptive constructors, metrics, arclength parameterization/resampling, Bernstein reference ellipses/panel images, quadrature-order interpolation, uniform split-panel refinement, affine/rotate/reflect transforms, near-panel node-distance flags, rectangle flags, nearest-point projection, orientation-aware selected-edge `BoundaryPart` views with curvature diagnostics, and operational single- and multi-edge `ChunkGraph` records/views/nested classification are active. |
+| `chunkie.geometry` | ✅ 🧪 in progress | Panel-major `Chunker` with private Gauss-Legendre nodes/weights, public physical quadrature weights, direct point-id arithmetic, pointinfo views, endpoint/bounds diagnostics, basic/adaptive constructors, metrics, Bernstein reference ellipses/panel images, quadrature-order interpolation, uniform split-panel refinement, affine/rotate/reflect transforms, near-panel node-distance flags, rectangle flags, nearest-point projection, orientation-aware selected-edge `BoundaryPart` views with curvature diagnostics, and operational single- and multi-edge `ChunkGraph` records/views/nested classification are active. Standalone curve callback helpers and arclength-resampling helpers are inactive to keep the geometry surface focused. |
 | `chunkie.kernels` | ✅ 🧪 in progress | Kernel object, Laplace/Helmholtz/biharmonic/Stokes/elasticity formulas, registry, algebra, and singularity metadata foundation are active. Laplace metadata uses `G`, `G_a`, and `G_ab`; smooth amplitudes are allowed on those bases for special-quadrature consumption; Helmholtz metadata differentiates `J0(k*rho) * G`; biharmonic metadata uses `B=-(rho^2/4)G`; Stokes velocity metadata covers `s` and `d`; elasticity single-displacement metadata covers `s`; algebra scales and cancels exact scalar/matrix singular terms. |
 | `chunkie.quadrature` | ✅ 🧪 🎯 in progress | Legendre utilities, dense panel helpers, component-major dense operator materialization, adaptive source-panel fallback, adaptive close-panel replacement for field evaluation, Helsing-Ojala log/Cauchy/derivative product weights, generated GGQ-style split rules/panel matrices, fixture-backed GGQ removable-rule parity, log/PV/HS `SingularityInfo` smooth-amplitude dispatch, and Helmholtz single-layer HO panel correction are active; broader MATLAB GGQ table parity remains a required milestone. |
 | `chunkie.rcip` | ✅ 🧪 in progress | Dyadic local corner geometry with pointinfo-compatible derivatives/normals/weights, barycentric and split-panel prolongation matrices, edge/component block prolongation, dense local trace-operator records, dense single-level and recursive Schur compression updates, corner state records, saved recursion records, and density interpolation are active. |
@@ -76,15 +76,13 @@ unless a compatibility boundary needs them.
 | Python file | Public classes / functions | MATLAB reference responsibility |
 | --- | --- | --- |
 | `src/chunkie/__init__.py` | top-level exports | Python package facade for the active public API. |
-| `src/chunkie/geometry/chunker.py` | `Chunker`, `right_normals` | MATLAB `@chunker` core geometry fields, metrics, normals, transforms, and pointinfo. |
+| `src/chunkie/geometry/chunker.py` | `Chunker`, `right_normals` | MATLAB `@chunker` core geometry fields, private Legendre reference data, physical weights, metrics, normals, transforms, and pointinfo. |
 | `src/chunkie/geometry/chunkgraph.py` | `ChunkGraph`, `BoundaryPart`, `GraphVertex`, `GraphEdge`, `GraphRegion`, `RegionCycle`, `SignedEdge` | MATLAB `@chunkgraph`, `chunkgraphinit`, selected-edge boundary views, and region classification. |
 | `src/chunkie/geometry/constructors.py` | `circle`, `ellipse`, `chunker_from_curve`, `chunker_from_polygon` | MATLAB `chunkerfunc`, `chunkerfuncuni`, `chunkerpoly`, `ellipse`, and constructor-family behavior. |
-| `src/chunkie/geometry/curves.py` | `unit_circle`, `line_segment`, `parabola`, `sine_graph`, `starfish`, `fourier_radius` | MATLAB curve callbacks under root and `+chnk/+curves`. |
-| `src/chunkie/geometry/arclength.py` | `ArcLengthParameterization`, `arclength_parameterization`, `evaluate_arclength`, `resample_by_arclength` | MATLAB `+chnk/+arcparam`, `@chunker/arclength*`, and `@chunker/arcresample`. |
 | `src/chunkie/geometry/refine.py` | `change_quadrature_order`, `refine` | MATLAB `@chunker/refine`, `@chunker/split`, and `@chunker/upsample` behavior at Python-first scope. |
 | `src/chunkie/geometry/near.py` | `NearestPoint`, `flagnear`, `flagnear_rectangle`, `flagnear_rectangle_grid`, `nearest_point` | MATLAB near-panel and nearest-point helpers. |
 | `src/chunkie/geometry/bernstein.py` | `BernsteinPanelImage`, `bernstein_ellipse`, `bernstein_panel_image`, `bernstein_radius` | MATLAB `@chunker/ellipses`, `+lege/bernstein_ellipse`, and analytic-continuation diagnostics. |
-| `src/chunkie/geometry/points.py` | `PointMap`, `PointInfoView`, `PanelView` | Pointinfo and panel/node adapter responsibilities. |
+| `src/chunkie/geometry/points.py` | `PointInfoView`, `PanelView` | Pointinfo and panel/node adapter responsibilities. |
 | `src/chunkie/geometry/regions.py` | `winding_number` | MATLAB `pointinregion`, `regioninside`, and graph region classification primitives. |
 | `src/chunkie/geometry/transforms.py` | `translate`, `scale`, `affine`, `rotate`, `reflect` | MATLAB `plus`, `mtimes`, `move`, `rotate`, and `reflect` style transforms. |
 | `src/chunkie/kernels/base.py` | `Kernel`, `flat_positions`, `flat_normals` | MATLAB `@kernel/kernel.m` object behavior and geometry adapters. |
@@ -151,8 +149,8 @@ listed as support/deferred groups rather than expanded file-by-file.
 | `chunkgraphinit.m` | `ChunkGraph.from_vertices` | ✅ 🧪 | Multi-edge graph construction is active. |
 | `chunkgraphinregion.m` | `ChunkGraph.classify_points`, `boundary_part` | ✅ 🧪 | Nested-cycle region classification and boundary-part views are active. |
 | `ellipse.m` | `ellipse` | ✅ 🧪 | Active analytic ellipse constructor. |
-| `starfish.m`, `+chnk/+curves/bymode.m` | `starfish`, `fourier_radius` | ✅ 🧪 | Starfish/Fourier-radius curve callbacks are active. |
-| `nonflatinterface.m` | target: `src/chunkie/geometry/curves.py` | 🚧 | No current equivalent callback. |
+| `starfish.m`, `+chnk/+curves/bymode.m` | none | 🚫 | Standalone curve callbacks are inactive; use ordinary Python callables with constructors instead. |
+| `nonflatinterface.m` | none | 🚫 | Standalone curve callback ports are inactive. |
 | `hypoct_uni.m` | target: future spatial indexing | 🚧 | No active hyperoctree implementation in the clean rewrite. |
 | `pointinregion.m`, `regioninside.m` | `winding_number`, `ChunkGraph.classify_points` | ✅ 🧪 | Region membership behavior exists for current graph cases. |
 | `mergeregions.m`, `redblue.m` | target: graph region utilities | 🚧 | No active public merge/color-region helper. |
@@ -162,12 +160,12 @@ listed as support/deferred groups rather than expanded file-by-file.
 
 | MATLAB method | Python implementation / target | Status | Notes |
 | --- | --- | --- | --- |
+| `centroids.m` | target: future diagnostics | 🚧 | No active public centroid helper. |
+| `arclengthder.m`, `arclengthfun.m` | none | 🚫 | Standalone arclength parameterization/evaluation helpers are inactive. |
+| `arcresample.m` | none | 🚫 | Arclength resampling is inactive. |
 | `chunker.m` | `Chunker` | ✅ 🧪 | Panel-major storage with Python aliases; MATLAB storage layout is not preserved. |
 | `area.m` | `Chunker.area` | ✅ 🧪 | Signed area for closed curves. |
 | `arclengthdens.m` | `Chunker.arclength_density` | ✅ 🧪 | Active panel speed helper. |
-| `arclengthder.m`, `arclengthfun.m` | `arclength_parameterization`, `evaluate_arclength` | 🟡 🧪 | Active arclength evaluation, not MATLAB method names. |
-| `arcresample.m` | `resample_by_arclength` | ✅ 🧪 | Constant-speed resampling is active. |
-| `centroids.m` | `Chunker.panel_centroids` | ✅ 🧪 | Weighted panel centroids. |
 | `chunkends.m` | `Chunker.panel_endpoints`, `panel_endpoint_tangents` | ✅ 🧪 | Endpoint diagnostics active. |
 | `chunkerpoints.m` | `PointInfoView`, direct `Chunker` construction | 🟡 🧪 | Pointinfo adapters active; no MATLAB facade. |
 | `chunklen.m` | `Chunker.panel_lengths` | ✅ 🧪 | Active panel lengths. |
@@ -260,17 +258,17 @@ listed as support/deferred groups rather than expanded file-by-file.
 
 | MATLAB item | Python implementation / target | Status | Notes |
 | --- | --- | --- | --- |
-| `init.m` | `arclength_parameterization` | ✅ 🧪 | Active arclength parameterization. |
-| `eval.m` | `evaluate_arclength` | ✅ 🧪 | Active physical-arclength evaluation. |
+| `init.m` | none | 🚫 | Arcparam helpers are inactive. |
+| `eval.m` | none | 🚫 | Arcparam helpers are inactive. |
 
 ### MATLAB `+chnk/+curves`
 
 | MATLAB item | Python implementation / target | Status | Notes |
 | --- | --- | --- | --- |
-| `linefunc.m` | `line_segment` | ✅ 🧪 | Active line callback. |
-| `fpara.m` | `parabola` | ✅ 🧪 | Active parabola callback. |
-| `fsine.m` | `sine_graph` | ✅ 🧪 | Active sine-graph callback. |
-| `bymode.m` | `fourier_radius`, `starfish` | ✅ 🧪 | Active Fourier-radius/starfish callbacks. |
+| `linefunc.m` | none | 🚫 | Standalone curve callback ports are inactive. |
+| `fpara.m` | none | 🚫 | Standalone curve callback ports are inactive. |
+| `fsine.m` | none | 🚫 | Standalone curve callback ports are inactive. |
+| `bymode.m` | none | 🚫 | Standalone curve callback ports are inactive. |
 
 ### MATLAB Physics Packages
 

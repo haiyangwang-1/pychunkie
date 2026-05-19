@@ -11,29 +11,6 @@ FloatArray = NDArray[np.floating]
 
 
 @dataclass(frozen=True)
-class PointMap:
-    """Reversible map between panel-major point ids and panel/local ids."""
-
-    quadrature_order: int
-    panel_count: int
-
-    @property
-    def point_count(self) -> int:
-        return self.quadrature_order * self.panel_count
-
-    def to_point_id(self, panel_id: int | NDArray[np.integer], local_node_id: int | NDArray[np.integer]):
-        panel = np.asarray(panel_id, dtype=np.int64)
-        local = np.asarray(local_node_id, dtype=np.int64)
-        return panel * self.quadrature_order + local
-
-    def from_point_id(self, point_id: int | NDArray[np.integer]):
-        point = np.asarray(point_id, dtype=np.int64)
-        panel = point // self.quadrature_order
-        local = point % self.quadrature_order
-        return panel, local
-
-
-@dataclass(frozen=True)
 class PointInfoView:
     """Read-only view of boundary point tensors in canonical panel-major form."""
 
@@ -44,7 +21,18 @@ class PointInfoView:
     weights: FloatArray
     nodes: FloatArray
     panel_ids: NDArray[np.integer]
-    point_map: PointMap
+
+    @property
+    def quadrature_order(self) -> int:
+        return int(self.positions.shape[1])
+
+    @property
+    def panel_count(self) -> int:
+        return int(self.positions.shape[2])
+
+    @property
+    def point_count(self) -> int:
+        return self.quadrature_order * self.panel_count
 
     @property
     def flat_positions(self) -> FloatArray:

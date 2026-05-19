@@ -31,7 +31,7 @@ def test_chunker_from_curve_builds_closed_circle_panels():
 
     for panel_id, (left, right) in enumerate(zip(breaks[:-1], breaks[1:], strict=True)):
         half_width = 0.5 * (right - left)
-        theta = 0.5 * (left + right) + half_width * boundary.nodes
+        theta = 0.5 * (left + right) + half_width * boundary._legendre_nodes
         expected_positions, global_derivatives, global_second = _circle_curve(theta, radius=radius)
         np.testing.assert_allclose(boundary.positions[:, :, panel_id], expected_positions, atol=1.0e-12)
         np.testing.assert_allclose(boundary.derivatives[:, :, panel_id], half_width * global_derivatives)
@@ -39,7 +39,7 @@ def test_chunker_from_curve_builds_closed_circle_panels():
         np.testing.assert_allclose(boundary.normals[:, :, panel_id], expected_positions / radius)
         np.testing.assert_allclose(
             boundary.weights[:, panel_id],
-            radius * half_width * boundary.reference_weights,
+            radius * half_width * boundary._legendre_weights,
         )
 
 
@@ -76,7 +76,7 @@ def test_chunker_from_curve_differentiates_position_only_callback():
 
     for panel_id, (left, right) in enumerate(zip(breaks[:-1], breaks[1:], strict=True)):
         half_width = 0.5 * (right - left)
-        theta = 0.5 * (left + right) + half_width * boundary.nodes
+        theta = 0.5 * (left + right) + half_width * boundary._legendre_nodes
         expected_derivatives = half_width * np.vstack((-np.sin(theta), np.cos(theta)))
         expected_second = -(half_width**2) * np.vstack((np.cos(theta), np.sin(theta)))
 

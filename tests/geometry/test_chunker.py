@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from chunkie.geometry import ChunkGraph, chunker_from_polygon, circle, ellipse, flagnear
 
@@ -9,20 +10,29 @@ def test_circle_uses_panel_major_storage_and_exterior_normals():
     assert boundary.positions.shape == (2, 8, 4)
     assert boundary.weights.shape == (8, 4)
     assert boundary.point_count == 32
+    with pytest.raises(AttributeError):
+        _ = boundary.nodes
+    with pytest.raises(AttributeError):
+        _ = boundary.reference_weights
+    with pytest.raises(AttributeError):
+        boundary.nodes = np.zeros(8)
+    with pytest.raises(AttributeError):
+        boundary.reference_weights = np.zeros(8)
 
     radial = boundary.positions / np.linalg.norm(boundary.positions, axis=0, keepdims=True)
     np.testing.assert_allclose(boundary.normals, radial, atol=1.0e-12)
     np.testing.assert_allclose(np.sum(boundary.weights), 4.0 * np.pi, rtol=1.0e-12)
 
 
-def test_point_map_is_panel_major():
+def test_panel_major_point_ids_use_direct_formula():
     boundary = ellipse(axes=(2.0, 1.0), quadrature_order=5, panel_count=3)
-    point_id = boundary.point_map.to_point_id(2, 4)
-    panel, local = boundary.point_map.from_point_id(point_id)
+    point_id = 2 * boundary.quadrature_order + 4
+    panel = point_id // boundary.quadrature_order
+    local = point_id % boundary.quadrature_order
 
-    assert int(point_id) == 14
-    assert int(panel) == 2
-    assert int(local) == 4
+    assert point_id == 14
+    assert panel == 2
+    assert local == 4
 
 
 def test_polygon_constructor_and_near_flags_are_active():

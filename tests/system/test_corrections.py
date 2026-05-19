@@ -12,9 +12,8 @@ def test_panel_correction_replaces_component_major_dense_block():
     matrix = dense_panel_operator_matrix(boundary.pointinfo, boundary.pointinfo, stokes_s)
     original = matrix.copy()
     target_panel_id = 1
-    target_point_ids = boundary.point_map.to_point_id(
-        target_panel_id,
-        np.arange(boundary.quadrature_order),
+    target_point_ids = target_panel_id * boundary.quadrature_order + np.arange(
+        boundary.quadrature_order
     )
 
     correction = build_panel_correction(
@@ -42,7 +41,7 @@ def test_panel_correction_uses_ggq_for_laplace_single_layer_self_block():
     boundary = chunker_from_polygon([(0, 0), (1, 0), (1, 1), (0, 1)], quadrature_order=8)
     laplace_s = kernel("laplace", selector="s")
     matrix = dense_panel_operator_matrix(boundary.pointinfo, boundary.pointinfo, laplace_s)
-    target_point_ids = boundary.point_map.to_point_id(0, np.arange(boundary.quadrature_order))
+    target_point_ids = np.arange(boundary.quadrature_order)
 
     correction = build_panel_correction(
         boundary,
@@ -77,6 +76,8 @@ def test_build_corrections_selects_laplace_self_blocks_with_ggq():
     assert {correction.diagnostics["method"] for correction in corrections} == {"ggq"}
     assert all(np.isfinite(correction.values).all() for correction in corrections)
     for panel_id, correction in enumerate(corrections):
-        expected_points = boundary.point_map.to_point_id(panel_id, np.arange(boundary.quadrature_order))
+        expected_points = panel_id * boundary.quadrature_order + np.arange(
+            boundary.quadrature_order
+        )
         np.testing.assert_array_equal(correction.columns, expected_points)
         np.testing.assert_allclose(matrix[np.ix_(correction.rows, correction.columns)], correction.values)

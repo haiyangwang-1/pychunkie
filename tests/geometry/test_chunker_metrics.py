@@ -6,9 +6,16 @@ from chunkie.geometry import affine, circle, reflect, rotate, scale, translate
 def test_circle_metrics_match_analytic_geometry():
     boundary = circle(radius=2.5, quadrature_order=18, panel_count=6)
     tangents = boundary.tangents
+    expected_panel_length = 2.0 * np.pi * 2.5 / 6
 
     np.testing.assert_allclose(
-        boundary.panel_lengths, np.full(6, 2.0 * np.pi * 2.5 / 6), atol=1.0e-13
+        boundary.weights,
+        np.linalg.norm(boundary.derivatives, axis=0) * boundary._legendre_weights[:, None],
+        atol=1.0e-13,
+    )
+
+    np.testing.assert_allclose(
+        boundary.panel_lengths, np.full(6, expected_panel_length), atol=1.0e-13
     )
     np.testing.assert_allclose(boundary.length, 2.0 * np.pi * 2.5, atol=1.0e-13)
     np.testing.assert_allclose(boundary.area, np.pi * 2.5**2, atol=1.0e-13)
@@ -18,7 +25,7 @@ def test_circle_metrics_match_analytic_geometry():
     np.testing.assert_allclose(boundary.signed_curvature, 1.0 / 2.5, atol=1.0e-13)
 
 
-def test_panel_endpoint_centroid_and_bounds_diagnostics():
+def test_panel_endpoint_and_bounds_diagnostics():
     boundary = circle(radius=1.0, quadrature_order=18, panel_count=4)
     endpoints = boundary.panel_endpoints
     endpoint_tangents = boundary.panel_endpoint_tangents
@@ -35,11 +42,6 @@ def test_panel_endpoint_centroid_and_bounds_diagnostics():
     np.testing.assert_allclose(endpoints[:, 1, :], expected_ends, atol=1.0e-12)
     np.testing.assert_allclose(endpoint_tangents[:, 0, :], expected_start_tangents, atol=1.0e-12)
     np.testing.assert_allclose(endpoint_tangents[:, 1, :], expected_end_tangents, atol=1.0e-12)
-    np.testing.assert_allclose(
-        boundary.panel_centroids,
-        (2.0 / np.pi) * np.array([[1, -1, -1, 1], [1, 1, -1, -1]]),
-        atol=1.0e-12,
-    )
     np.testing.assert_allclose(bounds_min, [-1.0, -1.0], atol=1.0e-2)
     np.testing.assert_allclose(bounds_max, [1.0, 1.0], atol=1.0e-2)
 
@@ -95,7 +97,7 @@ def test_affine_rotation_and_reflection_update_normals_weights_and_area():
     )
     np.testing.assert_allclose(transformed.normals, expected_normals)
     np.testing.assert_allclose(
-        transformed.weights, expected_speed * boundary.reference_weights[:, None]
+        transformed.weights, expected_speed * boundary._legendre_weights[:, None]
     )
     np.testing.assert_allclose(
         transformed.area, np.linalg.det(matrix) * boundary.area, atol=1.0e-12

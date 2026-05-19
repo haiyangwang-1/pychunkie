@@ -42,7 +42,6 @@ src/
     │   ├── points.py
     │   ├── chunker.py
     │   ├── chunkgraph.py
-    │   ├── curves.py
     │   ├── constructors.py
     │   ├── refine.py
     │   ├── transforms.py
@@ -253,9 +252,8 @@ class PointInfoView(Protocol):
     second_derivatives: ndarray     # second_derivatives[R, s, S]
     normals: ndarray                # right/exterior normals[R, s, S]
     weights: ndarray                # weights[s, S]
-    nodes: ndarray                  # nodes[s]
+    nodes: ndarray                  # Legendre nodes[s]
     panel_ids: ndarray              # panel_ids[S] or selected panel ids
-    point_map: PointMap             # reversible point_id <-> (panel, local)
 ```
 
 For arbitrary off-boundary target clouds, public APIs should accept coordinate
@@ -368,9 +366,9 @@ class Chunker:
     derivatives: ndarray            # derivatives[R, s, S]
     second_derivatives: ndarray     # second_derivatives[R, s, S]
     normals: ndarray                # right/exterior normals[R, s, S]
-    weights: ndarray                # weights[s, S]
-    nodes: ndarray                  # Legendre nodes[s]
-    reference_weights: ndarray      # Legendre weights[s]
+    weights: ndarray                # physical weights[s, S] = |dr/du| * Legendre weights[s]
+    _legendre_nodes: ndarray        # private Gauss-Legendre nodes[s]
+    _legendre_weights: ndarray      # private Gauss-Legendre weights[s]
     adjacency: ndarray              # adjacency[2, S]
     closed: bool
     orientation: Literal["ccw", "cw", "open"] | None
@@ -540,7 +538,6 @@ graph.edge_points(edge_id) -> PointInfoView
 graph.region(region_id) -> GraphRegion
 graph.boundary(region_id, side="interior") -> BoundaryPart
 graph.merged_points() -> PointInfoView
-graph.point_map() -> PointMap
 ```
 
 `BoundaryPart` should be the object passed to systems when a BVP applies on a

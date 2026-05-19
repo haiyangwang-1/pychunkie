@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 
 from chunkie.geometry import Chunker, ChunkGraph
 from chunkie.geometry.chunker import right_normals
-from chunkie.geometry.points import PointInfoView, PointMap
+from chunkie.geometry.points import PointInfoView
 from chunkie.kernels.base import flat_normals, flat_positions
 from chunkie.quadrature import apply_panel_potential, dense_panel_operator_matrix
 from chunkie.rcip import (
@@ -62,8 +62,8 @@ def build_rcip_state(system, *, config: SystemConfig | None = None) -> RCIPState
 
     trace_template = _first_trace_term(system)
     trace_info = _rcip_trace_info(system)
-    nodes = graph.edges[0].chunker.nodes
-    weights = graph.edges[0].chunker.reference_weights
+    nodes = graph.edges[0].chunker._legendre_nodes
+    weights = graph.edges[0].chunker._legendre_weights
     _, _, interpolation, weighted_transfer = build_split_panel_prolongation(nodes, weights)
 
     corners: list[RCIPCornerState] = []
@@ -422,8 +422,8 @@ def _local_edge_chunker(
 ) -> Chunker:
     edge = graph.edge(edge_id).chunker
     vertex = graph.vertices[vertex_id].position
-    nodes = edge.nodes
-    reference_weights = edge.reference_weights
+    nodes = edge._legendre_nodes
+    reference_weights = edge._legendre_weights
     if sign < 0:
         tangent = _unit(edge.derivatives[:, 0, 0])
         base_length = float(np.sum(edge.weights[:, 0]))
@@ -481,8 +481,8 @@ def _line_interval_chunker(
         second_derivatives=second,
         normals=right_normals(derivatives),
         weights=weights,
-        nodes=nodes,
-        reference_weights=reference_weights,
+        _legendre_nodes=nodes,
+        _legendre_weights=reference_weights,
         adjacency=_open_adjacency(panel_count),
         closed=False,
         orientation="open",
@@ -498,8 +498,8 @@ def _panel_relative_chunker(edge: Chunker, panel_id: int, vertex: NDArray[np.flo
         second_derivatives=edge.second_derivatives[:, :, panel_id : panel_id + 1].copy(),
         normals=edge.normals[:, :, panel_id : panel_id + 1].copy(),
         weights=edge.weights[:, panel_id : panel_id + 1].copy(),
-        nodes=edge.nodes.copy(),
-        reference_weights=edge.reference_weights.copy(),
+        _legendre_nodes=edge._legendre_nodes.copy(),
+        _legendre_weights=edge._legendre_weights.copy(),
         adjacency=_open_adjacency(1),
         closed=False,
         orientation="open",
@@ -517,8 +517,8 @@ def _merge_chunkers(chunks: tuple[Chunker, ...] | list[Chunker]) -> Chunker:
         second_derivatives=np.concatenate([chunk.second_derivatives for chunk in chunks], axis=2),
         normals=np.concatenate([chunk.normals for chunk in chunks], axis=2),
         weights=np.concatenate([chunk.weights for chunk in chunks], axis=1),
-        nodes=first.nodes.copy(),
-        reference_weights=first.reference_weights.copy(),
+        _legendre_nodes=first._legendre_nodes.copy(),
+        _legendre_weights=first._legendre_weights.copy(),
         adjacency=_open_adjacency(panel_count),
         closed=False,
         orientation="open",
@@ -664,7 +664,6 @@ def _pointinfo_subset(source: PointInfoView, indices: NDArray[np.integer]) -> Po
         weights=source.weights[:, panel_ids],
         nodes=source.nodes,
         panel_ids=np.arange(panel_ids.size, dtype=np.int64),
-        point_map=PointMap(quadrature_order, panel_ids.size),
     )
 
 
@@ -681,7 +680,6 @@ def _pointinfo_append(left: PointInfoView, right: PointInfoView) -> PointInfoVie
         weights=np.concatenate((left.weights, right.weights), axis=1),
         nodes=left.nodes,
         panel_ids=np.arange(panel_count, dtype=np.int64),
-        point_map=PointMap(left.nodes.size, panel_count),
     )
 
 

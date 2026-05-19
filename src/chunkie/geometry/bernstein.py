@@ -45,7 +45,7 @@ def bernstein_panel_image(
     if not 0 <= panel_id < chunker.panel_count:
         raise IndexError("panel_id out of range")
     references = bernstein_ellipse(point_count, rho)
-    interpolation = _complex_interpolation_matrix(chunker.nodes, references)
+    interpolation = _complex_interpolation_matrix(chunker._legendre_nodes, references)
     positions = np.einsum("ql,Rl->Rq", interpolation, chunker.positions[:, :, panel_id])
     center = np.mean(positions, axis=1)
     return BernsteinPanelImage(

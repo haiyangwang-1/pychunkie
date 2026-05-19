@@ -53,7 +53,8 @@ def build_corrections(
     for source_panel_id in range(source.panel_count):
         target_ids = np.flatnonzero(near_flags[:, source_panel_id])
         self_ids = (
-            source.point_map.to_point_id(source_panel_id, np.arange(source.quadrature_order, dtype=np.int64))
+            source_panel_id * source.quadrature_order
+            + np.arange(source.quadrature_order, dtype=np.int64)
             if source is target
             else np.array([], dtype=np.int64)
         )
@@ -132,7 +133,7 @@ def build_panel_correction(
             raise ValueError("Helsing-Ojala panel corrections require an explicit side")
         tensor = build_helsing_ojala_panel_matrix(panel, target_points, kernel, side=side)
     elif method0 == "ggq":
-        expected = source.point_map.to_point_id(source_panel_id, np.arange(source.quadrature_order))
+        expected = source_panel_id * source.quadrature_order + np.arange(source.quadrature_order)
         if not np.array_equal(point_ids, expected):
             raise ValueError("generated GGQ panel corrections currently require the matching self-panel targets")
         tensor = build_ggq_self_panel_matrix(panel, kernel)
@@ -169,7 +170,7 @@ def panel_block_indices(
 ) -> tuple[NDArray[np.integer], NDArray[np.integer]]:
     point_ids = np.asarray(target_point_ids, dtype=np.int64).reshape(-1)
     local_nodes = np.arange(source.quadrature_order, dtype=np.int64)
-    source_point_ids = source.point_map.to_point_id(source_panel_id, local_nodes)
+    source_point_ids = source_panel_id * source.quadrature_order + local_nodes
 
     # System matrices are component-major over panel-major point ids. This is
     # the global counterpart of quadrature's local operator-matrix adapter.

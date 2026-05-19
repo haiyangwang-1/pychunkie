@@ -23,7 +23,7 @@ def test_chunkgraph_from_vertices_builds_directed_square_edges():
         end = vertices[:, edges[1, edge_id]]
         tangent = end - start
         half_tangent = tangent / 2.0
-        reference = (graph.edge(edge_id).chunker.nodes + 1.0) / 2.0
+        reference = (graph.edge(edge_id).chunker._legendre_nodes + 1.0) / 2.0
         expected_positions = start[:, None] + tangent[:, None] * reference[None, :]
         expected_normals = np.repeat([[half_tangent[1]], [-half_tangent[0]]], 6, axis=1) / np.linalg.norm(
             half_tangent,

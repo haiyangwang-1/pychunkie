@@ -9,7 +9,7 @@ from numpy.polynomial.legendre import leggauss
 from numpy.typing import ArrayLike, NDArray
 
 from chunkie.geometry.chunker import right_normals
-from chunkie.geometry.points import PointInfoView, PointMap
+from chunkie.geometry.points import PointInfoView
 
 
 @dataclass(frozen=True)
@@ -51,7 +51,6 @@ class LocalCornerGeometry:
             weights=self.weights,
             nodes=self.nodes,
             panel_ids=np.arange(self.panel_count, dtype=np.int64),
-            point_map=PointMap(self.quadrature_order, self.panel_count),
         )
 
 

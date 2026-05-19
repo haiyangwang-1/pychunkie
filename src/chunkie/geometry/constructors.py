@@ -112,7 +112,7 @@ def chunker_from_polygon(
 ) -> Chunker:
     verts = _as_vertices(vertices)
     edge_count = verts.shape[1] if closed else verts.shape[1] - 1
-    nodes, reference_weights = leggauss(quadrature_order)
+    legendre_nodes, legendre_weights = leggauss(quadrature_order)
     positions = np.empty((2, quadrature_order, edge_count), dtype=float)
     derivatives = np.empty_like(positions)
     second = np.zeros_like(positions)
@@ -123,9 +123,11 @@ def chunker_from_polygon(
         end = verts[:, (edge_id + 1) % verts.shape[1]]
         midpoint = 0.5 * (start + end)
         half_edge = 0.5 * (end - start)
-        positions[:, :, edge_id] = midpoint[:, None] + half_edge[:, None] * nodes[None, :]
+        positions[:, :, edge_id] = (
+            midpoint[:, None] + half_edge[:, None] * legendre_nodes[None, :]
+        )
         derivatives[:, :, edge_id] = half_edge[:, None]
-        weights[:, edge_id] = reference_weights * np.linalg.norm(half_edge)
+        weights[:, edge_id] = legendre_weights * np.linalg.norm(half_edge)
 
     normals = right_normals(derivatives)
     return Chunker(
@@ -134,8 +136,8 @@ def chunker_from_polygon(
         second_derivatives=second,
         normals=normals,
         weights=weights,
-        nodes=nodes,
-        reference_weights=reference_weights,
+        _legendre_nodes=legendre_nodes,
+        _legendre_weights=legendre_weights,
         adjacency=_adjacency(edge_count, closed),
         closed=closed,
         orientation="ccw" if closed else "open",
@@ -160,7 +162,7 @@ def _chunker_from_parameter_curve(
     orientation: str,
     metadata: dict[str, Any],
 ) -> Chunker:
-    nodes, reference_weights = leggauss(quadrature_order)
+    legendre_nodes, legendre_weights = leggauss(quadrature_order)
     if breaks is None:
         if panel_count is None or start is None or stop is None:
             raise ValueError("uniform curve construction requires panel_count, start, and stop")
@@ -179,12 +181,14 @@ def _chunker_from_parameter_curve(
     for panel_id in range(panel_total):
         half_width = 0.5 * (breaks[panel_id + 1] - breaks[panel_id])
         midpoint = 0.5 * (breaks[panel_id + 1] + breaks[panel_id])
-        parameters = midpoint + half_width * nodes
+        parameters = midpoint + half_width * legendre_nodes
         r, d, d2 = _curve_outputs(curve, parameters)
         positions[:, :, panel_id] = r
         derivatives[:, :, panel_id] = d * half_width
         second[:, :, panel_id] = d2 * half_width**2
-        weights[:, panel_id] = reference_weights * np.linalg.norm(derivatives[:, :, panel_id], axis=0)
+        weights[:, panel_id] = legendre_weights * np.linalg.norm(
+            derivatives[:, :, panel_id], axis=0
+        )
 
     normals = right_normals(derivatives)
     return Chunker(
@@ -193,8 +197,8 @@ def _chunker_from_parameter_curve(
         second_derivatives=second,
         normals=normals,
         weights=weights,
-        nodes=nodes,
-        reference_weights=reference_weights,
+        _legendre_nodes=legendre_nodes,
+        _legendre_weights=legendre_weights,
         adjacency=_adjacency(panel_total, closed),
         closed=closed,
         orientation=orientation,  # type: ignore[arg-type]
