@@ -44,12 +44,12 @@ Current implementation status:
 - Translation, uniform scaling, affine transforms, rotations, and reflections
   are active. Transforms recompute normals and quadrature weights from the
   transformed tangent instead of carrying stale geometric metadata.
-- Near-panel helpers include direct node-distance flags and padded
-  axis-aligned rectangle flags, including a grid wrapper that preserves
-  `np.meshgrid` row-major ordering. `nearest_point` projects targets to the
-  nearest Legendre-panel location using Newton iteration in panel reference
-  coordinates. Bernstein helpers build reference ellipses and complex panel
-  images for future analytic-continuation close-panel tests.
+- Near-panel helpers use one MATLAB-style oriented Bernstein-rectangle policy,
+  including a grid wrapper that preserves `np.meshgrid` row-major ordering.
+  `nearest_point` projects targets to the nearest Legendre-panel location using
+  Newton iteration in panel reference coordinates. Bernstein helpers build
+  reference ellipses and complex panel images for analytic-continuation
+  close-panel tests.
 - Circle, ellipse, curve, and polygon constructors are active first-pass
   implementations and default to `quadrature_order=16`. Existing chunkers are
   not upsampled to a different quadrature order. Curve constructors accept full

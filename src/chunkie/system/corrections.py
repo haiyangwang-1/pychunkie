@@ -37,7 +37,7 @@ def build_corrections(
     *,
     method: str = "auto",
     side: str | None = None,
-    near_factor: float = 1.0,
+    near_rho: float = 1.8,
     tolerance: float = 1.0e-12,
     include_self: bool = True,
     include_near: bool = True,
@@ -45,10 +45,12 @@ def build_corrections(
     """Select dense local replacement blocks for self and near panel pairs."""
 
     if not isinstance(source, Chunker) or not isinstance(target, Chunker):
-        raise NotImplementedError("automatic corrections currently support Chunker source and target geometry")
+        raise NotImplementedError(
+            "automatic corrections currently support Chunker source and target geometry"
+        )
 
     target_points = target.pointinfo.flat_positions
-    near_flags = flagnear(source, target_points, near_factor=near_factor)
+    near_flags = flagnear(source, target_points, rho=near_rho)
     corrections: list[PanelCorrection] = []
     for source_panel_id in range(source.panel_count):
         target_ids = np.flatnonzero(near_flags[:, source_panel_id])
@@ -66,7 +68,9 @@ def build_corrections(
                     kernel,
                     source_panel_id=source_panel_id,
                     target_point_ids=self_ids,
-                    method=_select_correction_method(kernel, requested=method, self_block=True, side=side),
+                    method=_select_correction_method(
+                        kernel, requested=method, self_block=True, side=side
+                    ),
                     side=side,
                     tolerance=tolerance,
                 )
@@ -81,7 +85,9 @@ def build_corrections(
                         kernel,
                         source_panel_id=source_panel_id,
                         target_point_ids=near_ids,
-                        method=_select_correction_method(kernel, requested=method, self_block=False, side=side),
+                        method=_select_correction_method(
+                            kernel, requested=method, self_block=False, side=side
+                        ),
                         side=side,
                         tolerance=tolerance,
                     )
@@ -89,7 +95,9 @@ def build_corrections(
     return tuple(corrections)
 
 
-def _select_correction_method(kernel: Kernel, *, requested: str, self_block: bool, side: str | None) -> str:
+def _select_correction_method(
+    kernel: Kernel, *, requested: str, self_block: bool, side: str | None
+) -> str:
     method = requested.lower()
     if method != "auto":
         return method
@@ -120,7 +128,9 @@ def build_panel_correction(
     """
 
     if not isinstance(source, Chunker) or not isinstance(target, Chunker):
-        raise NotImplementedError("panel corrections currently support Chunker source and target geometry")
+        raise NotImplementedError(
+            "panel corrections currently support Chunker source and target geometry"
+        )
     panel = source.panel(source_panel_id)
     point_ids = np.asarray(target_point_ids, dtype=np.int64).reshape(-1)
     target_points = target.pointinfo.flat_positions[:, point_ids]
@@ -135,7 +145,9 @@ def build_panel_correction(
     elif method0 == "ggq":
         expected = source_panel_id * source.quadrature_order + np.arange(source.quadrature_order)
         if not np.array_equal(point_ids, expected):
-            raise ValueError("generated GGQ panel corrections currently require the matching self-panel targets")
+            raise ValueError(
+                "generated GGQ panel corrections currently require the matching self-panel targets"
+            )
         tensor = build_ggq_self_panel_matrix(panel, kernel)
     else:
         raise ValueError("panel correction method must be 'adaptive', 'helsing_ojala', or 'ggq'")
@@ -174,7 +186,9 @@ def panel_block_indices(
 
     # System matrices are component-major over panel-major point ids. This is
     # the global counterpart of quadrature's local operator-matrix adapter.
-    rows = np.concatenate([field * target.point_count + point_ids for field in range(kernel.output_dim)])
+    rows = np.concatenate(
+        [field * target.point_count + point_ids for field in range(kernel.output_dim)]
+    )
     columns = np.concatenate(
         [component * source.point_count + source_point_ids for component in range(kernel.input_dim)]
     )

@@ -1,7 +1,7 @@
 # Structured RSKELF for the Figure 4 Junction Example
 
 Status: research/design note. This file records the concrete operator
-formulation that should drive the pyFLAM/RSKELF integration. It is deliberately
+formulation that should drive any future pyFLAM/RSKELF integration. It is deliberately
 limited to the three-region, triple-junction example in Greengard-Lee Figure 4
 before any general multi-boundary API is designed.
 

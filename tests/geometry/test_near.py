@@ -10,21 +10,31 @@ from chunkie.geometry import (
 )
 
 
-def test_flagnear_matches_bruteforce_panel_node_distance():
+def test_flagnear_uses_bernstein_rectangle_for_straight_panel():
+    boundary = chunker_from_polygon(np.array([[0.0, 2.0], [0.0, 0.0]]), closed=False)
+    rho = 1.8
+    semimajor = 0.5 * (rho + 1.0 / rho)
+    semiminor = 0.5 * (rho - 1.0 / rho)
+    points = np.array(
+        [
+            [1.0, 1.0 + 0.99 * semimajor, 1.0 + 1.01 * semimajor, 1.0],
+            [0.0, 0.0, 0.0, 1.01 * semiminor],
+        ],
+    )
+
+    actual = flagnear(boundary, points, rho=rho)
+
+    np.testing.assert_array_equal(actual, np.array([[True], [True], [False], [False]]))
+
+
+def test_flagnear_rectangle_is_compatibility_alias_for_flagnear():
     boundary = circle(quadrature_order=8, panel_count=4)
     points = np.array([[1.0, 0.0, 5.0], [0.0, 1.0, 5.0]])
-    near_factor = 0.75
 
-    actual = flagnear(boundary, points, near_factor=near_factor)
-    expected = np.zeros_like(actual)
-    for panel_id in range(boundary.panel_count):
-        distances = np.linalg.norm(
-            boundary.positions[:, :, panel_id][:, None, :] - points[:, :, None],
-            axis=0,
-        )
-        expected[:, panel_id] = np.min(distances, axis=1) <= near_factor * boundary.panel_lengths[panel_id]
-
-    np.testing.assert_array_equal(actual, expected)
+    np.testing.assert_array_equal(
+        flagnear_rectangle(boundary, points, rho=1.8),
+        flagnear(boundary, points, rho=1.8),
+    )
 
 
 def test_flagnear_rectangle_grid_matches_flat_meshgrid_order():
@@ -34,33 +44,41 @@ def test_flagnear_rectangle_grid_matches_flat_meshgrid_order():
     xx, yy = np.meshgrid(x, y)
     points = np.vstack((xx.ravel(), yy.ravel()))
 
-    direct = flagnear_rectangle(boundary, points, rho=0.25)
-    grid = flagnear_rectangle_grid(boundary, x, y, rho=0.25)
+    direct = flagnear_rectangle(boundary, points, rho=1.8)
+    grid = flagnear_rectangle_grid(boundary, x, y, rho=1.8)
 
     assert grid.shape == (y.size, x.size, boundary.panel_count)
     np.testing.assert_array_equal(grid, direct.reshape(y.size, x.size, boundary.panel_count))
 
 
-def test_flagnear_rectangle_uses_per_panel_padding():
+def test_flagnear_rectangle_uses_oriented_bernstein_rectangle():
     boundary = chunker_from_polygon(
         np.array([[0.0, 2.0, 2.0], [0.0, 0.0, 1.0]]),
         closed=False,
         quadrature_order=8,
     )
-    points = np.array([[1.0, 1.0, 2.25, 2.25], [0.1, 1.6, 0.5, 1.6]])
-    rho = 0.2
+    rho = 1.8
+    semiminor = 0.5 * (rho - 1.0 / rho)
+    points = np.array(
+        [
+            [1.0, 1.0, 2.0, 2.0 + 0.51 * semiminor],
+            [0.0, 1.01 * semiminor, 0.9, 0.5],
+        ],
+    )
 
     actual = flagnear_rectangle(boundary, points, rho=rho)
-    expected = np.zeros_like(actual)
-    for panel_id in range(boundary.panel_count):
-        padding = rho * boundary.panel_lengths[panel_id]
-        lower = np.min(boundary.positions[:, :, panel_id], axis=1) - padding
-        upper = np.max(boundary.positions[:, :, panel_id], axis=1) + padding
-        expected[:, panel_id] = np.all((points.T >= lower[None, :]) & (points.T <= upper[None, :]), axis=1)
 
-    np.testing.assert_array_equal(actual, expected)
-    assert np.any(actual)
-    assert not np.all(actual)
+    np.testing.assert_array_equal(
+        actual,
+        np.array(
+            [
+                [True, False],
+                [False, False],
+                [False, True],
+                [False, False],
+            ],
+        ),
+    )
 
 
 def test_nearest_point_projects_to_panel_reference_coordinate():

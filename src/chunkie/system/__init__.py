@@ -7,7 +7,7 @@ from .equation import BoundaryEquation, Constraint, ConstraintTerm, IntegralSyst
 from .laplace import LaplaceExteriorDirichletSystem
 from .layer import LayerPotential
 from .matrix import SystemMatrix
-from .matvec import SystemOperator, fmm_matvec, matrix_free_matvec
+from .matvec import SystemOperator, matrix_free_matvec
 from .nonsmooth import build_rcip_state
 from .solution import SystemSolution
 from .trace import BoundaryTrace, JumpTerm
@@ -32,6 +32,5 @@ __all__ = [
     "build_panel_correction",
     "build_corrections",
     "build_rcip_state",
-    "fmm_matvec",
     "matrix_free_matvec",
 ]

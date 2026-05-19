@@ -37,7 +37,7 @@ def test_panel_major_point_ids_use_direct_formula():
 
 def test_polygon_constructor_and_near_flags_are_active():
     boundary = chunker_from_polygon([(0, 0), (1, 0), (1, 1), (0, 1)], quadrature_order=4)
-    flags = flagnear(boundary, np.array([[0.5], [0.05]]), near_factor=1.0)
+    flags = flagnear(boundary, np.array([[0.5], [0.05]]), rho=1.8)
 
     assert boundary.panel_count == 4
     assert flags.shape == (1, 4)

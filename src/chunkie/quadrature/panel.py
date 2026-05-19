@@ -5,11 +5,10 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import NDArray
 
-from chunkie.geometry import PanelView, PointInfoView
+from chunkie.geometry import PanelView, PointInfoView, flagnear
 from chunkie.kernels import Kernel
 
 from .adaptive import adaptive_panel_matrix
-from .legendre import interpolation_matrix
 
 
 def dense_panel_matrix(source: PointInfoView, target, kernel: Kernel) -> NDArray[np.generic]:
@@ -49,7 +48,7 @@ def apply_panel_potential(
     density: NDArray[np.generic],
     *,
     close_correction: bool = False,
-    near_factor: float = 1.0,
+    near_rho: float = 1.8,
     tolerance: float = 1.0e-12,
 ) -> NDArray[np.generic]:
     values = kernel(source, target)
@@ -73,7 +72,7 @@ def apply_panel_potential(
         target,
         kernel,
         density_array,
-        near_factor=float(near_factor),
+        near_rho=float(near_rho),
         tolerance=float(tolerance),
     )
 
@@ -85,15 +84,14 @@ def _apply_close_panel_corrections(
     kernel: Kernel,
     density: NDArray[np.generic],
     *,
-    near_factor: float,
+    near_rho: float,
     tolerance: float,
 ) -> NDArray[np.generic]:
-    if near_factor <= 0.0:
-        return values
     target_points = _flat_target_points(target)
+    near_flags = flagnear(source, target_points, rho=near_rho)
     corrected = np.array(values, copy=True)
     for panel_id in range(source.positions.shape[2]):
-        target_ids = _near_target_ids(source, target_points, panel_id, near_factor=near_factor)
+        target_ids = np.flatnonzero(near_flags[:, panel_id])
         if target_ids.size == 0:
             continue
 
@@ -130,47 +128,6 @@ def _flat_target_points(target) -> NDArray[np.floating]:
     else:
         points = np.asarray(target, dtype=float)
     return points.reshape(points.shape[0], -1)
-
-
-def _near_target_ids(
-    source: PointInfoView,
-    target_points: NDArray[np.floating],
-    panel_id: int,
-    *,
-    near_factor: float,
-) -> NDArray[np.integer]:
-    panel_length = float(np.sum(source.weights[:, panel_id]))
-    threshold = max(float(near_factor) * panel_length, 10.0 * np.finfo(float).eps)
-    distances = _panel_polyline_distances(source, target_points, panel_id)
-    return np.flatnonzero(distances <= threshold)
-
-
-def _panel_polyline_distances(
-    source: PointInfoView,
-    target_points: NDArray[np.floating],
-    panel_id: int,
-) -> NDArray[np.floating]:
-    panel_points = _panel_points_with_endpoints(source, panel_id)
-    distances = np.full(target_points.shape[1], np.inf, dtype=float)
-    for segment_id in range(panel_points.shape[1] - 1):
-        start = panel_points[:, segment_id]
-        end = panel_points[:, segment_id + 1]
-        delta = end - start
-        length2 = float(np.dot(delta, delta))
-        if length2 <= np.finfo(float).eps:
-            segment_distances = np.linalg.norm(target_points - start[:, None], axis=0)
-        else:
-            t = np.clip(((target_points - start[:, None]).T @ delta) / length2, 0.0, 1.0)
-            closest = start[:, None] + delta[:, None] * t[None, :]
-            segment_distances = np.linalg.norm(target_points - closest, axis=0)
-        distances = np.minimum(distances, segment_distances)
-    return distances
-
-
-def _panel_points_with_endpoints(source: PointInfoView, panel_id: int) -> NDArray[np.floating]:
-    panel_points = source.positions[:, :, panel_id]
-    endpoints = interpolation_matrix(source.nodes, np.array([-1.0, 1.0])) @ panel_points.T
-    return np.column_stack((endpoints[0], panel_points, endpoints[1]))
 
 
 def _panel_view(source: PointInfoView, panel_id: int) -> PanelView:

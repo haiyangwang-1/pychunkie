@@ -1,3 +1,3 @@
-"""Acceleration backends."""
+"""Placeholder namespace for future acceleration backends."""
 
-__all__ = ["fmm2d", "flam"]
+__all__: list[str] = []

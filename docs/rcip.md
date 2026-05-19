@@ -33,4 +33,4 @@ Required upcoming work:
 
 - vector and multi-density RCIP systems,
 - broader curved-edge parity beyond the current graph examples,
-- and optimized matrix-free/accelerated RCIP paths.
+- and optimized matrix-free RCIP paths.

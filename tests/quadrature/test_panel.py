@@ -99,7 +99,7 @@ def test_apply_panel_potential_replaces_close_panel_contribution():
         laplace_s,
         density,
         close_correction=True,
-        near_factor=0.25,
+        near_rho=1.8,
         tolerance=1.0e-11,
     )
 

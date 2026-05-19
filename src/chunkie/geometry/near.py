@@ -8,6 +8,7 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
 from .chunker import Chunker
+from .points import PointInfoView
 
 
 @dataclass(frozen=True)
@@ -20,47 +21,34 @@ class NearestPoint:
     panel_ids: NDArray[np.integer]
 
 
-def flagnear(chunker: Chunker, points: ArrayLike, *, near_factor: float = 1.0) -> NDArray[np.bool_]:
-    """Flag panels whose nodes are close to target points.
+def flagnear(
+    geometry: Chunker | PointInfoView,
+    points: ArrayLike,
+    *,
+    rho: float = 1.8,
+) -> NDArray[np.bool_]:
+    """Flag targets inside MATLAB-style Bernstein-rectangle near regions."""
 
-    This first implementation is intentionally direct: it compares target
-    points with panel nodes and uses the panel arclength as the length scale.
-    """
-
-    targets = np.asarray(points, dtype=float).reshape(chunker.coordinate_dim, -1)
-    flags = np.zeros((targets.shape[1], chunker.panel_count), dtype=bool)
-    panel_lengths = np.sum(chunker.weights, axis=0)
-    for panel_id in range(chunker.panel_count):
-        source = chunker.positions[:, :, panel_id]
-        distances = np.linalg.norm(targets[:, :, None] - source[:, None, :], axis=0)
-        flags[:, panel_id] = np.min(distances, axis=1) <= near_factor * panel_lengths[panel_id]
-    return flags
+    return _flagnear_bernstein_rectangles(geometry, points, rho=rho)
 
 
-def flagnear_rectangle(chunker: Chunker, points: ArrayLike, *, rho: float = 1.0) -> NDArray[np.bool_]:
-    """Flag targets inside per-panel padded bounding boxes."""
+def flagnear_rectangle(
+    geometry: Chunker | PointInfoView,
+    points: ArrayLike,
+    *,
+    rho: float = 1.8,
+) -> NDArray[np.bool_]:
+    """Compatibility alias for :func:`flagnear`."""
 
-    targets = np.asarray(points, dtype=float).reshape(chunker.coordinate_dim, -1)
-    flags = np.zeros((targets.shape[1], chunker.panel_count), dtype=bool)
-    panel_lengths = chunker.panel_lengths
-    for panel_id in range(chunker.panel_count):
-        panel_positions = chunker.positions[:, :, panel_id]
-        padding = float(rho) * panel_lengths[panel_id]
-        lower = np.min(panel_positions, axis=1) - padding
-        upper = np.max(panel_positions, axis=1) + padding
-        # The rectangle test is deliberately axis-aligned. It is a conservative
-        # candidate filter before more expensive distance or special-quadrature
-        # logic decides whether a panel truly needs local treatment.
-        flags[:, panel_id] = np.all((targets.T >= lower[None, :]) & (targets.T <= upper[None, :]), axis=1)
-    return flags
+    return flagnear(geometry, points, rho=rho)
 
 
 def flagnear_rectangle_grid(
-    chunker: Chunker,
+    geometry: Chunker | PointInfoView,
     x: ArrayLike,
     y: ArrayLike,
     *,
-    rho: float = 1.0,
+    rho: float = 1.8,
 ) -> NDArray[np.bool_]:
     """Evaluate :func:`flagnear_rectangle` on a meshgrid in row-major grid order."""
 
@@ -68,7 +56,96 @@ def flagnear_rectangle_grid(
     y_array = np.asarray(y, dtype=float)
     xx, yy = np.meshgrid(x_array, y_array)
     points = np.vstack((xx.ravel(), yy.ravel()))
-    return flagnear_rectangle(chunker, points, rho=rho).reshape(y_array.size, x_array.size, chunker.panel_count)
+    panel_count = _near_geometry_arrays(geometry)[0].shape[2]
+    return flagnear(geometry, points, rho=rho).reshape(y_array.size, x_array.size, panel_count)
+
+
+def _flagnear_bernstein_rectangles(
+    geometry: Chunker | PointInfoView,
+    points: ArrayLike,
+    *,
+    rho: float,
+) -> NDArray[np.bool_]:
+    positions, derivatives, nodes = _near_geometry_arrays(geometry)
+    if positions.shape[0] != 2:
+        raise ValueError("Bernstein-rectangle near flags are implemented for 2D geometry")
+    rho_value = float(rho)
+    if rho_value <= 1.0:
+        raise ValueError("rho must be greater than 1 for Bernstein-rectangle near flags")
+
+    targets = np.asarray(points, dtype=float).reshape(2, -1)
+    axes1, axes2, lower1, upper1, lower2, upper2 = _bernstein_rectangle_bounds(
+        positions,
+        derivatives,
+        nodes,
+        rho=rho_value,
+    )
+    target_columns = targets.T
+    d1 = target_columns @ axes1
+    d2 = target_columns @ axes2
+    return (d1 >= lower1) & (d1 <= upper1) & (d2 >= lower2) & (d2 <= upper2)
+
+
+def _near_geometry_arrays(
+    geometry: Chunker | PointInfoView,
+) -> tuple[NDArray[np.floating], NDArray[np.floating], NDArray[np.floating]]:
+    if isinstance(geometry, Chunker):
+        return geometry.positions, geometry.derivatives, geometry._legendre_nodes
+    if isinstance(geometry, PointInfoView):
+        return geometry.positions, geometry.derivatives, geometry.nodes
+    raise TypeError("near flags require a Chunker or PointInfoView")
+
+
+def _bernstein_rectangle_bounds(
+    positions: NDArray[np.floating],
+    derivatives: NDArray[np.floating],
+    nodes: NDArray[np.floating],
+    *,
+    rho: float,
+) -> tuple[
+    NDArray[np.floating],
+    NDArray[np.floating],
+    NDArray[np.floating],
+    NDArray[np.floating],
+    NDArray[np.floating],
+    NDArray[np.floating],
+]:
+    from chunkie.geometry.bernstein import bernstein_ellipse
+    from chunkie.quadrature.legendre import interpolation_matrix
+
+    panel_count = positions.shape[2]
+    ellipse_points = bernstein_ellipse(max(2 * panel_count, 20), rho)
+    interpolation = interpolation_matrix(nodes, ellipse_points)
+    complex_positions = np.einsum("qs,RsS->RqS", interpolation, positions)
+    ellipse_images = np.stack(
+        (
+            (complex_positions[0] + 1j * complex_positions[1]).real,
+            (complex_positions[0] + 1j * complex_positions[1]).imag,
+        ),
+        axis=0,
+    )
+
+    center_interpolation = interpolation_matrix(nodes, np.array([0.0]))[0]
+    center_derivatives = np.einsum("s,RsS->RS", center_interpolation, derivatives)
+    speeds = np.linalg.norm(center_derivatives, axis=0)
+    if np.any(speeds <= np.finfo(float).eps):
+        raise ValueError("panel center derivative must be nonzero for near-rectangle flags")
+
+    axes1 = center_derivatives / speeds[None, :]
+    axes2 = np.vstack((axes1[1], -axes1[0]))
+    d1 = np.einsum("RqS,RS->qS", ellipse_images, axes1)
+    d2 = np.einsum("RqS,RS->qS", ellipse_images, axes2)
+    return (
+        axes1,
+        axes2,
+        np.min(d1, axis=0),
+        np.max(d1, axis=0),
+        np.min(d2, axis=0),
+        np.max(
+            d2,
+            axis=0,
+        ),
+    )
 
 
 def nearest_point(chunker: Chunker, points: ArrayLike) -> NearestPoint:
@@ -81,7 +158,9 @@ def nearest_point(chunker: Chunker, points: ArrayLike) -> NearestPoint:
     distances = np.empty(targets.shape[1], dtype=float)
     reference_coordinates = np.empty(targets.shape[1], dtype=float)
     panel_ids = np.empty(targets.shape[1], dtype=np.int64)
-    panel_data = [_panel_legendre_data(chunker, panel_id) for panel_id in range(chunker.panel_count)]
+    panel_data = [
+        _panel_legendre_data(chunker, panel_id) for panel_id in range(chunker.panel_count)
+    ]
 
     for target_id in range(targets.shape[1]):
         best = None
@@ -121,7 +200,9 @@ def _panel_legendre_data(chunker: Chunker, panel_id: int):
     return coefficients, derivative_coefficients, second_derivative_coefficients
 
 
-def _nearest_reference_coordinate(chunker: Chunker, panel_id: int, target: NDArray[np.floating], data) -> float:
+def _nearest_reference_coordinate(
+    chunker: Chunker, panel_id: int, target: NDArray[np.floating], data
+) -> float:
     panel_positions = chunker.positions[:, :, panel_id]
     nearest_node = int(np.argmin(np.linalg.norm(panel_positions - target[:, None], axis=0)))
     reference_coordinate = float(chunker._legendre_nodes[nearest_node])
@@ -144,8 +225,12 @@ def _evaluate_panel_data(data, reference_coordinate: float):
 
     coefficients, derivative_coefficients, second_derivative_coefficients = data
     values, _ = legendre.pols(np.array([reference_coordinate]), coefficients.shape[1] - 1)
-    dvalues, _ = legendre.pols(np.array([reference_coordinate]), derivative_coefficients.shape[1] - 1)
-    ddvalues, _ = legendre.pols(np.array([reference_coordinate]), second_derivative_coefficients.shape[1] - 1)
+    dvalues, _ = legendre.pols(
+        np.array([reference_coordinate]), derivative_coefficients.shape[1] - 1
+    )
+    ddvalues, _ = legendre.pols(
+        np.array([reference_coordinate]), second_derivative_coefficients.shape[1] - 1
+    )
     position = coefficients @ values[:, 0]
     derivative = derivative_coefficients @ dvalues[:, 0]
     second = second_derivative_coefficients @ ddvalues[:, 0]

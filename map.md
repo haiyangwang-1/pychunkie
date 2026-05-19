@@ -40,29 +40,28 @@ unless a compatibility boundary needs them.
 - Smooth Laplace circle examples and nonsmooth square Laplace examples are
   standalone scripts using the rewrite system API and generate solution/error
   figures for interior/exterior Dirichlet and Neumann cases.
-- Accelerated and `ChunkGraph` examples are standalone scripts using rewrite
-  APIs; active examples no longer depend on removed `chunkermat`/
-  `chunkerkerneval` facade names or private example helpers.
+- `ChunkGraph` examples are standalone scripts using rewrite APIs; active
+  examples no longer depend on removed `chunkermat`/`chunkerkerneval` facade
+  names or private example helpers.
 - Verification during this map update:
-  - Focused `uv run ruff check ...`: passes for the touched constructor and
-    geometry test files.
-  - `uv run pytest --collect-only -q`: 143 tests collected.
-  - `uv run pytest -q`: `143 passed, 2 skipped` in 31.01 seconds.
-- FLAM strategy: defer new FLAM parity and integration work until the upgraded
-  FLAM package is ready. The existing `src/chunkie/system/backends/flam.py`
-  dense-reference adapter remains documented as temporary coverage, not a
-  milestone driver.
+  - Focused `uv run ruff check ...`: passes for the touched system and test
+    files.
+  - `uv run pytest --collect-only -q`: 126 tests collected.
+  - `uv run pytest -q`: `126 passed, 2 skipped` in 19.48 seconds.
+- Acceleration strategy: `pyflam` and `fmm2dpy` runtime accelerations are not
+  supported for now. The package no longer depends on either backend, and
+  `SystemConfig` rejects FLAM solve and FMM evaluation selections.
 
 ## Source Tree
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| `chunkie.geometry` | ✅ 🧪 in progress | Panel-major `Chunker` with private Gauss-Legendre nodes/weights, public physical quadrature weights, direct point-id arithmetic, pointinfo views, endpoint/bounds diagnostics, basic/adaptive constructors, metrics, Bernstein reference ellipses/panel images, selected/max-length/level-restricted/oversampling panel refinement, affine/rotate/reflect transforms, near-panel node-distance flags, rectangle flags, nearest-point projection, orientation-aware selected-edge `BoundaryPart` views with curvature diagnostics, and operational single- and multi-edge `ChunkGraph` records/views/nested classification are active. Standalone curve callback helpers, arclength-resampling helpers, and existing-geometry quadrature-order changes are inactive to keep the geometry surface focused. |
+| `chunkie.system.backends` | 💤 | Placeholder namespace for future acceleration backends. `fmm2dpy` and `pyflam` are not supported runtime paths or package dependencies for now. |
+| `chunkie.geometry` | ✅ 🧪 in progress | Panel-major `Chunker` with private Gauss-Legendre nodes/weights, public physical quadrature weights, direct point-id arithmetic, pointinfo views, endpoint/bounds diagnostics, basic/adaptive constructors, metrics, Bernstein reference ellipses/panel images, selected/max-length/level-restricted/oversampling panel refinement, affine/rotate/reflect transforms, shared Bernstein-rectangle near flags, nearest-point projection, orientation-aware selected-edge `BoundaryPart` views with curvature diagnostics, and operational single- and multi-edge `ChunkGraph` records/views/nested classification are active. Standalone curve callback helpers, arclength-resampling helpers, and existing-geometry quadrature-order changes are inactive to keep the geometry surface focused. |
 | `chunkie.kernels` | ✅ 🧪 in progress | Kernel object, Laplace/Helmholtz/biharmonic/Stokes/elasticity formulas, registry, algebra, and singularity metadata foundation are active. Laplace metadata uses `G`, `G_a`, and `G_ab`; smooth amplitudes are allowed on those bases for special-quadrature consumption; Helmholtz metadata differentiates `J0(k*rho) * G`; biharmonic metadata uses `B=-(rho^2/4)G`; Stokes velocity metadata covers `s` and `d`; elasticity single-displacement metadata covers `s`; algebra scales and cancels exact scalar/matrix singular terms. |
-| `chunkie.quadrature` | ✅ 🧪 🎯 in progress | Legendre utilities, dense panel helpers, component-major dense operator materialization, adaptive source-panel fallback, adaptive close-panel replacement for field evaluation, Helsing-Ojala log/Cauchy/derivative product weights, generated GGQ-style split rules/panel matrices, fixture-backed GGQ removable-rule parity, log/PV/HS `SingularityInfo` smooth-amplitude dispatch, and Helmholtz single-layer HO panel correction are active; broader MATLAB GGQ table parity remains a required milestone. |
+| `chunkie.quadrature` | ✅ 🧪 🎯 in progress | Legendre utilities, dense panel helpers, component-major dense operator materialization, adaptive source-panel fallback, Bernstein-rectangle close-panel replacement for field evaluation, Helsing-Ojala log/Cauchy/derivative product weights, generated GGQ-style split rules/panel matrices, fixture-backed GGQ removable-rule parity, log/PV/HS `SingularityInfo` smooth-amplitude dispatch, and Helmholtz single-layer HO panel correction are active; broader MATLAB GGQ table parity remains a required milestone. |
 | `chunkie.rcip` | ✅ 🧪 in progress | Dyadic local corner geometry with pointinfo-compatible derivatives/normals/weights, barycentric and split-panel prolongation matrices, edge/component block prolongation, dense local trace-operator records, dense single-level and recursive Schur compression updates, corner state records, saved recursion records, and density interpolation are active. |
-| `chunkie.system` | ✅ 🧪 in progress | Density layout, dense multi-unknown/multi-equation `Chunker` and `BoundaryPart` trace assembly, explicit dense constraint rows, finite dense self diagonals for Laplace double-layer and adjoint double-layer traces, dense/direct/GMRES solve reconstruction, dense evaluation with adaptive close-panel replacement, FMM evaluation, dense-reference matrix-free and scalar Laplace FMM matvecs, automatic adaptive/Helsing-Ojala/GGQ panel replacement selection, old-style RCIP star-block insertion/evaluation for eligible scalar second-kind graph systems, graph-corner RCIP diagnostics with local trace operators, and `LaplaceExteriorDirichletSystem` are active. |
-| `chunkie.system.backends` | ✅ 🧪 / 💤 FLAM | FMM2D evaluates scalar Laplace and Helmholtz single-/double-layer potentials, gradients, and target-normal derivatives plus Stokes single-layer velocity, and drives scalar off-boundary Laplace system matvecs against dense references. The current pyFLAM dense-reference adapter has apply/solve/logdet tests but is deferred pending the upcoming FLAM package upgrade. |
+| `chunkie.system` | ✅ 🧪 in progress | Density layout, dense multi-unknown/multi-equation `Chunker` and `BoundaryPart` trace assembly, explicit dense constraint rows, finite dense self diagonals for Laplace double-layer and adjoint double-layer traces, dense/direct/GMRES solve reconstruction, dense evaluation with Bernstein-rectangle close-panel replacement, dense-reference matrix-free matvecs, automatic adaptive/Helsing-Ojala/GGQ panel replacement selection, old-style RCIP star-block insertion/evaluation for eligible scalar second-kind graph systems, graph-corner RCIP diagnostics with local trace operators, and `LaplaceExteriorDirichletSystem` are active. |
 
 ## Current Python Source Index
 
@@ -106,14 +105,13 @@ unless a compatibility boundary needs them.
 | `src/chunkie/system/matrix.py` | `SystemMatrix` | Dense reference matrix wrapper and solver adapter boundary. |
 | `src/chunkie/system/solution.py` | `SystemSolution` | Reconstructed density plus evaluation object. |
 | `src/chunkie/system/evaluation.py` | `FieldResult`, `evaluate_solution` | MATLAB `chunkerkerneval`/`chunkerkernevalmat` field evaluation workflows. |
-| `src/chunkie/system/matvec.py` | `SystemOperator`, `matrix_free_matvec`, `fmm_matvec` | Matrix-free and FMM-backed application paths. |
+| `src/chunkie/system/matvec.py` | `SystemOperator`, `matrix_free_matvec` | Dense-reference matrix-free application path. |
 | `src/chunkie/system/nonsmooth.py` | `build_rcip_state`, `apply_rcip_to_matrix`, `evaluate_rcip_layer` plus RCIP internals | MATLAB nonsmooth/RCIP system insertion for scalar second-kind graph systems, including old-style star-block replacement and coarse-plus-local field evaluation. |
 | `src/chunkie/system/laplace.py` | `LaplaceExteriorDirichletSystem` | First high-level BIE convenience system. |
 | `src/chunkie/system/config.py` | `SystemConfig` | Python solver/evaluation/correction policy object. |
 | `src/chunkie/system/block.py` | `BlockLayout` | Dense block metadata. |
-| `src/chunkie/system/solvers.py` | `solve_system` | Dense, GMRES, and temporary FLAM solve routing. |
-| `src/chunkie/system/backends/fmm2d.py` | `apply_fmm` | Runtime FMM2D Python backend. |
-| `src/chunkie/system/backends/flam.py` | `FLAMFactor`, `factor_system` | 💤 temporary dense-reference pyFLAM adapter; new FLAM integration deferred. |
+| `src/chunkie/system/solvers.py` | `solve_system` | Dense and GMRES solve routing. |
+| `src/chunkie/system/backends/__init__.py` | none | 💤 placeholder namespace for future acceleration backends. |
 
 ## MATLAB Reference Index
 
@@ -128,15 +126,15 @@ listed as support/deferred groups rather than expanded file-by-file.
 | `startup.m` | none | 🧭 | MATLAB path setup only. |
 | `checkcurveparam.m` | `src/chunkie/geometry/constructors.py` | 🟡 | Constructor validation is local and Python-first; no public checker. |
 | `chunkerfit.m` | target: `src/chunkie/geometry/constructors.py` | 🚧 | No active fitting API beyond curve/polygon constructors. |
-| `chunkerflam.m` | future FLAM package integration | 💤 | Deferred until the upgraded FLAM package is available. |
+| `chunkerflam.m` | none | 💤 | PyFLAM acceleration is not supported for now. |
 | `chunkerfunc.m` | `chunker_from_curve` | ✅ 🧪 | Full callback constructors, custom parameter intervals, and spectrally differentiated position-only callback constructors are active. |
 | `chunkerfuncuni.m`, `+chnk/funcuni.m` | `circle`, `ellipse`, `chunker_from_curve` | ✅ 🧪 | Uniform panel construction through Python constructors. |
 | `chunkerintegral.m` | target: `src/chunkie/system/evaluation.py` or quadrature helper | 🚧 | No public high-level integral helper yet; weights/densities exist. |
 | `chunkerinterior.m` | `ChunkGraph.classify_points`, `winding_number` | 🟡 🧪 | Region classification exists; MATLAB-style chunker-only helper is absent. |
-| `chunkerkerneval.m` | `SystemSolution.evaluate`, `evaluate_solution`, `apply_panel_potential` | ✅ 🧪 | Dense and supported FMM off-boundary evaluation are active. |
+| `chunkerkerneval.m` | `SystemSolution.evaluate`, `evaluate_solution`, `apply_panel_potential` | ✅ 🧪 | Dense off-boundary evaluation is active. |
 | `chunkerkernevalmat.m` | `dense_panel_operator_matrix`, `assemble_system_matrix` | 🟡 🧪 | Matrix materialization exists through system/quadrature adapters, not MATLAB facade. |
 | `chunkermat.m` | `IntegralSystem`, `assemble_system_matrix` | ✅ 🧪 | Dense block assembly and trace equations are active. |
-| `chunkermatapply.m` | `SystemOperator`, `matrix_free_matvec`, `fmm_matvec` | ✅ 🧪 | Dense-reference matrix-free and scalar Laplace FMM matvecs are active. |
+| `chunkermatapply.m` | `SystemOperator`, `matrix_free_matvec` | ✅ 🧪 | Dense-reference matrix-free matvecs are active. |
 | `chunkerpoints.m` | `Chunker` constructor / target constructor helper | 🟡 🧪 | Direct tensor construction is available; MATLAB-style points helper is not public. |
 | `chunkerpoly.m` | `chunker_from_polygon` | 🟡 🧪 | Straight polygon construction is active; full smoother-driven MATLAB polygon workflow is not. |
 | `chunkgraphinit.m` | `ChunkGraph.from_vertices` | ✅ 🧪 | Multi-edge graph construction is active. |
@@ -166,9 +164,9 @@ listed as support/deferred groups rather than expanded file-by-file.
 | `diffmat.m` | `dermat` | 🟡 🧪 | Legendre derivative matrix exists; no chunker method wrapper. |
 | `ellipses.m` | `bernstein_panel_image`, `bernstein_radius` | ✅ 🧪 | Analytic-continuation diagnostics active. |
 | `exps.m` | `exps` | ✅ 🧪 | Legendre expansion utilities active. |
-| `flagnear.m` | `flagnear` | ✅ 🧪 | Node-distance near flags active. |
-| `flagnear_rectangle.m` | `flagnear_rectangle` | ✅ 🧪 | Padded rectangle flags active. |
-| `flagnear_rectangle_grid.m` | `flagnear_rectangle_grid` | ✅ 🧪 | Meshgrid-shaped wrapper active. |
+| `flagnear.m` | `flagnear` | ✅ 🧪 | Uses the same Bernstein-rectangle near policy as `flagnear_rectangle`. |
+| `flagnear_rectangle.m` | `flagnear_rectangle` | ✅ 🧪 | MATLAB-style oriented Bernstein-rectangle flags active. |
+| `flagnear_rectangle_grid.m` | `flagnear_rectangle_grid` | ✅ 🧪 | Meshgrid-shaped wrapper over the shared Bernstein-rectangle policy. |
 | `intmat.m` | `intmat` | ✅ 🧪 | Legendre integration matrix active. |
 | `max.m`, `min.m` | `Chunker.bounds` | 🟡 🧪 | Bounds are active; MATLAB method names are not public. |
 | `move.m`, `plus.m`, `mtimes.m` | `translated`, `scaled`, `affine`, transform functions | ✅ 🧪 | Python returns transformed copies. |
@@ -196,7 +194,7 @@ listed as support/deferred groups rather than expanded file-by-file.
 | `build_v2emat.m`, `procverts.m`, `edgeids.m` | graph construction records and `edge` access | 🟡 🧪 | Python stores explicit vertices/edges rather than exposing MATLAB helper matrices. |
 | `findregions.m`, `find_edge_regions.m`, `findunbounded.m` | `classify_points`, `region`, `boundary_part` | ✅ 🧪 | Nested oriented-cycle classification active. |
 | `slicegraph.m`, `vertextract.m` | `boundary_part`, `edge_points`, graph records | 🟡 🧪 | Selected-edge views active; no exact MATLAB slice facade. |
-| `flagnear*.m` | `flagnear*` on boundary part / pointinfo views | 🟡 🧪 | Near helpers operate on current geometry views. |
+| `flagnear*.m` | `flagnear*` on boundary part / pointinfo views | 🟡 🧪 | Near helpers use the shared Bernstein-rectangle policy on current geometry views. |
 | `signed_curvature.m` | `BoundaryPart.signed_curvature` | ✅ 🧪 | Orientation-aware boundary curvature active. |
 | `normals.m`, `tangents.m`, `weights.m` | `pointinfo`, `BoundaryPart` tensors | ✅ 🧪 | Active through graph point views. |
 | `min.m`, `max.m` | target: graph bounds helper | 🚧 | Bounds can be derived from point views, but no public graph method. |
@@ -238,9 +236,9 @@ listed as support/deferred groups rather than expanded file-by-file.
 | MATLAB item | Python implementation / target | Status | Notes |
 | --- | --- | --- | --- |
 | `adapgausswts.m` | `adaptive_panel_matrix`, `build_adaptive_panel_matrix` | ✅ 🧪 | Adaptive close-panel fallback active. |
-| `adapgausskerneval.m` | `apply_panel_potential`, `evaluate_solution` | 🟡 🧪 | Close-panel replacement active for field evaluation. |
-| `chunk_nearparam.m` | `nearest_point`, `_near_target_ids` | 🟡 🧪 | Near-parameter behavior is internal. |
-| `chunkerkerneval_smooth.m` | `evaluate_solution`, FMM backend | ✅ 🧪 | Smooth off-boundary evaluation paths active. |
+| `adapgausskerneval.m` | `apply_panel_potential`, `evaluate_solution` | 🟡 🧪 | Bernstein-rectangle close-panel replacement active for field evaluation. |
+| `chunk_nearparam.m` | `nearest_point` | 🟡 🧪 | Near-parameter behavior is internal. |
+| `chunkerkerneval_smooth.m` | `evaluate_solution` | ✅ 🧪 | Smooth dense off-boundary evaluation paths active. |
 | `curvature2d.m` | `Chunker.signed_curvature`, `BoundaryPart.signed_curvature` | ✅ 🧪 | Curvature diagnostics active. |
 | `ellipse_oversample.m` | `bernstein_panel_image`, `bernstein_radius` | 🟡 🧪 | Analytic continuation support active; exact MATLAB helper absent. |
 | `flagself.m` | target: self/near panel correction diagnostics | 🚧 | Same-panel selection exists internally but no public helper. |
@@ -268,13 +266,13 @@ listed as support/deferred groups rather than expanded file-by-file.
 | MATLAB package/file | Python implementation / target | Status | Notes |
 | --- | --- | --- | --- |
 | `+chnk/+lap2d/kern.m`, `green.m` | `src/chunkie/kernels/laplace.py` | ✅ 🧪 | Laplace direct formulas and singular metadata active. |
-| `+chnk/+lap2d/fmm.m` | `src/chunkie/system/backends/fmm2d.py` | ✅ 🧪 | Supported Laplace FMM selectors active. |
+| `+chnk/+lap2d/fmm.m` | none | 💤 | FMM2D acceleration is not supported for now. |
 | `+chnk/+helm2d/kern.m`, `green.m`, `helmdiffgreen.m` | `src/chunkie/kernels/helmholtz.py` | ✅ 🧪 | Helmholtz direct formulas and metadata active. |
-| `+chnk/+helm2d/fmm.m` | `src/chunkie/system/backends/fmm2d.py` | ✅ 🧪 | Supported Helmholtz FMM selectors active. |
+| `+chnk/+helm2d/fmm.m` | none | 💤 | FMM2D acceleration is not supported for now. |
 | `+chnk/+helm2d/besseldiff_etc_pscoefs.m`, `even_pseval.m` | `src/chunkie/kernels/helmholtz.py` | 🧩 ✅ 🧪 | Product-rule/smooth-remainder behavior is encoded directly, not exposed as helper files. |
 | `+chnk/+helm2d/transmission_helper.m` | `docs/structured-rskelf-transmission.md`, future multi-region systems | 🚧 | Transmission-system target documented; implementation upcoming. |
 | `+chnk/+stok2d/kern.m` | `src/chunkie/kernels/stokes.py` | ✅ 🧪 | Stokes velocity formulas and metadata active. |
-| `+chnk/+stok2d/fmm.m` | `src/chunkie/system/backends/fmm2d.py` | ✅ 🧪 | Stokes single-layer velocity FMM active. |
+| `+chnk/+stok2d/fmm.m` | none | 💤 | FMM2D acceleration is not supported for now. |
 | `+chnk/+elast2d/kern.m` | `src/chunkie/kernels/elasticity.py` | ✅ 🧪 | Elasticity single-displacement active. |
 | `+chnk/+helm1d/green.m`, `kern.m`, `sweep.m` | none | 🚧 | Helmholtz 1D not active. |
 | `+chnk/+flex2d/*` | `src/chunkie/kernels/biharmonic.py` for subset | 🟡 / 🚫 | Biharmonic pieces active; full flexural plate workflows are non-goals for now. |
@@ -321,8 +319,8 @@ listed as support/deferred groups rather than expanded file-by-file.
 
 | MATLAB item | Python implementation / target | Status | Notes |
 | --- | --- | --- | --- |
-| `+chnk/+flam/kernbyindex*.m`, `proxy*.m`, `nproxy_square.m` | future FLAM package integration | 💤 | Deferred until the upgraded FLAM package is ready. |
-| `chunkie/FLAM/**` vendored MATLAB package | future external package boundary | 💤 | Do not port file-by-file now. Existing Python `system.backends.flam` is temporary dense-reference coverage. |
+| `+chnk/+flam/kernbyindex*.m`, `proxy*.m`, `nproxy_square.m` | none | 💤 | PyFLAM acceleration is not supported for now. |
+| `chunkie/FLAM/**` vendored MATLAB package | future external package boundary | 💤 | Do not port file-by-file now. |
 
 ### MATLAB `+lege`
 
@@ -346,8 +344,8 @@ listed as support/deferred groups rather than expanded file-by-file.
 
 | MATLAB item | Python implementation / target | Status | Notes |
 | --- | --- | --- | --- |
-| `chunkie/demo/*.m`, `chunkie/guide/*.m`, `+chnk/+demo/*.m` | `examples/*.py`, docs | 🧭 / 🟡 | Active Python examples cover smooth/nonsmooth Laplace, ChunkGraph, FMM, and current accelerated examples; one-to-one demo parity is not required. |
-| `chunkie/fmm2d/**` | `fmm2dpy` runtime dependency plus `system.backends.fmm2d` | 🧭 / ✅ 🧪 | Vendored MATLAB/C FMM2D checkout is reference/support material; Python calls the package-level runtime backend. |
+| `chunkie/demo/*.m`, `chunkie/guide/*.m`, `+chnk/+demo/*.m` | `examples/*.py`, docs | 🧭 / 🟡 | Active Python examples cover smooth/nonsmooth Laplace and ChunkGraph cases; one-to-one demo parity is not required. |
+| `chunkie/fmm2d/**` | none | 🧭 / 💤 | Vendored MATLAB/C FMM2D checkout is reference/support material only; `fmm2dpy` is not a runtime dependency. |
 
 ## Public API Target
 
@@ -374,16 +372,15 @@ These are required rewrite work, not optional deferrals:
 - Broader Helsing-Ojala panel quadrature and global correction insertion.
 - Broader GGQ fixture-backed parity beyond the current removable-rule fixture.
 - Broader RCIP parity for vector/multi-density systems, curved graph edges, and
-  accelerated/matrix-free insertion.
+  matrix-free insertion.
 - `ChunkGraph` adaptive refinement, graph transforms, and broader multi-region
   systems.
 - Structured transmission-system assembly for multiple boundaries and
   densities.
-- Broader FMM-backed matvec/evaluation coverage.
 - Exact singularity expansion metadata where special quadrature consumes it,
   with smooth-remainder tests.
 
 Deferred:
 
-- FLAM parity and callback/structured integration until the upgraded FLAM
-  package is available.
+- `fmm2dpy` FMM-backed matvec/evaluation coverage.
+- `pyflam` parity and callback/structured integration.

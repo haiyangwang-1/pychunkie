@@ -124,9 +124,8 @@ def build_rcip_state(system, *, config: SystemConfig | None = None) -> RCIPState
         corners=tuple(corners),
         metadata={
             "active": bool(corners),
-            "matrix_replacement_active": trace_info is not None and any(
-                corner.saved is not None for corner in corners
-            ),
+            "matrix_replacement_active": trace_info is not None
+            and any(corner.saved is not None for corner in corners),
             "subdivisions": int(active_config.rcip_subdivisions),
             "quadrature_order": graph.quadrature_order,
             "density": None if trace_info is None else trace_info.unknown_name,
@@ -193,7 +192,7 @@ def evaluate_rcip_layer(layer, density, targets, *, config: SystemConfig, state:
         layer.kernel,
         _vector_to_panel_density(coarse_density, source),
         close_correction=config.close_correction,
-        near_factor=config.near_factor,
+        near_rho=config.near_rho,
         tolerance=config.tolerance,
     )
 
@@ -218,7 +217,7 @@ def evaluate_rcip_layer(layer, density, targets, *, config: SystemConfig, state:
                 layer.kernel,
                 _vector_to_panel_density(local_density, local_source),
                 close_correction=config.close_correction,
-                near_factor=config.near_factor,
+                near_rho=config.near_rho,
                 tolerance=config.tolerance,
             )
     return contribution
@@ -602,7 +601,9 @@ def _interpolate_saved_density(
 
     local_geometry = saved.local_geometries[-1]
     rho_cells = [rhohat0[indices, :].copy() for indices in circ_s_edges]
-    source_cells = [_pointinfo_subset(local_geometry.pointinfo, indices) for indices in circ_l_edges]
+    source_cells = [
+        _pointinfo_subset(local_geometry.pointinfo, indices) for indices in circ_l_edges
+    ]
 
     r0 = saved.inverses[-1]
     for interpolation_depth in range(1, active_depth + 1):
@@ -645,8 +646,7 @@ def _split_edge_indices(indices: NDArray[np.integer], edge_count: int) -> list[N
         raise ValueError("RCIP indices are not evenly split by edge")
     per_edge = indices.size // int(edge_count)
     return [
-        indices[edge_id * per_edge : (edge_id + 1) * per_edge]
-        for edge_id in range(int(edge_count))
+        indices[edge_id * per_edge : (edge_id + 1) * per_edge] for edge_id in range(int(edge_count))
     ]
 
 
