@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 374 pytest cases because several MATLAB parity tests are
+collection expands to 377 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -1840,6 +1840,27 @@ subselection from a global edge-by-edge block-kernel matrix. The method creates
 distinct zero kernels for each global block and runs RCIP at one square-graph
 vertex. Ground truth is that only the incident-edge submatrix is used and the
 resulting zero-kernel compression matrix is identity.
+
+`test_chunkermat_general_rcip_supports_square_vector_kernels` checks the
+public operator RCIP path for an explicit square vector kernel. The method uses
+`chunkermat(cg, kern, {"rcip_general": True, ...})` on a square chunkgraph,
+verifies `RCIPContext.ndim == 2`, and evaluates through
+`chunkerkerneval(..., {"rcip_context": context})`. Ground truth is preserved
+default behavior without `rcip_general`, four vector corner contexts, finite
+target values, and vector star-index sizes.
+
+`test_chunkermat_general_rcip_changes_vector_second_kind_blocks` checks that
+general RCIP actually replaces corner blocks for a vector Stokes traction
+system. The method compares `chunkermat(cg, kernel("stok","strac"),
+{"rcip_general": True, ...})` against the uncompressed dense matrix. Ground
+truth is a finite vector RCIP matrix whose corner-compressed blocks differ from
+ordinary merged-geometry assembly.
+
+`test_chunkermat_general_rcip_supports_edge_block_kernel_matrices` checks the
+high-level RCIP path for edge-by-edge block kernel matrices. The method fills a
+global square-graph block matrix with a smooth vector kernel and assembles with
+`rcip_general=True`. Ground truth is a finite `ChunkerRCIPMatrix`, four saved
+corner contexts, and a common vector operator dimension.
 
 `test_chunkermat_defaults_to_rcip_on_nonsmooth_chunkgraph_and_evaluates_corners`
 checks the public operator integration for RCIP. The method solves an interior
