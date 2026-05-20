@@ -16,6 +16,27 @@ def circle(t):
     )
 
 
+class CustomLogSingleLayer:
+    name = "custom_log_single_layer"
+    type = "single"
+    opdims = (1, 1)
+
+    def __call__(self, src, targ):
+        source = src.r[0] + 1j * src.r[1]
+        target = targ.r[0] + 1j * targ.r[1]
+        with np.errstate(divide="ignore", invalid="ignore"):
+            values = -np.log(np.abs(source[None, :] - target[:, None])) / (2.0 * np.pi)
+        return np.nan_to_num(values)
+
+    def pquad_splitinfo(self):
+        return pquad.SplitInfo(
+            (pquad.LOG,),
+            ("r",),
+            lambda src, targ: (np.ones((targ.r.shape[1], src.r.shape[1])),),
+            self.opdims,
+        )
+
+
 def test_low_level_pquad_weights_match_oversampled_legendre_moments(record_property):
     nsrc = 16
     nodes, weights = lege.exps(nsrc)[:2]
@@ -134,6 +155,38 @@ def test_pquad_splitinfo_respects_scaled_kernel():
     scaled_mat = pquad.panel_matrix(chnkr, src_chunk, targ, pquad.splitinfo_for_kernel(scaled), "e")
 
     np.testing.assert_allclose(scaled_mat, (2.0 - 0.5j) * base_mat)
+
+
+def test_custom_kernel_pquad_splitinfo_hook_drives_close_panel_dispatch(monkeypatch):
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 8}, {"k": 8})
+    src_chunk = 0
+    mid = lege.matrin(chnkr.k, [0.0])[0]
+    rmid = (mid @ chnkr.r[:, :, src_chunk].T).T[:, 0]
+    nmid = (mid @ chnkr.n[:, :, src_chunk].T).T[:, 0]
+    targets = (rmid + 0.03 * nmid).reshape(2, 1)
+    targ = PointInfo(r=targets)
+    kern = CustomLogSingleLayer()
+
+    splitinfo = pquad.splitinfo_for_kernel(kern)
+    assert splitinfo is not None
+    actual = pquad.panel_matrix(chnkr, src_chunk, targ, splitinfo, "e")
+    expected = _oversampled_panel_matrix(chnkr, src_chunk, targ, kern, nref=350)
+    np.testing.assert_allclose(actual, expected, rtol=1e-6, atol=3e-7)
+
+    calls = []
+    original = pquad.panel_matrix
+
+    def wrapped(*args, **kwargs):
+        calls.append((args[1], args[4]))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(pquad, "panel_matrix", wrapped)
+
+    pquad_mat = chunkerkernevalmat(chnkr, kern, targets, {"forceadap": True, "usepquad": True})
+    fallback = chunkerkernevalmat(chnkr, kern, targets, {"forceadap": True, "usepquad": False})
+
+    assert (src_chunk, "e") in calls
+    np.testing.assert_allclose(pquad_mat, fallback, rtol=2e-6, atol=5e-7)
 
 
 def test_forceadap_target_matrix_prefers_pquad_when_side_is_inferred(monkeypatch):

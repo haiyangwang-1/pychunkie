@@ -355,7 +355,16 @@ def upsampled_sourceinfo(chnkr: Chunker, src_chunk: int, intp: ArrayLike) -> Poi
 
 
 def splitinfo_for_kernel(kern: Any) -> SplitInfo | None:
-    """Return split metadata for built-in scalar kernels when available."""
+    """Return split metadata for kernels that support product quadrature.
+
+    Custom kernels may opt in by exposing ``pquad_splitinfo`` either as a
+    :class:`SplitInfo` instance or as a zero-argument method returning one.
+    Built-in scalar kernels are recognized by name as a fallback.
+    """
+
+    custom = _custom_splitinfo_for_kernel(kern)
+    if custom is not None:
+        return custom
 
     name = str(getattr(kern, "name", "")).lower()
     kind = str(getattr(kern, "type", "")).lower()
@@ -367,6 +376,23 @@ def splitinfo_for_kernel(kern: Any) -> SplitInfo | None:
     if name == "helmholtz":
         return _helmholtz_splitinfo(kind, params.get("zk", None), params.get("coefs", None), opdims, scale)
     return None
+
+
+def _custom_splitinfo_for_kernel(kern: Any) -> SplitInfo | None:
+    hook = getattr(kern, "pquad_splitinfo", None)
+    if hook is None:
+        return None
+    splitinfo = hook() if callable(hook) else hook
+    if splitinfo is None:
+        return None
+    if not isinstance(splitinfo, SplitInfo):
+        raise TypeError("kernel pquad_splitinfo must be a SplitInfo instance or return one")
+
+    kernel_opdims = tuple(int(v) for v in getattr(kern, "opdims", splitinfo.opdims))
+    split_opdims = tuple(int(v) for v in splitinfo.opdims)
+    if split_opdims != kernel_opdims:
+        raise ValueError("kernel pquad_splitinfo opdims must match kernel opdims")
+    return splitinfo
 
 
 def _laplace_splitinfo(kind: str, coefs: Any, scale: Any = 1.0) -> SplitInfo | None:
