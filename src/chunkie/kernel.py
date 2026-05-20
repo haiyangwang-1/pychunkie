@@ -15,7 +15,7 @@ from typing import Any
 
 import numpy as np
 
-from .chnk import biharm2d, elast2d, helm1d, helm2d, lap2d, stok2d
+from .chnk import bhfmm2d, biharm2d, cfmm2d, elast2d, helm1d, helm2d, lap2d, stok2d
 
 try:  # pragma: no cover - exercised when the optional compiled package imports.
     import fmm2dpy as _fmm2dpy
@@ -158,8 +158,9 @@ def kernel(kern: str | Callable[[Any, Any], np.ndarray] | Kernel, *args: Any) ->
     """MATLAB-style kernel constructor.
 
     String families include ``"lap"``/``"laplace"``, ``"helm"``/``"helmholtz"``,
-    ``"helmdiff"``, ``"helm1d"``, ``"biharm"``, ``"stok"``/``"stokes"``,
-    ``"elast"``, ``"zero"``, and ``"nan"``. A callable is wrapped as a custom
+    ``"helmdiff"``, ``"helm1d"``, ``"biharm"``, ``"cfmm2d"``, ``"bhfmm2d"``,
+    ``"stok"``/``"stokes"``, ``"elast"``, ``"zero"``, and ``"nan"``.
+    A callable is wrapped as a custom
     dense kernel. A 2D list or object array of kernels is interleaved into a
     block kernel whose density and value components are stored node-by-node in
     Fortran order.
@@ -185,6 +186,10 @@ def kernel(kern: str | Callable[[Any, Any], np.ndarray] | Kernel, *args: Any) ->
         return helm1d_kernel(*args)
     if name in {"biharmonic", "biharm", "b"}:
         return biharm2d_kernel(*args)
+    if name in {"cfmm2d", "cfmm", "cauchy2d", "cauchy"}:
+        return cfmm2d_kernel(*args)
+    if name in {"bhfmm2d", "bhfmm"}:
+        return bhfmm2d_kernel(*args)
     if name in {"stokes", "stok"}:
         return stok2d_kernel(*args)
     if name in {"elasticity", "elast", "e"}:
@@ -350,6 +355,46 @@ def biharm2d_kernel(kind: str) -> Kernel:
         fmm=_biharm2d_fmm(typ) or _direct_fmm(lambda s, t: biharm2d.kern(s, t, typ)),
         opdims=opdims,
         sing="log" if typ in {"s", "single", "lap", "slap", "laplacian"} else "pv",
+    )
+
+
+def cfmm2d_kernel(kind: str = "potential") -> Kernel:
+    """Build a raw complex Cauchy-kernel FMM-compatible kernel."""
+
+    typ = kind.lower()
+    if typ in {"all", "pgh"}:
+        opdims = (3, 2)
+    elif typ in {"c", "charge", "charges", "log", "d", "dipole", "dipoles", "cauchy"}:
+        opdims = (1, 1)
+    else:
+        opdims = (1, 2)
+    return Kernel(
+        name="cfmm2d",
+        type=typ,
+        eval=lambda s, t: cfmm2d.kern(s, t, typ),
+        fmm=_cfmm2d_fmm(typ) or _direct_fmm(lambda s, t: cfmm2d.kern(s, t, typ)),
+        opdims=opdims,
+        sing="smooth",
+    )
+
+
+def bhfmm2d_kernel(kind: str = "potential") -> Kernel:
+    """Build a current ``fmm2dpy.bhfmm2d``-compatible complex kernel."""
+
+    typ = kind.lower()
+    if typ in {"all", "pg"}:
+        opdims = (4, 5)
+    elif typ in {"g", "grad", "gradient", "derivative"}:
+        opdims = (3, 5)
+    else:
+        opdims = (1, 5)
+    return Kernel(
+        name="bhfmm2d",
+        type=typ,
+        eval=lambda s, t: bhfmm2d.kern(s, t, typ),
+        fmm=_bhfmm2d_fmm(typ) or _direct_fmm(lambda s, t: bhfmm2d.kern(s, t, typ)),
+        opdims=opdims,
+        sing="smooth",
     )
 
 
@@ -670,6 +715,102 @@ def _biharm2d_fmm(kind: str) -> Callable[[float, Any, Any, np.ndarray], np.ndarr
         if typ in {"shess", "hess"}:
             return (np.vstack((hxx, hxy, hyy)) / (8.0 * np.pi)).reshape(-1, order="F")
         return (hxx + hyy) / (8.0 * np.pi)
+
+    return fmm_eval
+
+
+def _cfmm2d_fmm(kind: str) -> Callable[[float, Any, Any, np.ndarray], np.ndarray] | None:
+    typ = kind.lower()
+    if _fmm2dpy is None:
+        return None
+    if typ not in {
+        "c",
+        "charge",
+        "charges",
+        "log",
+        "d",
+        "dipole",
+        "dipoles",
+        "cauchy",
+        "p",
+        "pot",
+        "potential",
+        "g",
+        "grad",
+        "der",
+        "derivative",
+        "dz",
+        "h",
+        "hess",
+        "second",
+        "second_derivative",
+        "dzz",
+        "all",
+        "pgh",
+    }:
+        return None
+
+    def fmm_eval(eps: float, srcinfo: Any, targinfo: Any, sigma: np.ndarray) -> np.ndarray:
+        from .operators import pointinfo
+
+        src = pointinfo(srcinfo)
+        targ = pointinfo(targinfo)
+        sig = np.asarray(sigma, dtype=np.complex128).reshape(-1, order="F")
+        kwargs: dict[str, Any] = {}
+        if typ in {"c", "charge", "charges", "log"}:
+            kwargs["charges"] = sig
+            pgt = 1
+        elif typ in {"d", "dipole", "dipoles", "cauchy"}:
+            kwargs["dipstr"] = sig
+            pgt = 1
+        else:
+            strengths = sig.reshape(2, src.r.shape[1], order="F")
+            kwargs["charges"] = strengths[0]
+            kwargs["dipstr"] = strengths[1]
+            if typ in {"h", "hess", "second", "second_derivative", "dzz", "all", "pgh"}:
+                pgt = 3
+            elif typ in {"g", "grad", "der", "derivative", "dz"}:
+                pgt = 2
+            else:
+                pgt = 1
+        out = _fmm2dpy.cfmm2d(eps=eps, sources=src.r, targets=targ.r, pgt=pgt, **kwargs)
+        if typ in {"g", "grad", "der", "derivative", "dz"}:
+            return np.asarray(out.gradtarg, dtype=np.complex128).reshape(-1, order="F")
+        if typ in {"h", "hess", "second", "second_derivative", "dzz"}:
+            return np.asarray(out.hesstarg, dtype=np.complex128).reshape(-1, order="F")
+        if typ in {"all", "pgh"}:
+            return np.vstack((out.pottarg, out.gradtarg, out.hesstarg)).reshape(-1, order="F")
+        return np.asarray(out.pottarg, dtype=np.complex128).reshape(-1, order="F")
+
+    return fmm_eval
+
+
+def _bhfmm2d_fmm(kind: str) -> Callable[[float, Any, Any, np.ndarray], np.ndarray] | None:
+    typ = kind.lower()
+    if _fmm2dpy is None:
+        return None
+    if typ not in {"p", "pot", "potential", "g", "grad", "gradient", "derivative", "all", "pg"}:
+        return None
+
+    def fmm_eval(eps: float, srcinfo: Any, targinfo: Any, sigma: np.ndarray) -> np.ndarray:
+        from .operators import pointinfo
+
+        src = pointinfo(srcinfo)
+        targ = pointinfo(targinfo)
+        strengths = np.asarray(sigma, dtype=np.complex128).reshape(5, src.r.shape[1], order="F")
+        out = _fmm2dpy.bhfmm2d(
+            eps=eps,
+            sources=src.r,
+            charges=strengths[:2],
+            dipoles=strengths[2:],
+            targets=targ.r,
+            pgt=2 if typ in {"g", "grad", "gradient", "derivative", "all", "pg"} else 1,
+        )
+        if typ in {"g", "grad", "gradient", "derivative"}:
+            return np.asarray(out.gradtarg, dtype=np.complex128).reshape(-1, order="F")
+        if typ in {"all", "pg"}:
+            return np.vstack((out.pottarg, out.gradtarg)).reshape(-1, order="F")
+        return np.asarray(out.pottarg, dtype=np.complex128).reshape(-1, order="F")
 
     return fmm_eval
 

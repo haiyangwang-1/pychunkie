@@ -15,7 +15,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 
 ## Current Snapshot
 
-- Verification snapshot: `uv run pytest` on 2026-05-13 with Python 3.11.9 collected 370 tests: `370 passed`. Full MATLAB parity runs generate ignored `tests/golden/*.mat` files on demand and require a populated `external/chunkie-matlab` checkout.
+- Verification snapshot: `uv run pytest --collect-only -q` on 2026-05-19 with Python 3.11 collected 374 tests. Targeted change verification passed with `uv run pytest tests/test_fmm2d_raw.py tests/test_api_contract.py tests/test_kernel.py -q` (`22 passed`). After initializing `external/chunkie-matlab`, a full `uv run pytest -q` in this checkout is still blocked for generated MATLAB fixtures because no `matlab` executable is on `PATH` and `PYCHUNKIE_MATLAB` is unset; it also exposes an unrelated strict-zero `test_chunkgraph_slice_and_edgeids_match_selected_edges` tolerance failure at `1.1e-16`.
 - The implemented surface covers core chunkers/chunkgraphs, domain helpers, kernel factories, dense/FMM/FLAM operator paths, GGQ/adaptive quadrature, RCIP helpers, Legendre utilities, and the lightweight rounded-polygon smoother.
 - No active `should implement` items remain from the current MATLAB scope triage. Deferred work is concentrated in stricter FLAM devtools parity, remaining `chunkerfit` modes, and full solve parity for the hard devtools cases listed in `devtools_coverage.md`.
 - Use `docs/python-test-suite-summary.md` for the per-test index and `devtools_coverage.md` for the MATLAB devtools inventory.
@@ -78,6 +78,7 @@ src/
     │   │   └── zeros, nans
     │   ├── kernel
     │   ├── lap2d_kernel, helm2d_kernel, helm1d_kernel, biharm2d_kernel
+    │   ├── cfmm2d_kernel, bhfmm2d_kernel
     │   ├── stok2d_kernel, elast2d_kernel
     │   ├── zeros, nans, interleave
     │   └── private helpers
@@ -97,6 +98,12 @@ src/
     │   │   ├── class ArcParamData
     │   │   ├── init
     │   │   └── eval
+    │   ├── bhfmm2d.py
+    │   │   ├── kern
+    │   │   └── private helpers
+    │   ├── cfmm2d.py
+    │   │   ├── kern
+    │   │   └── private helpers
     │   ├── curves.py
     │   │   ├── linefunc, fpara, fsine, bymode
     │   │   └── _pack
@@ -175,7 +182,7 @@ src/
 
 - ✅ [src/chunkie/__init__.py](src/chunkie/__init__.py) exports the public Python API. MATLAB has no direct single-file equivalent; it is a Python package facade over MATLAB class folders and package folders.
 - ✅ 🧪 [src/chunkie/domain.py](src/chunkie/domain.py) implements top-level MATLAB geometry/domain helpers exported from the Python package facade.
-- ✅ [src/chunkie/chnk/__init__.py](src/chunkie/chnk/__init__.py) mirrors MATLAB `+chnk` package exports, including the newer `biharm2d`, `flam`, `pquad`, `quadadap`, `rcip`, and `smoother` modules.
+- ✅ [src/chunkie/chnk/__init__.py](src/chunkie/chnk/__init__.py) mirrors MATLAB `+chnk` package exports, including the newer `cfmm2d`, `bhfmm2d`, `biharm2d`, `flam`, `pquad`, `quadadap`, `rcip`, and `smoother` modules.
 - ✅ [src/chunkie/lege/__init__.py](src/chunkie/lege/__init__.py) mirrors MATLAB `+lege` package exports.
 
 
@@ -351,16 +358,18 @@ src/
 | `Kernel.__mul__`, `__rmul__`, `__truediv__` | ✅ 🧪 🎯 | `@kernel/times.m`, `mtimes.m`, `rdivide.m`, `mrdivide.m` | Scalar composition compared against MATLAB object algebra; FMM scaling remains Python direct/FMM-tested. |
 | `Kernel.conj`, `conjugate` | ✅ 🧪 🎯 | `@kernel/conj.m` | Direct conjugation compared against MATLAB object algebra; FMM conjugation remains Python direct/FMM-tested. |
 | `Kernel.zeros`, `Kernel.nans`, module `zeros`, `nans` | ✅ 🧪 🎯 | `@kernel/zeros.m`, `@kernel/nans.m` | MATLAB fixture checks metadata and direct zero/NaN block values. |
-| `kernel` | ✅ 🧪 🎯 | `@kernel/kernel.m` | Dispatches strings, callables, existing kernels, Helmholtz-difference kernels, and block arrays for `interleave`; MATLAB fixture covers factory/direct values. |
+| `kernel` | ✅ 🧪 🎯 | `@kernel/kernel.m` | Dispatches strings, callables, existing kernels, Helmholtz-difference kernels, raw `cfmm2d`/`bhfmm2d` kernels, and block arrays for `interleave`; MATLAB fixture covers factory/direct values for the MATLAB-overlapping selector surface. |
 | `lap2d_kernel` | ✅ 🧪 🎯 | `@kernel/lap2d.m`, `+chnk/+lap2d/kern.m`, `+chnk/+lap2d/fmm.m` concepts | String dispatch plus `fmm2dpy` single, double, target-normal/tangential derivatives, Hilbert, double-prime, combined-prime, and gradient paths tested against dense direct evaluation; MATLAB fixture checks `@kernel` metadata/eval. |
 | `helm2d_kernel` | ✅ 🧪 🎯 | `@kernel/helm2d.m`, `+chnk/+helm2d/kern.m`, `+chnk/+helm2d/fmm.m` concepts | String dispatch plus `fmm2dpy` single, double, target-normal/tangential derivatives, double-prime, combined-prime, combined-gradient, transmission-representation, single-gradient, and double-gradient paths tested against dense direct evaluation or FMM wiring tests; MATLAB fixture checks `@kernel` metadata/eval for the MATLAB factory-supported selectors and direct `+chnk/+helm2d/kern` fixture values for the extended selectors. |
 | `helm2ddiff_kernel` | ✅ 🧪 🎯 | `@kernel/helm2ddiff.m`, `+chnk/+helm2d/kern.m` `_diff` selectors | Direct Helmholtz-difference kernel factory for scalar, combined, transmission, and interleaved selector families; exact devtools interleave identities are MATLAB-fixture tested. |
 | `helm1d_kernel` | ✅ 🧪 🎯 | `@kernel/helm1d.m`, `+chnk/+helm1d/kern.m` | MATLAB fixture checks `@kernel` metadata/eval for the supported single-layer factory. |
 | `biharm2d_kernel` | ✅ 🧪 🎯 | `fmm2d/src/biharmonic/*`, `+chnk/+flex2d/bhgreen.m` concepts | Biharmonic Green-kernel factory and selectors are compared against MATLAB `bhgreen`-derived fixture data; FMM wiring remains Python direct/FMM-tested. |
+| `cfmm2d_kernel` | ✅ 🧪 | `fmm2dpy.cfmm2d` current API | Raw Cauchy charge/dipole potential, derivative, second-derivative, and combined selectors use node-interleaved complex strengths and are Python-tested against the installed `fmm2dpy` wrapper plus dense/FMM target evaluation. |
+| `bhfmm2d_kernel` | ✅ 🧪 | `fmm2dpy.bhfmm2d` current API | Raw complex biharmonic potential, gradient, and combined potential-gradient selectors use node-interleaved `(c1, c2, v1, v2, v3)` strengths and are Python-tested against the current `fmm2dpy` definition, not the older two-dipole/conjugated convention. |
 | `stok2d_kernel` | ✅ 🧪 🎯 | `@kernel/stok2d.m`, `+chnk/+stok2d/kern.m`, `+chnk/+stok2d/fmm.m` concepts | String dispatch plus `fmm2dpy` velocity, pressure, gradient, traction, and combined Stokes paths tested against dense direct evaluation or FMM wiring tests; MATLAB fixture checks `@kernel` metadata/eval. |
 | `elast2d_kernel` | ✅ 🧪 🎯 | `@kernel/elast2d.m`, `+chnk/+elast2d/kern.m` | Elasticity single, gradient, traction, double, alternate double, alternate gradient, and alternate traction selectors have FMM wiring through Laplace/Stokes decompositions and MATLAB fixture eval parity; Python keeps correct `sgrad` opdims where MATLAB `@kernel` metadata omits the gradient row count. |
 | `interleave` | ✅ 🧪 🎯 | MATLAB block kernel composition patterns | Builds mixed block systems from kernel arrays; direct interleaved metadata/eval is MATLAB-fixture tested, compact Helmholtz block-system dense solve/evaluation parity covers `kernel_interleaveTest.m`, and FMM paths remain Python direct/FMM-tested. |
-| `_lap2d_fmm`, `_helm2d_fmm`, `_biharm2d_fmm`, `_stok2d_fmm`, `_elast2d_fmm`, `_direct_fmm`, `_sum_fmm`, `_interleave_fmm`, `_interleave_indices`, `_target_count` | 🧩 ✅ 🧪 | FMM-backed MATLAB kernel conventions | Implemented Laplace/Helmholtz/Biharmonic/Stokes/Elasticity selectors call `fmm2dpy` or algebraic combinations of `fmm2dpy` outputs; dense-direct fallback callables remain available for custom or unsupported kernels. |
+| `_lap2d_fmm`, `_helm2d_fmm`, `_biharm2d_fmm`, `_cfmm2d_fmm`, `_bhfmm2d_fmm`, `_stok2d_fmm`, `_elast2d_fmm`, `_direct_fmm`, `_sum_fmm`, `_interleave_fmm`, `_interleave_indices`, `_target_count` | 🧩 ✅ 🧪 | FMM-backed MATLAB/kernel conventions | Implemented Laplace/Helmholtz/Biharmonic/raw Cauchy/raw complex biharmonic/Stokes/Elasticity selectors call `fmm2dpy` or algebraic combinations of `fmm2dpy` outputs; dense-direct fallback callables remain available for custom or unsupported kernels. |
 
 Scope note: FMM integration for the currently implemented 2D kernel families is
 wired where the existing kernel selector surface applies. Axisymmetric,
@@ -390,11 +399,13 @@ their matching `@kernel` factories.
 
 
 
-#### `chnk/biharm2d.py`, `lap2d.py`, `helm2d.py`, `helm1d.py`, `stok2d.py`, `elast2d.py`
+#### `chnk/cfmm2d.py`, `bhfmm2d.py`, `biharm2d.py`, `lap2d.py`, `helm2d.py`, `helm1d.py`, `stok2d.py`, `elast2d.py`
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
 | private kernel helpers | 🧩 ✅ | Internal Python helpers | Interleaving and validation helpers. |
+| `cfmm2d.kern` | ✅ 🧪 | `fmm2dpy.cfmm2d` current API | Dense raw Cauchy matrices for charge/dipole potential, derivative, second-derivative, and combined selectors; Python tests compare point values and weighted FMM target evaluation against `fmm2dpy`. |
+| `bhfmm2d.kern` | ✅ 🧪 | `fmm2dpy.bhfmm2d` current API | Dense raw complex biharmonic matrices for potential, gradient, and combined selectors using current `(c1, c2, v1, v2, v3)` strengths; Python tests compare the documented current potential formula and `fmm2dpy` outputs. |
 | `biharm2d.green` | ✅ 🧪 🎯 | `fmm2d/src/biharmonic/bhkernels2d.f`, `+chnk/+flex2d/bhgreen.m` concepts | Biharmonic Green value, gradient, Hessian, and Laplacian are compared against MATLAB `bhgreen`; gradient also checked by finite differences. |
 | `biharm2d.kern` | ✅ 🧪 🎯 | Biharmonic/flex kernel concepts in MATLAB reference | Selectors for single, double, normal derivative, gradient, Hessian, and Laplacian are compared against MATLAB `bhgreen`-derived fixture data. |
 | `lap2d.green` | ✅ 🧪 🎯 | `+chnk/+lap2d/green.m` | Direct formula and derivatives are MATLAB-fixture tested. |
@@ -407,7 +418,7 @@ their matching `@kernel` factories.
 | `stok2d.kern` | ✅ 🧪 🎯 | `+chnk/+stok2d/kern.m` | Stokes variants parity-tested, including pressure/traction/gradient combined paths; `cgrad` parity uses MATLAB's saved `dgrad`/`sgrad` component blocks because the saved MATLAB combined `cgrad` value combines `sgrad` twice. |
 | `elast2d.kern` | ✅ 🧪 🎯 | `+chnk/+elast2d/kern.m` | Elasticity variants parity-tested, including `sgrad`, `dalttrac`, and `daltgrad`. |
 
-✅ External FMM acceleration is wired through `fmm2dpy` for the implemented 2D selector surface: Laplace single/double/normal/tangential/Hilbert/prime/gradient/combined paths; Helmholtz single/double/normal/tangential/prime/gradient/combined-prime/combined-gradient paths, with dense-direct fallback for Helmholtz transmission-representation selectors; biharmonic single/double/normal derivative/gradient/Hessian/Laplacian paths via Laplace moment decompositions; Stokes velocity/pressure/gradient/traction/combined paths; and elasticity single/gradient/traction/double/alternate-double workflows via Laplace/Stokes decompositions. Dense-direct fallbacks remain available for custom or unsupported kernels, optional dependency absence, and compatibility tests.
+✅ External FMM acceleration is wired through `fmm2dpy` for the implemented 2D selector surface: Laplace single/double/normal/tangential/Hilbert/prime/gradient/combined paths; Helmholtz single/double/normal/tangential/prime/gradient/combined-prime/combined-gradient paths, with dense-direct fallback for Helmholtz transmission-representation selectors; biharmonic single/double/normal derivative/gradient/Hessian/Laplacian paths via Laplace moment decompositions; raw Cauchy and current complex biharmonic `cfmm2d`/`bhfmm2d` point-potential paths; Stokes velocity/pressure/gradient/traction/combined paths; and elasticity single/gradient/traction/double/alternate-double workflows via Laplace/Stokes decompositions. Dense-direct fallbacks remain available for custom or unsupported kernels, optional dependency absence, and compatibility tests.
 
 
 ### III QUADRATURES
@@ -583,6 +594,7 @@ tests/
 ├── test_easy_parity_stress.py
 ├── test_elast2d.py
 ├── test_flam.py
+├── test_fmm2d_raw.py
 ├── test_geometry.py
 ├── test_geometry_parity.py
 ├── test_helm1d.py

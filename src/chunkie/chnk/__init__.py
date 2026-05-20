@@ -12,7 +12,9 @@ from typing import Any
 
 _SUBMODULES = {
     "arcparam",
+    "bhfmm2d",
     "biharm2d",
+    "cfmm2d",
     "curves",
     "elast2d",
     "flam",
@@ -56,7 +58,9 @@ def __getattr__(name: str) -> Any:
 __all__ = [
     "chunk_nearparam",
     "arcparam",
+    "bhfmm2d",
     "biharm2d",
+    "cfmm2d",
     "curvature2d",
     "curves",
     "elast2d",
