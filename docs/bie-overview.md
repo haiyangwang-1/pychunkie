@@ -106,6 +106,10 @@ panel refinement. For coarse `ChunkGraph` solves with corner vertices,
 `chunkermat(cg, kern)` now applies MATLAB-style RCIP compression by default
 for scalar second-kind Laplace/Helmholtz kernels such as double layer and
 sprime; pass `{"rcip": False}` to force ordinary merged-geometry assembly.
+For square vector kernels or edge-by-edge block kernel matrices, opt into the
+same high-level RCIP path with `{"rcip_general": True}` (alias
+`{"rcip_block": True}`); all incident edges must share one operator dimension
+at each compressed corner.
 `chunkerkerneval(cg, ...)` reuses the RCIP metadata cached by the preceding
 compressed solve and interpolates the corner density back to the locally
 refined panels for target evaluation. For near-boundary targets, pass
