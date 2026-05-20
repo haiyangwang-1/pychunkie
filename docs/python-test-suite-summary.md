@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 377 pytest cases because several MATLAB parity tests are
+collection expands to 378 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -1765,6 +1765,14 @@ prints pquad panel-matrix time and maximum absolute matrix error.
 kernel objects. The method compares pquad panel matrices for a Laplace
 single-layer kernel and a complex scalar multiple, verifying the split
 functions carry the scalar factor.
+
+`test_custom_kernel_pquad_splitinfo_hook_drives_close_panel_dispatch` checks
+custom-kernel product-quadrature opt-in. The method defines a non-built-in
+logarithmic single-layer kernel with a `pquad_splitinfo` method, compares its
+isolated panel matrix against high-order Legendre quadrature, monkeypatches
+`pquad.panel_matrix`, and verifies public `chunkerkernevalmat(...,
+forceadap=True, usepquad=True)` dispatches through pquad while matching the
+adaptive fallback.
 
 `test_forceadap_target_matrix_prefers_pquad_when_side_is_inferred` checks the
 public target-evaluation matrix path. The method places an off-boundary close
