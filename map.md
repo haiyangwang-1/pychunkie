@@ -15,7 +15,7 @@ This map is a working guide for porting MATLAB `chunkIE` into Python. It maps th
 
 ## Current Snapshot
 
-- Verification snapshot: `uv run pytest --collect-only -q` on 2026-05-20 with Python 3.11 collected 378 tests. Targeted change verification passed with `uv run pytest tests/test_pquad.py` (`14 passed`). Prior targeted verification passed with `uv run pytest tests/test_rcip.py -q` (`11 passed`) and `uv run pytest tests/test_fmm2d_raw.py tests/test_api_contract.py tests/test_kernel.py -q` (`22 passed`). After initializing `external/chunkie-matlab`, a full `uv run pytest -q` in this checkout is still blocked for generated MATLAB fixtures because no `matlab` executable is on `PATH` and `PYCHUNKIE_MATLAB` is unset; it also exposes an unrelated strict-zero `test_chunkgraph_slice_and_edgeids_match_selected_edges` tolerance failure at `1.1e-16`.
+- Verification snapshot: `uv run pytest --collect-only -q` on 2026-05-20 with Python 3.11 collected 380 tests. Targeted change verification passed with `uv run pytest tests/test_quadggq.py tests/test_pquad.py -q` (`29 passed`). Prior targeted verification passed with `uv run pytest tests/test_rcip.py -q` (`11 passed`) and `uv run pytest tests/test_fmm2d_raw.py tests/test_api_contract.py tests/test_kernel.py -q` (`22 passed`). After initializing `external/chunkie-matlab`, a full `uv run pytest -q` in this checkout is still blocked for generated MATLAB fixtures because no `matlab` executable is on `PATH` and `PYCHUNKIE_MATLAB` is unset; it also exposes an unrelated strict-zero `test_chunkgraph_slice_and_edgeids_match_selected_edges` tolerance failure at `1.1e-16`.
 - The implemented surface covers core chunkers/chunkgraphs, domain helpers, kernel factories, dense/FMM/FLAM operator paths, GGQ/adaptive quadrature, RCIP helpers, Legendre utilities, and the lightweight rounded-polygon smoother.
 - No active `should implement` items remain from the current MATLAB scope triage. Deferred work is concentrated in stricter FLAM devtools parity, remaining `chunkerfit` modes, and full solve parity for the hard devtools cases listed in `devtools_coverage.md`.
 - Use `docs/python-test-suite-summary.md` for the per-test index and `devtools_coverage.md` for the MATLAB devtools inventory.
@@ -439,10 +439,10 @@ their matching `@kernel` factories.
 
 | Python node | Flags | MATLAB reference | Notes |
 | --- | --- | --- | --- |
-| `SplitInfo`, split constants, private helpers | 🧩 ✅ 🧪 | `kernel.splitinfo`, `+chnk/pquadwts.m` internals | Kernel-split metadata and side-classification helpers support product-quadrature tests and the public close-panel replacement path. |
+| `SplitInfo`, split constants, private helpers | 🧩 ✅ 🧪 | `kernel.splitinfo`, `+chnk/pquadwts.m` internals | Kernel-split metadata, conjugated-weight flags, and side-classification helpers support product-quadrature tests and the public close-panel replacement path. |
 | `sd_special_quad` | ✅ 🧪 🎯 | nested `SDspecialquad` in `+chnk/pquadwts.m` | Helsing-Ojala smooth/log/Cauchy/hypersingular/supersingular close-panel weights are Python-tested against high-order Legendre moment references and exercised through MATLAB `pquadwts` fixture parity. |
 | `pquadwts`, `panel_pquadwts` | ✅ 🧪 🎯 | `+chnk/pquadwts.m` | Product-quadrature weights for one target-panel set support original-node and upsampled-node forms; Python tests verify interpolation composition, and devtools fixture parity compares compact MATLAB exterior/interior log/Cauchy plus hypersingular/supersingular weights. |
-| `panel_matrix`, `panel_matrix_auto_side`, `splitinfo_for_kernel` | ✅ 🧪 | `chunkerkerneval.m` pquad branch and built-in `kernel.splitinfo` | Panel-matrix assembly is Python-tested for Laplace and Helmholtz scalar single/double layer kernels against high-order oversampled Legendre matrices and through public `forceadap`/correction dispatch. `splitinfo_for_kernel` also accepts custom kernel `pquad_splitinfo` hooks and dispatches those kernels through the same close-panel pquad path. Combined-kernel migration remains pending. |
+| `panel_matrix`, `panel_matrix_auto_side`, `splitinfo_for_kernel` | ✅ 🧪 | `chunkerkerneval.m` pquad branch and built-in `kernel.splitinfo` | Panel-matrix assembly is Python-tested for Laplace and Helmholtz scalar single/double layer kernels plus conjugated hypersingular/supersingular split terms against high-order oversampled Legendre matrices and through public `forceadap`/correction dispatch. `splitinfo_for_kernel` also accepts custom kernel `pquad_splitinfo` hooks and dispatches those kernels through the same close-panel pquad path. Combined-kernel migration remains pending. |
 
 #### `chnk/quadggq.py`
 
@@ -460,10 +460,10 @@ their matching `@kernel` factories.
 | `setup` | ✅ 🧪 🎯 | `+chnk/+quadggq/setup.m` | Supports `log`, `removable`, `pv`, and `hs`; aux tables are MATLAB-fixture tested. |
 | `getlogquad` | ✅ 🧪 🎯 | `+chnk/+quadggq/getlogquad.m`, `ggqnear*`, `ggqself_*` | Reads packaged NumPy log near/self tables, with generated fallback for unavailable orders. |
 | `buildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/buildmat.m` | Log/PV/HS matrix assembly and `ilist` skipping are MATLAB-fixture tested. |
-| `diagbuildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/diagbuildmat.m` | Self-block and correction-block outputs are MATLAB-fixture tested. |
-| `nearbuildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/nearbuildmat.m` | Oversampled neighbor block and MATLAB-style correction subtraction are fixture-tested; operator dispatch can request pquad replacement for eligible split kernels, with oversampled GGQ/Gauss fallback. |
+| `diagbuildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/diagbuildmat.m` | Self-block and correction-block outputs are MATLAB-fixture tested; PV/HS self assembly opportunistically uses pquad when split metadata and side information are available, with GGQ fallback. |
+| `nearbuildmat` | ✅ 🧪 🎯 | `+chnk/+quadggq/nearbuildmat.m` | Adjacent-panel GGQ neighbor blocks and MATLAB-style correction subtraction are fixture-tested; PV/HS neighbor assembly opportunistically uses pquad when split metadata and side information are available, with GGQ/Gauss fallback. |
 
-Log/PV/HS support tables are packaged as `.npz` assets and loaded with `importlib.resources`; runtime no longer depends on a MATLAB reference checkout for GGQ tables. `quadadap` covers MATLAB-style log self, neighbor, and robust close replacement, and the operator path can request pquad for eligible close panels while retaining adaptive Gauss fallback. `pquad` now backs eligible close-target/correction matrices and opt-in GGQ/quadadap neighbor blocks; `quadba` is an explicit non-goal for this port.
+Log/PV/HS support tables are packaged as `.npz` assets and loaded with `importlib.resources`; runtime no longer depends on a MATLAB reference checkout for GGQ tables. `quadadap` covers MATLAB-style log self, neighbor, and robust close replacement, and the operator path can request pquad for eligible close panels while retaining adaptive Gauss fallback. `pquad` now backs eligible close-target/correction matrices, anti-holomorphic split weights, and opt-in GGQ/quadadap self/neighbor blocks; `quadba` is an explicit non-goal for this port.
 
 #### `chnk/rcip.py`
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
@@ -37,6 +38,7 @@ class SplitInfo:
     actions: tuple[str, ...]
     functions: Callable[[PointInfo, PointInfo], tuple[np.ndarray, ...]]
     opdims: tuple[int, int]
+    conjugates: tuple[bool, ...] = ()
 
 
 def pquadwts(
@@ -108,11 +110,13 @@ def panel_matrix(
     interp = lege.matrin(k, t)[0]
     interp_ab = lege.matrin(k, np.array([-1.0, 1.0]))[0]
     targ = pointinfo(targobj)
-    weights_by_type = pquadwts(
+    conjugates = _split_conjugates(splitinfo)
+    weights_by_type = _panel_weights_by_split(
         chnkr,
         src_chunk,
         targ,
         splitinfo.types,
+        conjugates,
         side,
         nodes=t,
         weights=w,
@@ -135,6 +139,100 @@ def panel_matrix(
             raise ValueError("split function returned an array with incompatible shape")
         out_up = out_up + mat0opdim * values_arr
     return out_up @ np.kron(interp, np.eye(op1))
+
+
+def _panel_weights_by_split(
+    chnkr: Chunker,
+    src_chunk: int,
+    targ: PointInfo,
+    types: Sequence[ArrayLike | SplitType],
+    conjugates: tuple[bool, ...],
+    side: str,
+    *,
+    nodes: ArrayLike,
+    weights: ArrayLike,
+    intp_ab: ArrayLike,
+    intp: ArrayLike,
+    ifup: bool,
+) -> list[np.ndarray]:
+    if not any(conjugates):
+        return pquadwts(
+            chnkr,
+            src_chunk,
+            targ,
+            types,
+            side,
+            nodes=nodes,
+            weights=weights,
+            intp_ab=intp_ab,
+            intp=intp,
+            ifup=ifup,
+        )
+    normal_weights = pquadwts(
+        chnkr,
+        src_chunk,
+        targ,
+        types,
+        side,
+        nodes=nodes,
+        weights=weights,
+        intp_ab=intp_ab,
+        intp=intp,
+        ifup=ifup,
+    )
+    conjugate_weights = pquadwts(
+        _conjugated_chunker_view(chnkr),
+        src_chunk,
+        _conjugated_pointinfo(targ),
+        types,
+        _conjugate_side(side),
+        nodes=nodes,
+        weights=weights,
+        intp_ab=intp_ab,
+        intp=intp,
+        ifup=ifup,
+    )
+    return [conjugate_weights[idx] if conjugates[idx] else normal_weights[idx] for idx in range(len(conjugates))]
+
+
+def _split_conjugates(splitinfo: SplitInfo) -> tuple[bool, ...]:
+    if not splitinfo.conjugates:
+        return (False,) * len(splitinfo.types)
+    conjugates = tuple(bool(item) for item in splitinfo.conjugates)
+    if len(conjugates) != len(splitinfo.types):
+        raise ValueError("split conjugate flags must match split types")
+    return conjugates
+
+
+def _conjugated_chunker_view(chnkr: Chunker) -> SimpleNamespace:
+    mirror = np.array([1.0, -1.0])[:, None, None]
+    return SimpleNamespace(
+        k=chnkr.k,
+        nch=chnkr.nch,
+        dim=chnkr.dim,
+        r=np.asarray(chnkr.r) * mirror,
+        d=np.asarray(chnkr.d) * mirror,
+        d2=np.asarray(chnkr.d2) * mirror,
+        wts=chnkr.wts,
+    )
+
+
+def _conjugated_pointinfo(info: PointInfo) -> PointInfo:
+    mirror = np.array([1.0, -1.0])[:, None]
+    return PointInfo(
+        r=np.asarray(info.r) * mirror,
+        d=None if info.d is None else np.asarray(info.d) * mirror,
+        d2=None if info.d2 is None else np.asarray(info.d2) * mirror,
+        n=None if info.n is None else np.asarray(info.n) * mirror,
+        data=info.data,
+    )
+
+
+def _conjugate_side(side: str | None) -> str:
+    side0 = _normalize_side(side)
+    if side0 is None:
+        raise ValueError("conjugated product quadrature requires an explicit side")
+    return "e" if side0 == "i" else "i"
 
 
 def panel_matrix_auto_side(
