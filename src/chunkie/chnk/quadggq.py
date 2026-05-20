@@ -205,7 +205,15 @@ def buildmat(
         if src_chunk in ignored:
             continue
         rows = _block_slice(src_chunk, chnkr.k, int(opdims[0]))
-        mat[rows, src_cols] = diagbuildmat(chnkr, src_chunk, kern, opdims, aux)
+        mat[rows, src_cols] = diagbuildmat(
+            chnkr,
+            src_chunk,
+            kern,
+            opdims,
+            aux,
+            pquad_side=pquad_side,
+            usepquad=usepquad,
+        )
 
     return mat
 
@@ -273,7 +281,16 @@ def buildmattd(
         append_block(
             src_chunk,
             src_chunk,
-            diagbuildmat(chnkr, src_chunk, kern, (op0, op1), aux, corrections=corrections),
+            diagbuildmat(
+                chnkr,
+                src_chunk,
+                kern,
+                (op0, op1),
+                aux,
+                corrections=corrections,
+                pquad_side=pquad_side,
+                usepquad=usepquad,
+            ),
         )
 
     shape = (chnkr.npt * op0, chnkr.npt * op1)
@@ -292,6 +309,9 @@ def diagbuildmat(
     aux: AuxQuad | None = None,
     corrections: bool = False,
     wtss: ArrayLike | None = None,
+    *,
+    pquad_side: str | None = None,
+    usepquad: bool = False,
 ) -> np.ndarray:
     """Build a special self-interaction block for chunk ``i``."""
 
@@ -303,6 +323,15 @@ def diagbuildmat(
     d2s = chnkr.d2[:, :, i]
     ns = chnkr.n[:, :, i]
     dd = chnkr.data[:, :, i] if chnkr.datadim else None
+
+    try_pquad = usepquad or aux.type in {"pv", "hs"}
+    if try_pquad and pquad_side is not None:
+        targ = PointInfo(r=rs, d=ds, d2=d2s, n=ns, data=dd)
+        pquad_block, handled = _pquad_near_block(chnkr, i, kern, opdims, targ, pquad_side)
+        if pquad_block is not None and np.all(handled):
+            if corrections:
+                pquad_block = pquad_block - _native_self_block(chnkr, i, kern, opdims, wtss)
+            return np.real_if_close(pquad_block)
 
     for inode in range(k):
         interp = aux.ainterps0[inode]
@@ -336,6 +365,31 @@ def diagbuildmat(
     return out
 
 
+def _native_self_block(
+    chnkr: Chunker,
+    src_chunk: int,
+    kern: Callable[[Any, Any], np.ndarray],
+    opdims: tuple[int, int],
+    wtss: ArrayLike | None = None,
+) -> np.ndarray:
+    wtss_arr = chnkr.wts if wtss is None else np.asarray(wtss)
+    src = PointInfo(
+        r=chnkr.r[:, :, src_chunk],
+        d=chnkr.d[:, :, src_chunk],
+        d2=chnkr.d2[:, :, src_chunk],
+        n=chnkr.n[:, :, src_chunk],
+        data=chnkr.data[:, :, src_chunk] if chnkr.datadim else None,
+    )
+    smooth = np.array(_eval_kernel(kern, src, src), copy=True)
+    op0 = int(opdims[0])
+    op1 = int(opdims[1])
+    for inode in range(chnkr.k):
+        row = slice(op0 * inode, op0 * (inode + 1))
+        col = slice(op1 * inode, op1 * (inode + 1))
+        smooth[row, col] = 0.0
+    return np.nan_to_num(smooth, nan=0.0, posinf=0.0, neginf=0.0) * np.repeat(wtss_arr[:, src_chunk], op1)[None, :]
+
+
 def nearbuildmat(
     chnkr: Chunker,
     i: int,
@@ -359,7 +413,8 @@ def nearbuildmat(
         n=chnkr.n[:, :, i],
         data=chnkr.data[:, :, i] if chnkr.datadim else None,
     )
-    if usepquad:
+    try_pquad = usepquad or aux.type in {"pv", "hs"}
+    if try_pquad:
         pquad_block, handled = _pquad_near_block(chnkr, j, kern, opdims, targ, pquad_side)
         if pquad_block is not None and np.all(handled):
             if corrections:

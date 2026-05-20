@@ -37,6 +37,41 @@ class CustomLogSingleLayer:
         )
 
 
+class CustomConjugatedHypersingular:
+    name = "custom_conjugated_hypersingular"
+    type = "hypersingular"
+    opdims = (1, 1)
+
+    def __call__(self, src, targ):
+        dz = src.d[0] + 1j * src.d[1]
+        speed = np.abs(dz)
+        tau = np.divide(dz, speed, out=np.zeros_like(dz), where=speed > 0.0)
+        source = src.r[0] + 1j * src.r[1]
+        target = targ.r[0] + 1j * targ.r[1]
+        diff = source[None, :] - target[:, None]
+        diff_bar = np.conjugate(diff)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            values = 1j * np.conjugate(tau)[None, :] / (2.0 * np.pi * diff_bar**2)
+            values += 0.25j * diff * np.conjugate(tau)[None, :] / (2.0 * np.pi * diff_bar**3)
+        return np.nan_to_num(values)
+
+    def pquad_splitinfo(self):
+        def functions(src, targ):
+            source = src.r[0] + 1j * src.r[1]
+            target = targ.r[0] + 1j * targ.r[1]
+            diff = source[None, :] - target[:, None]
+            ones = np.ones((targ.r.shape[1], src.r.shape[1]))
+            return ones, 0.25 * diff
+
+        return pquad.SplitInfo(
+            (pquad.HYPERSINGULAR, pquad.SUPERSINGULAR),
+            ("c", "c"),
+            functions,
+            self.opdims,
+            conjugates=(True, True),
+        )
+
+
 def test_low_level_pquad_weights_match_oversampled_legendre_moments(record_property):
     nsrc = 16
     nodes, weights = lege.exps(nsrc)[:2]
@@ -187,6 +222,26 @@ def test_custom_kernel_pquad_splitinfo_hook_drives_close_panel_dispatch(monkeypa
 
     assert (src_chunk, "e") in calls
     np.testing.assert_allclose(pquad_mat, fallback, rtol=2e-6, atol=5e-7)
+
+
+def test_conjugated_split_panel_matrix_matches_oversampled_legendre(record_property):
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 8}, {"k": 16})
+    src_chunk = 0
+    mid = lege.matrin(chnkr.k, [0.0])[0]
+    rmid = (mid @ chnkr.r[:, :, src_chunk].T).T[:, 0]
+    nmid = (mid @ chnkr.n[:, :, src_chunk].T).T[:, 0]
+    targ = PointInfo(r=(rmid + 0.15 * nmid).reshape(2, 1))
+    kern = CustomConjugatedHypersingular()
+    splitinfo = pquad.splitinfo_for_kernel(kern)
+
+    start = perf_counter()
+    actual = pquad.panel_matrix(chnkr, src_chunk, targ, splitinfo, "e")
+    elapsed = perf_counter() - start
+    expected = _oversampled_panel_matrix(chnkr, src_chunk, targ, kern, nref=500)
+    max_error = float(np.max(np.abs(actual - expected)))
+
+    np.testing.assert_allclose(actual, expected, rtol=5e-8, atol=5e-9)
+    _report_metrics(record_property, "conjugated_panel_matrix", elapsed, max_error)
 
 
 def test_forceadap_target_matrix_prefers_pquad_when_side_is_inferred(monkeypatch):

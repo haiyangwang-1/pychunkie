@@ -25,6 +25,13 @@ evaluated at the singular source/target coincidence. Neighbor fallback blocks
 use an oversampled Gauss-Legendre rule and interpolate source geometry and
 density values from the original panel nodes.
 
+The vendored adjacent `ggqnear*` tables are not PV- or HS-specific. For
+principal-value and hypersingular self and neighbor blocks, `quadggq` now uses
+Helsing-Ojala product quadrature when the kernel provides `pquad_splitinfo` and
+the target side can be determined or supplied. If product quadrature is
+unavailable for that kernel/block, assembly falls back to the existing
+`ggqself*`/`ggqnear*` rule or the generated Gauss fallback.
+
 `chunkermat`, `chunkermatapply`, `chunkerkerneval`, and `chunkerkernevalmat`
 use this special quadrature by default for kernel objects marked with
 `sing == "log"` when the target is the same chunker. Pass

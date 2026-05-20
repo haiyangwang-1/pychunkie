@@ -1722,8 +1722,16 @@ nodes and weights, and constant-preserving interpolation matrices.
 dispatch for Laplace `sgrad` and `dgrad`, which are marked PV and HS
 respectively. The method is `chunkermat` on a circle. Ground truth is finite
 matrices with shape `2*npt x npt`, self blocks matching the PV/HS sparse
-special-block builder, far blocks matching force-smooth assembly, and nonzero
-special self blocks.
+special-block builder, neighbor blocks differing from force-smooth assembly by
+the adjacent GGQ correction, far blocks matching force-smooth assembly, and
+nonzero special self blocks.
+
+`test_pv_hs_self_and_neighbor_blocks_prefer_pquad_when_splitinfo_is_available`
+checks the fallback used when no dedicated PV/HS adjacent GGQ table exists. The
+method uses a custom hypersingular kernel exposing `pquad_splitinfo`, assembles
+a `quadggq` boundary matrix with an explicit side, and monkeypatches
+`pquad.panel_matrix`. Ground truth is that PV/HS self and neighbor assembly
+calls the Helsing-Ojala product-quadrature path and returns finite entries.
 
 `test_quadadap_buildmat_uses_adaptive_neighbor_blocks` checks adaptive
 near-neighbor assembly. The method monkeypatches `quadadap.adapgausswts`,
@@ -1773,6 +1781,12 @@ isolated panel matrix against high-order Legendre quadrature, monkeypatches
 `pquad.panel_matrix`, and verifies public `chunkerkernevalmat(...,
 forceadap=True, usepquad=True)` dispatches through pquad while matching the
 adaptive fallback.
+
+`test_conjugated_split_panel_matrix_matches_oversampled_legendre` checks
+anti-holomorphic split terms. The method defines a custom kernel whose split
+metadata requests conjugated hypersingular and supersingular weights, compares
+the isolated panel matrix against high-order Legendre quadrature, and records
+the maximum panel-matrix error.
 
 `test_forceadap_target_matrix_prefers_pquad_when_side_is_inferred` checks the
 public target-evaluation matrix path. The method places an off-boundary close

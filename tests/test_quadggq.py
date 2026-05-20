@@ -16,6 +16,30 @@ def circle(t):
     )
 
 
+class CustomHypersingularPquadKernel:
+    name = "custom_hypersingular"
+    type = "hypersingular"
+    sing = "hs"
+    opdims = (1, 1)
+
+    def __call__(self, src, targ):
+        source = src.r[0] + 1j * src.r[1]
+        target = targ.r[0] + 1j * targ.r[1]
+        with np.errstate(divide="ignore", invalid="ignore"):
+            values = np.real(1j / (2.0 * np.pi * (source[None, :] - target[:, None]) ** 2))
+        return np.nan_to_num(values)
+
+    def pquad_splitinfo(self):
+        from chunkie.chnk import pquad
+
+        return pquad.SplitInfo(
+            (pquad.HYPERSINGULAR,),
+            ("r",),
+            lambda src, targ: (np.ones((targ.r.shape[1], src.r.shape[1])),),
+            self.opdims,
+        )
+
+
 def test_quadggq_tables_are_loaded_from_packaged_numpy_data():
     table = resources.files("chunkie").joinpath("data", "quadggq", "ggqnear16.npz")
     metadata = resources.files("chunkie").joinpath("data", "quadggq", "metadata.npz")
@@ -212,8 +236,35 @@ def test_chunkermat_uses_special_quadrature_for_pv_and_hs_kernels():
     np.testing.assert_allclose(block(hs_mat, 0, 0), block(hs_td, 0, 0))
     np.testing.assert_allclose(block(pv_mat, 3, 0), block(pv_smooth, 3, 0))
     np.testing.assert_allclose(block(hs_mat, 3, 0), block(hs_smooth, 3, 0))
+    neighbor = int(chnkr.adj[1, 0]) - 1
+    assert np.linalg.norm(block(pv_mat, neighbor, 0) - block(pv_smooth, neighbor, 0)) > 1e-8
+    assert np.linalg.norm(block(hs_mat, neighbor, 0) - block(hs_smooth, neighbor, 0)) > 1e-8
     assert np.linalg.norm(block(pv_mat, 0, 0)) > 1e-8
     assert np.linalg.norm(block(hs_mat, 0, 0)) > 1e-8
+
+
+def test_pv_hs_self_and_neighbor_blocks_prefer_pquad_when_splitinfo_is_available(monkeypatch):
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 8}, {"k": 8})
+    kern = CustomHypersingularPquadKernel()
+    calls = []
+
+    from chunkie.chnk import pquad
+
+    original = pquad.panel_matrix
+
+    def wrapped(*args, **kwargs):
+        calls.append((args[1], args[4]))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(pquad, "panel_matrix", wrapped)
+
+    mat = quadggq.buildmat(chnkr, kern, kern.opdims, type="hs", pquad_side="e")
+
+    assert calls
+    assert set(side for _, side in calls) == {"e"}
+    assert set(chunk for chunk, _ in calls) == set(range(chnkr.nch))
+    assert len(calls) >= 3 * chnkr.nch
+    assert np.isfinite(mat).all()
 
 
 def test_quadadap_buildmat_uses_adaptive_neighbor_blocks(monkeypatch):
