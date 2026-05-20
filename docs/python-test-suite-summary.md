@@ -1,7 +1,7 @@
 # Python Test Suite Summary
 
 This document summarizes the Python tests under `tests/test_*.py`. The current
-collection expands to 370 pytest cases because several MATLAB parity tests are
+collection expands to 374 pytest cases because several MATLAB parity tests are
 parametrized; those parametrized functions are described once, with the covered
 selector list called out explicitly.
 MATLAB parity fixture files under `tests/golden` are ignored and generated on
@@ -43,6 +43,8 @@ Stokes tests cover velocity, pressure, traction, and gradient blocks for the
 2D Stokeslet/stresslet family. Elasticity tests cover the Kelvin single layer,
 traction, double layer, alternate double layer, and derivative/traction forms
 for Lame parameters `lam` and `mu`.
+Raw `cfmm2d` and `bhfmm2d` tests cover the current `fmm2dpy` Cauchy and
+complex biharmonic point-potential conventions used by accelerated paths.
 
 Special quadrature is provided by `chnk.quadggq`. Logarithmic kernels use log
 GGQ rules; principal-value kernels use PV support tables; hypersingular kernels
@@ -79,6 +81,8 @@ Current test-backed coverage includes:
   chunkgraph RCIP integration in dense operator assembly/evaluation.
 - Public API contract guards for top-level `chunkie` exports, `chunkie.chnk`
   exports, and lazy `chunkie.chnk` submodule/helper imports.
+- Direct and FMM-backed raw `cfmm2d`/`bhfmm2d` kernels, including factory
+  metadata and off-boundary weighted target evaluation.
 - MATLAB golden parity for compact fixtures under `tests/golden`, including
   geometry, kernel/operator, quadrature, and RCIP fixtures.
 - MATLAB devtools parity for 55 focused comparisons in
@@ -1062,6 +1066,30 @@ same-source matrix.
 classification. The method evaluates inside, outside, and near-boundary sample
 targets with `chunkerinterior(..., {"acceleration": "flam"})` and compares to
 the direct classifier.
+
+## `tests/test_fmm2d_raw.py`
+
+`test_cfmm2d_direct_selectors_match_fmm2dpy` checks the raw complex Cauchy
+potential, derivative, second-derivative, and combined selectors against the
+installed `fmm2dpy.cfmm2d` wrapper. The source density is interleaved as
+`(charge, dipole)` by node. Ground truth is the wrapper output for the current
+`fmm2dpy` charge and dipole convention.
+
+`test_bhfmm2d_direct_potential_uses_current_fmm2d_definition` checks the
+current complex biharmonic potential convention `(c1, c2, v1, v2, v3)`. The
+method evaluates the dense `bhfmm2d` matrix and compares it with the documented
+current formula, guarding against the older two-dipole/conjugated convention.
+
+`test_bhfmm2d_direct_selectors_match_fmm2dpy` checks raw complex biharmonic
+potential, gradient, and combined potential-gradient selectors against
+`fmm2dpy.bhfmm2d`. Ground truth is the wrapper's `pottarg` and three-row
+`gradtarg` output.
+
+`test_raw_fmm2d_kernel_factories_match_dense_target_evaluation` checks the
+generic `kernel("cfmm2d", ...)` and `kernel("bhfmm2d", ...)` factories. The
+method compares dense off-boundary `chunkerkerneval` with
+`{"acceleration": "fmm"}` for weighted complex densities. Ground truth is the
+dense direct path and expected operator dimensions.
 
 ## `tests/test_geometry.py`
 

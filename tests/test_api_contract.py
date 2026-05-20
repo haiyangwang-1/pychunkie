@@ -72,7 +72,9 @@ def test_chnk_public_exports_are_stable_and_lazy():
         expected = {
             "chunk_nearparam",
             "arcparam",
+            "bhfmm2d",
             "biharm2d",
+            "cfmm2d",
             "curvature2d",
             "curves",
             "elast2d",
