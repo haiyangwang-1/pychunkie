@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from chunkie import PointInfo, chunkerfunc, chunkerkerneval, chunkerkernevalmat, chunkermat, kernel, lege
+from chunkie import operators as operators_mod
 from chunkie.chnk import pquad, quadadap, quadggq
 
 
@@ -242,6 +243,37 @@ def test_conjugated_split_panel_matrix_matches_oversampled_legendre(record_prope
 
     np.testing.assert_allclose(actual, expected, rtol=5e-8, atol=5e-9)
     _report_metrics(record_property, "conjugated_panel_matrix", elapsed, max_error)
+
+
+def test_dyadic_near_close_panel_uses_pquad_only_on_source_panel(monkeypatch):
+    chnkr, _ = chunkerfunc(circle, {"nchmin": 8}, {"k": 12})
+    kern = CustomConjugatedHypersingular()
+    src_chunk = 0
+    on_panel = chnkr.r[:, chnkr.k // 2, src_chunk]
+    off_panel = chnkr.r[:, 0, 1]
+    targ = PointInfo(r=np.column_stack((on_panel, off_panel)))
+
+    calls = []
+    original = pquad.panel_matrix
+
+    def wrapped(*args, **kwargs):
+        calls.append((args[1], args[2].r.shape[1]))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(pquad, "panel_matrix", wrapped)
+
+    opts = {
+        "side": "e",
+        "usepquad": True,
+        "dyadic_near": True,
+        "dyadic_near_order": 36,
+        "dyadic_near_depth": 22,
+    }
+    actual = operators_mod._target_close_panel_matrix(chnkr, src_chunk, targ, kern, kern.opdims, opts)
+    expected_off = _oversampled_panel_matrix(chnkr, src_chunk, PointInfo(r=off_panel.reshape(2, 1)), kern, nref=5000)
+
+    assert calls == [(src_chunk, 1)]
+    np.testing.assert_allclose(actual[1:2], expected_off, rtol=2e-8, atol=2e-8)
 
 
 def test_forceadap_target_matrix_prefers_pquad_when_side_is_inferred(monkeypatch):
