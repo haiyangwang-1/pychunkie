@@ -1629,6 +1629,11 @@ def _pquad_side(options: dict[str, Any] | _OperatorOptions) -> str | None:
     return side
 
 
+def _dyadic_near_enabled(options: dict[str, Any] | _OperatorOptions) -> bool:
+    raw = _OperatorOptions.from_any(options).raw
+    return _option_bool(raw.get("dyadic_near", raw.get("dyadic_near_quad", False)))
+
+
 def _boundary_pquad_enabled(options: dict[str, Any] | _OperatorOptions) -> bool:
     raw = _OperatorOptions.from_any(options).raw
     if "forcepquad" in raw or "usepquad" in raw:
@@ -2144,6 +2149,52 @@ def _target_close_panel_matrix(
 ) -> np.ndarray:
     from .chnk import quadadap
 
+    if _dyadic_near_enabled(options):
+        op0 = int(opdims[0])
+        ntarget = int(targinfo.r.shape[1])
+        on_panel = _targets_on_source_panel(chnkr, src_chunk, targinfo, options)
+        filled = np.zeros(ntarget, dtype=bool)
+        out: np.ndarray | None = None
+
+        off_panel_ids = np.flatnonzero(~on_panel)
+        if off_panel_ids.size:
+            dyadic = _target_dyadic_panel_matrix(chnkr, src_chunk, _pointinfo_take(targinfo, off_panel_ids), kern, opdims, options)
+            out = np.zeros((op0 * ntarget, dyadic.shape[1]), dtype=dyadic.dtype)
+            out[_target_rows(off_panel_ids, op0), :] = dyadic
+            filled[off_panel_ids] = True
+
+        on_panel_ids = np.flatnonzero(on_panel)
+        if on_panel_ids.size:
+            pquad_mat, handled = _target_pquad_panel_matrix(
+                chnkr,
+                src_chunk,
+                _pointinfo_take(targinfo, on_panel_ids),
+                kern,
+                opdims,
+                options,
+            )
+            if pquad_mat is not None and np.any(handled):
+                pquad_ids = on_panel_ids[np.flatnonzero(handled)]
+                dtype = pquad_mat.dtype if out is None else np.result_type(out.dtype, pquad_mat.dtype)
+                if out is None:
+                    out = np.zeros((op0 * ntarget, pquad_mat.shape[1]), dtype=dtype)
+                elif out.dtype != dtype:
+                    out = out.astype(dtype, copy=False)
+                rows = _target_rows(pquad_ids, op0)
+                local_rows = _target_rows(np.flatnonzero(handled), op0)
+                out[rows, :] = pquad_mat[local_rows, :]
+                filled[pquad_ids] = True
+
+        if np.all(filled) and out is not None:
+            return np.real_if_close(out)
+
+        adaptive = quadadap.adapgausswts(chnkr, src_chunk, targinfo, kern, opdims, opts=options)[0]
+        if out is not None and np.any(filled):
+            rows = _target_rows(np.flatnonzero(filled), op0)
+            adaptive = np.asarray(adaptive, dtype=np.result_type(adaptive.dtype, out.dtype))
+            adaptive[rows, :] = out[rows, :]
+        return adaptive
+
     pquad_mat, handled = _target_pquad_panel_matrix(chnkr, src_chunk, targinfo, kern, opdims, options)
     if pquad_mat is not None and np.all(handled):
         return np.real_if_close(pquad_mat)
@@ -2182,6 +2233,130 @@ def _target_pquad_panel_matrix(
         side_tol=None if side_tol is None else float(side_tol),
     )
     return block, handled
+
+
+_DYADIC_NEAR_RULES: dict[tuple[int, int], tuple[np.ndarray, np.ndarray]] = {}
+
+
+def _target_dyadic_panel_matrix(
+    chnkr: Chunker,
+    src_chunk: int,
+    targinfo: PointInfo,
+    kern: Callable[[Any, Any], np.ndarray],
+    opdims: tuple[int, int],
+    options: dict[str, Any],
+) -> np.ndarray:
+    """Composite dyadic Gauss panel matrix for close off-panel targets."""
+
+    op1 = int(opdims[1])
+    raw = _OperatorOptions.from_any(options).raw
+    order = int(raw.get("dyadic_near_order", max(32, 2 * int(chnkr.k))))
+    depth = int(raw.get("dyadic_near_depth", 20))
+    nodes, weights = _dyadic_near_rule(order, depth)
+    interp = lege.matrin(chnkr.k, nodes)[0]
+
+    r = (interp @ chnkr.r[:, :, src_chunk].T).T
+    d = (interp @ chnkr.d[:, :, src_chunk].T).T
+    d2 = (interp @ chnkr.d2[:, :, src_chunk].T).T
+    speed = np.sqrt(np.sum(np.abs(d) ** 2, axis=0))
+    normal = np.divide(np.vstack((d[1], -d[0])), speed[None, :], out=np.zeros_like(d), where=speed[None, :] > 0.0)
+    data = (interp @ chnkr.data[:, :, src_chunk].T).T if chnkr.datadim else None
+    src = PointInfo(r=r, d=d, d2=d2, n=normal, data=data)
+
+    values = _eval_kernel(kern, src, targinfo)
+    if values.shape[1] == nodes.size:
+        weighted = values * (weights * speed)[None, :]
+    elif values.shape[1] % nodes.size == 0:
+        weighted = values * np.repeat(weights * speed, values.shape[1] // nodes.size)[None, :]
+    else:
+        raise ValueError("kernel column dimension is incompatible with dyadic source points")
+    return weighted @ np.kron(interp, np.eye(op1))
+
+
+def _dyadic_near_rule(order: int, depth: int) -> tuple[np.ndarray, np.ndarray]:
+    key = (int(order), int(depth))
+    cached = _DYADIC_NEAR_RULES.get(key)
+    if cached is not None:
+        return cached
+    if key[0] <= 0:
+        raise ValueError("dyadic_near_order must be positive")
+    if key[1] < 0:
+        raise ValueError("dyadic_near_depth must be nonnegative")
+
+    base_nodes, base_weights = lege.exps(key[0])[:2]
+    breaks = {-1.0, 0.0, 1.0}
+    for level in range(1, key[1] + 1):
+        step = 2.0 ** (-level)
+        breaks.add(-1.0 + step)
+        breaks.add(1.0 - step)
+    sorted_breaks = np.array(sorted(breaks), dtype=float)
+    nodes: list[np.ndarray] = []
+    weights: list[np.ndarray] = []
+    for lo, hi in zip(sorted_breaks[:-1], sorted_breaks[1:], strict=True):
+        half = 0.5 * (hi - lo)
+        mid = 0.5 * (hi + lo)
+        nodes.append(mid + half * base_nodes)
+        weights.append(half * base_weights)
+    rule = (np.concatenate(nodes), np.concatenate(weights))
+    _DYADIC_NEAR_RULES[key] = rule
+    return rule
+
+
+def _targets_on_source_panel(
+    chnkr: Chunker,
+    src_chunk: int,
+    targinfo: PointInfo,
+    options: dict[str, Any],
+) -> np.ndarray:
+    ntarget = int(targinfo.r.shape[1])
+    if ntarget == 0:
+        return np.zeros(0, dtype=bool)
+
+    raw = _OperatorOptions.from_any(options).raw
+    tol_factor = float(raw.get("dyadic_near_self_tol", 1.0e-8))
+    endpoint_margin = float(raw.get("dyadic_near_endpoint_margin", 1.0e-12))
+    try:
+        chunk_scale = float(chnkr.chunklen()[src_chunk])
+    except Exception:
+        endpoint = lege.matrin(chnkr.k, np.array([-1.0, 1.0]))[0] @ chnkr.r[:, :, src_chunk].T
+        chunk_scale = float(np.linalg.norm(endpoint[1] - endpoint[0]))
+    geom_tol = tol_factor * max(chunk_scale, np.finfo(float).tiny)
+
+    nsample = max(4 * int(chnkr.k), 32)
+    sample_t = np.linspace(-1.0, 1.0, nsample)
+    sample_interp = lege.matrin(chnkr.k, sample_t)[0]
+    sample_r = (sample_interp @ chnkr.r[:, :, src_chunk].T).T
+
+    out = np.zeros(ntarget, dtype=bool)
+    for itarg in range(ntarget):
+        target = np.asarray(targinfo.r[:, itarg], dtype=float)
+        dist2 = np.sum((sample_r - target[:, None]) ** 2, axis=0)
+        alpha = float(sample_t[int(np.argmin(dist2))])
+        for _ in range(8):
+            interp = lege.matrin(chnkr.k, np.array([alpha]))[0]
+            r = (interp @ chnkr.r[:, :, src_chunk].T).T[:, 0]
+            d = (interp @ chnkr.d[:, :, src_chunk].T).T[:, 0]
+            d2 = (interp @ chnkr.d2[:, :, src_chunk].T).T[:, 0]
+            diff = r - target
+            residual = float(np.dot(diff, d))
+            jac = float(np.dot(d, d) + np.dot(diff, d2))
+            if abs(jac) <= np.finfo(float).eps * max(1.0, float(np.dot(d, d))):
+                break
+            next_alpha = float(np.clip(alpha - residual / jac, -1.0, 1.0))
+            if abs(next_alpha - alpha) <= 1.0e-14:
+                alpha = next_alpha
+                break
+            alpha = next_alpha
+
+        interp = lege.matrin(chnkr.k, np.array([alpha]))[0]
+        r = (interp @ chnkr.r[:, :, src_chunk].T).T[:, 0]
+        distance = float(np.linalg.norm(r - target))
+        out[itarg] = (
+            distance <= geom_tol
+            and alpha > -1.0 + endpoint_margin
+            and alpha < 1.0 - endpoint_margin
+        )
+    return out
 
 
 def _kernel_opdims(
